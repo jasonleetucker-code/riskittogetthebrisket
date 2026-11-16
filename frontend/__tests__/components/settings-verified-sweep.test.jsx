@@ -12,6 +12,12 @@
  *     a stale source showed a green "Live".  They now come from the board's
  *     own `sourceVotingStatus` block; an unreported source says so.
  *  6. Unnamed controls (ROS source switches/weights, email, watchlist add).
+ *
+ * Review follow-up (PR #2224): the inert include box is named as the
+ * REGISTRY DEFAULT (so "checked" is never read as "in the blend" for a source
+ * Status says is not voting), the weight is the backend's own `baseWeight`
+ * as text ("—" when unreported), mobile states the status as text, and
+ * visible labels are part of each control's name (WCAG 2.5.3).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import React from "react";
@@ -137,7 +143,9 @@ describe("1. Ranking Sources: custom source mixes are off and the page says so",
       for (const label of [/^Balanced/, /^Market \(retail-lean\)/, /^Expert consensus/, /^Reset source weights$/]) {
         expect(within(panel).queryByRole("button", { name: label })).toBeNull();
       }
-      const includes = within(panel).getAllByRole("checkbox", { name: /^Include .+ in blend/ });
+      const includes = within(panel).getAllByRole("checkbox", {
+        name: /^Include .+ by registry default/,
+      });
       expect(includes.length).toBeGreaterThan(3);
       for (const cb of includes) {
         expect(cb).toBeDisabled();
@@ -145,9 +153,11 @@ describe("1. Ranking Sources: custom source mixes are off and the page says so",
           screen.getByTestId("custom-mix-off-note").id,
         );
       }
-      const weights = within(panel).getAllByRole("spinbutton", { name: /weight/ });
-      expect(weights.length).toBe(includes.length);
-      for (const w of weights) expect(w).toBeDisabled();
+      // The columns say they are the registry's default, not live inclusion.
+      expect(within(panel).getAllByRole("columnheader", { name: "Registry default" }).length).toBe(2);
+      expect(within(panel).getAllByRole("columnheader", { name: "Base weight" }).length).toBe(2);
+      // Weights are text, not inputs: nothing in the table can be edited.
+      expect(within(panel).queryAllByRole("spinbutton")).toEqual([]);
       // Other copy on the page no longer says the weights apply.
       const page = document.body.textContent.replace(/\s+/g, " ");
       expect(page).not.toMatch(/source weights below are applied/i);
@@ -157,19 +167,33 @@ describe("1. Ranking Sources: custom source mixes are off and the page says so",
   );
 
   it(
-    "shows the registry weight, not a stored custom one, and names a saved mix it does not apply",
+    "shows the backend's base weight, not a stored custom one, and names a saved mix it does not apply",
     () => {
       state.settings = {
         ...DEFAULTS,
         siteWeights: { fantasyCalc: { include: false, weight: 3 } },
       };
+      // A base weight the frontend registry copy (1.0) does not carry, so the
+      // cell can only show it by reading the backend block.
+      const block = {
+        ...votingFixture,
+        sources: votingFixture.sources.map((src) =>
+          src.key === "fantasyCalc" ? { ...src, baseWeight: 1.5 } : src,
+        ),
+      };
+      setData({ sourceVotingStatus: block });
       render(<SettingsPage />);
       const panel = rankingSourcesPanel();
-      const fcWeight = within(panel).getByRole("spinbutton", { name: /^FantasyCalc Dynasty SF weight/ });
-      expect(fcWeight.value).toBe("1.0");
-      const fcInclude = within(panel).getByRole("checkbox", { name: /^Include FantasyCalc Dynasty SF in blend/ });
+      expect(within(panel).getByTestId("settings-src-base-weight-fantasyCalc").textContent).toBe("1.5");
+      const fcInclude = within(panel).getByRole("checkbox", {
+        name: /^Include FantasyCalc Dynasty SF by registry default/,
+      });
       expect(fcInclude).toBeChecked();
-      expect(screen.getByTestId("saved-source-mix").textContent).toMatch(/not applied to any value/);
+      const note = screen.getByTestId("saved-source-mix").textContent;
+      expect(note).toMatch(/not applied to any value/);
+      // The mix may have been saved today (the /rankings popover still writes
+      // one), so the note does not date it.
+      expect(note).not.toMatch(/from before/);
       fireEvent.click(screen.getByRole("button", { name: "Clear saved source mix" }));
       expect(state.resetSiteWeights).toHaveBeenCalledTimes(1);
     },
@@ -316,6 +340,53 @@ describe("5. source Status / Voting on come from the board's own report", () => 
   );
 
   it(
+    "a stale source's row reads as the registry default beside its Not Voting status",
+    () => {
+      setData({ sourceVotingStatus: votingFixture });
+      render(<SettingsPage />);
+      const row = screen.getByTestId("settings-src-row-idpShowCombined");
+      expect(within(row).getByTestId("settings-src-status-idpShowCombined").textContent).toBe(
+        "Stale — Not Voting",
+      );
+      const include = within(row).getByRole("checkbox");
+      // Its name never claims the source is in the blend.
+      expect(include.getAttribute("aria-label")).toMatch(/by registry default/);
+      expect(include.getAttribute("aria-label")).toMatch(/Status shows whether it voted/);
+      expect(include.getAttribute("aria-label")).not.toMatch(/ in blend/);
+      expect(within(row).getByTestId("settings-src-base-weight-idpShowCombined").textContent).toBe(
+        "1.0",
+      );
+    },
+    SLOW,
+  );
+
+  it(
+    "an unreported source's base weight is a dash, never the registry copy",
+    () => {
+      setData({ privateSourceAvailability: {} });
+      render(<SettingsPage />);
+      const panel = rankingSourcesPanel();
+      const cells = panel.querySelectorAll('[data-testid^="settings-src-base-weight-"]');
+      expect(cells.length).toBeGreaterThan(3);
+      for (const c of cells) expect(c.textContent).toBe("—");
+    },
+    SLOW,
+  );
+
+  it(
+    "mobile states the status as text, not only as the coloured dot",
+    () => {
+      setData({ sourceVotingStatus: votingFixture });
+      render(<SettingsPage />);
+      const row = screen.getByTestId("settings-src-row-idpShowCombined");
+      const mobile = row.querySelector(".settings-src-covered-mobile");
+      expect(mobile.textContent).toMatch(/Stale — Not Voting/);
+      expect(mobile.textContent).toMatch(/voting on 0 players/);
+    },
+    SLOW,
+  );
+
+  it(
     "while the board is still loading the status says so instead of Idle",
     () => {
       setData(null, { loading: true });
@@ -337,7 +408,7 @@ describe("6. every form control has a programmatic name", () => {
       openSection("Watchlist");
       expect(screen.getAllByRole("checkbox", { name: / ROS source on$/ }).length).toBeGreaterThan(0);
       expect(screen.getAllByRole("spinbutton", { name: / ROS weight$/ }).length).toBeGreaterThan(0);
-      expect(screen.getByRole("combobox", { name: "Add player to watchlist by name" })).toBeTruthy();
+      expect(screen.getByRole("combobox", { name: "Add player by name to watchlist" })).toBeTruthy();
       expect(screen.getByLabelText("Email address").getAttribute("type")).toBe("email");
     },
     SLOW,
@@ -359,6 +430,32 @@ describe("6. every form control has a programmatic name", () => {
         if (!named) unnamed.push(el.outerHTML.slice(0, 120));
       }
       expect(unnamed).toEqual([]);
+    },
+    SLOW,
+  );
+
+  it(
+    "a control's visible label is part of its name (WCAG 2.5.3 label in name)",
+    () => {
+      state.serverBacked = true;
+      const { container } = render(<SettingsPage />);
+      openSection("Watchlist");
+      const mismatched = [];
+      for (const el of container.querySelectorAll("input, select, textarea")) {
+        const name = (el.getAttribute("aria-label") || "").toLowerCase();
+        if (!name) continue;
+        // A visible placeholder must appear in the aria-label.
+        const placeholder = (el.getAttribute("placeholder") || "").toLowerCase();
+        if (placeholder && !name.includes(placeholder)) mismatched.push(el.outerHTML.slice(0, 120));
+        // An aria-label overrides an associated <label>; the label's text must
+        // then be in it.
+        const label = el.id && container.querySelector(`label[for="${el.id}"]`);
+        const labelText = label ? label.textContent.trim().toLowerCase() : "";
+        if (labelText && !name.includes(labelText)) mismatched.push(el.outerHTML.slice(0, 120));
+      }
+      expect(mismatched).toEqual([]);
+      // The Valuation select is named by its visible "Value basis" label.
+      expect(screen.getByRole("combobox", { name: "Value basis" })).toBeDisabled();
     },
     SLOW,
   );

@@ -32,6 +32,33 @@ function newRule(kind = "value_crosses") {
   };
 }
 
+/**
+ * A number input's value as a rule parameter: the number, or null when the
+ * field is empty.  An emptied field is MISSING, never 0 (or any other
+ * stand-in) — Save refuses a rule with a missing number instead.
+ */
+function numberOrNull(raw) {
+  if (raw === "" || raw === null || raw === undefined) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** The input's displayed value: the number, or "" when it is missing. */
+function shownNumber(v) {
+  return typeof v === "number" && Number.isFinite(v) ? v : "";
+}
+
+/**
+ * The number a rule still needs before it can be saved, or null when it has
+ * every number its kind uses.
+ */
+function missingNumberFor(rule) {
+  if (rule.kind === "rank_change") {
+    return shownNumber(rule.params?.minDelta) === "" ? "how many positions" : null;
+  }
+  return shownNumber(rule.params?.threshold) === "" ? "a threshold" : null;
+}
+
 async function readBody(res) {
   try {
     return await res.json();
@@ -87,7 +114,11 @@ async function putRules(next) {
  *     so a failed delete still looked like a delete.
  * Now: a failed load is its own state with a retry, and nothing can be
  * added, saved or removed until a load has succeeded; Remove and Save
- * change the list only to what the server confirmed.
+ * change the list only to what the server confirmed.  Rule inputs are locked
+ * while a save or remove is in flight (a save replaces the screen with the
+ * server's list when it answers, so an edit typed meanwhile would be lost),
+ * and an
+ * emptied number stays empty — never 0 — and blocks Save with a message.
  */
 export default function CustomAlertsConfigurator({ enabled, players }) {
   // `rules` are the editable drafts; `savedRules` is the last list the
@@ -217,6 +248,15 @@ export default function CustomAlertsConfigurator({ enabled, players }) {
     const cleaned = rules
       .map((r) => ({ ...r, displayName: String(r.displayName || "").trim() }))
       .filter((r) => r.displayName.length > 0);
+    // A rule whose number was cleared is not saved as 0: Save stops and
+    // says which alert needs it.
+    const incomplete = cleaned.find((r) => missingNumberFor(r));
+    if (incomplete) {
+      setError(
+        `Enter ${missingNumberFor(incomplete)} for the ${incomplete.displayName} alert before saving. Nothing was saved.`,
+      );
+      return;
+    }
     setSavingFor("all");
     const result = await putRules(cleaned);
     setSavingFor(null);
@@ -295,6 +335,7 @@ export default function CustomAlertsConfigurator({ enabled, players }) {
                   className="input"
                   aria-label={`Alert type for ${ruleLabel}`}
                   value={rule.kind}
+                  disabled={busy}
                   onChange={(e) => {
                     const next = newRule(e.target.value);
                     updateRule(rule.id, {
@@ -312,6 +353,7 @@ export default function CustomAlertsConfigurator({ enabled, players }) {
                   className="input"
                   aria-label={`Player name for alert ${index + 1}`}
                   value={rule.displayName || ""}
+                  disabled={busy}
                   placeholder="Player name"
                   list="brisket-custom-alerts-player-list"
                   onChange={(e) => updateRule(rule.id, { displayName: e.target.value })}
@@ -320,7 +362,8 @@ export default function CustomAlertsConfigurator({ enabled, players }) {
                 <button
                   type="button"
                   className="button"
-                  aria-label={`Remove ${ruleLabel}`}
+                  aria-label={removing ? `Removing ${ruleLabel}` : `Remove ${ruleLabel}`}
+                  aria-busy={removing || undefined}
                   onClick={() => removeRule(rule.id)}
                   disabled={busy}
                   style={{ fontSize: "0.72rem", padding: "4px 10px" }}
@@ -335,6 +378,7 @@ export default function CustomAlertsConfigurator({ enabled, players }) {
                     className="input"
                     aria-label={`Direction for ${ruleLabel}`}
                     value={rule.params?.direction || "above"}
+                    disabled={busy}
                     onChange={(e) => updateParams(rule.id, { direction: e.target.value })}
                     style={{ flex: "0 0 auto", fontSize: "0.78rem" }}
                   >
@@ -345,11 +389,13 @@ export default function CustomAlertsConfigurator({ enabled, players }) {
                     type="number"
                     className="input"
                     aria-label={`Threshold (canonical value) for ${ruleLabel}`}
-                    value={Number(rule.params?.threshold ?? 0)}
+                    value={shownNumber(rule.params?.threshold)}
+                    aria-invalid={shownNumber(rule.params?.threshold) === "" || undefined}
+                    disabled={busy}
                     step={100}
                     min={0}
                     onChange={(e) =>
-                      updateParams(rule.id, { threshold: Number(e.target.value) || 0 })
+                      updateParams(rule.id, { threshold: numberOrNull(e.target.value) })
                     }
                     style={{ flex: "0 0 110px", fontSize: "0.78rem" }}
                   />
@@ -364,12 +410,15 @@ export default function CustomAlertsConfigurator({ enabled, players }) {
                     type="number"
                     className="input"
                     aria-label={`At least how many positions for ${ruleLabel}`}
-                    value={Number(rule.params?.minDelta ?? 10)}
+                    value={shownNumber(rule.params?.minDelta)}
+                    aria-invalid={shownNumber(rule.params?.minDelta) === "" || undefined}
+                    disabled={busy}
                     min={1}
                     max={200}
-                    onChange={(e) =>
-                      updateParams(rule.id, { minDelta: Math.max(1, Number(e.target.value) || 1) })
-                    }
+                    onChange={(e) => {
+                      const n = numberOrNull(e.target.value);
+                      updateParams(rule.id, { minDelta: n === null ? null : Math.max(1, n) });
+                    }}
                     style={{ flex: "0 0 80px", fontSize: "0.78rem" }}
                   />
                   <span style={{ fontSize: "0.78rem" }}>positions in either direction</span>
@@ -382,6 +431,7 @@ export default function CustomAlertsConfigurator({ enabled, players }) {
                   <input
                     type="checkbox"
                     checked={(rule.channels || ["email"]).includes("email")}
+                    disabled={busy}
                     onChange={(e) => toggleChannel(rule.id, "email", e.target.checked)}
                   />
                   Email
@@ -390,6 +440,7 @@ export default function CustomAlertsConfigurator({ enabled, players }) {
                   <input
                     type="checkbox"
                     checked={(rule.channels || []).includes("push")}
+                    disabled={busy}
                     onChange={(e) => toggleChannel(rule.id, "push", e.target.checked)}
                   />
                   Push

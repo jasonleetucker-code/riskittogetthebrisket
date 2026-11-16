@@ -32,12 +32,12 @@ const SourceVotingStatus = lazy(() => import("@/components/SourceVotingStatus"))
 // (`_SOURCE_OVERRIDES_DISABLED` in src/api/data_contract.py): a stored
 // include/weight mix is accepted and ignored, and the board is always the
 // canonical consensus blend.  The Ranking Sources table therefore offers no
-// operable include/weight control; it shows the registry's own declared
-// state, disabled, and says why.
+// operable include/weight control; it shows the registry default (disabled)
+// and the board's own base weight (text), and says why.
 const CUSTOM_MIX_OFF_NOTE =
   "Custom source mixes are switched off. Every value on the site uses the " +
-  "canonical consensus blend, so the include switches and weights below are " +
-  "shown for reference only and cannot be changed.";
+  "canonical consensus blend, so the registry defaults and base weights " +
+  "below are shown for reference only and cannot be changed.";
 
 // Status colour is SECONDARY to the label text (never colour alone).  The
 // tone comes from the backend status code via lib/source-voting-status.js.
@@ -225,14 +225,16 @@ export default function SettingsPage() {
   // numeric valuation control on this page reached assistive tech
   // unnamed until 2026-08-18 — the labels were siblings, not wrappers.
   const emailInputId = useId();
+  const valueBasisId = useId();
   const customMixNoteId = useId();
   // Only to point an operator at where the moved panels went; nothing
   // on this page is gated by it.
   const { isAdmin } = useAuthContext();
   const { settings, update, resetSiteWeights, reset } = useSettings();
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
-  // A mix saved on this device before custom mixes were switched off.  It
-  // is ignored by the server; the page names it and offers to clear it.
+  // A custom source mix saved on this device (the /rankings Sources popover
+  // can still write one).  The server ignores it; the page names it and
+  // offers to clear it.
   const hasSavedSourceMix = useMemo(
     () => siteOverridesAreCustomized(settings?.siteWeights),
     [settings?.siteWeights],
@@ -355,7 +357,10 @@ export default function SettingsPage() {
         statusReason: backend?.reason || null,
         playersVoting: backend ? backend.playersContributing : null,
         picksVoting: backend ? backend.picksContributing : null,
-        defaultWeight: Number(src.weight ?? 1),
+        // The backend's own base weight for this source (the same block);
+        // null when the board did not report it — shown as "—", never a
+        // registry copy standing in for the board's number.
+        baseWeight: backend ? backend.baseWeight : null,
         isTepPremium: src.isTepPremium === true,
       };
     };
@@ -537,7 +542,10 @@ export default function SettingsPage() {
           Values are always the market board. This is not a setting.
         </div>
         <div style={{ marginBottom: 8 }}>
-          <label style={{ fontSize: "0.82rem", marginRight: 8 }}>
+          <label
+            htmlFor={valueBasisId}
+            style={{ fontSize: "0.82rem", marginRight: 8 }}
+          >
             Value basis
           </label>
           {/* Read-only on purpose.  The "My league" lens was withdrawn
@@ -549,7 +557,7 @@ export default function SettingsPage() {
               device still has in localStorage, and it offers no other
               choice.  Do not re-thread a selector here. */}
           <select
-            aria-label="Valuation mode"
+            id={valueBasisId}
             className="select"
             value="market"
             disabled
@@ -633,8 +641,8 @@ export default function SettingsPage() {
             ignored every custom mix since 2026-08-14
             (`_SOURCE_OVERRIDES_DISABLED`), so the switches, weights and the
             three weight presets changed nothing while the page said they
-            did.  The presets are gone; the table shows the registry's own
-            declared state, disabled. */}
+            did.  The presets are gone; the table shows the registry default
+            (disabled) and the board's own base weight. */}
         <p
           id={customMixNoteId}
           data-testid="custom-mix-off-note"
@@ -668,8 +676,8 @@ export default function SettingsPage() {
             }}
           >
             <span className="muted">
-              This device still has a custom source mix saved from before. It
-              is not applied to any value.
+              This device has a custom source mix saved. It is not applied to
+              any value.
             </span>
             <button
               type="button"
@@ -883,7 +891,7 @@ export default function SettingsPage() {
           <input
             className="input"
             value={watchAddName}
-            aria-label="Add player to watchlist by name"
+            aria-label="Add player by name to watchlist"
             placeholder="Add player by name"
             list="brisket-watchlist-player-list"
             onChange={(e) => setWatchAddName(e.target.value)}
@@ -1044,17 +1052,21 @@ function SourceTable({ title, sources, describedBy }) {
               >
                 Role
               </th>
+              {/* Named for what they are — the registry's default, not live
+                  inclusion.  A source the registry includes can still cast
+                  no vote on this board (stale, data issue…); that is the
+                  Status column's answer, not this one's. */}
               <th
                 style={{ textAlign: "center", padding: "6px 8px" }}
-                title="Custom source mixes are switched off; this cannot be changed"
+                title="Every registered source is included by default. Custom source mixes are switched off, so this cannot be changed. Whether the source voted on this board is in Status."
               >
-                On
+                Registry default
               </th>
               <th
                 style={{ textAlign: "right", padding: "6px 8px" }}
-                title="The source's registry base weight. Custom weights are switched off; this cannot be changed"
+                title="The source's base weight, as the board's source voting report states it. Custom weights are switched off, so this cannot be changed."
               >
-                Weight
+                Base weight
               </th>
               <th
                 className="settings-src-col-covered"
@@ -1154,9 +1166,12 @@ function SourceTable({ title, sources, describedBy }) {
                       style={{ fontSize: "0.64rem", fontFamily: "var(--mono)" }}
                     >
                       {src.columnLabel} · {src.key}
+                      {/* Mobile hides the Status column, so the status is
+                          stated here as TEXT — the dot above is colour. */}
                       <span className="settings-src-covered-mobile">
                         {" · "}
-                        {votingOn ? `voting on ${votingOn}` : "voting not reported"}
+                        {statusLabel}
+                        {votingOn ? ` · voting on ${votingOn}` : ""}
                       </span>
                     </div>
                   </td>
@@ -1182,41 +1197,46 @@ function SourceTable({ title, sources, describedBy }) {
                     </td>
                   ) : (
                     <>
-                      {/* Disabled, showing the registry's own state (every
-                          source included at its declared base weight):
-                          custom mixes are switched off server-side, so an
-                          operable control here would change nothing. */}
+                      {/* Disabled, showing the registry's DEFAULT (every
+                          source included): custom mixes are switched off
+                          server-side, so an operable control here would
+                          change nothing.  Its name says it is the registry
+                          default, so "checked" is never announced as "this
+                          source is in the blend" for a source Status says is
+                          not voting. */}
                       <td style={{ padding: "6px 8px", textAlign: "center" }}>
                         <input
                           type="checkbox"
                           checked
                           readOnly
                           disabled
-                          aria-label={`Include ${src.displayName} in blend (custom mixes are switched off)`}
+                          aria-label={`Include ${src.displayName} by registry default (custom mixes are switched off; Status shows whether it voted)`}
                           aria-describedby={describedBy}
                           className="settings-src-toggle"
                         />
                       </td>
+                      {/* Plain text, not a disabled input: nothing here can
+                          be edited.  The backend's own base weight; "—" when
+                          the board did not report the source. */}
                       <td
+                        data-testid={`settings-src-base-weight-${src.key}`}
+                        title={
+                          Number.isFinite(src.baseWeight)
+                            ? undefined
+                            : "The board did not report this source's base weight"
+                        }
                         style={{
                           padding: "6px 8px",
                           textAlign: "right",
                           fontFamily: "var(--mono)",
+                          color: "var(--subtext)",
                         }}
                       >
-                        <input
-                          type="number"
-                          value={Number(src.defaultWeight).toFixed(1)}
-                          readOnly
-                          disabled
-                          className="input weight-input"
-                          style={{
-                            textAlign: "right",
-                            fontFamily: "var(--mono)",
-                          }}
-                          aria-label={`${src.displayName} weight (custom weights are switched off)`}
-                          aria-describedby={describedBy}
-                        />
+                        {Number.isFinite(src.baseWeight)
+                          ? src.baseWeight.toFixed(
+                              Number.isInteger(src.baseWeight * 10) ? 1 : 2,
+                            )
+                          : "—"}
                       </td>
                     </>
                   )}

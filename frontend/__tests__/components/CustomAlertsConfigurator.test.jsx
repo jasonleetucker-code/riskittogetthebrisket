@@ -5,6 +5,10 @@
  * PUT that empty list over the alerts the server still held; Remove took
  * the rule off the screen before the server answered, so a failed delete
  * looked like a delete; and no rule control had a programmatic name.
+ *
+ * Review follow-up (PR #2224): an emptied number stays empty (never 0) and
+ * blocks Save; rule inputs are locked while a save/remove is in flight; the
+ * Remove button's name follows its visible "Removing…" text.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import React from "react";
@@ -143,10 +147,13 @@ describe("Remove changes the list only after the server confirms", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove the Josh Allen alert" }));
     // Not yet confirmed: still listed, and nothing else can be saved meanwhile.
     expect(screen.getByDisplayValue("Josh Allen")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Remove the Josh Allen alert" }).textContent).toBe(
-      "Removing…",
-    );
+    // The name follows the visible text (label in name), and says it is busy.
+    const removing = screen.getByRole("button", { name: "Removing the Josh Allen alert" });
+    expect(removing.textContent).toBe("Removing…");
+    expect(removing.getAttribute("aria-busy")).toBe("true");
     expect(screen.getByRole("button", { name: "Save all" })).toBeDisabled();
+    // No rule can be edited while the server is answering.
+    expect(screen.getByRole("combobox", { name: "Player name for alert 2" })).toBeDisabled();
     await act(async () => {
       release(jsonResponse(200, { rules: [RULE_B] }));
     });
@@ -183,8 +190,10 @@ describe("Remove changes the list only after the server confirms", () => {
 });
 
 describe("Save", () => {
-  it("shows the list the server confirmed", async () => {
-    const confirmed = { ...RULE_A, displayName: "Josh Allen" };
+  it("shows the list the server confirmed, not the one it was sent", async () => {
+    // The server's answer differs from what was sent (it rounds and
+    // normalises), so the screen can only match it by reading the response.
+    const confirmed = { ...RULE_A, params: { threshold: 8100, direction: "below" } };
     const calls = installFetch({
       gets: [jsonResponse(200, { rules: [RULE_A] })],
       puts: [jsonResponse(200, { rules: [confirmed] })],
@@ -194,6 +203,67 @@ describe("Save", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save all" }));
     expect(await screen.findByRole("status")).toBeTruthy();
     expect(putCalls(calls)[0].body.rules).toEqual([RULE_A]);
+    expect(
+      screen.getByRole("spinbutton", { name: "Threshold (canonical value) for the Josh Allen alert" })
+        .value,
+    ).toBe("8100");
+  });
+
+  it("locks every rule input while the save is in flight", async () => {
+    let release;
+    const pending = new Promise((resolve) => {
+      release = resolve;
+    });
+    installFetch({
+      gets: [jsonResponse(200, { rules: [RULE_A] })],
+      puts: [() => pending],
+    });
+    render(<CustomAlertsConfigurator enabled players={[]} />);
+    await screen.findByDisplayValue("Josh Allen");
+    fireEvent.click(screen.getByRole("button", { name: "Save all" }));
+    const card = screen.getByTestId("custom-alert-alert_a");
+    for (const el of card.querySelectorAll("input, select")) {
+      expect(el, el.outerHTML.slice(0, 120)).toBeDisabled();
+    }
+    await act(async () => {
+      release(jsonResponse(200, { rules: [RULE_A] }));
+    });
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Player name for alert 1" })).toBeEnabled(),
+    );
+  });
+
+  it("an emptied threshold stays empty, is never saved as 0, and Save says why", async () => {
+    const calls = installFetch({ gets: [jsonResponse(200, { rules: [RULE_A] })] });
+    render(<CustomAlertsConfigurator enabled players={[]} />);
+    await screen.findByDisplayValue("Josh Allen");
+    const threshold = screen.getByRole("spinbutton", {
+      name: "Threshold (canonical value) for the Josh Allen alert",
+    });
+    fireEvent.change(threshold, { target: { value: "" } });
+    expect(threshold.value).toBe("");
+    expect(threshold.getAttribute("aria-invalid")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Save all" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(
+      /Enter a threshold for the Josh Allen alert before saving\. Nothing was saved\./,
+    );
+    expect(putCalls(calls)).toEqual([]);
+  });
+
+  it("an emptied position count stays empty and blocks Save too", async () => {
+    const calls = installFetch({ gets: [jsonResponse(200, { rules: [RULE_B] })] });
+    render(<CustomAlertsConfigurator enabled players={[]} />);
+    await screen.findByDisplayValue("Bijan Robinson");
+    const delta = screen.getByRole("spinbutton", {
+      name: "At least how many positions for the Bijan Robinson alert",
+    });
+    fireEvent.change(delta, { target: { value: "" } });
+    expect(delta.value).toBe("");
+    fireEvent.click(screen.getByRole("button", { name: "Save all" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(
+      /Enter how many positions for the Bijan Robinson alert/,
+    );
+    expect(putCalls(calls)).toEqual([]);
   });
 
   it("a failed save keeps the drafts and reports the server's reason", async () => {
