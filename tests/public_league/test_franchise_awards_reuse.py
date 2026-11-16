@@ -96,8 +96,13 @@ class FranchiseRouteReuseTests(unittest.TestCase):
     def test_memo_hit_serves_the_same_bytes_without_recomputing_awards(self) -> None:
         from src.public_league import awards
 
+        import server
+
         without_memo = self._franchise_bytes()
         self.assertEqual(self.client.get("/api/public/league/awards").status_code, 200)
+        # ``franchise`` is memoized too: drop its entry so the next request
+        # BUILDS franchise, with the awards memo present.
+        server._heavy_section_cache.pop("franchise", None)
         with mock.patch.object(awards, "build_section", wraps=awards.build_section) as spy:
             with_memo = self._franchise_bytes()
         self.assertEqual(spy.call_count, 0, "an exact memo hit must not rebuild awards")
