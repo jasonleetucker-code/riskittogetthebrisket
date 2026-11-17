@@ -2,9 +2,9 @@ name,Rank,position,team
 Josh Allen,1,QB,BUF
 Drake Maye,2,QB,NE
 Jaxon Smith-Njigba,3,WR,SEA
-Ja'Marr Chase,4,WR,CIN
-Caleb Williams,5,QB,CHI
-Joe Burrow,6,QB,CIN
+Joe Burrow,4,QB,CIN
+Ja'Marr Chase,5,WR,CIN
+Caleb Williams,6,QB,CHI
 Jahmyr Gibbs,7,RB,DET
 Bijan Robinson,8,RB,ATL
 Puka Nacua,9,WR,LAR
@@ -20,8 +20,8 @@ Drake London,18,WR,ATL
 Jeremiyah Love,19,RB,ARI
 Justin Jefferson,20,WR,MIN
 Brock Bowers,21,TE,LV
-Ashton Jeanty,22,RB,LV
-Kenneth Walker III,23,RB,KC
+Kenneth Walker III,22,RB,KC
+Ashton Jeanty,23,RB,LV
 James Cook III,24,RB,BUF
 Jordan Love,25,QB,GB
 Tetairoa McMillan,26,WR,CAR
@@ -53,9 +53,9 @@ Fernando Mendoza,51,QB,LV
 Parker Washington,52,WR,JAC
 DeVonta Smith,53,WR,PHI
 Tyler Warren,54,TE,IND
-Ladd McConkey,55,WR,LAC
-Bryce Young,56,QB,CAR
-Bucky Irving,57,RB,TB
+Bryce Young,55,QB,CAR
+Bucky Irving,56,RB,TB
+Ladd McConkey,57,WR,LAC
 Chase Brown,58,RB,CIN
 Jordyn Tyson,59,WR,NO
 Rashee Rice,60,WR,KC
@@ -71,30 +71,30 @@ Omarion Hampton,69,RB,LAC
 Javonte Williams,70,RB,DAL
 Harold Fannin Jr.,71,TE,CLE
 Sam LaPorta,72,TE,DET
-Rome Odunze,73,WR,CHI
-Denzel Boston,74,WR,CLE
+Denzel Boston,73,WR,CLE
+Rome Odunze,74,WR,CHI
 Jaylen Waddle,75,WR,DEN
 Baker Mayfield,76,QB,TB
 A.J. Brown,77,WR,NE
 D'Andre Swift,78,RB,CHI
-Sam Darnold,79,QB,SEA
-Isaiah Likely,80,TE,NYG
+Isaiah Likely,79,TE,NYG
+Sam Darnold,80,QB,SEA
 Saquon Barkley,81,RB,PHI
 Kyle Pitts Sr.,82,TE,ATL
 DJ Moore,83,WR,BUF
-Dalton Kincaid,84,TE,BUF
-Cam Ward,85,QB,TEN
+Cam Ward,84,QB,TEN
+Dalton Kincaid,85,TE,BUF
 TreVeyon Henderson,86,RB,NE
 Matthew Stafford,87,QB,LAR
 Jadarian Price,88,RB,SEA
 Kenyon Sadiq,89,TE,NYJ
 Brian Thomas Jr.,90,WR,JAC
 Malik Willis,91,QB,MIA
-George Kittle,92,TE,SF
-Jalen Coker,93,WR,CAR
-Michael Wilson,94,WR,ARI
-Marvin Harrison Jr.,95,WR,HOU
-Cam Skattebo,96,RB,NYG
+Jalen Coker,92,WR,CAR
+Michael Wilson,93,WR,ARI
+George Kittle,94,TE,SF
+Cam Skattebo,95,RB,NYG
+Marvin Harrison Jr.,96,WR,HOU
 Jaylen Warren,97,RB,PIT
 Omar Cooper Jr.,98,WR,NYJ
 Jonah Coleman,99,RB,DEN
@@ -107,9 +107,9 @@ Josh Downs,105,WR,KC
 Ty Simpson,106,QB,LAR
 Chuba Hubbard,107,RB,CAR
 Antonio Williams,108,WR,WAS
-Josh Jacobs,109,RB,GB
-Mike Evans,110,WR,SF
-J.J. McCarthy,111,QB,NYG
+J.J. McCarthy,109,QB,NYG
+Josh Jacobs,110,RB,GB
+Mike Evans,111,WR,SF
 Kyler Murray,112,QB,MIN
 Terry McLaurin,113,WR,WAS
 Wan'Dale Robinson,114,WR,TEN
@@ -131,11 +131,11 @@ Courtland Sutton,129,WR,DEN
 Quentin Johnston,130,WR,LAC
 Rhamondre Stevenson,131,RB,NE
 Dallas Goedert,132,TE,PHI
-Khalil Shakir,133,WR,BUF
-Romeo Doubs,134,WR,NE
+Romeo Doubs,133,WR,NE
+Khalil Shakir,134,WR,BUF
 Jayden Reed,135,WR,GB
-Chris Godwin Jr.,136,WR,TB
-Zach Charbonnet,137,RB,SEA
+Zach Charbonnet,136,RB,SEA
+Chris Godwin Jr.,137,WR,TB
 RJ Harvey,138,RB,DEN
 Germie Bernard,139,WR,PIT
 Oronde Gadsden II,140,TE,LAC
@@ -147,8 +147,8 @@ T.J. Hockenson,145,TE,MIN
 Tre' Harris,146,WR,LAC
 Rico Dowdle,147,RB,PIT
 Jake Ferguson,148,TE,DAL
-Daniel Jones,149,QB,IND
-Ja'Kobi Lane,150,WR,BAL
+Ja'Kobi Lane,149,WR,BAL
+Daniel Jones,150,QB,IND
 Emmett Johnson,151,RB,KC
 Jacory Croskey-Merritt,152,RB,WAS
 Travis Kelce,153,TE,KC
@@ -158,23 +158,23 @@ Juwan Johnson,156,TE,NO
 Eli Raridon,157,TE,NE
 Stefon Diggs,158,WR,WAS
 Kenny Gainwell,159,RB,TB
-Rachaad White,160,RB,WAS
-Ricky Pearsall,161,WR,SF
-Jonathon Brooks,162,RB,CAR
-Tyler Allgeier,163,RB,ARI
+Malachi Fields,160,WR,NYG
+Rachaad White,161,RB,WAS
+Ricky Pearsall,162,WR,SF
+Jonathon Brooks,163,RB,CAR
 Jordan Mason,164,RB,MIN
-Travis Hunter,165,WR,JAC
-AJ Barner,166,TE,SEA
-Mark Andrews,167,TE,BAL
-Hunter Henry,168,TE,NE
-Ollie Gordon II,169,RB,MIA
-Dylan Sampson,170,RB,CLE
+Tyler Allgeier,165,RB,ARI
+Travis Hunter,166,WR,JAC
+AJ Barner,167,TE,SEA
+Mark Andrews,168,TE,BAL
+Hunter Henry,169,TE,NE
+Ollie Gordon II,170,RB,MIA
 Caleb Douglas,171,WR,MIA
-Pat Bryant,172,WR,DEN
-Rashid Shaheed,173,WR,SEA
-J.K. Dobbins,174,RB,DEN
-Geno Smith,175,QB,NYJ
-Malachi Fields,176,WR,NYG
+Dylan Sampson,172,RB,CLE
+Pat Bryant,173,WR,DEN
+Rashid Shaheed,174,WR,SEA
+J.K. Dobbins,175,RB,DEN
+Geno Smith,176,QB,NYJ
 Chris Rodriguez Jr.,177,RB,JAC
 Ryan Flournoy,178,WR,DAL
 Gunnar Helm,179,TE,TEN
@@ -519,7 +519,7 @@ Damien Alford,517,WR,FA
 Jared Wayne,518,WR,MIA
 Kevin Austin Jr.,519,WR,FA
 Lil'Jordan Humphrey,520,WR,DEN
-Jamari Thrash,521,WR,FA
+Jamari Thrash,521,WR,TEN
 Marquez Valdes-Scantling,522,WR,PIT
 Arian Smith,523,WR,NYJ
 Tim Patrick,524,WR,NYJ

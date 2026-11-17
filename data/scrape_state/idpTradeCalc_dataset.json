@@ -697,13 +697,21 @@
      "rowsChanged": 316,
      "rowsRemoved": 0,
      "rowsTotal": 816
+    },
+    {
+     "at": "2026-11-17T22:45:48Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 1,
+     "rowsRemoved": 0,
+     "rowsTotal": 816
     }
    ],
-   "contentSince": "2026-11-13T16:51:00Z",
-   "fingerprint": "641e70bcdf8ac4ddedeacfcc",
+   "contentSince": "2026-11-17T22:45:48Z",
+   "fingerprint": "9f67231bf8b6c9a1abdff95a",
    "firstObservationIsBaseline": true,
    "firstObservedAt": "2026-04-16T14:34:45Z",
-   "lastAnyMeaningfulChangeAt": "2026-11-13T16:51:00Z",
+   "lastAnyMeaningfulChangeAt": "2026-11-17T22:45:48Z",
    "lastBroadDatasetChangeAt": "2026-11-13T16:51:00Z",
    "rowChangedAt": {
     "a.j. brown": "2026-10-10T20:25:35Z",
@@ -907,7 +915,7 @@
     "demarcus lawrence": "2026-11-13T16:51:00Z",
     "demarcus robinson": "2026-10-10T20:25:35Z",
     "demario davis": "2026-11-13T16:51:00Z",
-    "demario douglas": "2026-10-10T20:25:35Z",
+    "demario douglas": "2026-11-17T22:45:48Z",
     "demario douglas#2": "2026-10-10T20:25:35Z",
     "demarvion overshown": "2026-11-13T16:51:00Z",
     "demetrius knight": "2026-11-13T16:51:00Z",
@@ -1758,7 +1766,7 @@
     "demarcus lawrence": "d39f67080a",
     "demarcus robinson": "f285c9c979",
     "demario davis": "085d26f289",
-    "demario douglas": "bc81b83879",
+    "demario douglas": "59dab57567",
     "demario douglas#2": "bc81b83879",
     "demarvion overshown": "bef9b489ec",
     "demetrius knight": "b265f63e04",
