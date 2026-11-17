@@ -29,7 +29,6 @@ from scripts.research import bdvm_saturation_study as study
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / "scripts" / "research" / "bdvm_saturation_study.py"
 EVIDENCE = study.DEFAULT_EVIDENCE
-ARCHIVE = study.DEFAULT_ARCHIVE
 IDP_GROUPS = ("DL", "LB", "DB")
 
 pytestmark = pytest.mark.skipif(not EVIDENCE.exists(), reason="recorded W13 engine run absent")
@@ -197,13 +196,40 @@ def test_c5_is_three_state_and_abstains_on_most_rows(study_state):
     assert counts == {"STRONG_BUY": 0, "BUY": 83, "HOLD": 526, "SELL": 67, "STRONG_SELL": 0}
 
 
-@pytest.mark.skipif(
-    study.archive_on_or_after(ARCHIVE, "20261102") is None,
-    reason="committed export archive absent",
+# The outcome archives the proposal's numbers were measured on, pinned.
+# ``exports/archive/`` is a ROLLING window (``src/maintenance/retention.py``
+# keeps one export per day past 14 days), so reading it made this test depend
+# on which same-day export the pruner happened to keep: the automated refresh
+# of 2026-11-16 19:01 UTC (``1006d7f6``) pruned
+# ``dynasty_export_20261102_015256.zip`` and the study silently fell through to
+# ``…_20261102_203315.zip``.  These are the exact bytes the study recorded
+# (``inputs.outcomeArchives`` in the evidence report), restored from git
+# history; ``test_pinned_outcome_archives_are_the_recorded_bytes`` holds them
+# to those hashes.
+OUTCOME_ARCHIVE = REPO / "tests" / "fixtures" / "bdvm_saturation_outcome_archives"
+STUDY_REPORT = (
+    REPO
+    / "docs"
+    / "valuation"
+    / "evidence"
+    / "w13-f003-bdvm-saturation-2026-11-07"
+    / "study_report.json"
 )
+
+
+def test_pinned_outcome_archives_are_the_recorded_bytes():
+    recorded = json.loads(STUDY_REPORT.read_text(encoding="utf-8"))["inputs"]["outcomeArchives"]
+    pinned = {p.name: study.sha256_file(p) for p in sorted(OUTCOME_ARCHIVE.glob("*.zip"))}
+    assert pinned == recorded
+
+
 def test_outcome_evaluation_numbers_quoted_by_the_proposal():
     report, table = study.build_report(
-        EVIDENCE, study.DEFAULT_PARAMS, ARCHIVE, n_boot=0, seed=20261107
+        EVIDENCE, study.DEFAULT_PARAMS, OUTCOME_ARCHIVE, n_boot=0, seed=20261107
+    )
+    assert (
+        report["inputs"]["outcomeArchives"]
+        == json.loads(STUDY_REPORT.read_text(encoding="utf-8"))["inputs"]["outcomeArchives"]
     )
     assert len(table) == 676
     ev = report["evaluation"]
