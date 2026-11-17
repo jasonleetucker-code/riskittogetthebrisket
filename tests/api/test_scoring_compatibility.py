@@ -202,13 +202,14 @@ class TestASnapshotProvesWhenItWasTaken(unittest.TestCase):
     cross-league ranking reuse — the exact fail-open W18-F001 exists to
     close, arrived at through time instead of through a label.
 
-    The budget is DERIVED, not invented. ``scheduled-refresh.yml`` runs
-    ``42 */2 * * *`` and the warm pass writes this snapshot on that
-    cadence; ``server.py`` calls a contract stale at
-    ``SCRAPE_INTERVAL_HOURS * 3`` (= 6 h) and
-    ``data_contract._SOURCE_MAX_AGE_HOURS`` gives every scrape-cadence
-    source a 6-hour budget. Same artifact class, same number, two
-    independent precedents.
+    The budget is DERIVED, not invented: the warm pass that writes this
+    snapshot runs after the production box's own scrape, every
+    ``SCRAPE_INTERVAL_HOURS`` (2 h), and ``server.py`` calls a contract
+    stale at ``SCRAPE_INTERVAL_HOURS * 3`` (= 6 h).  (It also used to
+    equal ``data_contract._SOURCE_MAX_AGE_HOURS["ktc"]``.  That budget is
+    24 h since the owner decision of 2026-11-17, because KTC's fetch stamp
+    advances only on the GitHub scheduled refresh, about 3.6 times a day,
+    not on the box's 2-hourly loop; this snapshot's cadence did not change.)
 
     Three states, matching ``_build_source_timestamps``'s existing
     vocabulary: fresh / stale / missing.
@@ -290,9 +291,11 @@ class TestASnapshotProvesWhenItWasTaken(unittest.TestCase):
         import server
 
         self.assertEqual(lr.SCORING_SNAPSHOT_MAX_AGE_HOURS, server.SCRAPE_INTERVAL_HOURS * 3)
-        self.assertEqual(
+        # Never laxer than any source budget the board itself applies: a
+        # scoring card may not outlive the evidence it gates.
+        self.assertLessEqual(
             lr.SCORING_SNAPSHOT_MAX_AGE_HOURS,
-            dc._SOURCE_MAX_AGE_HOURS["ktc"],
+            min(dc._SOURCE_MAX_AGE_HOURS.values()),
         )
 
     def test_a_snapshot_from_another_season_never_proves_identity(self):
