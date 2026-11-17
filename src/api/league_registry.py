@@ -564,10 +564,12 @@ _DEFAULT_SCORING_SNAPSHOT_DIR: Path = Path(__file__).resolve().parents[2] / "dat
 #: that cadence, so it is a scrape-cadence artifact — and this repo already
 #: has one staleness budget for those, stated twice and identically:
 #: ``server.py`` calls the contract stale at ``SCRAPE_INTERVAL_HOURS * 3``
-#: (2 × 3 = 6), and ``data_contract._SOURCE_MAX_AGE_HOURS`` gives every
-#: source on that cadence a 6-hour budget.  Pinned against both in
-#: ``tests/api/test_scoring_compatibility.py`` so it cannot drift away
-#: from what derived it.
+#: (2 × 3 = 6).  (``data_contract._SOURCE_MAX_AGE_HOURS`` used to give
+#: KTC the same 6 h; it is 24 h since the owner decision of 2026-11-17,
+#: because those fetch stamps advance only on the GitHub refresh, about
+#: 3.6 times a day.)  Pinned in ``tests/api/test_scoring_compatibility.py``
+#: so it cannot drift away from what derived it, nor become laxer than any
+#: source budget.
 SCORING_SNAPSHOT_MAX_AGE_HOURS: int = 6
 
 #: Three states, deliberately the same vocabulary

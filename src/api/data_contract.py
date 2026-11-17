@@ -1369,27 +1369,42 @@ _RANK_TO_SYNTHETIC_VALUE_OFFSET = 10000
 # ``tests/api/test_freshness_budget_not_laxer_than_alerts.py``: this map may
 # never be laxer than the alert engine, because the board must not count
 # evidence as current after the operator has been told it is stale.
+#
+# OWNER DECISION 2026-11-17 (intake TC3-3): the remaining 6-hour budgets are
+# 24 hours, the same value ``config/source_staleness.json`` gives each of
+# these sources.  The 6 was derived for 2-hourly CI fetchers, but these
+# stamps only advance when ``scheduled-refresh.yml`` lands, which GitHub
+# starts about 3.6 times a day (``docs/ops/SCRAPE_CADENCE_MEASUREMENT_
+# 2026-11-09.md``: gaps of ~6.6 h on average; 8-12 h on 2026-11-17).  The
+# production box's own 2-hourly scrape re-fetches KTC / IDPTC but does not
+# advance these stamps.  So every board built more than 6 h after the last
+# refresh read nearly every source as stale: rebuilt at production's
+# 20:01 UTC board time on 2026-11-17, 864 rows and 190 of the top 200 were
+# ``freshness: low`` (all withheld on /trade, every War Room team "not
+# enough evidence"); at 24 h, 5 rows and 0 of the top 200, with 0
+# ``rankDerivedValue`` changes.  A source is still stale once it is a day
+# old, the moment the alert engine says so too.  The unlisted-key default
+# below (``.get(key, 6)``) is unchanged.
 _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
-    "ktc": 6,
+    "ktc": 24,
     # KTC TE++ (level 2) sub-board is sourced from the same scrape as
-    # ``ktc``, so it shares the 6-hour staleness budget.
-    "ktcSfTep": 6,
-    "ktcCrowdSfTep": 6,
-    "ktcTradesSfTep": 6,
-    "ktcCrowdTradesSfTep": 6,
-    "idpTradeCalc": 6,
-    "dynastyNerdsSfTep": 6,
-    "fantasyProsIdp": 6,
-    "dynastyDaddySf": 6,
+    # ``ktc``, so it shares its staleness budget.
+    "ktcSfTep": 24,
+    "ktcCrowdSfTep": 24,
+    "ktcTradesSfTep": 24,
+    "ktcCrowdTradesSfTep": 24,
+    "idpTradeCalc": 24,
+    "dynastyNerdsSfTep": 24,
+    "fantasyProsIdp": 24,
+    "dynastyDaddySf": 24,
     # FantasyCalc public JSON API refreshes continuously as crowd
-    # votes come in; the scheduled fetcher runs on the standard 3-hour
-    # refresh cadence, so the same 6-hour freshness budget as ktc /
-    # dynastyDaddySf applies.
-    "fantasyCalc": 6,
+    # votes come in; the fetch stamp advances on each scheduled refresh,
+    # so the same budget as ktc / dynastyDaddySf applies.
+    "fantasyCalc": 24,
     # OTCFFB public JSON API refreshes as community trades roll in; the
-    # scheduled fetcher runs every 2 hours so the same 6-hour budget as
-    # the other trade-derived sources applies.
-    "otcffbSf": 6,
+    # fetch stamp advances on each scheduled refresh, so the same budget
+    # as the other trade-derived sources applies.
+    "otcffbSf": 24,
     "flockFantasySf": 24,
     # Flock Fantasy rookie board: fetched on the 2-hourly refresh like
     # the vet board, so it shares the same fetch-success budget.  (It was
@@ -1422,20 +1437,20 @@ _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
     # PROVIDER FAMILY'S SOLE VOTING KEY (Task 1/2, 2026-08-20).
     "idpShowCombined": 24,
     # DraftSharks SF + IDP CSVs are written by scripts/fetch_draftsharks.py
-    # on every scheduled-refresh tick (3-hour cadence), so the same
-    # 6-hour freshness budget as ktc / idpTradeCalc applies.
-    "draftSharks": 6,
-    "draftSharksIdp": 6,
+    # on every scheduled-refresh tick, so the same budget as ktc /
+    # idpTradeCalc applies.
+    "draftSharks": 24,
+    "draftSharksIdp": 24,
     # Fantasy Navigator + PFK are fetched by scheduled 2-hour API
     # fetchers that rewrite the CSV on every SUCCESSFUL run — so mtime
     # measures fetch success, not the vendors' editorial cadence, and
     # the budget must match the other API-fetched sources (fantasyCalc
-    # / otcffbSf / dynastyDaddySf): 6 hours ≈ three missed cycles.
+    # / otcffbSf / dynastyDaddySf).
     # (An earlier 720h/168h pair conflated this with how often the
     # vendors PUBLISH — which mtime cannot observe; Codex review on
     # PR #532.)
-    "fantasyNavigatorSf": 6,
-    "pfkDynasty": 6,
+    "fantasyNavigatorSf": 24,
+    "pfkDynasty": 24,
     # Signals authenticated values: collected on the box by the 6-hourly
     # ``dynasty-signals-values`` timer, which stamps ``<key>_last_success``
     # on every successful run.  24h is ``config/source_staleness.json``'s
