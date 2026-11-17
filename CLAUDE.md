@@ -323,7 +323,7 @@ npm run regression                   # Full pipeline: preflight + tests
 | `/api/roster/intelligence` | GET | Canonical roster intelligence: meaningful core, Team Strength, Team Weakness, age-value portfolio (`src/roster_intel/`) |
 | `/api/roster-construction` | GET | Roster Construction V1, private (flag `roster_construction`, default on; `src/roster_intel/construction.py`) |
 | `/api/waiver/advisor` | POST | Weekly Waiver Advisor, private (flag `waiver_advisor`, default on); siblings `/api/waiver/perfect`, `/streaming`, `/best-available-idp`, `/faab-recommend` |
-| `/api/trade/analyze`, `/api/trade/analyze-multi` | POST | Analyze Trade (2-team) and the N-team engine (`src/trade/analyze_service.py`; `analyze-multi` flag `trade_multi_team_analysis`, default OFF) |
+| `/api/trade/analyze`, `/api/trade/analyze-multi` | POST | Analyze Trade (2-team) and the N-team engine (`src/trade/analyze_service.py`; `analyze-multi` flag `trade_multi_team_analysis`, default ON since 2026-11-17) |
 | `/api/public/league/trade-advisor/*` | GET/POST | Public fairness-only Brisket Trade Advisor (`src/trade/public_advisor.py`; flag `brisket_trade_advisor`, default OFF) |
 | `/api/user/trade-protections` | GET/PUT | Persistent personal trade protections (`src/trade/constraints.py`) |
 
@@ -1655,8 +1655,9 @@ per-team analysis the 2-team War Room runs.  Spec (binding interface):
 * Roster capacity matches an outgoing player to his roster entry BY ID
   (``roster_capacity.outgoing_roster_names``); names are the fallback only.
 * The private route ``POST /api/trade/analyze-multi`` is gated by
-  ``trade_multi_team_analysis`` (default OFF; rollback
-  ``RISKIT_FEATURE_TRADE_MULTI_TEAM_ANALYSIS=0`` + restart).  The flag gates the
+  ``trade_multi_team_analysis`` (default ON since the owner request of
+  2026-11-17; rollback ``RISKIT_FEATURE_TRADE_MULTI_TEAM_ANALYSIS=0`` +
+  restart, which returns /trade to the static 3+-team panel).  The flag gates the
   route, not the engine.  Bounds: ``config/trade/multi_team.json`` (unreadable →
   2 teams).  A per-team result that does not reconcile with the ledger raises
   ``ConservationViolation`` and is never published (500).

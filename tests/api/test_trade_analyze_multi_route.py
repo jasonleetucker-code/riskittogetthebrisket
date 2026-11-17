@@ -130,11 +130,24 @@ def _body(teams, legs, **extra):
 # ══ Gate, auth, body ═══════════════════════════════════════════════════════
 
 
-def test_flag_off_by_default_answers_disabled(app):
+def test_flag_defaults_on_by_owner_request_2026_11_17():
+    # Owner request 2026-11-17 ("Fix this so that it can account for 3 team
+    # trades"): the private per-team War Room is ON by default.  Flipping
+    # this back is the owner's rollback decision, not a test re-baseline.
+    assert feature_flags._DEFAULTS["trade_multi_team_analysis"] is True
+
+
+def test_flag_off_answers_disabled(app, monkeypatch):
+    """The rollback lever (RISKIT_FEATURE_TRADE_MULTI_TEAM_ANALYSIS=0) still
+    closes the route before anything else runs."""
     client, _contract = app
+    monkeypatch.setenv("RISKIT_FEATURE_TRADE_MULTI_TEAM_ANALYSIS", "0")
     feature_flags.reload()
-    assert feature_flags._DEFAULTS["trade_multi_team_analysis"] is False
-    res = client.post("/api/trade/analyze-multi", json=_body([1, 2], []))
+    try:
+        res = client.post("/api/trade/analyze-multi", json=_body([1, 2], []))
+    finally:
+        monkeypatch.delenv("RISKIT_FEATURE_TRADE_MULTI_TEAM_ANALYSIS", raising=False)
+        feature_flags.reload()
     assert res.status_code == 503
     assert res.json()["error"] == "multi_team_analysis_disabled"
     assert res.headers["cache-control"] == "no-store"

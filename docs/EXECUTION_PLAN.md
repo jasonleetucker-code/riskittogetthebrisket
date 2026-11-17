@@ -601,7 +601,8 @@ There is also a separate owner-visible deploy unit, D-net (loopback binds).
   shared server-side engine. Nothing is duplicated in the public endpoint.
 - **Flags:**
   - the new private `trade_multi_team_analysis` ships default OFF and is enabled only through the normal release
-    process after Lane E's regressions and independent review;
+    process after Lane E's regressions and independent review; **owner request 2026-11-17 (intake TC3-1): enable it**
+    — the default flips ON in the PR that carries that request, through the normal merge and deploy gates;
   - the public `brisket_trade_advisor` stays OFF.
 - **Public launch is OWNER-RESERVED.** All eleven directive §16 criteria must pass. That includes OD-3 source
   permission, OD-4 exposure, OD-F1 to OD-F6 fairness threshold, and explicit owner approval. The spec's §6.3 launch

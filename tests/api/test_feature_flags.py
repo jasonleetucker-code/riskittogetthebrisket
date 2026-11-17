@@ -55,6 +55,10 @@ def test_every_flag_defaults_off_except_safe_additive():
         # (docs/owner/IDP_STREAMING_DIRECTIVE_2026-10-29.md).
         "waiver_advisor",
         "idp_streaming",
+        # Private signed-in multi-team War Room: per-team answers from the one
+        # N-team engine; changes no value, band or 2-team route.  ON by owner
+        # request of 2026-11-17.  The public brisket_trade_advisor stays OFF.
+        "trade_multi_team_analysis",
         "value_confidence_intervals",  # additive valueBand field
         "positional_tiers",  # additive tierId field
         "usage_signals",  # freshness + starter-guarded

@@ -15,6 +15,17 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
+## Added 2026-11-17 — Trade Calculator: account for 3-team trades
+
+Owner request 2026-11-17 (chat, with two phone screenshots of `/trade` on a 3-team trade): "Fix this so that it
+can account for 3 team trades." The screenshots showed the static War Room panel ("No YES / NO is given for this
+3-team trade…") and the 2-team-only Value Adjustment note, i.e. the private multi-team analysis was switched off.
+
+| ID | Requirement | State |
+|---|---|---|
+| TC3-1 | Every team of a 3- (and 4-) team trade on the private `/trade` page gets its own War Room answer: turn on `trade_multi_team_analysis` (the N-team engine and per-team War Room merged dormant in #1882 / #1883, Lane E regressions #1935 / #1937). Private and signed-in only; no value, band, package-model or 2-team change. The public `brisket_trade_advisor` stays OFF (its launch remains owner-reserved, separately). | IMPLEMENTED — branch `claude/serene-shannon-7lsrm9`; flag default ON, rollback `RISKIT_FEATURE_TRADE_MULTI_TEAM_ANALYSIS=0` + restart |
+| TC3-2 | The KTC comparison method is still not extended to 3+ teams (it is a 2-sided algorithm; extending it would be new methodology). The per-team Chase Upside adjustment is in each team's War Room answer. | RECORDED — no change |
+
 ## Added 2026-11-06 — Sitewide audit remediation, implementation and delivery directive
 
 Owner directive 2026-11-06 (chat, "MASTER SITEWIDE AUDIT REMEDIATION, IMPLEMENTATION & DELIVERY DIRECTIVE"). Structured

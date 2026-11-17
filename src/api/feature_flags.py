@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-28 of the 68 entries in ``_DEFAULTS`` below are ``True`` —
+29 of the 68 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -22,7 +22,8 @@ end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``game_day_live_game_state``, ``sleeper_weekly_projections``,
 ``rookie_auction``, ``dfs_workspace``, ``dfs_auto_slates``,
 ``trade_screenshot_import``, ``manager_intelligence``, ``waiver_advisor``,
-``idp_streaming`` and ``roster_construction`` — several with comments
+``idp_streaming``, ``roster_construction`` and ``trade_multi_team_analysis``
+— several with comments
 recording that the enabled default is deliberate.
 
 **No live gate sits outside this registry any more.**  The last one —
@@ -669,11 +670,18 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # ``POST /api/trade/analyze-multi`` route (and, through the frontend flag
     # path, the multi-team War Room).  It does NOT gate the shared engine
     # (``analyze_service.analyze_trade_n``), which the public advisor also
-    # reads.  Default OFF until the Lane E regressions and independent review
-    # pass; turned on only through the normal release process.  Off → 503
-    # multi_team_analysis_disabled; the 2-team routes are unchanged either way.
-    # Rollback: RISKIT_FEATURE_TRADE_MULTI_TEAM_ANALYSIS=0 + restart.
-    "trade_multi_team_analysis": False,
+    # reads.  ON by owner request of 2026-11-17 ("Fix this so that it can
+    # account for 3 team trades", on the /trade 3-team War Room), after the
+    # Lane E regressions (#1935 / #1937) and a green scheduled E2E Safety Net
+    # on main (run 43902907488, 2026-11-16): every team of a 2-4-team trade
+    # gets its own decision from the one engine.  Private only: the signed-in
+    # /trade War Room and the token-gated Chase Upside MCP ``analyze_trade``
+    # tool (3+ teams).  Changes no value, band, package model or 2-team
+    # route.  The public ``brisket_trade_advisor`` stays OFF.  Off →
+    # 503 multi_team_analysis_disabled and /trade falls back to the static
+    # 3+-team panel.  Rollback: RISKIT_FEATURE_TRADE_MULTI_TEAM_ANALYSIS=0 +
+    # restart.
+    "trade_multi_team_analysis": True,
     # Waiver Advisor (Workstream E, build-only directive 2026-10-27).  ON:
     # POST /api/waiver/advisor + the unlisted /waiver-advisor page answer for
     # the selected team: a composer over the existing owners (Perfect
@@ -1124,7 +1132,7 @@ _GATE_STATUS: Final[dict[str, str]] = {
     "brisket_trade_advisor": LIVE,
     # trade_multi_team_analysis gates /api/trade/analyze-multi inline in
     # server.py: off → 503 multi_team_analysis_disabled, on → the per-team
-    # analysis.  Default False (see its _DEFAULTS entry).
+    # analysis.  Default True since 2026-11-17 (see its _DEFAULTS entry).
     "trade_multi_team_analysis": LIVE,
     # waiver_advisor gates POST /api/waiver/advisor inline in server.py (and
     # src/waivers/advisor.py::advisor_enabled): off → 503 feature_disabled.
