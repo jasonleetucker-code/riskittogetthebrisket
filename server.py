@@ -20883,8 +20883,8 @@ def _parse_multi_body(body: Any) -> tuple[dict[str, Any] | None, str | None]:
 async def post_trade_analyze_multi(request: Request):
     """N-team Analyze Trade — every participating team's own analysis.
 
-    Gated by ``trade_multi_team_analysis`` (default OFF; 503
-    ``multi_team_analysis_disabled``).  ``/api/trade/analyze`` is unchanged.
+    Gated by ``trade_multi_team_analysis`` (default ON since the owner
+    request of 2026-11-17; off -> 503 ``multi_team_analysis_disabled``).  ``/api/trade/analyze`` is unchanged.
 
     Body::
 

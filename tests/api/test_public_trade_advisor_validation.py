@@ -497,11 +497,14 @@ def test_flag_off_answers_disabled_on_every_route(advisor_client, monkeypatch):
         assert res.json()["reason"] == "disabled"
 
 
-def test_flags_default_off():
+def test_flag_defaults():
     from src.api.feature_flags import _DEFAULTS
 
+    # The PUBLIC advisor stays OFF (launch is owner-reserved).  The PRIVATE
+    # multi-team War Room is ON by owner request of 2026-11-17; the two flags
+    # are independent and approval of one never extends to the other.
     assert _DEFAULTS["brisket_trade_advisor"] is False
-    assert _DEFAULTS["trade_multi_team_analysis"] is False
+    assert _DEFAULTS["trade_multi_team_analysis"] is True
 
 
 def test_public_product_works_with_the_private_multi_team_flag_off(advisor_client, monkeypatch):

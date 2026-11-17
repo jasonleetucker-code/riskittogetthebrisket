@@ -26,7 +26,7 @@ Browser ─► Nginx ─► Next.js (port 3000) ─► FastAPI (port 8000) ─�
    `src/api/feature_flags.py`. Env override via `RISKIT_FEATURE_<NAME>=1`
    (or `=0` to disable).
 
-   **Defaults are per-flag.** As of 2026-11-06, 28 of the 68 entries in
+   **Defaults are per-flag.** As of 2026-11-17, 29 of the 68 entries in
    `_DEFAULTS` ship enabled — `ledger_rank_change` (registered closing
    F-24: the ledger-derived `rankChange` derivation, previously an
    invisible direct env read), `bdvm_engine`, `te_basis_conversion`
@@ -64,7 +64,9 @@ Browser ─► Nginx ─► Next.js (port 3000) ─► FastAPI (port 8000) ─�
    and `idp_streaming` (the private signed-in Waiver Advisor and its Weekly
    IDP Streaming mode; advice only, owner decision 2026-10-29),
    `roster_construction` (the private signed-in Roster Construction page;
-   reads only, owner decision D1 2026-11-01) — several
+   reads only, owner decision D1 2026-11-01), `trade_multi_team_analysis`
+   (the private signed-in per-team War Room for 3- and 4-team trades;
+   changes no value, owner request 2026-11-17) — several
    with comments
    recording that the enabled default is deliberate. For those, the env
    var is a rollback lever rather than an opt-in.

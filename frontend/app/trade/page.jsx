@@ -262,7 +262,8 @@ const TradeWarRoom = dyn(loadWarRoom, "Trade War Room");
 const loadVaComparison = () => import("@/components/trade/ValueAdjustmentComparison");
 // The multi-team War Room (owner directive 2026-10-20 §7): its own lazy chunk,
 // requested only for a 3+-team trade on a server whose private multi-team
-// analysis is switched on (`trade_multi_team_analysis`, default OFF).
+// analysis is switched on (`trade_multi_team_analysis`, default ON since
+// the owner request of 2026-11-17; rollback =0 + restart).
 const MultiTeamWarRoom = dyn(
   () => import("@/components/trade/MultiTeamWarRoom"),
   "Multi-team Trade War Room",

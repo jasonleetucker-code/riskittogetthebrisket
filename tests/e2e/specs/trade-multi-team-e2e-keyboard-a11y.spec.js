@@ -35,7 +35,8 @@
  *     E2E_A11Y_STRICT=1 (see KNOWN_AXE_STEPS below).
  *
  * FLAG-ADAPTIVE, never skipped: when the server answers the multi-team
- * route's probe as OFF (`trade_multi_team_analysis`, default OFF — e.g. CI),
+ * route's probe as OFF (`trade_multi_team_analysis`, default ON since the
+ * owner request of 2026-11-17; OFF only under the =0 rollback),
  * the 3/4-team tests assert today's static 3+-team panel and stop there; the
  * 2-team test needs no flag.  Screenshots of every step go to
  * E3_SCREENSHOT_DIR when set, else to the test's output folder.
