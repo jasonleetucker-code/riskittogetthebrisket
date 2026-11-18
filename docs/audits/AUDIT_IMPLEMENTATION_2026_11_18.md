@@ -23,20 +23,20 @@ BLOCKED — OWNER ACTION · BLOCKED — EXTERNAL DEPENDENCY · VERIFIED NO LONGE
 |---|---|---|---|---|---|---|
 | 1 | Hermetic hard gate and skip-budget repair | P0 | DEPLOYED | #2239 → `cb5648ff` | production build `bd17e684`; deploy hard gates since have passed with the guard in place | follow-ups: two archive readers kept (their day's newest export) |
 | 2 | Freshness and deploy-lag SLO with alerts | P0 | DEPLOYED | #2238 → `4a80cca8` | production build `bd17e684` (~14:06 UTC): `freshness_slo.state=measured`, top-200 stale 0/200, priced withheld 15/1016 (1.48 %), board age 0.01 h, private sources 4 provisioned / 4 stale | the 4 stale private sources are the Signals stall (Task 11) — the new SLO correctly reports them |
-| 3 | Decouple data delivery from the full code gate | P1 | IN TRAIN 4 (shadow mode) | #2251 `acd70954` | — | activation BLOCKED — OWNER DECISION; backtest: 9 of 23 data-only runs failed the full gate on data-coupled tests, so the fast path is not yet safe |
-| 4 | Owner admin-action pack | P1 | IN TRAIN 4 (preparation) | #2244 `0dfd510d` | — | ruleset apply, credential rotation, off-box backup destination, deploy-key review are owner-only |
-| 5 | Year-boundary hardening (2026→2027) | P1 | IN TRAIN 4 (RC validating) | #2248 `50b20ff8` | — | owner: league vs board horizon divergence at New Year (2030 picks unpriced until the 2027 draft is proven) |
-| 6 | Land five UI-fix PRs #2223/#2224/#2226/#2227/#2228 | P1 | DEPLOYED | #2227 `3945d0a2`, #2224 `0d8bca1f`, #2226 `42bd796c`, #2223 `9a4ad5ca`, #2228 `5f35bf8c`; follow-up #2250 | production `/api/status` build `5f35bf8c` (2026-11-18 ~12:20 UTC) | real-device iOS tap / VoiceOver check for #2223; post-deploy signed-in verification pending |
+| 3 | Decouple data delivery from the full code gate | P1 | MERGED (deploy pending) | #2251 → `ecd2bc91` | — | activation BLOCKED — OWNER DECISION; backtest: 9 of 23 data-only runs failed the full gate on data-coupled tests, so the fast path is not yet safe |
+| 4 | Owner admin-action pack | P1 | MERGED (deploy pending) | #2244 → `ca698b11` | — | ruleset apply, credential rotation, off-box backup destination, deploy-key review are owner-only |
+| 5 | Year-boundary hardening (2026→2027) | P1 | MERGED (deploy pending) | #2248 → `ae310e03` | — | owner: league vs board horizon divergence at New Year (2030 picks unpriced until the 2027 draft is proven) |
+| 6 | Land five UI-fix PRs #2223/#2224/#2226/#2227/#2228 | P1 | DEPLOYED (+ #2250 merged `58278641`) | #2227 `3945d0a2`, #2224 `0d8bca1f`, #2226 `42bd796c`, #2223 `9a4ad5ca`, #2228 `5f35bf8c`; follow-up #2250 | production `/api/status` build `5f35bf8c` (2026-11-18 ~12:20 UTC) | real-device iOS tap / VoiceOver check for #2223; post-deploy signed-in verification pending |
 | 7 | Post-deploy trade and War Room smoke | P1 | DEPLOYED (first real run pending) | #2242 → `c59c0a52` | production build `bd17e684` | post-deploy verification run queued 14:07 UTC |
-| 8 | Public-repo data-exposure remediation | P2 | IN TRAIN 4 (preparation + decision brief) | #2249 `64d32cf0` | — | publication policy is an owner decision |
+| 8 | Public-repo data-exposure remediation | P2 | MERGED (deploy pending) | #2249 → `522c0efc` | — | publication policy is an owner decision |
 | 9 | Trade-flow resilience (frontend) | P2 | DEPLOYED | #2243 → `bd17e684` | production build `bd17e684` | service-worker update on real devices (iOS PWA) |
 | 10 | Mobile ergonomics and 390 px coverage | P2 | PR OPEN (E2E flake fix #2253 pending) | #2245 `26eab497` | — | 4-team tray clearance and info-tip tap accuracy need a real device |
 | 11 | Restore Signals; loud private-source failure | P2 | IN PROGRESS (unit 1 merged) | #2237 → `3f647d16` | — | next: run the health probe once no deploy is in flight; two orphaned deploy runs still need a force-cancel |
-| 12 | Live roster refresh — measure first | P2 | IN TRAIN 4 (measurement: refresh not justified) | #2246 `bb9b1496` | — | owner may override (median post-trade misattribution 1.1 h) |
-| 13 | Security hardening batch | P2 | IN TRAIN 4 | #2240 `742f0415` | — | box `.env` is pre-checked against the target revision before the deploy moves anything |
+| 12 | Live roster refresh — measure first | P2 | MERGED (deploy pending) | #2246 → `6b0546a7` | — | owner may override (median post-trade misattribution 1.1 h) |
+| 13 | Security hardening batch | P2 | MERGED (deploy pending) | #2240 → `5f7e6080` | — | box `.env` is pre-checked against the target revision before the deploy moves anything |
 | 14 | Next.js 16.4.5+ (#2233) | P2 | DEPLOYED | #2241 → `0dc1c6cd` | production build `bd17e684` | dependabot #2233 superseded |
-| 15 | Make permanent-red / vacuous-green checks meaningful | P3 | IN TRAIN 4 (+ E2E flake root cause #2253 open) | #2247 `0567dd25`; #2253 `016d59ac` | — | 57 stale workflow registrations need an owner disable; #898 owner decision; E2E skip ceiling sits at exactly 70/70 on main |
-| 16 | Node 20 → 22 | P3 | IN TRAIN 4 (CI side) | #2252 `1df62e9c` | — | production runtime cutover BLOCKED — OWNER ACTION; engines `>=20 <23` until then |
+| 15 | Make permanent-red / vacuous-green checks meaningful | P3 | MERGED (deploy pending) | #2247 → `123c08df`; #2253 open (train 5) | — | 57 stale workflow registrations need an owner disable; #898 owner decision; E2E skip ceiling sits at exactly 70/70 on main |
+| 16 | Node 20 → 22 | P3 | MERGED (deploy pending) | #2252 → `79c60f26` | — | production runtime cutover BLOCKED — OWNER ACTION; engines `>=20 <23` until then |
 
 ## Baseline (2026-11-18, before any change)
 
@@ -250,6 +250,11 @@ Record: not started.
   evidence `8f12ffb3`). Per the release rule the base was integrated once: combined train 4 (`ed388854` = main
   `8f12ffb3` + #2240, #2246, #2248, #2250, #2244, #2247, #2249, #2251, #2252; all merge cleanly; locally 1,922
   passed / 4 skipped across tests/deploy, tests/governance, the hermetic guard and the security / year tests).
+- Combined train 4 RC 44323437798 + E2E 44323443564 green; main moved afterwards only by box-pushed class-C data
+  (`f5e06111` CSVs/site_raw + scrape_state, `a4ae4377` scrape_state). Merged ~14:55 UTC in order: #2240 `5f7e6080`,
+  #2246 `6b0546a7`, #2248 `ae310e03`, #2250 `58278641`, #2244 `ca698b11`, #2247 `123c08df`, #2249 `522c0efc`,
+  #2251 `ecd2bc91`, #2252 `79c60f26`. This deploy is the first to run the box `.env` pre-flight (#2240).
+- Train 5 (`main 79c60f26 + #2253 + #2245`, `fc94e30a`): RC + E2E dispatched.
 - Deploy `bd17e684` succeeded (~14:06 UTC); the superseded `3f647d16` deploy was cancelled before its production step.
 
 ## Operational notes
