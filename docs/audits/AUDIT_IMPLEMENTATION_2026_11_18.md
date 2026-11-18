@@ -112,17 +112,54 @@ Record (PR #2238, head `e2bc2309`):
 Problem: each data commit runs the 8-shard gate (~115 runner-minutes) and restarts the backend; 62% of data-triggered
 deploys failed in the audit window versus 7% of code pushes. Activation changes an Agent OS rule, so the path ships in
 shadow mode and production cutover waits for the owner.
-Record: not started.
+Record (PR #2251 → `ecd2bc91`, merged in train 4):
+- `scripts/classify_deploy_delta.py`: DATA_ONLY only if the last fully validated deployed commit is an ancestor and
+  the code tree is byte-identical (mode + object id per path; data = regular files under `CSVs/`, `data/`,
+  `exports/`; pickle-type files and anything else classify as CODE). Fail closed.
+- `scripts/data_delivery_gate.py`: the data gate set (blocking: runtime import, contract FULL lane, tracked-data
+  privacy; advisory: source health, live-data tests), with a 45 min set budget.
+- `scripts/data_delivery_shadow.py` + `.github/workflows/data-delivery-shadow.yml`: read-only `workflow_run`
+  observer on every completed Deploy Production run; records whether the data gate set agrees with the full gate.
+  Contents/actions read only, no environment, no box contact, own concurrency group.
+- Design and the exact Agent OS §3 amendment text: `docs/ops/DATA_ONLY_DELIVERY_DESIGN_2026-11-18.md`.
+- Backtest (200 deploy runs, 138 classified): 23 DATA_ONLY; 14 passed the full gate, 9 failed it (7 data-coupled
+  unit tests — the class #2239 pins — and 2 tesseract apt failures); none failed the contract lane.
+- `deploy.yml`, `deploy.sh`, `scheduled-refresh.yml`, the server and the box are unchanged.
+- Activation: BLOCKED — OWNER DECISION, after ≥30 compared DATA_ONLY deliveries over ≥14 days with zero unsafe
+  disagreements.
 
 ### 4. Owner admin-action pack — P1
 Problem: prepared required-checks ruleset never applied (live ruleset: deletion + non_fast_forward only); credential
 rotation, off-box backup and deploy-key inventory pending since owner decision briefs #12–#14 (2026-11-08).
-Record: not started.
+Record (PR #2244 → `ca698b11`, merged in train 4). Prepared, nothing applied:
+- Branch protection: `deploy/github/main-protection-ruleset.json` pinned to required check names that exist (live
+  host truth: `Validate PR`, `Receipt check`), refresh pushers keep bypass; `apply-branch-protection.sh --dry-run`
+  diff; guard test `tests/deploy/test_ruleset_required_checks_pinned.py`.
+- Credential rotation: runbook section in `docs/ops/ADMIN_ONLY_ACTIONS_RUNBOOK.md` (backup `.env`, set, restart,
+  verify, rollback). Works with Task 13's startup guard.
+- Off-box backup: `scripts/offbox_backup.py` (disabled unless configured; copies only a locally restore-verified
+  generation; SHA-256 read-back; refuses unencrypted targets without an explicit ack and any target overlapping a
+  source; restore drill) plus `deploy/backup/offbox/*.example` units. No provider chosen, nothing installed.
+- Access inventory: what the agent could read (live ruleset 19976839 = deletion + non_fast_forward only, bypass for
+  roles 4/5 and the deploy key); deploy keys, collaborators and secret presence are owner-readable only.
+- Tests: 25 passed. Status: BLOCKED — OWNER ACTION for every privileged step.
 
 ### 5. Year boundary — P1
 Problem: calendar-derived draft years and pick horizons (`draft_class_evidence.py:248`, `sleeper_overlay.py`,
 `intel/service.py:140`) are untested across 2026-12-31 → 2027-01-02.
-Record: not started.
+Record (PR #2248 → `ae310e03`, merged in train 4):
+- Fake-clock harness `tests/fake_clock.py` (`--fake-now` / `RISKIT_FAKE_NOW`, off by default; no new dependency).
+- `tests/identity/test_year_boundary_rules.py`: 25 cases at 2026-12-31T23:30Z, 2027-01-01T00:30Z,
+  2027-01-02T12:00Z and 2027-01-01T03:00Z with `TZ=America/Los_Angeles`, board and league scope, expectations
+  derived from the written rules.
+- Sweep (134 clock-reading files): 28-29 failures per instant before → 0 after. One real test defect (a 2027-only
+  draft-capital expectation) and fixture fixes in `test_metrics_engines.py` / `test_pick_projection.py`; 28 harness
+  artifacts (subprocess / file mtime) listed with reasons in `config/ci/future_clock_exclusions.txt`.
+- Production code: no year mis-statement found; no served value changes. `validate_api_contract.py --lane structural`
+  rc=0 at every instant.
+- Advisory workflow `.github/workflows/future-clock.yml` (weekly + dispatch, contents read, tests only).
+- Owner decision (documented and pinned, not changed): the league draft window and the board pick horizon diverge at
+  New Year — 2030 picks stay unpriced on the board until the 2027 draft is proven complete.
 
 ### 6. Five UI-fix PRs — P1
 Record:
@@ -164,16 +201,41 @@ Record (PR #2242, head `1dfb1daf`):
 ### 8. Public-repo data exposure — P2
 Problem: public repo tracks ~30 vendor CSVs and ~158 full-board export zips (with Sleeper owner IDs) while
 `SECURITY.md` calls valuations private. No history rewrite, visibility change or purge without the owner.
-Record: not started.
+Record (PR #2249 → `522c0efc`, merged in train 4):
+- Read-only inventory of tracked data (counts only, no content): vendor CSVs, export zips and owner-id-bearing files.
+- Owner decision brief with publication options (keep public, stop adding, move to private storage, history rewrite —
+  each with cost and risk); nothing deleted, untracked, moved or rewritten; visibility unchanged.
+- CI growth guard: fails on a NEW tracked file that carries owner ids or a paid-vendor source, with the current set
+  allowlisted, so exposure cannot grow while the owner decides. Review fix: the guard is hermetic (no dependency on
+  local data).
+- Status: BLOCKED — OWNER DECISION on the publication policy.
 
 ### 9. Trade-flow resilience — P2
 Problem: plain errors without Retry on several trade routes; no client timeout on the contract fetch; the service
 worker can answer API calls with HTML.
-Record: not started.
+Record (PR #2243 → `bd17e684`, merged in train 3; deployed):
+- `/trade`, `/arbitrage`, `/angle`, `/edge` render the shared `FailureState` with a working Retry (was a retry-less
+  raw-error banner).
+- Contract fetch: 25 s client deadline (`AbortController`) → retryable `timeout` failure; failed requests never cached.
+- Service worker v11: `/api/*` cached by allow-list only (public league API); offline API answers are JSON 503, never
+  the HTML shell; old caches evicted.
+- `app/error.jsx` no longer prints `error.message`; new `not-found.jsx` and `global-error.jsx`.
+- `/` no longer fires the private data pipeline (a guaranteed 401) for anonymous visitors.
+- Production: deployed in `bd17e684`; on build `f5e06111` the prod-mobile War Room spec passed (41 s) — see Task 7 for
+  the one desktop timeout. Not verified: service-worker update on a real iOS PWA.
 
 ### 10. Mobile ergonomics — P2
 Problem: 32 px controls without coarse-pointer sizing; 390 px axe scans cover 12 route families.
-Record: not started.
+Record (PR #2245 → `eb604ee2`, merged in train 5 with E2E fix #2253 → `83cc4061`):
+- `ds.css` coarse-pointer / ≤480 px block: buttons, inputs, selects, tabs, segmented options, sort headers,
+  disclosures, dialog close and info-tip triggers ≥44 px.
+- 390 px axe coverage +11 route families on the phone projects.
+- `mobile-target-size.spec.js` (tagged `@mobile-only`, filtered from desktop with `grepInvert`, so the E2E skip
+  ceiling of 70 is not consumed).
+- FAB clearance raised to 136 px when the N-team summary bar is present; nav / tray / FAB no-overlap test.
+- #2253 fixed the two product bugs behind the E2E flakes (sheet focus stolen by a later animation frame; a team picked
+  before `/api/leagues` answered was dropped).
+- Validation: train 5 RC 44330233614 + E2E 44330240357 green. Not verified: real-device tap accuracy.
 
 ### 11. Signals and private-source alerting — P2
 Problem: `signalsSf` stale ~16 days, votes withheld, no loud alert.
@@ -225,16 +287,33 @@ Record (PR #2240, head `02e3a8f2`):
   `permissions:` for `health-check.yml` (done in #2238) and `deploy.yml`.
 
 ### 14. Next.js upgrade — P2
-Record: not started.
+Record (PR #2241 → `0dc1c6cd`, merged in train 3; deployed): `next` 16.4.3 → 16.4.5 (fixes
+GHSA-mfr8-8qww-v76h and GHSA-vc7v-qv4w-wrv8, both moderate; 16.4.5 published 2026-11-03). Supersedes Dependabot
+#2233. Build, bundle budgets and E2E green in train 3; production build `bd17e684` serves it.
 
 ### 15. Meaningful CI checks — P3
 Problem: Rank-Form Curve Drift red 13 weeks running (#898); Sharp population check passes without measuring (#1727);
 dead `_tmp_*` workflow registrations.
-Record: not started.
+Record (PR #2247 → `123c08df`, merged in train 4; plus #2253):
+- Audit Rank-Form Curve Drift: the accepted drift state is recorded (`config/ci/rank_form_drift_accepted.json`,
+  margin 25), so the check is green at the accepted level and red only if drift grows past it — a tripwire instead of
+  a permanent red. #898 stays an owner decision.
+- Verify Sharp Production Population: a separate "measured" job runs only when the smoke actually measured and
+  passed; an unmeasured run shows SKIPPED rather than green.
+- `docs/ops/STALE_WORKFLOW_REGISTRATIONS_2026-11-18.md`: 57 registered workflows with no file on `main`, with the
+  exact owner disable command (needs `actions:write`; not run).
+- 13 scheduled workflows swept; no further vacuous-green case found.
 
 ### 16. Node 22 — P3
 Problem: Node 20 (`engines >=20 <21`, every workflow) is past end of life; blocks jsdom/jest-dom/axe upgrades.
-Record: not started.
+Record (PR #2252 → `79c60f26`, train 4; hotfix #2256 → `6f87d9d0`):
+- #2252 moved every workflow and `.nvmrc` to Node 22 and widened `engines.node` to `>=20 <23`.
+- Deploy 44330192334 then failed at box staging: `stage_release_artifact.py` requires the artifact's Node major to
+  equal production's (20). Auto-rollback kept production serving.
+- #2256 puts the production-runtime lanes (deploy, release candidate, PR validation, E2E) back on Node 20, pinned by
+  `tests/deploy/test_deploy_node_matches_production.py`; other workflows stay on 22. The cutover doc now describes
+  one coordinated change (box runtime + those lanes in the same window).
+- Status: CI partially on 22; production runtime cutover BLOCKED — OWNER ACTION.
 
 ## Integration log
 
