@@ -239,6 +239,36 @@
     "crowd-faab-diagnostics.yml::crowd-faab-status::Probe crowd FAAB on production": {
       "category": "blocking"
     },
+    "data-delivery-shadow.yml::shadow::Check out the deploy target tree (DATA_ONLY only)": {
+      "category": "blocking"
+    },
+    "data-delivery-shadow.yml::shadow::Checkout (workflow commit, full history)": {
+      "category": "blocking"
+    },
+    "data-delivery-shadow.yml::shadow::Classify the delta (DATA_ONLY or CODE)": {
+      "category": "blocking"
+    },
+    "data-delivery-shadow.yml::shadow::Compare with the full Deploy Production verdict": {
+      "category": "blocking"
+    },
+    "data-delivery-shadow.yml::shadow::Install the target's locked dependencies (DATA_ONLY only)": {
+      "category": "blocking"
+    },
+    "data-delivery-shadow.yml::shadow::Record shadow start": {
+      "category": "blocking"
+    },
+    "data-delivery-shadow.yml::shadow::Resolve the deploy target and the last fully validated deploy": {
+      "category": "blocking"
+    },
+    "data-delivery-shadow.yml::shadow::Run the data gate set (shadow, decides nothing)": {
+      "category": "advisory"
+    },
+    "data-delivery-shadow.yml::shadow::Set up Python": {
+      "category": "blocking"
+    },
+    "data-delivery-shadow.yml::shadow::Upload shadow receipts": {
+      "category": "blocking"
+    },
     "deploy.yml::resolve::Checkout (workflow commit, full history for resolution)": {
       "category": "blocking"
     },
