@@ -91,7 +91,9 @@ describe("early base-contract request", () => {
     const b = new URL(normal.mock.calls[0][0], "https://example.test");
     expect(a.pathname).toBe(b.pathname);
     expect([...a.searchParams].sort()).toEqual([...b.searchParams].sort());
-    expect(normal.mock.calls[0][1]).toEqual({ cache: "no-cache" });
+    // The normal path now also carries an AbortSignal (client deadline);
+    // it does not change the request itself: same URL, same cache mode.
+    expect(normal.mock.calls[0][1]).toMatchObject({ cache: "no-cache" });
   });
 
   it("is inert on every other route", () => {

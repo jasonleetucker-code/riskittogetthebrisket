@@ -1,77 +1,62 @@
 "use client";
 
 import { useEffect } from "react";
+import { Button } from "@/components/ds/Button";
+import { EmptyState } from "@/components/ds/EmptyState";
 
 /**
- * Global error boundary — catches unhandled client-side exceptions and
- * renders a recovery UI instead of the generic Next.js crash page.
+ * Route-segment error boundary — catches an unhandled client-side exception
+ * and renders a recovery UI instead of Next's generic crash page.
  *
- * Next.js App Router automatically wraps each route segment in a React
- * error boundary.  Placing this at app/error.jsx covers all pages.
+ * What it must NOT do: print `error.message`.  A render exception's message is
+ * an implementation detail (a stack-adjacent string, an internal field name,
+ * on a server-component failure a fragment of a backend body) that gives the
+ * reader nothing to act on and gives a stranger a free look at internals.  The
+ * full error still goes to the browser console for debugging.
+ *
+ * The `digest` IS kept, as a short "Reference" line.  Next replaces a
+ * server-side error's message with an opaque hash in production and logs the
+ * real error against that same hash in the server log, so the digest is the
+ * one safe handle a support report can carry.  It is not rendered when absent
+ * (a purely client-side exception has none).
+ *
+ * Styling is the design-system EmptyState + Button — no inline colours.
  */
-export default function GlobalError({ error, reset }) {
+export default function RouteError({ error, reset }) {
   useEffect(() => {
-    // Log the error for debugging (visible in browser console)
-    console.error("[GlobalError] Unhandled client error:", error);
+    // Developer-facing only (browser console); never rendered.
+    console.error("[RouteError] Unhandled client error:", error);
   }, [error]);
 
+  const digest = typeof error?.digest === "string" ? error.digest.slice(0, 40) : "";
+
   return (
-    <section style={{ padding: "40px 20px", maxWidth: 600, margin: "0 auto" }}>
-      <h1 style={{ fontSize: "1.3rem", marginBottom: 12 }}>Something went wrong</h1>
-      <p style={{ color: "#999", fontSize: "0.88rem", marginBottom: 16 }}>
-        A client-side error occurred. This is usually temporary.
-      </p>
-
-      {/* Show the actual error message for debugging */}
-      <pre
-        style={{
-          background: "#1a1a1a",
-          border: "1px solid #333",
-          borderRadius: 6,
-          padding: 12,
-          fontSize: "0.76rem",
-          color: "#f87171",
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-word",
-          marginBottom: 16,
-          maxHeight: 200,
-          overflow: "auto",
-        }}
-      >
-        {error?.message || "Unknown error"}
-        {error?.digest ? `\nDigest: ${error.digest}` : ""}
-      </pre>
-
-      <div style={{ display: "flex", gap: 10 }}>
-        <button
-          onClick={reset}
-          style={{
-            padding: "8px 16px",
-            borderRadius: 6,
-            border: "1px solid #444",
-            background: "#222",
-            color: "#fff",
-            cursor: "pointer",
-            fontSize: "0.82rem",
-          }}
-        >
-          Try again
-        </button>
-        <button
-          onClick={() => (window.location.href = "/")}
-          style={{
-            padding: "8px 16px",
-            borderRadius: 6,
-            border: "1px solid #444",
-            background: "transparent",
-            color: "#999",
-            cursor: "pointer",
-            fontSize: "0.82rem",
-          }}
-        >
-          Go home
-        </button>
-      </div>
+    <section className="main-shell" role="alert" style={{ paddingTop: 40 }}>
+      <EmptyState
+        title="Something went wrong"
+        description="This page hit an unexpected problem. It is usually temporary - try again, or head back to the dashboard."
+        action={
+          <>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+              <Button variant="primary" onClick={() => reset()}>
+                Try again
+              </Button>
+              <Button as="a" href="/" variant="secondary">
+                Go home
+              </Button>
+            </div>
+            {digest ? (
+              <p
+                className="ds-empty__description"
+                data-testid="error-reference"
+                style={{ fontSize: "0.85em" }}
+              >
+                Reference: {digest}
+              </p>
+            ) : null}
+          </>
+        }
+      />
     </section>
   );
 }

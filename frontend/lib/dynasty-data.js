@@ -1649,6 +1649,10 @@ let _cachedBaseContractKey = "";
 let _cachedBaseContractAt = 0;
 let _inflightBaseContract = null; // { key, promise }
 
+/** Client deadline for the base-contract request (ms); see
+ * `_fetchBaseContractNetwork`. */
+export const BASE_CONTRACT_TIMEOUT_MS = 25_000;
+
 // Memo of the final merged override result (base + delta).  Keyed on
 // the POST body + league + the base contract's object identity, so a
 // new base generation (or league switch) invalidates it naturally.
@@ -1760,10 +1764,60 @@ async function _fetchBaseContractNetwork(leagueKey, view, cacheKey, early = null
   // buys over ``no-store``: an unchanged contract answers with a
   // zero-body 304 instead of a multi-MB re-download on every
   // navigation past the in-memory TTL.
+  //
+  // A client deadline.  Without one a stalled backend leaves the page on its
+  // skeleton for as long as nginx waits (up to 300 s) with no way out.  The
+  // contract normally arrives in ~0.5-0.65 s (docs/performance/
+  // CURRENT_ARCHITECTURE.md, #1338), so 25 s is >40x the measured time and
+  // still comfortably covers a slow mobile link.  The deadline covers the
+  // body read too (the timer is cleared only after `res.json()`), and is
+  // surfaced as `err.timedOut` so the hook can say "timed out" + Retry
+  // instead of "could not reach the server".
+  //
+  // Deliberately NOT tied to component unmount: this request is shared (the
+  // AppShell's hook and the page's hook join one in-flight promise, and the
+  // document-head early request is adopted), so aborting it because ONE
+  // consumer unmounted would fail the other.  An unmounted consumer simply
+  // stops listening (`active` in useDynastyData) and sets no error state.
+  const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
+  let timedOut = false;
+  let timer = null;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      timedOut = true;
+      try {
+        ctl?.abort();
+      } catch {
+        // abort() never throws in practice; the race below still rejects.
+      }
+      reject(new Error("timeout"));
+    }, BASE_CONTRACT_TIMEOUT_MS);
+  });
+  deadline.catch(() => {});
+  const stopTimer = () => {
+    if (timer) clearTimeout(timer);
+    timer = null;
+  };
+  const timeoutError = () => {
+    const err = new Error(
+      `The contract request timed out after ${Math.round(BASE_CONTRACT_TIMEOUT_MS / 1000)}s`,
+    );
+    err.status = null;
+    err.body = null;
+    err.timedOut = true;
+    return err;
+  };
   let res;
   try {
-    res = await (early ? early.promise : fetch(url, { cache: "no-cache" }));
+    res = await Promise.race([
+      early
+        ? early.promise
+        : fetch(url, ctl ? { cache: "no-cache", signal: ctl.signal } : { cache: "no-cache" }),
+      deadline,
+    ]);
   } catch (netErr) {
+    stopTimer();
+    if (timedOut) throw timeoutError();
     // No status at all: the request never reached a server. That is a
     // DIFFERENT state from every HTTP failure below and used to be
     // indistinguishable from them once the message was the only channel.
@@ -1775,7 +1829,15 @@ async function _fetchBaseContractNetwork(leagueKey, view, cacheKey, early = null
     throw err;
   }
   if (!res.ok) {
-    const txt = await res.text();
+    let txt = "";
+    try {
+      txt = await Promise.race([res.text(), deadline]);
+    } catch (readErr) {
+      stopTimer();
+      if (timedOut) throw timeoutError();
+      txt = "";
+    }
+    stopTimer();
     // Carry the STATUS on the error, not just inside its message.
     // `useDynastyData` used to recover it with `/\b401\b/.test(message)`,
     // which cannot tell a 503 from a 500 from a timeout — and would have
@@ -1791,7 +1853,15 @@ async function _fetchBaseContractNetwork(leagueKey, view, cacheKey, early = null
     err.body = body;
     throw err;
   }
-  const json = await res.json();
+  let json;
+  try {
+    json = await Promise.race([res.json(), deadline]);
+  } catch (readErr) {
+    stopTimer();
+    if (timedOut) throw timeoutError();
+    throw readErr;
+  }
+  stopTimer();
 
   // The Next.js API route wraps the payload: { ok, source, data: <contract> }
   // The Python backend alias returns the raw contract.  Normalize both.
@@ -2456,11 +2526,19 @@ async function _postOverridesAndMerge(
   //   * base fetch failure → THROWS out of fetchDynastyData (the page
   //     shows its error state);
   //   * overrides POST failure → falls back to the base contract.
+  // Same client deadline as the base request: a hung POST would otherwise
+  // hold the whole load, when its own documented failure mode is "fall back
+  // to the base contract, labelled".
+  const postCtl = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const postTimer = postCtl ? setTimeout(() => postCtl.abort(), BASE_CONTRACT_TIMEOUT_MS) : null;
   const postPromise = fetch(rankingsOverridesUrl(leagueKey), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
     cache: "no-store",
+    ...(postCtl ? { signal: postCtl.signal } : {}),
+  }).finally(() => {
+    if (postTimer) clearTimeout(postTimer);
   }).catch((err) => {
     if (typeof console !== "undefined" && console.warn) {
       console.warn(
