@@ -36,7 +36,7 @@ BLOCKED — OWNER ACTION · BLOCKED — EXTERNAL DEPENDENCY · VERIFIED NO LONGE
 | 13 | Security hardening batch | P2 | MERGED (deploy pending) | #2240 → `5f7e6080` | — | box `.env` is pre-checked against the target revision before the deploy moves anything |
 | 14 | Next.js 16.4.5+ (#2233) | P2 | DEPLOYED | #2241 → `0dc1c6cd` | production build `bd17e684` | dependabot #2233 superseded |
 | 15 | Make permanent-red / vacuous-green checks meaningful | P3 | MERGED (deploy pending) | #2247 → `123c08df`; #2253 open (train 5) | — | 57 stale workflow registrations need an owner disable; #898 owner decision; E2E skip ceiling sits at exactly 70/70 on main |
-| 16 | Node 20 → 22 | P3 | MERGED (deploy pending) | #2252 → `79c60f26` | — | production runtime cutover BLOCKED — OWNER ACTION; engines `>=20 <23` until then |
+| 16 | Node 20 → 22 | P3 | MERGED, then PARTIALLY REVERTED by hotfix #2256 (production lanes back on 20 until the box cutover) | #2252 → `79c60f26`; #2256 | — | production runtime cutover BLOCKED — OWNER ACTION; engines `>=20 <23` until then |
 
 ## Baseline (2026-11-18, before any change)
 
@@ -256,6 +256,20 @@ Record: not started.
   #2251 `ecd2bc91`, #2252 `79c60f26`. This deploy is the first to run the box `.env` pre-flight (#2240).
 - Train 5 (`main 79c60f26 + #2253 + #2245`, `fc94e30a`): RC + E2E dispatched.
 - Deploy `bd17e684` succeeded (~14:06 UTC); the superseded `3f647d16` deploy was cancelled before its production step.
+
+- **Incident 2026-11-18 ~15:20 UTC — deploy blocked by the Node 22 CI move (#2252).** Deploy Production 44330192334
+  (`79c60f26`, train 4) failed at box staging: `scripts/stage_release_artifact.py` refuses an artifact built on a
+  different Node major than production ("release Node major version differs from production"); CI built on 22, the
+  box runs 20. Auto-rollback restored `f5e06111` (production kept serving; services restarted once). The box `.env`
+  pre-flight from #2240 ran first and PASSED (no placeholder password, no test switches on the box). Fix: #2256
+  restores Node 20 on deploy / release-candidate / PR-validation / E2E, pins it in
+  `tests/deploy/test_deploy_node_matches_production.py`, and makes the cutover one coordinated change (box + lanes).
+  Train 5 (#2245 + #2253; RC 44330233614 + E2E 44330240357 green) is held until #2256 merges so they ship in one
+  deploy.
+- Signals probe (Task 11): the deploy-in-flight guard now passes ("no deploy in flight (2 orphaned run(s)
+  ignored)"); the probe ran on the box (run 44339687295) but its fail-closed public projection withheld the whole
+  report (`{"error": "PublicLeak"}`) because a free-text leaf (likely the source's error text) is not public-safe.
+  Fix in progress: redact unsafe leaves individually and publish an error class instead.
 
 ## Operational notes
 
