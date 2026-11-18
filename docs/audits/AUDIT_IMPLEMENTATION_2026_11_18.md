@@ -24,17 +24,17 @@ BLOCKED — OWNER ACTION · BLOCKED — EXTERNAL DEPENDENCY · VERIFIED NO LONGE
 | 1 | Hermetic hard gate and skip-budget repair | P0 | PR OPEN | #2239 `9f764920` | — | in independent review; must merge before ~2026-11-21 |
 | 2 | Freshness and deploy-lag SLO with alerts | P0 | PR OPEN | #2238 `e2bc2309` | — | in independent review; data rules report UNKNOWN until deployed |
 | 3 | Decouple data delivery from the full code gate | P1 | NOT STARTED | — | — | activation needs an owner policy amendment (Agent OS §3 L3 "no skip logic") |
-| 4 | Owner admin-action pack | P1 | NOT STARTED | — | — | ruleset apply, credential rotation, off-box backup destination, deploy-key review are owner-only |
+| 4 | Owner admin-action pack | P1 | IN PROGRESS (preparation) | `claude/serene-shannon-7lsrm9-t04-admin-pack` | — | ruleset apply, credential rotation, off-box backup destination, deploy-key review are owner-only |
 | 5 | Year-boundary hardening (2026→2027) | P1 | IN PROGRESS | `claude/serene-shannon-7lsrm9-t05-year-boundary` | — | — |
 | 6 | Land five UI-fix PRs #2223/#2224/#2226/#2227/#2228 | P1 | MERGED (deploy running) | #2227 `3945d0a2`, #2224 `0d8bca1f`, #2226 `42bd796c`, #2223 `9a4ad5ca`, #2228 `5f35bf8c` | pending | real-device iOS tap / VoiceOver check for #2223; `/rankings` source-popover copy (claimed by draft #2171) |
-| 7 | Post-deploy trade and War Room smoke | P1 | NOT STARTED | — | — | — |
+| 7 | Post-deploy trade and War Room smoke | P1 | PR OPEN | #2242 `1dfb1daf` | — | first real run happens on the next post-deploy verification |
 | 8 | Public-repo data-exposure remediation | P2 | NOT STARTED | — | — | publication policy is an owner decision |
 | 9 | Trade-flow resilience (frontend) | P2 | IN PROGRESS | `claude/serene-shannon-7lsrm9-t09-trade-resilience` | — | — |
-| 10 | Mobile ergonomics and 390 px coverage | P2 | NOT STARTED | — | — | — |
+| 10 | Mobile ergonomics and 390 px coverage | P2 | IN PROGRESS | `claude/serene-shannon-7lsrm9-t10-mobile` | — | — |
 | 11 | Restore Signals; loud private-source failure | P2 | PR OPEN (unit 1 of 2) | #2237 `claude/serene-shannon-7lsrm9-t11-signals` | — | diagnosis waits on #2237 merge; two orphaned deploy runs need a force-cancel |
 | 12 | Live roster refresh — measure first | P2 | NOT STARTED | — | — | — |
-| 13 | Security hardening batch | P2 | PR OPEN | #2240 `bf45fec2` | — | in review: production-start safety of the new startup guards |
-| 14 | Next.js 16.4.5+ (#2233) | P2 | IN PROGRESS | `claude/serene-shannon-7lsrm9-t14-next` | — | supersedes dependabot #2233 |
+| 13 | Security hardening batch | P2 | PR OPEN | #2240 `02e3a8f2` | — | review blocker fixed (box env pre-checked against the target revision before the checkout moves) |
+| 14 | Next.js 16.4.5+ (#2233) | P2 | PR OPEN | #2241 `240a06c3` | — | supersedes dependabot #2233 |
 | 15 | Make permanent-red / vacuous-green checks meaningful | P3 | NOT STARTED | — | — | — |
 | 16 | Node 20 → 22 | P3 | NOT STARTED | — | — | production runtime cutover is box work |
 
@@ -141,7 +141,18 @@ Record:
 
 ### 7. Post-deploy trade / War Room smoke — P1
 Problem: authenticated post-deploy verification never calls `/api/trade/analyze` or `/api/trade/analyze-multi`.
-Record: not started.
+Record (PR #2242, head `1dfb1daf`):
+- Finding while building it: both routes append a receipt to the box-local AL-P5 decision ledger
+  (`data/trade/decisions/runs-YYYY-MM.jsonl`, via `src/trade/trade_decision_log.py::record_decision`) on every call, so
+  a per-deploy smoke would have injected synthetic decisions into learning data. Fix: `X-Chase-Smoke: 1` is honoured
+  only for guest-pass sessions and skips the receipt (per team on analyze-multi); any other session records as before.
+- `scripts/smoke_trade_analysis.py`: builds a 2-team trade and a 3-team ring from each team's top priced player on the
+  live board, asset-only mode; passes only on HTTP 200, a complete per-team schema, at least one priced asset, not
+  every team UNAVAILABLE / NOT_ENOUGH_EVIDENCE, and the receipt skipped; named failure codes (`flag_off`,
+  `all_withheld`, `data_not_ready`, `schema_drift:*`, `ownership_refused:*`, …).
+- Wired into `v1-authenticated-verification.yml` on both triggers; blocking verdict; artifact `trade-smoke.json`.
+- Tests: 241 passed in the targeted set, incl. an end-to-end run on the archived board through the real routes.
+- Only a real post-deploy run can confirm the guest `/api/data?view=app` shape, header handling and latency.
 
 ### 8. Public-repo data exposure — P2
 Problem: public repo tracks ~30 vendor CSVs and ~158 full-board export zips (with Sleeper owner IDs) while
@@ -177,7 +188,24 @@ Record: not started.
 ### 13. Security hardening — P2
 Problem: placeholder password passes the startup guard; non-ASCII bearer token → 500; CSV formula injection;
 anonymous `GET /api/health` can send the backup-alert email; workflows without `permissions:`.
-Record: not started.
+Record (PR #2240, head `02e3a8f2`):
+- One owner `src/api/startup_guards.py::startup_refusals`: placeholder / empty `JASON_LOGIN_PASSWORD` refused unless
+  `ALLOW_DEFAULT_LOGIN_DEV`; with `RISKIT_ENV=production` (now set by `dynasty.service.template`) `E2E_TEST_MODE` /
+  `ALLOW_DEFAULT_LOGIN_DEV` refused. `server.py` calls it at startup.
+- Review blocker (fixed): the deploy must not restart into a refusing server. `deploy.sh::check_box_env_guards` now
+  runs the TARGET revision's `startup_guards.py` (materialised with `git show`, stdlib-only) against the box `.env`
+  (systemd-style parsing, last assignment wins) BEFORE the checkout moves, the frontend swaps or the backend restarts;
+  it prints variable names only. (`python3 -I -m` would have refused every deploy — caught by a test.)
+- Bearer routes compare bytes (`constant_time_equals`, `surrogateescape`); an empty configured token never matches.
+- CSV: `neutralize_csv_text` prefixes `'` to text starting with `= + - @` (after leading whitespace/control) or a
+  leading tab/CR; numbers stay numbers; the auction export uses the same owner. DFS DraftKings uploads unchanged.
+- `/api/health` has no side effects; a `backup_watchdog_loop` (6 h tick, existing `send_alert` cooldown) sends the
+  stale-backup email.
+- Workflows: `contents: read` on `pr-validation.yml`, `smoke-test.yml`, `prod-e2e-smoke.yml`; `permissions: {}` on
+  `public-league-warmup.yml`; `E2E_TEST_SECRET` masked in `e2e.yml`.
+- Tests: 22 new tests fail on main and pass on the PR; box-env guard 16 tests; deploy suites pass.
+- Follow-ups: pin `anthropics/claude-code-action` to a verified SHA (repo not readable from this session);
+  `permissions:` for `health-check.yml` (done in #2238) and `deploy.yml`.
 
 ### 14. Next.js upgrade — P2
 Record: not started.
