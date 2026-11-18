@@ -476,6 +476,11 @@ _ALLOWED_UPLOADS = {
     # instants and counts; fixed test titles; no message text.  Redaction is
     # pinned by tests/ops/test_v1_failure_classifier.py.
     "v1-failure-classification.json",
+    # scripts/smoke_trade_analysis.py: roster ids, asset ids (``p:<sleeperId>``),
+    # statuses, counts and snake_case failure codes only -- no names, no free
+    # text from a response (``_vocab``); pinned by
+    # tests/scripts/test_smoke_trade_analysis.py.
+    "trade-smoke.json",
     "tests/e2e/prod-auth-results.json",
 }
 

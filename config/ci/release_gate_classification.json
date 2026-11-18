@@ -1265,6 +1265,9 @@
     "v1-authenticated-verification.yml::v1-authenticated::Upload the reports": {
       "category": "blocking"
     },
+    "v1-authenticated-verification.yml::v1-authenticated::Trade analysis smoke (2-team analyze + 3-team analyze-multi)": {
+      "category": "blocking"
+    },
     "v1-authenticated-verification.yml::v1-authenticated::Wait for a warm backend (bounded, public endpoints)": {
       "category": "advisory"
     },

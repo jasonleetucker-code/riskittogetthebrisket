@@ -20686,15 +20686,20 @@ async def post_trade_analyze(request: Request):
     # Decision receipt (TC-C): one line in the decision's own run log, the
     # AL-P5 arrangement Best Offers uses.  Best effort; never changes the
     # response beyond naming the run.
-    from src.trade.trade_decision_log import record_decision  # noqa: PLC0415
+    from src.trade.trade_decision_log import (  # noqa: PLC0415
+        is_smoke_request,
+        record_decision_unless_smoke,
+    )
 
+    smoke = is_smoke_request(request.headers, guest=not detail)
     with clock.stage("receipt"):
-        result["analysis"]["decisionRunId"] = record_decision(
+        result["analysis"]["decisionRunId"] = record_decision_unless_smoke(
             result["analysis"],
             league_key=league_key,
             team=(result.get("team") or {}).get("name")
             if isinstance(result.get("team"), dict)
             else None,
+            smoke=smoke,
         )
     result["analysisTiming"] = clock.to_dict(
         shared_stages=shared_stages if shared else None, detail=detail
@@ -21087,8 +21092,12 @@ async def post_trade_analyze_multi(request: Request):
     if shared:
         result = copy.deepcopy(result)
 
-    from src.trade.trade_decision_log import record_decision  # noqa: PLC0415
+    from src.trade.trade_decision_log import (  # noqa: PLC0415
+        is_smoke_request,
+        record_decision_unless_smoke,
+    )
 
+    smoke = is_smoke_request(request.headers, guest=not detail)
     response = _svc.multi_team_payload(
         result,
         snap=snap,
@@ -21100,8 +21109,11 @@ async def post_trade_analyze_multi(request: Request):
     decision_run_ids: dict[str, Any] = {}
     with clock.stage("receipt"):
         for t in response["teams"]:
-            run_id = record_decision(
-                t["analysis"], league_key=league_key, team=(t.get("team") or {}).get("name")
+            run_id = record_decision_unless_smoke(
+                t["analysis"],
+                league_key=league_key,
+                team=(t.get("team") or {}).get("name"),
+                smoke=smoke,
             )
             t["analysis"]["decisionRunId"] = run_id
             decision_run_ids[str(t["rosterId"])] = run_id
