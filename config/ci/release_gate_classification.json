@@ -674,6 +674,9 @@
     "pr-validation.yml::checks::Product-plan governance gate": {
       "category": "blocking"
     },
+    "pr-validation.yml::checks::Tracked-data exposure guard (PR diff)": {
+      "category": "blocking"
+    },
     "pr-validation.yml::checks::Python import gate": {
       "category": "blocking"
     },

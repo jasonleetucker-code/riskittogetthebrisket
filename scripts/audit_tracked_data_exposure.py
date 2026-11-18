@@ -13,6 +13,7 @@ Usage::
 
     python scripts/audit_tracked_data_exposure.py --out-json r.json --out-md r.md
     python scripts/audit_tracked_data_exposure.py --write-baseline
+    python scripts/audit_tracked_data_exposure.py --changed-since origin/main   # PR gate
 
 Determinism: no timestamps, sorted keys.  ``--with-last-commit`` adds the last
 commit date per path group (slower, and changes as the repo moves).
@@ -230,6 +231,31 @@ def build_baseline_lines(files: list[str]) -> list[str]:
         if guard_findings(rel):
             exact.append(rel)
     lines.extend(f"path: {p}" for p in sorted(exact))
+    return lines
+
+
+def changed_files(base_ref: str) -> list[str]:
+    """Files ADDED or MODIFIED vs the merge base with ``base_ref`` (PR diff)."""
+    out = subprocess.run(
+        ["git", "diff", "--name-only", "-z", "--diff-filter=AM", f"{base_ref}...HEAD"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    return sorted(p for p in out.split("\0") if p)
+
+
+def check_changed_since(base_ref: str, baseline: Path | None = None) -> list[str]:
+    """Offender lines for changed in-scope files not covered by the baseline."""
+    exact, prefixes = load_baseline(baseline or BASELINE_PATH)
+    lines = []
+    for rel in changed_files(base_ref):
+        if not in_scope(rel) or baselined(rel, exact, prefixes):
+            continue
+        reasons = guard_findings(rel)
+        if reasons:
+            lines.append(f"{rel}: {'; '.join(reasons)}")
     return lines
 
 
@@ -454,7 +480,26 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out-md")
     ap.add_argument("--with-last-commit", action="store_true")
     ap.add_argument("--write-baseline", action="store_true")
+    ap.add_argument(
+        "--changed-since",
+        metavar="BASE_REF",
+        help="PR mode: only files added/modified vs the merge base; exit 1 on a new offender "
+        "outside the baseline (hermetic to rolling data already on main)",
+    )
     args = ap.parse_args(argv)
+    if args.changed_since:
+        offenders = check_changed_since(args.changed_since)
+        if offenders:
+            print(
+                "New tracked files publish owner-id-like fields or paid-vendor data (public repo):"
+            )
+            print("\n".join(f"  {o}" for o in offenders))
+            print(
+                "See docs/security/DATA_EXPOSURE_DECISION_BRIEF_2026-11-18.md; no baseline growth without the owner decision."
+            )
+            return 1
+        print("tracked-data exposure: no new offender in this diff")
+        return 0
     if args.write_baseline:
         lines = build_baseline_lines(tracked_files())
         BASELINE_PATH.parent.mkdir(parents=True, exist_ok=True)

@@ -14,6 +14,7 @@ republishes continuously; shrinking it is always fine.
 from __future__ import annotations
 
 import io
+import subprocess
 import sys
 import zipfile
 from pathlib import Path
@@ -21,12 +22,17 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
+import pytest  # noqa: E402
+
 import audit_tracked_data_exposure as guard  # noqa: E402
 
 OWNER_FIELD = '"owner_id": "123456789012345678"'
 
 
+@pytest.mark.livedata
 def test_no_new_tracked_file_grows_the_exposure():
+    """Advisory (livedata lane): reads the LIVE tracked tree, which scheduled refreshes
+    change without a PR.  The blocking check is the diff-scoped PR step."""
     exact, prefixes = guard.load_baseline()
     assert prefixes, "baseline file missing or empty"
     offenders = []
@@ -97,3 +103,54 @@ def test_baseline_coverage_rules(tmp_path):
     assert guard.baselined("CSVs/a.csv", exact, prefixes)
     assert not guard.baselined("CSVs/b.csv", exact, prefixes)
     assert not guard.baselined("data/other/x.csv", exact, prefixes)
+
+
+def _git(cwd, *args):
+    subprocess.run(
+        ["git", *args],
+        cwd=cwd,
+        check=True,
+        capture_output=True,
+        env={
+            "GIT_AUTHOR_NAME": "t",
+            "GIT_AUTHOR_EMAIL": "t@example.invalid",
+            "GIT_COMMITTER_NAME": "t",
+            "GIT_COMMITTER_EMAIL": "t@example.invalid",
+            "PATH": __import__("os").environ["PATH"],
+            "HOME": str(cwd),
+        },
+    )
+
+
+def test_changed_since_diff_mode(tmp_path, monkeypatch):
+    repo = tmp_path / "r"
+    (repo / "data" / "raw" / "dlf_sf").mkdir(parents=True)
+    (repo / "CSVs" / "site_raw").mkdir(parents=True)
+    (repo / "CSVs" / "site_raw" / "dlfSf.csv").write_text("a\n", encoding="utf-8")
+    (repo / "data" / "raw" / "dlf_sf" / "old.csv").write_text("a\n", encoding="utf-8")
+    (repo / "README").write_text("x", encoding="utf-8")
+    base = tmp_path / "baseline.txt"
+    base.write_text("prefix: data/raw/\npath: CSVs/site_raw/dlfSf.csv\n", encoding="utf-8")
+    _git(repo.parent, "init", "-q", "-b", "main", str(repo))
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "base")
+    _git(repo, "checkout", "-q", "-b", "feature")
+    monkeypatch.setattr(guard, "REPO", repo)
+
+    # modify a baselined file + refresh-style new file under a baselined prefix: passes
+    (repo / "CSVs" / "site_raw" / "dlfSf.csv").write_text("b\n", encoding="utf-8")
+    (repo / "data" / "raw" / "dlf_sf" / "new.csv").write_text("b\n", encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "refresh-style")
+    assert guard.check_changed_since("main", base) == []
+
+    # add an offender outside the baseline: fails, and no value is echoed
+    (repo / "data" / "teams.json").write_text("{" + OWNER_FIELD + "}", encoding="utf-8")
+    (repo / "CSVs" / "site_raw" / "draftSharksSf.csv").write_text("a\n", encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "offenders")
+    found = guard.check_changed_since("main", base)
+    assert len(found) == 2
+    assert any(f.startswith("data/teams.json") for f in found)
+    assert any("Draft Sharks" in f for f in found)
+    assert "123456789012345678" not in " ".join(found)
