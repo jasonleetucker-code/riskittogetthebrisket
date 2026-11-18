@@ -118,7 +118,7 @@ test.describe("mobile 390px: pinned chrome does not occlude itself", () => {
  */
 const BOTTOM_CHROME = () => {
   const out = [];
-  for (const sel of [".mobile-bottom-nav", ".trade-sticky-tray", ".screenshot-fab"]) {
+  for (const sel of [".shell-tabbar", ".trade-sticky-tray", ".screenshot-fab"]) {
     for (const el of document.querySelectorAll(sel)) {
       const s = getComputedStyle(el);
       if (s.position !== "fixed") continue;
@@ -147,10 +147,10 @@ test.describe("mobile 390px: bottom chrome stacks without overlap", () => {
       await awaitStreamSettled(authedPage);
       await authedPage.waitForTimeout(400);
       const boxes = await authedPage.evaluate(BOTTOM_CHROME);
-      // Non-vacuity: the phone shell always renders the bottom nav.
+      // Non-vacuity: the phone shell always renders the bottom tab bar (.shell-tabbar).
       expect(
-        boxes.some((b) => b.name === "mobile-bottom-nav"),
-        `${route}: the bottom nav did not render, so nothing was measured`,
+        boxes.some((b) => b.name === "shell-tabbar"),
+        `${route}: the bottom tab bar (.shell-tabbar) did not render, so nothing was measured`,
       ).toBe(true);
       const bad = overlaps(boxes);
       expect(bad, `${route}: bottom chrome overlaps at 390x844: ${bad.join("; ")}`).toEqual([]);

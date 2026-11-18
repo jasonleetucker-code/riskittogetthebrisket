@@ -126,6 +126,7 @@ const ROUTES = [
   "/auction",
   "/auction/join",
   "/auction/notifications",
+  "/auction/reset",
   // Unlisted Waiver Wire Comparison (owner request 2026-10-21): public by
   // exact link, never advertised (lib/public-routes.js isUnlistedPagePath).
   "/waiver-wire/r7k4q9m2",
@@ -446,7 +447,6 @@ const MOBILE_ROUTES = new Set([
   "/auction",
   "/auction/join",
   "/auction/notifications",
-  "/auction/reset",
 ]);
 
 // Desktop-only families carry this tag; the mobile projects filter it out
