@@ -179,3 +179,84 @@ describe("useTeam never defaults to the site owner's team", () => {
     });
   });
 });
+
+// A team picked BEFORE /api/leagues answers (E2E trade-war-room,
+// mobile-chromium, run 44308798204).  The contract — and so every team
+// picker — is usually live first; the teams it offers are the contract's
+// league's (``meta.leagueKey``).  The pick used to be dropped while
+// ``selectedLeagueKey`` was still "": /trade's own picker showed the team,
+// every ``useTeam().selectedTeam`` consumer (the War Room) saw none, and
+// auto-assign could later replace the explicit choice.
+describe("useTeam keeps a pick made before the league key resolves", () => {
+  function Picker() {
+    const { selectedTeam, setSelectedTeam } = useTeam();
+    return (
+      <div>
+        <span data-testid="team">{selectedTeam?.name || "none"}</span>
+        <button type="button" onClick={() => setSelectedTeam(TEAMS[0])}>
+          pick
+        </button>
+      </div>
+    );
+  }
+
+  function leaguesLoading() {
+    return { selectedLeague: null, selectedLeagueKey: "", defaultLeagueKey: "", loading: true };
+  }
+
+  it("records it under the contract's league and keeps it over the server default", async () => {
+    mockUseApp.mockReturnValue(appState());
+    const box = settingsState();
+    mockUseSettings.mockImplementation(() => box);
+    mockUseLeague.mockReturnValue(leaguesLoading());
+    const { rerender } = render(<Picker />);
+
+    screen.getByRole("button", { name: "pick" }).click();
+    expect(box.settings.selectedTeamsByLeague).toEqual({
+      main: { ownerId: "u1", teamName: "Rossini Panini", rosterId: 1 },
+    });
+    expect(box.settings.selectedTeamTouchedByLeague).toEqual({ main: true });
+    // The default league is not known yet, so nothing is mirrored into
+    // the legacy single-league field.
+    expect(box.update).not.toHaveBeenCalledWith("selectedTeam", expect.anything());
+
+    // /api/leagues answers: the contract's league, whose server default
+    // for this user is a DIFFERENT team (u2 → Bravo).
+    mockUseLeague.mockReturnValue(leagueState());
+    rerender(<Picker />);
+    await waitFor(() => {
+      expect(screen.getByTestId("team").textContent).toBe("Rossini Panini");
+    });
+  });
+
+  it("still refuses when neither the league nor the contract names one", () => {
+    mockUseApp.mockReturnValue({
+      rawData: { meta: { sleeperDataReady: true }, sleeper: { teams: TEAMS } },
+      privateDataEnabled: true,
+      loading: false,
+    });
+    const box = settingsState();
+    mockUseSettings.mockImplementation(() => box);
+    mockUseLeague.mockReturnValue(leaguesLoading());
+    render(<Picker />);
+
+    screen.getByRole("button", { name: "pick" }).click();
+    expect(box.update).not.toHaveBeenCalled();
+  });
+
+  it("writes to the active league once it is known (unchanged)", () => {
+    mockUseApp.mockReturnValue(appState());
+    const box = settingsState({ touched: true });
+    mockUseSettings.mockImplementation(() => box);
+    mockUseLeague.mockReturnValue(leagueState());
+    render(<Picker />);
+
+    screen.getByRole("button", { name: "pick" }).click();
+    expect(box.settings.selectedTeamsByLeague.main).toEqual({
+      ownerId: "u1",
+      teamName: "Rossini Panini",
+      rosterId: 1,
+    });
+    expect(box.update).toHaveBeenCalledWith("selectedTeam", "Rossini Panini");
+  });
+});
