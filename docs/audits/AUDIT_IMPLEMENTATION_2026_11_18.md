@@ -404,6 +404,13 @@ Record (PR #2252 → `79c60f26`, train 4; hotfix #2256 → `6f87d9d0`):
   failed once on #2238 (0.44 s vs 0.35 s bound) and passed on the single permitted re-run — an intermittent timing test
   under runner load; candidate for Task 15's follow-up list.
 
+- 18:2x UTC: #2259 merged (`7decca70`, RC 44364618189 on base `bb95f1e6` = main). Deploy 44368941410 failed in
+  hard-gate shard 2 before any production step (production stayed `bb95f1e6`): infrastructure, not a test. All 8
+  shards ran image `ubuntu-26.04` 20261103.629; on the failing runner `apt-get update` saw only
+  `packages.microsoft.com` (no `apt-mirrors.txt`, no Ubuntu archive), so `tesseract-ocr` was "Unable to locate" on all
+  4 attempts; the other 7 shards fetched the Ubuntu archive and passed. A broken runner instance: the in-job retry
+  cannot help because it stays on the same machine. One permitted re-run of the failed jobs dispatched.
+
 ## Final report (2026-11-18)
 
 ### Status counts
@@ -456,6 +463,10 @@ All 16 tasks have merged engineering work; 26 PRs merged (#2223, #2224, #2226, #
   clearance and info-tip taps (Task 10), phone test-push and a live auction room (#2228).
 - The desktop War Room spec timed out once on a backend restarted 6 minutes earlier (it passed on the next run); a
   cold backend can make the first authenticated run after a restart slow.
+- A runner instance can come up without the Ubuntu apt archive (observed once, deploy 44368941410); the
+  `tesseract-ocr` install then fails on every in-job retry. Same class as the 2 tesseract failures in the Task 3
+  backtest. Mitigation candidate (not done): pin the tesseract-installing jobs to an explicit image, or restore the
+  Ubuntu archive source when it is missing, before the install.
 - `tests/api/test_run_scraper_nonblocking.py` (event-loop timing bound) failed once under runner load and passed on
   re-run.
 - 2027-01-01: the documented board-vs-league divergence on 2030 picks takes effect unless the owner decides
