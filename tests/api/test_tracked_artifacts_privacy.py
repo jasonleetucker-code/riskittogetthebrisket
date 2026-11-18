@@ -286,6 +286,12 @@ def test_the_evidence_still_proves_its_finding():
     ), "the capture still carries a real manager id"
 
 
+# ``livedata``: this reads the UNTRACKED, gitignored artifact the ROS pipeline
+# writes on a provisioned host.  A checkout never has it, so in the blocking gate
+# it could only ever skip -- consuming the suite-wide skip budget
+# (``config/ci/test_shards.json::max_skipped``) for a property that is a fact
+# about a live box, not about the code.
+@pytest.mark.livedata
 @pytest.mark.parametrize(
     "marker",
     ("benchDepthScore", "positionalCoverageScore", "healthAvailabilityScore"),
@@ -378,6 +384,7 @@ def test_scan_is_not_silently_empty():
     assert any(f.endswith(".json") for f in files), "no tracked JSON found to scan"
 
 
+@pytest.mark.livedata  # reads the untracked live ROS artifact; see the marker note above
 def test_the_ros_artifacts_still_exist_on_disk():
     """Untracked, not deleted.
 
