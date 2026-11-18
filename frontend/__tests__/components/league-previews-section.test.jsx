@@ -218,10 +218,16 @@ describe("ArticlesSection slate labelling", () => {
 
   it("does not claim currency when the clock is unknown", async () => {
     // An unknown clock must not be reported as a match OR as a mismatch.
+    // This used to assert the present-tense heading, which (with the
+    // "Wednesday-morning previews" subhead) WAS a currency claim: production
+    // 2026-11-16 titled the 2025 Week 17 recaps as current mid-2026.  The
+    // slate is now named for what it is: the most recent on file.
     render(<ArticlesSection mode="preview" />);
     await waitFor(() => {
-      expect(screen.getByText(/Week 17 previews · 2025/)).toBeTruthy();
+      expect(screen.getByText(/Most recent previews · 2025 Week 17/)).toBeTruthy();
     });
+    expect(screen.getByText(/The most recent previews on file/)).toBeTruthy();
+    expect(screen.queryByText(/Wednesday-morning previews\. Tap a card/)).toBeNull();
     expect(screen.queryByText(/No previews written yet/)).toBeNull();
   });
 });
