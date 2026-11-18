@@ -26,6 +26,8 @@ const REASONS = {
   context_error: "Roster context failed to load.",
   roster_context_incomplete: "Roster context is incomplete (open roster spots unknown), so no plan is shown.",
   room_pool_unknown: "The room's total money is unknown, so prices cannot be estimated.",
+  lot_owner_unknown:
+    "The room did not say who currently owns every sold player, so this seat's roster room is unknown and no plan is shown.",
 };
 
 function storageKey(roomId, seat) {

@@ -94,6 +94,50 @@ export function expectedPrice(p) {
   return null;
 }
 
+const normTeam = (s) => String(s || "").trim().toLowerCase();
+
+/**
+ * Whose money and purchases the plan is built on.
+ *
+ * The roster comes from the backend roster context for whichever team the
+ * selector names; the BUDGET and PURCHASES come from the draft workspace.
+ * They must describe the same team.  Following the workspace (no explicit
+ * pick), or explicitly picking your own team, uses your own figures.  An
+ * explicit pick of another team uses THAT team's row of
+ * `computeDraftStats().teamStats` — its remaining budget, spend and rookie
+ * count — never yours.  A team the workspace does not have is UNKNOWN: no
+ * budget is invented for it (`kind: "unknown"`), and the panel says so instead
+ * of planning someone else's roster against your money.
+ */
+export function resolveOptimizedTeam({ stats, myTeamName = "", targetName = "", explicit = false } = {}) {
+  const mine = {
+    kind: "mine",
+    name: myTeamName || stats?.myTeamName || "",
+    teamIdx: null,
+    remaining: stats?.myRemaining || 0,
+    spent: stats?.mySpent || 0,
+    rookiesBought: Number(stats?.myRookiesBought) || 0,
+  };
+  if (!explicit || !targetName || normTeam(targetName) === normTeam(myTeamName)) return mine;
+  const row = (stats?.teamStats || []).find((t) => normTeam(t?.name) === normTeam(targetName));
+  if (!row) {
+    return { kind: "unknown", name: targetName, teamIdx: null, remaining: null, spent: null, rookiesBought: null };
+  }
+  if (row.isMine) return mine;
+  const remaining = Number(row.remaining);
+  if (row.remaining == null || !Number.isFinite(remaining) || !Number.isInteger(row.idx)) {
+    return { kind: "unknown", name: row.name || targetName, teamIdx: null, remaining: null, spent: null, rookiesBought: null };
+  }
+  return {
+    kind: "other",
+    name: row.name || targetName,
+    teamIdx: row.idx,
+    remaining,
+    spent: Number(row.spent) || 0,
+    rookiesBought: Number(row.rookiesBought) || 0,
+  };
+}
+
 export function PerfectDraftPanel({ stats, workspace, workspaceReady = true }) {
   // `myTeamIdx` lives under `settings` — every other reader in the app uses
   // `workspace.settings.myTeamIdx` (draft-logic.js, page.jsx). Reading it off
@@ -157,6 +201,22 @@ export function PerfectDraftPanel({ stats, workspace, workspaceReady = true }) {
     return () => window.removeEventListener("league:changed", clear);
   }, []);
 
+  // Budget, purchases and "bought so far" follow the team whose ROSTER is on
+  // screen.  The context is kept while a new team's roster loads, so key off
+  // the team it actually describes — budget and roster switch together.
+  const optimizedTeam = resolveOptimizedTeam({
+    stats,
+    myTeamName,
+    targetName: context?.team?.name || teamName,
+    explicit: Boolean(teamOverride),
+  });
+  const forOtherTeam = optimizedTeam.kind === "other";
+  // "Beat the room" caps each price one dollar past the richest RIVAL of the
+  // user's team (`bayesianTopCompetitor`, computed by draft-logic for your
+  // seat).  For another team those rivals are wrong — they include you and
+  // exclude him — so fair value is used and the panel says so.
+  const effectivePriceBasis = forOtherTeam ? "fair" : priceBasis;
+
   // Available rookies with their live expected price. `inflatedFair` is the
   // board's own live price model (preDraft x tier-adjusted inflation) — the
   // optimizer reuses it rather than introducing a second price concept.
@@ -178,10 +238,10 @@ export function PerfectDraftPanel({ stats, workspace, workspaceReady = true }) {
         bayesianTopCompetitor: p.bayesianTopCompetitor,
         tier: p.tier,
       }))
-      .map((p) => ({ ...p, price: contestedPrice(p, priceBasis) }));
-  }, [stats?.enrichedPlayers, priceBasis]);
+      .map((p) => ({ ...p, price: contestedPrice(p, effectivePriceBasis) }));
+  }, [stats?.enrichedPlayers, effectivePriceBasis]);
 
-  const rookiesBought = Number(stats?.myRookiesBought) || 0;
+  const rookiesBought = optimizedTeam.rookiesBought || 0;
 
   // Price uncertainty, learned from this draft's own realized sales. Before any
   // pick lands this is entirely the declared prior; each recorded sale shrinks
@@ -228,12 +288,13 @@ export function PerfectDraftPanel({ stats, workspace, workspaceReady = true }) {
     [context?.openRosterSpots, context?.cutLadder?.rungs, context?.waiverLadder, rookiesBought],
   );
 
+  const teamBudget = optimizedTeam.remaining;
   const solveInput = useMemo(
     () =>
-      context
+      context && teamBudget != null
         ? {
             rookies,
-            budget: stats?.myRemaining || 0,
+            budget: teamBudget,
             cutLadder: progress.cutLadder,
             openRosterSpots: progress.openRosterSpots,
             waiverValues: context.waiverValues || {},
@@ -242,7 +303,7 @@ export function PerfectDraftPanel({ stats, workspace, workspaceReady = true }) {
             priceSigmaFor,
           }
         : null,
-    [context, rookies, stats?.myRemaining, progress, strategy, priceSigmaFor],
+    [context, rookies, teamBudget, progress, strategy, priceSigmaFor],
   );
 
   // The solve is ~140ms at a full budget, and live Sleeper picks can arrive in
@@ -288,9 +349,10 @@ export function PerfectDraftPanel({ stats, workspace, workspaceReady = true }) {
             cutLadder: context.cutLadder?.rungs || [],
             openRosterSpots: context.openRosterSpots || 0,
             strategy,
+            teamIdx: optimizedTeam.teamIdx,
           })
         : null,
-    [context, stats, strategy],
+    [context, stats, strategy, optimizedTeam.teamIdx],
   );
 
   // Flag off: say so. /draft has no other recommender (the legacy per-player
@@ -311,6 +373,42 @@ export function PerfectDraftPanel({ stats, workspace, workspaceReady = true }) {
     );
   }
   if (failure || (!loading && !context)) return null;
+
+  const teamSelect =
+    teams.length > 1 ? (
+      <Select
+        aria-label="Team to optimize"
+        value={teamName}
+        onChange={(e) => setTeamOverride(e.target.value)}
+      >
+        {teams.map((t) => (
+          <option key={t.ownerId || t.name} value={t.name}>
+            {t.name}
+          </option>
+        ))}
+      </Select>
+    ) : null;
+
+  // The chosen team is not in this draft workspace, so its budget and its
+  // purchases are unknown.  Say so — and keep the selector, so the user can
+  // switch back — rather than planning that roster against YOUR budget.
+  if (context && optimizedTeam.kind === "unknown") {
+    return (
+      <CollapsiblePanel
+        className="perfect-draft-panel"
+        title="Perfect Draft"
+        subtitle={`No plan for ${optimizedTeam.name}: its draft budget is unknown`}
+        defaultCollapsed={false}
+      >
+        <div className={styles.pageActions}>{teamSelect}</div>
+        <Banner tone="info" title="Budget unknown for this team">
+          {optimizedTeam.name} is not a team in this draft workspace, so its
+          remaining budget and the rookies it has bought are unknown. No plan is
+          shown rather than one built on another team&apos;s money.
+        </Banner>
+      </CollapsiblePanel>
+    );
+  }
   if (!result) return null;
 
   const { plan, alternatives, confidence, nearTies, meta } = result;
@@ -557,7 +655,14 @@ export function PerfectDraftPanel({ stats, workspace, workspaceReady = true }) {
         ? "Draft complete"
         : "No remaining rookie improves this roster enough to be worth his price";
     }
-    const lead = phase === "pre" ? "Best use of" : "Best use of your remaining";
+    const lead =
+      phase === "pre"
+        ? forOtherTeam
+          ? `Best use of ${optimizedTeam.name}'s`
+          : "Best use of"
+        : forOtherTeam
+          ? `Best use of ${optimizedTeam.name}'s remaining`
+          : "Best use of your remaining";
     return `${lead} ${fmt$(meta.budget)}: ${plan.players.length} rookie${
       plan.players.length === 1 ? "" : "s"
     }, ${fmtVal(plan.netValue)} net roster value`;
@@ -582,26 +687,14 @@ export function PerfectDraftPanel({ stats, workspace, workspaceReady = true }) {
         <span className="muted" style={{ fontSize: "var(--font-size-2xs)" }}>
           {recalculating
             ? "Recalculating…"
-            : `Updates automatically · ${rookiesBought} bought · ${fmt$(
-                stats?.mySpent || 0,
-              )} spent`}
+            : `Updates automatically · ${
+                forOtherTeam ? `${optimizedTeam.name}: ` : ""
+              }${rookiesBought} bought · ${fmt$(optimizedTeam.spent || 0)} spent`}
         </span>
         <Button size="sm" variant="ghost" onClick={refetch}>
           Refresh roster
         </Button>
-        {teams.length > 1 ? (
-          <Select
-            aria-label="Team to optimize"
-            value={teamName}
-            onChange={(e) => setTeamOverride(e.target.value)}
-          >
-            {teams.map((t) => (
-              <option key={t.ownerId || t.name} value={t.name}>
-                {t.name}
-              </option>
-            ))}
-          </Select>
-        ) : null}
+        {teamSelect}
         <SegmentedControl
           label="Strategy"
           value={strategy}
@@ -622,11 +715,22 @@ export function PerfectDraftPanel({ stats, workspace, workspaceReady = true }) {
         />
       </div>
 
+      {forOtherTeam && priceBasis === "contested" ? (
+        <p className="muted" style={{ fontSize: "var(--font-size-2xs)" }}>
+          &ldquo;Beat the room&rdquo; prices are measured against your own
+          rivals, so they do not apply to {optimizedTeam.name}; this plan uses
+          fair value.
+        </p>
+      ) : null}
+
       {summary}
 
       {realized && realized.count > 0 ? (
         <p className="muted">
-          <strong>Bought so far:</strong> {realized.count} rookie
+          <strong>
+            {forOtherTeam ? `${optimizedTeam.name} has bought so far:` : "Bought so far:"}
+          </strong>{" "}
+          {realized.count} rookie
           {realized.count === 1 ? "" : "s"} for {fmt$(realized.spend)} —{" "}
           {fmtVal(realized.netValue)} net roster value added (
           {fmtVal(realized.grossSurplus)} added −{" "}
