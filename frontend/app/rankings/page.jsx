@@ -17,6 +17,7 @@ import {
   RANKING_SOURCES,
   valuationBasisLabel,
   valuationBasisOf,
+  siteOverridesAreCustomized,
 } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
 import { useApp } from "@/components/AppShell";
@@ -243,10 +244,25 @@ export function describeCustomMix(rankingsOverride) {
   return { active: true, disabled, reweighted, summary };
 }
 
-function CustomMixBadge({ rankingsOverride }) {
+// The badge shows when EITHER signal says a mix is stored: the backend's
+// `rankingsOverride.isCustomized` (carries per-source detail) or the same
+// client-side check /settings uses on the locally stored weights.  With
+// overrides switched off the server never stamps the first, so the second
+// keeps /rankings and /settings in agreement.  Without server detail the
+// popover gives a plain sentence and no per-source lists.
+export function storedMixBadgeState(rankingsOverride, storedSiteWeights) {
+  const described = describeCustomMix(rankingsOverride);
+  if (described.active) return { ...described, hasDetail: true };
+  if (siteOverridesAreCustomized(storedSiteWeights)) {
+    return { active: true, disabled: [], reweighted: [], summary: "", hasDetail: false };
+  }
+  return { active: false, disabled: [], reweighted: [], summary: "", hasDetail: false };
+}
+
+function CustomMixBadge({ rankingsOverride, storedSiteWeights }) {
   const [open, setOpen] = useState(false);
-  const { active, disabled, reweighted, summary } =
-    describeCustomMix(rankingsOverride);
+  const { active, disabled, reweighted, summary, hasDetail } =
+    storedMixBadgeState(rankingsOverride, storedSiteWeights);
   if (!active) return null;
 
   return (
@@ -267,6 +283,12 @@ function CustomMixBadge({ rankingsOverride }) {
       {open && (
         <div className={styles.popover} role="tooltip">
           <p className={styles.popoverHeader}>Stored custom source mix</p>
+          {!hasDetail && (
+            <p className={styles.popoverHint}>
+              Your saved source mix is stored but not applied; the board
+              blends every source.
+            </p>
+          )}
           {disabled.length > 0 && (
             <p className={styles.popoverHint}>
               <strong>Stored as excluded:</strong> {disabled.join(", ")}
@@ -1428,7 +1450,10 @@ export default function RankingsPage() {
               the choice still exists. See
               docs/valuation/LEAGUE_AWARE_METHODOLOGY_REJECTION.md.
             */}
-            <CustomMixBadge rankingsOverride={rawData?.rankingsOverride} />
+            <CustomMixBadge
+              rankingsOverride={rawData?.rankingsOverride}
+              storedSiteWeights={settings?.siteWeights}
+            />
             {copyStatus && (
               <span className={styles.resultCount}>{copyStatus}</span>
             )}

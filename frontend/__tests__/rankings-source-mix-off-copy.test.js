@@ -35,6 +35,12 @@ describe("rankings source-mix honesty", () => {
     expect(page).not.toContain("Your custom source mix could not be applied");
   });
 
+  it("keys the badge on the same client-side stored-mix check as /settings", () => {
+    expect(page).toContain("siteOverridesAreCustomized");
+    expect(page).toContain("storedSiteWeights={settings?.siteWeights}");
+    expect(page).toContain("Your saved source mix is stored but not applied; the board");
+  });
+
   it("value explainer no longer says changed weights recompute the board", () => {
     const text = VALUE_EXPLAINERS.value.detail.join(" ");
     expect(text).not.toContain("recomputes the board with your weights");
