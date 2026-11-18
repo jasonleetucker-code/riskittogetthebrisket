@@ -4,6 +4,7 @@ import { lazy, Suspense, useMemo, useState } from "react";
 import {
   Badge,
   Banner,
+  Button,
   DataTable,
   EmptyState,
   Field,
@@ -139,7 +140,37 @@ function PlayerCell({ row, isRookie, rosteredBy }) {
 
 // ── Sections ──────────────────────────────────────────────────────────
 
-function SummaryTiles({ summary, includeRookies }) {
+/**
+ * True when the canonical cut ladder could not be read.  Every count and
+ * pairing below is measured against the legal releases it lists, so with
+ * it unavailable those figures are UNKNOWN — not zero, and not "your
+ * filters hid everything".
+ */
+function ladderUnavailable(dropState) {
+  return dropState?.state !== "ok";
+}
+
+const LADDER_UNAVAILABLE_META = "cut ladder unavailable";
+
+function SummaryTiles({ summary, includeRookies, dropState }) {
+  if (ladderUnavailable(dropState)) {
+    // The lists behind these tiles are empty BECAUSE the ladder is
+    // missing, so their counts (0) and "no upgrades vs roster" would
+    // state a measurement nobody made.  Same tile grid, stated unknown.
+    const labels = ["Best available", "Top net gain", "Addable players", "Droppable players"];
+    if (includeRookies) labels.push("Rookies in mix");
+    return (
+      <div
+        className={styles.summaryGrid}
+        data-cols={String(labels.length)}
+        data-ladder-state="unavailable"
+      >
+        {labels.map((label) => (
+          <StatTile key={label} label={label} value="—" meta={LADDER_UNAVAILABLE_META} />
+        ))}
+      </div>
+    );
+  }
   const tiles = [
     {
       label: "Best available",
@@ -203,16 +234,20 @@ function SummaryTiles({ summary, includeRookies }) {
  *      response (``lib/waiver-faab.js``).  This is the one that
  *      actually fires today — ``computeWaiverAnalysis`` builds its
  *      rows from contract rows, which carry no bid at all.
+ *
+ * ``bidFeed`` is the hook's statement of the bid request's status
+ * (``"loading"`` / ``"failed"`` / null).  It is read only when there is
+ * no index, so a pending request and a failed one say different things.
  */
-function backendBid(move, faabIndex) {
+function backendBid(move, faabIndex, bidFeed) {
   const stamped = move?.bid || move?.add?.bid || move?.add?.raw?.bid;
   if (stamped && typeof stamped === "object" && Number.isFinite(Number(stamped.reasonable))) {
     return { state: "priced", bid: stamped, label: "", reason: "" };
   }
-  return waiverBidStateForRow(faabIndex, move?.add);
+  return waiverBidStateForRow(faabIndex, move?.add, bidFeed);
 }
 
-function BestMovesPanel({ moves, faabIndex }) {
+function BestMovesPanel({ moves, faabIndex, bidFeed, dropState }) {
   const columns = useMemo(
     () => [
       {
@@ -235,7 +270,7 @@ function BestMovesPanel({ moves, faabIndex }) {
         render: (m) => (
           <>
             <PlayerCell row={m.add} isRookie={m.isRookie} />
-            <WaiverBidFigure entry={backendBid(m, faabIndex)} inline />
+            <WaiverBidFigure entry={backendBid(m, faabIndex, bidFeed)} inline />
           </>
         ),
       },
@@ -259,10 +294,10 @@ function BestMovesPanel({ moves, faabIndex }) {
         numeric: true,
         hideBelow: "md",
         accessor: (m) => {
-          const v = Number(backendBid(m, faabIndex)?.bid?.reasonable);
+          const v = Number(backendBid(m, faabIndex, bidFeed)?.bid?.reasonable);
           return Number.isFinite(v) ? v : null;
         },
-        render: (m) => <WaiverBidFigure entry={backendBid(m, faabIndex)} />,
+        render: (m) => <WaiverBidFigure entry={backendBid(m, faabIndex, bidFeed)} />,
         headerInfo:
           "The FAAB engine's bid ladder for this player, stamped by the backend: the headline is the reasonable rung, with the lowball and aggressive ends alongside. It is derived from the player's objective ceiling — what he is WORTH as a share of the league's original budget — and is not team-specific. For a recommendation that accounts for your balance, your drop side and your bid posture, use the bid desk above; posture shapes that answer, not this ladder. A row with no figure says why instead of going blank.",
       },
@@ -277,7 +312,7 @@ function BestMovesPanel({ moves, faabIndex }) {
         ),
       },
     ],
-    [faabIndex],
+    [faabIndex, bidFeed],
   );
 
   return (
@@ -294,10 +329,17 @@ function BestMovesPanel({ moves, faabIndex }) {
         density="compact"
         presorted
         emptyState={
-          <EmptyState
-            title="No upgrades match your filters"
-            description="Widen the position filter, lower the min-gain threshold, or include rookies."
-          />
+          ladderUnavailable(dropState) ? (
+            <EmptyState
+              title="No add/drop moves shown"
+              description="Your cut ladder could not be read (see the notice above). Every move pairs an add with a legal release, so none are computed from raw values in its place."
+            />
+          ) : (
+            <EmptyState
+              title="No upgrades match your filters"
+              description="Widen the position filter, lower the min-gain threshold, or include rookies."
+            />
+          )
         }
       />
     </Panel>
@@ -434,7 +476,7 @@ function DroppablePanel({ rows, dropState }) {
     [],
   );
 
-  const unavailable = dropState?.state !== "ok";
+  const unavailable = ladderUnavailable(dropState);
   return (
     <Panel
       flush
@@ -466,7 +508,7 @@ function DroppablePanel({ rows, dropState }) {
   );
 }
 
-function AddablePanel({ rows }) {
+function AddablePanel({ rows, dropState }) {
   const columns = useMemo(
     () => [
       {
@@ -546,10 +588,17 @@ function AddablePanel({ rows }) {
         presorted
         rowClassName={(a) => (a.rosteredBy ? styles.rosteredRow : "")}
         emptyState={
-          <EmptyState
-            title="No addable players"
-            description="Include rookies, widen the position filter, or lower the min-gain threshold."
-          />
+          ladderUnavailable(dropState) ? (
+            <EmptyState
+              title="No addable players shown"
+              description="Your cut ladder could not be read (see the notice above). A player is addable only against a legal release, so none are ranked from raw values in its place."
+            />
+          ) : (
+            <EmptyState
+              title="No addable players"
+              description="Include rookies, widen the position filter, or lower the min-gain threshold."
+            />
+          )
         }
       />
     </Panel>
@@ -586,6 +635,10 @@ export default function WaiversPage() {
     // Optional render-time enrichment — null until (and unless) the
     // backend suggestions endpoint answers.  See useWaiverAnalysis.
     faabIndex,
+    // Why there is no index yet: "loading" / "failed" / null, and the
+    // refetch a "failed" feed must offer.
+    bidFeed,
+    retryBids,
     loading,
     error,
     leagueMismatch,
@@ -682,7 +735,11 @@ export default function WaiversPage() {
             they are not computed from raw values in its place.
           </Banner>
         ) : null}
-        <SummaryTiles summary={analysis.summary} includeRookies={includeRookies} />
+        <SummaryTiles
+          summary={analysis.summary}
+          includeRookies={includeRookies}
+          dropState={analysis.dropState}
+        />
         {selectedTeam?.ownerId ? (
           <ResilientSection name="Perfect Waivers" recovery="reload">
             <Suspense fallback={null}>
@@ -693,11 +750,35 @@ export default function WaiversPage() {
             </Suspense>
           </ResilientSection>
         ) : null}
-        <BestMovesPanel moves={analysis.bestMoves} faabIndex={faabIndex} />
+        {bidFeed === "failed" ? (
+          // ``waiverBidStateForRow``'s "failed" copy tells the user to
+          // retry, so stating "failed" obliges a Retry control.  The bid
+          // column is optional enrichment, so this is a warning beside a
+          // working board, not the page's error state.
+          <Banner tone="warning" title="FAAB bids failed to load">
+            The bid request for your team failed, so the moves below show no FAAB
+            bid. Nothing is estimated in its place.{" "}
+            <Button size="sm" variant="secondary" onClick={retryBids}>
+              Retry
+            </Button>
+          </Banner>
+        ) : null}
+        <BestMovesPanel
+          moves={analysis.bestMoves}
+          faabIndex={faabIndex}
+          // The cause of a missing index, as the hook reports it: a bid
+          // request still in flight reads "Loading bid…", a failed one
+          // "Bids failed to load" (with the Retry above).  ``no_team`` is
+          // never passed: the body only renders with a team selected (the
+          // ``!hasTeam`` branch above returns first).  A request that
+          // settled with a usable board stays ``null`` → per-row states.
+          bidFeed={bidFeed}
+          dropState={analysis.dropState}
+        />
         <UniqueUpgradePanel set={analysis.bestUniqueUpgradeSet} />
         <div className={styles.split}>
           <DroppablePanel rows={analysis.droppable} dropState={analysis.dropState} />
-          <AddablePanel rows={analysis.addable} />
+          <AddablePanel rows={analysis.addable} dropState={analysis.dropState} />
         </div>
       </>
     );

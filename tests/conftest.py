@@ -11,6 +11,8 @@ from pathlib import Path
 
 import pytest
 
+from tests import fake_clock as _fake_clock
+
 # Allow ``import server`` in tests without a real JASON_LOGIN_PASSWORD.
 # The placeholder "changeme" is acceptable for unit/integration tests;
 # production rejects ALLOW_DEFAULT_LOGIN_DEV=1 by design.
@@ -214,6 +216,7 @@ with _runtime_data.real_paths_lock():
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_setup(item):
+    _fake_clock.refresh()  # no-op unless --fake-now / RISKIT_FAKE_NOW
     _runtime_data.activate(_RUNTIME_DATA_BASE / f"t{next(_runtime_data_counter):06d}")
 
 
@@ -296,7 +299,21 @@ _LIVEDATA_MODULES = frozenset(
 )
 
 
+def pytest_addoption(parser):
+    parser.addoption(
+        "--fake-now",
+        action="store",
+        default=None,
+        help="Year-boundary harness (tests/fake_clock.py): start a ticking fake wall "
+        "clock at this ISO-8601 instant (naive = UTC).  OFF unless given "
+        "(also read from RISKIT_FAKE_NOW).  Advisory tooling only.",
+    )
+
+
 def pytest_configure(config):
+    _fake_now = _fake_clock.requested(config)
+    if _fake_now:
+        _fake_clock.install(_fake_now)
     config.addinivalue_line(
         "markers",
         "livedata: asserts against the live scraped board/exports; "

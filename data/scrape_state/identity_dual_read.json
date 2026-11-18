@@ -1,15 +1,15 @@
 {
- "generatedAt": "2026-11-18T03:56:35.100443+00:00",
+ "generatedAt": "2026-11-18T13:36:24.727279+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
  "v2WatchEnabled": true,
  "site": "scraper_sleeper_attach",
- "calls": 2010,
+ "calls": 2019,
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 1988,
+ "v2Same": 1997,
  "v2WouldChange": 22,
  "v2Examples": [
   {
@@ -93,17 +93,17 @@
    "v2Reason": "no_candidate"
   },
   {
+   "name": "Michael Carter",
+   "pos": "",
+   "served": "7607",
+   "engineV2": null,
+   "v2Method": "exact_clean:name",
+   "v2Reason": "ambiguous"
+  },
+  {
    "name": "Michael Hall",
    "pos": "",
    "served": "11692",
-   "engineV2": null,
-   "v2Method": "none",
-   "v2Reason": "no_candidate"
-  },
-  {
-   "name": "Nathan Carter",
-   "pos": "",
-   "served": "12897",
    "engineV2": null,
    "v2Method": "none",
    "v2Reason": "no_candidate"

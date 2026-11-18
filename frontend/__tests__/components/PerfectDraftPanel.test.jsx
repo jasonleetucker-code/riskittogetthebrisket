@@ -816,3 +816,180 @@ describe("roster context is not requested for the placeholder workspace", () => 
     );
   });
 });
+
+// ── 2026-11-16 verified sweep: the team selector must move the MONEY too ──
+//
+// "Team to optimize" used to swap the roster (the backend roster context for
+// the chosen team) while the plan kept YOUR remaining budget, YOUR purchases
+// and YOUR "bought so far" — a plan for one team's roster built on another
+// team's money.  These pin that budget, purchases and bought-so-far follow the
+// chosen team, and that a team the workspace does not have gets no invented
+// budget at all.
+describe("the team selector moves the budget and purchases with the roster", () => {
+  const BETA_CONTEXT = {
+    ...CONTEXT,
+    team: { name: "Beta", ownerId: "owner-b", rosterId: 2 },
+  };
+  const GAMMA_CONTEXT = {
+    ...CONTEXT,
+    team: { name: "Gamma", ownerId: "owner-g", rosterId: 3 },
+  };
+  const teamsPayload = (context) => ({
+    teams: [
+      { name: "Alpha", ownerId: "owner-a", rosterId: 1, rosterCount: 57 },
+      { name: "Beta", ownerId: "owner-b", rosterId: 2, rosterCount: 44 },
+      { name: "Gamma", ownerId: "owner-g", rosterId: 3, rosterCount: 50 },
+    ],
+    context,
+    leagueKey: "pd_main",
+  });
+
+  // Alpha (mine) has $60 left after two buys for $40; Beta has $37 left after
+  // one buy for $23.  Every figure below is distinctive so a panel reading the
+  // wrong team cannot pass by coincidence.
+  const TEAM_STATS = {
+    ...STATS,
+    myTeamName: "Alpha",
+    myRemaining: 60,
+    mySpent: 40,
+    myRookiesBought: 2,
+    totalPicksMade: 3,
+    rookiePoolSize: 72,
+    teamStats: [
+      { idx: 0, name: "Alpha", remaining: 60, spent: 40, rookiesBought: 2, isMine: true },
+      { idx: 1, name: "Beta", remaining: 37, spent: 23, rookiesBought: 1, isMine: false },
+    ],
+    enrichedPlayers: [
+      ...STATS.enrichedPlayers.filter((p) => !p.drafted),
+      { id: "mine-1", name: "Mine One", pos: "WR", boardValue: 4000, drafted: true, mine: true, pick: { teamIdx: 0, amount: 20 } },
+      { id: "mine-2", name: "Mine Two", pos: "WR", boardValue: 4000, drafted: true, mine: true, pick: { teamIdx: 0, amount: 20 } },
+      { id: "beta-1", name: "Beta One", pos: "RB", boardValue: 4500, drafted: true, mine: false, pick: { teamIdx: 1, amount: 23 } },
+    ],
+  };
+
+  const routeByTeam = () =>
+    fetch.mockImplementation((url) => {
+      const u = String(url);
+      const ctx = u.includes("teamName=Beta")
+        ? BETA_CONTEXT
+        : u.includes("teamName=Gamma")
+          ? GAMMA_CONTEXT
+          : CONTEXT;
+      return Promise.resolve(jsonResponse(200, teamsPayload(ctx)));
+    });
+
+  const budgetTileValue = (container) =>
+    [...container.querySelectorAll(".ds-stat")]
+      .find((el) => el.querySelector(".ds-stat__label")?.textContent === "Budget")
+      ?.querySelector(".ds-stat__value")?.textContent;
+
+  it("plans the chosen team against ITS remaining budget, spend and purchases", async () => {
+    routeByTeam();
+    const { container } = render(<PerfectDraftPanel stats={TEAM_STATS} workspace={WORKSPACE} />);
+    await screen.findByRole("table");
+    // Baseline: your own team.
+    expect(screen.getByText(/2 bought · \$40 spent/)).toBeInTheDocument();
+    expect(budgetTileValue(container)).toBe("$60");
+
+    fireEvent.change(screen.getByRole("combobox", { name: /team to optimize/i }), {
+      target: { value: "Beta" },
+    });
+
+    await waitFor(() => expect(screen.getByText(/Beta: 1 bought · \$23 spent/)).toBeInTheDocument());
+    expect(budgetTileValue(container)).toBe("$37");
+    expect(screen.getByText(/Beta has bought so far:/)).toBeInTheDocument();
+    expect(screen.getByText(/1 rookie for \$23/)).toBeInTheDocument();
+    // Your figures are gone, not blended in.
+    expect(screen.queryByText(/2 bought · \$40 spent/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/2 rookies for \$40/)).not.toBeInTheDocument();
+  });
+
+  it("keeps your own figures when you explicitly pick your own team", async () => {
+    routeByTeam();
+    const { container } = render(<PerfectDraftPanel stats={TEAM_STATS} workspace={WORKSPACE} />);
+    await screen.findByRole("table");
+    fireEvent.change(screen.getByRole("combobox", { name: /team to optimize/i }), {
+      target: { value: "Alpha" },
+    });
+    await screen.findByRole("table");
+    expect(screen.getByText(/2 bought · \$40 spent/)).toBeInTheDocument();
+    expect(screen.getByText(/Bought so far:/)).toBeInTheDocument();
+    expect(budgetTileValue(container)).toBe("$60");
+  });
+
+  it("shows no plan — not your budget — for a team the draft workspace does not have", async () => {
+    routeByTeam();
+    render(<PerfectDraftPanel stats={TEAM_STATS} workspace={WORKSPACE} />);
+    await screen.findByRole("table");
+    fireEvent.change(screen.getByRole("combobox", { name: /team to optimize/i }), {
+      target: { value: "Gamma" },
+    });
+    expect(await screen.findByText(/Budget unknown for this team/i)).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.queryByText(/\$60/)).not.toBeInTheDocument();
+    // The selector survives so the user can switch back.
+    fireEvent.change(screen.getByRole("combobox", { name: /team to optimize/i }), {
+      target: { value: "Alpha" },
+    });
+    expect(await screen.findByRole("table")).toBeInTheDocument();
+  });
+
+  it("says rival-based 'Beat the room' prices do not apply to another team", async () => {
+    routeByTeam();
+    render(<PerfectDraftPanel stats={TEAM_STATS} workspace={WORKSPACE} />);
+    await screen.findByRole("table");
+    fireEvent.click(screen.getByRole("radio", { name: "Beat the room" }));
+    fireEvent.change(screen.getByRole("combobox", { name: /team to optimize/i }), {
+      target: { value: "Beta" },
+    });
+    expect(
+      await screen.findByText(/prices are measured against your own\s+rivals/i),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("resolveOptimizedTeam", () => {
+  const stats = {
+    myTeamName: "Alpha",
+    myRemaining: 60,
+    mySpent: 40,
+    myRookiesBought: 2,
+    teamStats: [
+      { idx: 0, name: "Alpha", remaining: 60, spent: 40, rookiesBought: 2, isMine: true },
+      { idx: 1, name: "Beta", remaining: 37, spent: 23, rookiesBought: 1, isMine: false },
+    ],
+  };
+
+  it("follows the workspace unless another team is explicitly picked", async () => {
+    const { resolveOptimizedTeam } = await import("../../components/draft/PerfectDraftPanel.jsx");
+    expect(resolveOptimizedTeam({ stats, myTeamName: "Alpha", targetName: "Beta", explicit: false }).kind).toBe("mine");
+    expect(resolveOptimizedTeam({ stats, myTeamName: "Alpha", targetName: "alpha ", explicit: true }).kind).toBe("mine");
+  });
+
+  it("returns the picked team's own row, matched case-insensitively", async () => {
+    const { resolveOptimizedTeam } = await import("../../components/draft/PerfectDraftPanel.jsx");
+    expect(resolveOptimizedTeam({ stats, myTeamName: "Alpha", targetName: "BETA", explicit: true })).toEqual({
+      kind: "other",
+      name: "Beta",
+      teamIdx: 1,
+      remaining: 37,
+      spent: 23,
+      rookiesBought: 1,
+    });
+  });
+
+  it("is unknown — never zero, never yours — when the workspace lacks the team or its budget", async () => {
+    const { resolveOptimizedTeam } = await import("../../components/draft/PerfectDraftPanel.jsx");
+    const missing = resolveOptimizedTeam({ stats, myTeamName: "Alpha", targetName: "Gamma", explicit: true });
+    expect(missing.kind).toBe("unknown");
+    expect(missing.remaining).toBeNull();
+    const noBudget = resolveOptimizedTeam({
+      stats: { ...stats, teamStats: [{ idx: 1, name: "Beta", remaining: null }] },
+      myTeamName: "Alpha",
+      targetName: "Beta",
+      explicit: true,
+    });
+    expect(noBudget.kind).toBe("unknown");
+    expect(noBudget.remaining).toBeNull();
+  });
+});

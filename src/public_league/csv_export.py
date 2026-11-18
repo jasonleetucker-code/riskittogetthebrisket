@@ -40,23 +40,53 @@ def _write_csv(rows: list[dict[str, Any]], fieldnames: list[str]) -> str:
     return buf.getvalue()
 
 
-def _cell(value: Any) -> str:
-    """Flatten a cell value to something CSV-safe.
+_FORMULA_TRIGGERS = ("=", "+", "-", "@")
+_LEADING_SKIP = " \t\r\n\x0b\x0c\x00\ufeff\u00a0"
 
-    Lists of scalars become pipe-delimited strings so analysts can still
-    filter on them.  Nested dicts become JSON-ish text.  None becomes
-    empty string.  Everything else is coerced via ``str``.
+
+def neutralize_csv_text(text: str) -> str:
+    """Prefix ``'`` to TEXT a spreadsheet would execute as a formula.
+
+    A cell is dangerous when its first character, after any leading
+    whitespace/control characters, is ``= + - @`` -- or when it starts with a
+    tab / carriage return (Excel strips those then evaluates).  This is the
+    ONE owner of CSV formula neutralization; decide by TYPE before calling
+    (real numbers never reach it, so ``-3.5`` stays a number).
     """
+    if not text:
+        return text
+    if text[0] in ("\t", "\r"):
+        return "'" + text
+    stripped = text.lstrip(_LEADING_SKIP)
+    if stripped and stripped[0] in _FORMULA_TRIGGERS:
+        return "'" + text
+    return text
+
+
+def _flatten(value: Any) -> str:
     if value is None:
         return ""
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, (list, tuple)):
-        return " | ".join(_cell(v) for v in value)
+        return " | ".join(_flatten(v) for v in value)
     if isinstance(value, dict):
         # Flatten to "k=v; k=v" — intentionally readable rather than JSON.
-        return "; ".join(f"{k}={_cell(v)}" for k, v in value.items())
+        return "; ".join(f"{k}={_flatten(v)}" for k, v in value.items())
     return str(value)
+
+
+def _cell(value: Any) -> str:
+    """Flatten a cell value to something CSV-safe.
+
+    Lists of scalars become pipe-delimited strings so analysts can still
+    filter on them.  Nested dicts become JSON-ish text.  None becomes
+    empty string.  Genuine numbers (int/float, not bool) are emitted as
+    numbers unchanged; every other value is text and is formula-neutralized.
+    """
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return str(value)
+    return neutralize_csv_text(_flatten(value))
 
 
 # ── History ────────────────────────────────────────────────────────────────

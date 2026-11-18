@@ -27,6 +27,7 @@ import { notifyApi, refreshBinding } from "@/lib/auction-notify";
 import { Members, PointsForOrder, Preflight, RulesConfirmation } from "@/components/auction/CommissionerTools";
 import ReportProblem from "@/components/auction/ReportProblem";
 import styles from "../auction.module.css";
+import { rookieLabel, useRoomPool } from "./room-pool";
 
 // Code-split: the optimizer loads only for seat holders, after the room paints.
 // React.lazy, not next/dynamic (see CLAUDE.md "Perfect Draft": next/dynamic
@@ -159,7 +160,7 @@ function BidCell({ a, mine, roomId, disabled, onAccepted }) {
   );
 }
 
-function OpenAuctions({ view, players, roomId, now, onAccepted }) {
+function OpenAuctions({ view, players, poolStatus, roomId, now, onAccepted }) {
   const pub = view.public;
   const seatName = Object.fromEntries(pub.seats.map((s) => [s.id, s.name]));
   const myBids = Object.fromEntries((view.me.private?.my_bids || []).map((b) => [b.auction, b]));
@@ -221,7 +222,7 @@ function OpenAuctions({ view, players, roomId, now, onAccepted }) {
                 return (
                   <tr key={a.id} className={leading ? styles.mine : undefined}>
                     <td>
-                      <span className={styles.player}>{p.name || a.player}</span>
+                      <span className={styles.player}>{rookieLabel(players, a.player, poolStatus)}</span>
                       <span className={styles.sub}>
                         {p.pos || "—"} · {a.id} · round {a.round} · nominated by {seatName[a.nominator]}
                         {a.extensions ? ` · extended ×${a.extensions}` : ""}
@@ -259,7 +260,7 @@ function OpenAuctions({ view, players, roomId, now, onAccepted }) {
   );
 }
 
-function Nominate({ view, players, roomId, onAccepted }) {
+function Nominate({ view, players, poolStatus, onRetryPool, roomId, onAccepted }) {
   const pub = view.public;
   const me = view.me.private;
   const [q, setQ] = useState("");
@@ -298,6 +299,23 @@ function Nominate({ view, players, roomId, onAccepted }) {
         <Field label="Search the rookie pool" hint={pub.pool.label}>
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name or position" />
         </Field>
+        {poolStatus === "loading" ? (
+          <p className={styles.muted} aria-busy="true">
+            Loading the rookie pool…
+          </p>
+        ) : poolStatus === "failed" ? (
+          <EmptyState
+            title="Rookie pool unavailable"
+            description="The list of rookies you can nominate did not load."
+            action={
+              <Button size="sm" variant="secondary" onClick={onRetryPool}>
+                Retry
+              </Button>
+            }
+          />
+        ) : list.length === 0 ? (
+          <p className={styles.muted}>{q.trim() ? "No rookie in the pool matches that search." : "Every rookie in the pool has been nominated."}</p>
+        ) : (
         <div className={styles.tableWrap}>
           <table className={styles.table}>
             <thead>
@@ -330,6 +348,7 @@ function Nominate({ view, players, roomId, onAccepted }) {
             </tbody>
           </table>
         </div>
+        )}
         {onClock ? (
           <div>
             <Button variant="ghost" onClick={() => run("pass", { kind: "pass_nomination" })} disabled={!canAct || Boolean(pending)}>
@@ -345,7 +364,7 @@ function Nominate({ view, players, roomId, onAccepted }) {
             <ol className={styles.rules}>
               {queue.map((pid) => (
                 <li key={pid}>
-                  {players?.[pid]?.name || pid}{" "}
+                  {rookieLabel(players, pid, poolStatus)}{" "}
                   <Button size="sm" variant="ghost" onClick={() => saveQueue(queue.filter((x) => x !== pid), me.queue?.auto || false)}>
                     Remove
                   </Button>
@@ -410,7 +429,7 @@ function Budgets({ view }) {
   );
 }
 
-function Results({ view, players }) {
+function Results({ view, players, poolStatus }) {
   const pub = view.public;
   const seatName = Object.fromEntries(pub.seats.map((s) => [s.id, s.name]));
   const sold = pub.auctions.filter((a) => a.status === "closed").slice().reverse();
@@ -448,7 +467,7 @@ function Results({ view, players }) {
               {sold.map((a) => (
                 <tr key={a.id} className={a.winner === view.me.seat ? styles.mine : undefined}>
                   <td>
-                    <span className={styles.player}>{players?.[a.player]?.name || a.player}</span>
+                    <span className={styles.player}>{rookieLabel(players, a.player, poolStatus)}</span>
                     <span className={styles.sub}>{players?.[a.player]?.pos || ""} · round {a.round}</span>
                   </td>
                   <td>{seatName[a.winner]}</td>
@@ -464,10 +483,10 @@ function Results({ view, players }) {
   );
 }
 
-function describeEvent(e, seatName, players) {
+function describeEvent(e, seatName, players, poolStatus) {
   const d = e.data || {};
   const who = (s) => seatName[s] || s;
-  const pl = (p) => players?.[p]?.name || d.player_name || p;
+  const pl = (p) => rookieLabel(players, p, poolStatus, d.player_name);
   switch (e.type) {
     case "nominated":
       return `${who(d.seat)} nominated ${pl(d.player)}${d.via === "queue" ? " (from queue)" : ""}`;
@@ -508,7 +527,7 @@ function describeEvent(e, seatName, players) {
   }
 }
 
-function Activity({ view, players }) {
+function Activity({ view, players, poolStatus }) {
   const seatName = Object.fromEntries(view.public.seats.map((s) => [s.id, s.name]));
   return (
     <Panel title="Activity" dense>
@@ -516,7 +535,7 @@ function Activity({ view, players }) {
         {view.events.map((e) => (
           <li key={`${e.revision}-${e.idx}`}>
             <time>{formatRoomTime(e.at)}</time>
-            {describeEvent(e, seatName, players)}
+            {describeEvent(e, seatName, players, poolStatus)}
           </li>
         ))}
       </ul>
@@ -597,7 +616,7 @@ function Rules({ view }) {
   );
 }
 
-function Trades({ view, players, roomId }) {
+function Trades({ view, players, poolStatus, roomId }) {
   const pub = view.public;
   const me = view.me.private;
   const seat = view.me.seat;
@@ -608,7 +627,7 @@ function Trades({ view, players, roomId }) {
   const owned = (sid) => pub.auctions.filter((a) => a.status === "closed" && a.owner === sid);
   const lotName = (aid) => {
     const a = pub.auctions.find((x) => x.id === aid);
-    return a ? players?.[a.player]?.name || a.player : aid;
+    return a ? rookieLabel(players, a.player, poolStatus) : aid;
   };
   const canAct = !pub.paused && pub.active_now && ["running", "draining"].includes(pub.status);
   const trades = me.trades || [];
@@ -983,19 +1002,12 @@ function Commissioner({ view, roomId, onAccepted }) {
 export default function AuctionRoomPage() {
   const { roomId } = useParams();
   const { view, sync, error } = useAuctionRoom(roomId);
-  const [pool, setPool] = useState(null);
+  const pool = useRoomPool(roomId);
   const now = useNowTicker(1000);
 
   useEffect(() => {
     refreshBinding();
   }, []);
-
-  useEffect(() => {
-    if (!roomId) return;
-    auctionFetch(`/rooms/${encodeURIComponent(roomId)}/pool`)
-      .then(setPool)
-      .catch(() => setPool(null));
-  }, [roomId]);
 
   // A command's own response only carries its revision; the long-poll wakes
   // on that commit and delivers the authoritative snapshot.
@@ -1019,7 +1031,8 @@ export default function AuctionRoomPage() {
     );
   }
   const pub = view.public;
-  const players = pool?.players;
+  const players = pool.players;
+  const poolStatus = pool.status;
   const mySeat = pub.seats.find((s) => s.id === view.me.seat);
   return (
     <section className={`${styles.page} psi-editorial`}>
@@ -1047,12 +1060,22 @@ export default function AuctionRoomPage() {
       ) : null}
       {sync !== "live" ? <Banner tone="warning">Connection {sync}. Nothing you see is stale-accepted: bids only count once the server confirms them.</Banner> : null}
       <StatusStrip view={view} sync={sync} now={now} />
+      {poolStatus === "failed" ? (
+        <Banner tone="negative" title="The rookie pool did not load">
+          Player names and the nomination list are unavailable until it does. Lots, prices and budgets below are still live.{" "}
+          <Button size="sm" variant="secondary" onClick={pool.retry}>
+            Retry
+          </Button>
+        </Banner>
+      ) : null}
       <div className={styles.grid}>
         <div className={styles.col}>
-          <OpenAuctions view={view} players={players} roomId={roomId} now={now} onAccepted={onAccepted} />
-          {view.me.seat && pub.status === "running" ? <Nominate view={view} players={players} roomId={roomId} onAccepted={onAccepted} /> : null}
-          <Results view={view} players={players} />
-          <Activity view={view} players={players} />
+          <OpenAuctions view={view} players={players} poolStatus={poolStatus} roomId={roomId} now={now} onAccepted={onAccepted} />
+          {view.me.seat && pub.status === "running" ? (
+            <Nominate view={view} players={players} poolStatus={poolStatus} onRetryPool={pool.retry} roomId={roomId} onAccepted={onAccepted} />
+          ) : null}
+          <Results view={view} players={players} poolStatus={poolStatus} />
+          <Activity view={view} players={players} poolStatus={poolStatus} />
         </div>
         <div className={styles.col}>
           <MyMoney view={view} />
@@ -1062,7 +1085,7 @@ export default function AuctionRoomPage() {
             </Suspense>
           ) : null}
           <Inbox roomId={roomId} revision={view.revision} />
-          {view.me.seat && pub.status !== "setup" ? <Trades view={view} players={players} roomId={roomId} /> : null}
+          {view.me.seat && pub.status !== "setup" ? <Trades view={view} players={players} poolStatus={poolStatus} roomId={roomId} /> : null}
           <Budgets view={view} />
           {view.me.role === "commissioner" ? <Commissioner view={view} roomId={roomId} onAccepted={onAccepted} /> : null}
           <Rules view={view} />

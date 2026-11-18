@@ -24,6 +24,7 @@ to that one bundle by name (skips if retention ever removes it).
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import zipfile
@@ -34,23 +35,60 @@ import pytest
 from src.utils.name_clean import is_first_name_variant
 
 REPO = Path(__file__).resolve().parents[2]
-ARCHIVE = REPO / "exports" / "archive" / "dynasty_export_20261106_194518.zip"
 SCRAPER = REPO / "Dynasty Scraper.py"
 MUST_HAVE = REPO / "rookie_must_have.txt"
+# Hermetic: the board's identity rows, extracted ONCE from the archive below and
+# committed.  The test used to open ``exports/archive/<zip>`` (a rolling window
+# retention prunes) and ``skipif`` it away when absent -- a skip that counts against
+# the blocking gate's skip budget.  ``extract_identity_rows`` is the extraction, and
+# ``test_fixture_is_the_recorded_extraction`` re-runs it when the zip is present.
+FIXTURE = REPO / "tests" / "fixtures" / "w06_f001_identity_rows.json"
+SOURCE_ARCHIVE = REPO / "exports" / "archive" / "dynasty_export_20261106_194518.zip"
 
 
-def _players() -> dict:
-    with zipfile.ZipFile(ARCHIVE) as zf:
+def extract_identity_rows(archive: Path) -> dict:
+    """The fixture's ``resolved`` / ``unresolved`` split, from an export archive."""
+    with zipfile.ZipFile(archive) as zf:
         name = next(n for n in zf.namelist() if n.startswith("dynasty_data_"))
-        return json.loads(zf.read(name))["players"]
+        players = json.loads(zf.read(name))["players"]
+    return {
+        "resolved": sorted(
+            k for k, v in players.items() if isinstance(v, dict) and v.get("_sleeperId")
+        ),
+        "unresolved": {
+            k: v.get("_fallbackReason")
+            for k, v in sorted(players.items())
+            if isinstance(v, dict) and not v.get("_sleeperId")
+        },
+    }
 
 
-def _split_pairs(players: dict) -> list[tuple[str, str]]:
+def _fixture() -> dict:
+    return json.loads(FIXTURE.read_text(encoding="utf-8"))
+
+
+def test_fixture_is_the_recorded_extraction():
+    fx = _fixture()
+    prov = fx["provenance"]
+    assert prov["archive"] == "dynasty_export_20261106_194518.zip"
+    assert len(prov["archiveSha256"]) == 64
+    assert len(fx["resolved"]) == 957 and len(fx["unresolved"]) == 136
+    # Where the source archive is still in the checkout, the fixture must be exactly
+    # its extraction.  Absent is fine (not a skip): the fixture is the evidence.
+    if SOURCE_ARCHIVE.is_file():
+        assert hashlib.sha256(SOURCE_ARCHIVE.read_bytes()).hexdigest() == prov["archiveSha256"]
+        fresh = extract_identity_rows(SOURCE_ARCHIVE)
+        assert fresh["resolved"] == fx["resolved"]
+        assert fresh["unresolved"] == fx["unresolved"]
+
+
+def _split_pairs() -> list[tuple[str, str]]:
     """(ghost, resolved) pairs: an id-less row that is a first-name variant of
     exactly the kind of row the scraper's rung would have folded it into."""
-    resolved = [n for n, e in players.items() if isinstance(e, dict) and e.get("_sleeperId")]
-    ghosts = [n for n, e in players.items() if isinstance(e, dict) and not e.get("_sleeperId")]
-    return sorted((g, r) for g in ghosts for r in resolved if is_first_name_variant(g, r))
+    fx = _fixture()
+    return sorted(
+        (g, r) for g in fx["unresolved"] for r in fx["resolved"] if is_first_name_variant(g, r)
+    )
 
 
 def test_scraper_keeps_the_first_name_drift_rung_with_its_identity_gate():
@@ -63,24 +101,22 @@ def test_scraper_keeps_the_first_name_drift_rung_with_its_identity_gate():
     assert "if len(_matches) != 1:" in src
 
 
-@pytest.mark.skipif(not ARCHIVE.exists(), reason="pinned archive bundle absent")
 def test_the_surviving_ghosts_are_must_have_rookie_guarantee_rows():
     """Cause, as data: every surviving first-name ghost is a fallback row created by
     the must-have rookie guarantee, from a name listed in rookie_must_have.txt."""
-    players = _players()
+    unresolved = _fixture()["unresolved"]
     must_have = {
         line.strip() for line in MUST_HAVE.read_text(encoding="utf-8").splitlines() if line.strip()
     }
-    for ghost, _resolved in _split_pairs(players):
-        assert players[ghost].get("_fallbackReason") == "must_have_rookie_guarantee", ghost
+    for ghost, _resolved in _split_pairs():
+        assert unresolved[ghost] == "must_have_rookie_guarantee", ghost
         assert ghost in must_have, ghost
 
 
-@pytest.mark.skipif(not ARCHIVE.exists(), reason="pinned archive bundle absent")
 @pytest.mark.xfail(
     strict=True,
     reason="W06-F001: must-have rookie guarantee re-creates Matthew Hibner / Jamarion Miller ghosts",
 )
 def test_no_unresolved_row_is_a_first_name_variant_of_a_resolved_row():
-    pairs = _split_pairs(_players())
+    pairs = _split_pairs()
     assert pairs == [], f"split identities on the board: {pairs}"

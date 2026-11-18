@@ -46,6 +46,11 @@ import { FailureState } from "@/components/ds";
 import { classifyContractFailure } from "@/lib/contract-failure";
 import { Avatar, EmptyCard, nameFor } from "../shared.jsx";
 
+// Where a signed-out visitor is sent to sign in, and where they land after.
+export const TEAM_ASSIGNMENT_LOGIN_HREF = `/login?next=${encodeURIComponent(
+  "/league?tab=teamAssignment",
+)}`;
+
 // Machine-readable reason (from ``src/api/team_assignment.py``) → the
 // sentence a reader can act on.  Kept as a lookup so an unknown reason
 // falls back to an honest generic rather than to a fabricated cause.
@@ -404,6 +409,23 @@ export default function TeamAssignmentSection({ managers }) {
   }
 
   if (failure && !data) {
+    // A signed-out visitor on the public /league page: say what the section is
+    // and how to see it.  FailureState's auth copy ("your session has
+    // expired") assumes a session existed, and the backend message names the
+    // internal section key.
+    if (failure.kind === "auth" || failure.kind === "forbidden") {
+      return (
+        <div className="card" role="status" data-testid="team-assignment-auth-required">
+          <EmptyCard
+            label="NFL Team Affinity is available to signed-in league members"
+            message="It reads each manager's roster, so it is not shown publicly."
+          />
+          <p style={{ textAlign: "center", marginTop: 8 }}>
+            <a href={TEAM_ASSIGNMENT_LOGIN_HREF}>Sign in to view NFL Team Affinity</a>
+          </p>
+        </div>
+      );
+    }
     return (
       <div className="card">
         <FailureState

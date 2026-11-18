@@ -4,21 +4,17 @@ import { Suspense, lazy, useCallback, useEffect, useId, useMemo, useState } from
 import Link from "next/link";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useAuthContext } from "@/app/AppShellWrapper";
-import { FailureState, InfoTip } from "@/components/ds";
-import {
-  useSettings,
-  SETTINGS_DEFAULTS as DEFAULTS,
-} from "@/components/useSettings";
+import { FailureState, InfoTip, Modal } from "@/components/ds";
+import { useSettings } from "@/components/useSettings";
 import { useUserState } from "@/components/useUserState";
-import {
-  WEIGHT_PRESETS,
-  presetToWeights,
-  detectActivePreset,
-} from "@/lib/weight-presets";
-import { RANKING_SOURCES } from "@/lib/dynasty-data";
+import { RANKING_SOURCES, siteOverridesAreCustomized } from "@/lib/dynasty-data";
 import { sourceVoteFields } from "@/lib/source-vote-state";
 import { ROS_SOURCES } from "@/lib/ros-sources";
-import { votingStatusBlock } from "@/lib/source-voting-status";
+import {
+  votingStatusAvailability,
+  votingStatusBlock,
+  votingStatusRows,
+} from "@/lib/source-voting-status";
 import PushNotificationToggle from "@/components/PushNotificationToggle";
 import CustomAlertsConfigurator from "@/components/CustomAlertsConfigurator";
 import { useLeague } from "@/components/useLeague";
@@ -31,6 +27,36 @@ const TradeProtectionsEditor = lazy(() => import("@/components/TradeProtectionsE
 // page's critical path (page + shared chunks 180.1 -> 208.3 KB, measured);
 // lazy keeps that at 186.5 KB and loads the table just after first paint.
 const SourceVotingStatus = lazy(() => import("@/components/SourceVotingStatus"));
+
+// Custom source mixes are switched off on the server
+// (`_SOURCE_OVERRIDES_DISABLED` in src/api/data_contract.py): a stored
+// include/weight mix is accepted and ignored, and the board is always the
+// canonical consensus blend.  The Ranking Sources table therefore offers no
+// operable include/weight control; it shows the registry default (disabled)
+// and the board's own base weight (text), and says why.
+const CUSTOM_MIX_OFF_NOTE =
+  "Custom source mixes are switched off. Every value on the site uses the " +
+  "canonical consensus blend, so the registry defaults and base weights " +
+  "below are shown for reference only and cannot be changed.";
+
+// Status colour is SECONDARY to the label text (never colour alone).  The
+// tone comes from the backend status code via lib/source-voting-status.js.
+const STATUS_TONE_COLOR = {
+  positive: "var(--green)",
+  warning: "var(--amber)",
+  negative: "var(--red)",
+  neutral: "var(--subtext)",
+};
+
+// "Reset Defaults" restores this device's preferences, but a team choice is
+// not a preference: wiping it silently re-points every league-scoped page at
+// whatever team auto-selection picks next.  These keys survive the reset.
+const RESET_PRESERVED_KEYS = [
+  "selectedTeam",
+  "selectedTeamTouched",
+  "selectedTeamsByLeague",
+  "selectedTeamTouchedByLeague",
+];
 
 // The settings page enumerates the canonical ranking registry directly
 // so a newly registered source automatically shows up here without any
@@ -194,21 +220,25 @@ function ToggleRow({ label, checked, onChange, hint }) {
 }
 
 export default function SettingsPage() {
-  const { loading, error, failure, rows, rawData, retry } = useDynastyData();
+  const { loading, failure, rows, rawData, retry } = useDynastyData();
   // Stable ids so each sibling <label> can point at its control.  Every
   // numeric valuation control on this page reached assistive tech
   // unnamed until 2026-08-18 — the labels were siblings, not wrappers.
-  const sortBasisId = useId();
+  const emailInputId = useId();
+  const valueBasisId = useId();
+  const customMixNoteId = useId();
   // Only to point an operator at where the moved panels went; nothing
   // on this page is gated by it.
   const { isAdmin } = useAuthContext();
-  const {
-    settings,
-    update,
-    updateSiteWeight,
-    resetSiteWeights,
-    reset,
-  } = useSettings();
+  const { settings, update, resetSiteWeights, reset } = useSettings();
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+  // A custom source mix saved on this device (the /rankings Sources popover
+  // can still write one).  The server ignores it; the page names it and
+  // offers to clear it.
+  const hasSavedSourceMix = useMemo(
+    () => siteOverridesAreCustomized(settings?.siteWeights),
+    [settings?.siteWeights],
+  );
   const {
     state: userState,
     serverBacked,
@@ -251,8 +281,16 @@ export default function SettingsPage() {
     [setNotifications],
   );
 
+  // Confirmed reset: restore defaults, then put the team selection back.
+  // `update("selectedTeam", …)` marks the selection touched, so the saved
+  // touched flags are restored after it (RESET_PRESERVED_KEYS order).
   function resetToDefaults() {
+    const kept = RESET_PRESERVED_KEYS.map((key) => [key, settings?.[key]]);
     reset();
+    for (const [key, value] of kept) {
+      if (value !== undefined) update(key, value);
+    }
+    setConfirmResetOpen(false);
   }
 
   // TE Premium input value.  The backend stamps the operator's
@@ -277,37 +315,24 @@ export default function SettingsPage() {
   // primary backbone scope) even though its `extraScopes` also
   // contribute to offense rankings — that's a calculation detail.
   //
-  // Live/Idle status is derived from ACTUAL ROW COVERAGE across
-  // `rows[*].canonicalSites`, NOT from the payload's `data.sites`
-  // array.  The scraper's `sites` array omits CSV-enriched sources
-  // (the backend's `_enrich_from_source_csvs` pass can populate
-  // `canonicalSiteValues.dlfSf` / `.dlfIdp` / etc. for players even
-  // when those keys are absent from `sites`), so a `sites`-based
-  // check would mark DLF/DN/FP as Idle even though they are
-  // actively contributing to the blended rankings.  Counting rows
-  // with a finite positive `canonicalSites[src.key]` entry is the
-  // honest status signal.
+  // Status and "Voting on" are the BACKEND's: the contract's
+  // `sourceVotingStatus` block (src/sources/voting_status.py), read through
+  // lib/source-voting-status.js — the same block the Source Voting table
+  // above renders.  They used to be computed here from
+  // `rows[*].canonicalSites`, which only says a source has a value on a row,
+  // not that it voted: a stale or held source still showed a green "Live",
+  // and before the board loaded every source showed "Idle".  A source the
+  // block does not report is labelled as such — never "Live", never 0.
+  const votingBlock = votingStatusBlock(rawData);
+  const votingByKey = useMemo(() => {
+    const map = new Map();
+    if (!votingStatusAvailability(votingBlock).available) return map;
+    for (const row of votingStatusRows(votingBlock)) map.set(row.key, row);
+    return map;
+  }, [votingBlock]);
+  const statusPendingLabel = loading && !rawData ? "Loading…" : "Not reported";
   const sourcesByGroup = useMemo(() => {
-    const coverage = new Map();
-    for (const src of RANKING_SOURCES) coverage.set(src.key, 0);
-    for (const r of rows || []) {
-      const cs = r?.canonicalSites;
-      if (!cs || typeof cs !== "object") continue;
-      for (const src of RANKING_SOURCES) {
-        const v = Number(cs[src.key]);
-        if (Number.isFinite(v) && v > 0) {
-          coverage.set(src.key, (coverage.get(src.key) || 0) + 1);
-        }
-      }
-    }
     const decorate = (src) => {
-      const covered = coverage.get(src.key) || 0;
-      const ov = (settings?.siteWeights || {})[src.key] || {};
-      const userInclude = ov.include === false ? false : true;
-      const userWeight =
-        Number.isFinite(Number(ov.weight)) && Number(ov.weight) >= 0
-          ? Number(ov.weight)
-          : Number(src.weight ?? 1);
       // Private sources carry a backend vote state.  A source that is not
       // voting (Signals IDP in shadow) is shown with its state and offers
       // no include/weight control — a control would imply it moves the
@@ -315,14 +340,27 @@ export default function SettingsPage() {
       const vote = sourceVoteFields(
         rawData?.privateSourceAvailability?.[src.key],
       );
+      const backend = votingByKey.get(src.key) || null;
+      let statusLabel = statusPendingLabel;
+      let statusTone = "neutral";
+      if (backend) {
+        statusLabel = backend.statusLabel;
+        statusTone = backend.tone;
+      } else if (vote.nonVoting) {
+        statusLabel = vote.voteLabel;
+      }
       return {
         ...src,
         ...vote,
-        covered,
-        live: covered > 0,
-        userInclude,
-        userWeight,
-        defaultWeight: Number(src.weight ?? 1),
+        statusLabel,
+        statusTone,
+        statusReason: backend?.reason || null,
+        playersVoting: backend ? backend.playersContributing : null,
+        picksVoting: backend ? backend.picksContributing : null,
+        // The backend's own base weight for this source (the same block);
+        // null when the board did not report it — shown as "—", never a
+        // registry copy standing in for the board's number.
+        baseWeight: backend ? backend.baseWeight : null,
         isTepPremium: src.isTepPremium === true,
       };
     };
@@ -335,7 +373,7 @@ export default function SettingsPage() {
         (s) => s.scope === "overall_idp" || s.scope === "position_idp",
       ).map(decorate),
     };
-  }, [rows, settings?.siteWeights, rawData?.privateSourceAvailability]);
+  }, [votingByKey, statusPendingLabel, rawData?.privateSourceAvailability]);
 
   if (!hydrated) return null;
 
@@ -351,18 +389,58 @@ export default function SettingsPage() {
         <div>
           <h1 style={{ marginTop: 0 }}>Settings</h1>
           <p className="muted" style={{ marginTop: 4 }}>
-            Tuning controls that affect valuations, trade calculations, and
-            rankings display.
+            Preferences for trade tools, rankings display and alerts. None of
+            them changes a player&apos;s dynasty value.
           </p>
         </div>
         <button
+          type="button"
           className="button"
-          onClick={resetToDefaults}
+          onClick={() => setConfirmResetOpen(true)}
           style={{ fontSize: "0.76rem" }}
         >
           Reset Defaults
         </button>
       </div>
+
+      {/* Reset used to fire on one click and wipe every key in this
+          device's settings — including the team selected in every league,
+          the FAAB risk posture and hidden Rankings columns, none of which
+          live on this page.  It now asks first, says what it resets, and
+          keeps the team selection. */}
+      <Modal
+        open={confirmResetOpen}
+        onClose={() => setConfirmResetOpen(false)}
+        title="Reset settings to defaults?"
+      >
+        <div data-testid="settings-reset-confirm" style={{ fontSize: "0.82rem" }}>
+          <p style={{ marginTop: 0 }}>
+            This restores the defaults for every preference saved on this
+            device, including ones set on other pages: the FAAB risk posture
+            on Waivers and the hidden columns on Rankings.
+          </p>
+          <p>
+            Your selected team in each league is kept. Your watchlist, custom
+            alerts and notification settings are not affected.
+          </p>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <button
+              type="button"
+              className="button"
+              onClick={() => setConfirmResetOpen(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="button button-primary"
+              onClick={resetToDefaults}
+            >
+              Reset settings
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {loading && <p role="status">Loading data…</p>}
       {/* Was a bare red <p>: no role, so nothing was announced; no
@@ -373,25 +451,22 @@ export default function SettingsPage() {
 
       <SettingsGroup
         title="League &amp; scoring"
-        description="How your league is set up. These change what the numbers mean."
+        description="How the board reads your league. These are facts of the league, not preferences."
       >
       <Section title="League Format" defaultOpen>
-        <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
-          {/* aria-label rather than a visible <label>: this select is
-              the ONLY control in its group and the Section title
-              already names it on screen, so a visible label would be
-              duplicate text — but it was reaching assistive tech as an
-              unnamed combobox. */}
-          <select
-            aria-label="League format"
-            className="select"
-            value={settings.leagueFormat}
-            onChange={(e) => update("leagueFormat", e.target.value)}
-          >
-            <option value="superflex">Superflex</option>
-            <option value="standard">Standard (1QB)</option>
-          </select>
-        </div>
+        {/* The Superflex / Standard (1QB) selector is gone: it wrote
+            `leagueFormat` to this device's settings and nothing anywhere
+            read it (verified 2026-11-16 — no reader in app/, components/,
+            lib/ or the backend), so choosing "Standard" changed no number.
+            The format is a fact of the league, not a preference. */}
+        <p
+          className="muted"
+          data-testid="league-format-note"
+          style={{ fontSize: "0.72rem", marginTop: 0, marginBottom: 10 }}
+        >
+          League format is not a setting: values come from the board built
+          for your league&apos;s own scoring settings.
+        </p>
         {/* The MANUAL TE-premium override is withdrawn (DEFECT-02, held for
             owner approval).  The two inputs used to post
             ``tep_multiplier`` / ``tep_native_multiplier`` from
@@ -422,7 +497,7 @@ export default function SettingsPage() {
 
       <SettingsGroup
         title="How values are calculated"
-        description="Tuning for the valuation engine. The defaults are sensible; change these only if you want a different board."
+        description="How the board is built, and how the trade and rankings tools use it. Nothing here changes a player's dynasty value."
       >
       <Section title="Trade Calculation" defaultOpen>
         <SliderRow
@@ -467,7 +542,10 @@ export default function SettingsPage() {
           Values are always the market board. This is not a setting.
         </div>
         <div style={{ marginBottom: 8 }}>
-          <label style={{ fontSize: "0.82rem", marginRight: 8 }}>
+          <label
+            htmlFor={valueBasisId}
+            style={{ fontSize: "0.82rem", marginRight: 8 }}
+          >
             Value basis
           </label>
           {/* Read-only on purpose.  The "My league" lens was withdrawn
@@ -479,7 +557,7 @@ export default function SettingsPage() {
               device still has in localStorage, and it offers no other
               choice.  Do not re-thread a selector here. */}
           <select
-            aria-label="Valuation mode"
+            id={valueBasisId}
             className="select"
             value="market"
             disabled
@@ -495,7 +573,8 @@ export default function SettingsPage() {
             <strong>Market</strong> — the blended consensus board from the
             canonical pipeline, shared by every league on the same scoring
             settings. Rankings, the trade calculator and exports all read it.
-            The source weights and TE premium on this page still apply to it.
+            The automatic TE premium above applies to it; custom source
+            weights do not (they are switched off).
           </p>
           <p>
             The &quot;My league&quot; positional-scarcity lens was withdrawn and
@@ -506,23 +585,9 @@ export default function SettingsPage() {
       </Section>
 
       <Section title="Rankings Display" defaultOpen>
-        <div style={{ marginBottom: 8 }}>
-          <label
-            htmlFor={sortBasisId}
-            style={{ fontSize: "0.82rem", marginRight: 8 }}
-          >
-            Sort Basis
-          </label>
-          <select
-            id={sortBasisId}
-            className="select"
-            value={settings.rankingsSortBasis}
-            onChange={(e) => update("rankingsSortBasis", e.target.value)}
-          >
-            <option value="full">Our Value</option>
-            <option value="raw">Raw Composite</option>
-          </select>
-        </div>
+        {/* "Sort Basis" (Our Value / Raw Composite) is gone: it wrote
+            `rankingsSortBasis` and no page read it, so neither choice
+            changed any order (verified 2026-11-16). */}
         <ToggleRow
           label="Show source site columns"
           checked={settings.showSiteCols}
@@ -543,8 +608,9 @@ export default function SettingsPage() {
         >
           How each ranking source votes on the site&apos;s consensus values
           right now: when it last genuinely updated, how much voting power its
-          freshness keeps, the weight it votes with, and why. Your own source
-          weights below are applied on top of this. Full diagnostics are on{" "}
+          freshness keeps, the weight it votes with, and why. This is exactly
+          how the board is built: custom source weights are switched off.
+          Full diagnostics are on{" "}
           <Link href="/tools/source-health">Source Health</Link>.
         </div>
         {!rawData && failure ? (
@@ -570,69 +636,69 @@ export default function SettingsPage() {
       </Section>
 
       <Section title="Ranking Sources" defaultOpen>
+        {/* This copy used to promise that toggling a source or changing its
+            weight "recomputes the board with your own mix".  The server has
+            ignored every custom mix since 2026-08-14
+            (`_SOURCE_OVERRIDES_DISABLED`), so the switches, weights and the
+            three weight presets changed nothing while the page said they
+            did.  The presets are gone; the table shows the registry default
+            (disabled) and the board's own base weight. */}
+        <p
+          id={customMixNoteId}
+          data-testid="custom-mix-off-note"
+          style={{ fontSize: "0.76rem", marginTop: 0, marginBottom: 8 }}
+        >
+          <strong>{CUSTOM_MIX_OFF_NOTE}</strong>
+        </p>
         <div
           style={{ fontSize: "0.72rem", marginBottom: 10 }}
           className="muted"
         >
-          Every registered source contributes equally (default weight 1.0) to
-          the blended consensus rank. Toggle a source off or adjust its weight
-          to recompute the board with your own mix. Changing any knob flips the
-          rankings page into override mode so your settings materially affect
-          the displayed rank and value; clearing the overrides returns to the
-          canonical server blend. IDP Trade Calculator is the IDP backbone and
-          also feeds offense via its secondary scope. Backend registry:{" "}
+          The registered sources and the role each plays. IDP Trade Calculator
+          is the IDP backbone and also feeds offense via its secondary scope.
+          Status and &quot;Voting on&quot; come from the board&apos;s own
+          source voting report (see Source Voting above). Backend registry:{" "}
           <code style={{ fontFamily: "var(--mono)" }}>
             src/api/data_contract.py
           </code>
           .
         </div>
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            marginBottom: 10,
-            flexWrap: "wrap",
-          }}
-        >
-          {Object.values(WEIGHT_PRESETS).map((preset) => {
-            const active =
-              detectActivePreset(settings?.siteWeights) === preset.key;
-            return (
-              <button
-                key={preset.key}
-                type="button"
-                className={`button${active ? " button-primary" : ""}`}
-                style={{ fontSize: "0.72rem" }}
-                title={preset.description}
-                onClick={() =>
-                  update("siteWeights", presetToWeights(preset.key))
-                }
-              >
-                {preset.label}
-                {active ? " ✓" : ""}
-              </button>
-            );
-          })}
-          <button
-            className="button"
-            onClick={resetSiteWeights}
-            style={{ fontSize: "0.72rem" }}
+        {hasSavedSourceMix ? (
+          <div
+            data-testid="saved-source-mix"
+            style={{
+              display: "flex",
+              gap: 8,
+              alignItems: "center",
+              marginBottom: 10,
+              flexWrap: "wrap",
+              fontSize: "0.72rem",
+            }}
           >
-            Reset source weights
-          </button>
-        </div>
+            <span className="muted">
+              This device has a custom source mix saved. It is not applied to
+              any value.
+            </span>
+            <button
+              type="button"
+              className="button"
+              onClick={resetSiteWeights}
+              style={{ fontSize: "0.72rem" }}
+            >
+              Clear saved source mix
+            </button>
+          </div>
+        ) : null}
         <SourceTable
           title="Offense"
           sources={sourcesByGroup.offense}
-          onToggle={(key, include) => updateSiteWeight(key, "include", include)}
-          onWeight={(key, weight) => updateSiteWeight(key, "weight", weight)}
+          describedBy={customMixNoteId}
         />
         <div style={{ height: 12 }} />
         <SourceTable
           title="IDP"
           sources={sourcesByGroup.idp}
-          onToggle={(key, include) => updateSiteWeight(key, "include", include)}
-          onWeight={(key, weight) => updateSiteWeight(key, "weight", weight)}
+          describedBy={customMixNoteId}
         />
       </Section>
 
@@ -647,12 +713,12 @@ export default function SettingsPage() {
           </strong>{" "}
           These flags only control which surfaces show ROS context.
         </p>
-        <ToggleRow
-          label="Enable ROS engine"
-          checked={settings.rosEnabled !== false}
-          onChange={(v) => update("rosEnabled", v)}
-          hint="Master switch.  Off hides every ROS-driven surface (Championship tab, Trade-deadline dashboard, ROS Fit panel, player tags).  Does not affect the Power tab — it has no v1 fallback to fall back to (V1-52 retired it)."
-        />
+        {/* Two controls were removed here (verified 2026-11-16): the
+            "Enable ROS engine" master switch, whose hint promised it hid
+            every ROS surface, and the "Monte Carlo simulations" count.  Each
+            wrote a setting (`rosEnabled`, `rosSimulationCount`) that no page
+            and no request ever read, so neither changed anything.  The two
+            toggles below ARE read (RosTradeFitPanel, PlayerPopup). */}
         <ToggleRow
           label="Show ROS Fit panel on Trade Calculator"
           checked={settings.showRosTradePanel !== false}
@@ -665,39 +731,6 @@ export default function SettingsPage() {
           onChange={(v) => update("showRosTags", v)}
           hint="Appends a Short-term context section to PlayerPopup with ROS value, rank, tier, and tags like Win-now target / Seller cash-out / Rebuilder hold."
         />
-        <div
-          style={{
-            display: "flex",
-            gap: 10,
-            alignItems: "center",
-            marginTop: 14,
-          }}
-        >
-          <label style={{ fontSize: "0.82rem", minWidth: 200 }}>
-            Monte Carlo simulations
-          </label>
-          <input
-            type="number"
-            min={1000}
-            max={100000}
-            step={1000}
-            value={settings.rosSimulationCount ?? 10000}
-            onChange={(e) =>
-              update(
-                "rosSimulationCount",
-                Math.max(
-                  1000,
-                  Math.min(100000, parseInt(e.target.value) || 10000),
-                ),
-              )
-            }
-            className="input"
-            style={{ width: 100 }}
-          />
-          <span style={{ fontSize: "0.72rem", color: "var(--subtext)" }}>
-            higher = tighter tails, slower section load
-          </span>
-        </div>
         <RosSourceTable
           overrides={settings.rosSourceOverrides || {}}
           onToggle={(key, enabled) => {
@@ -755,10 +788,14 @@ export default function SettingsPage() {
                 flexWrap: "wrap",
               }}
             >
-              <label style={{ fontSize: "0.82rem", minWidth: 100 }}>
+              <label
+                htmlFor={emailInputId}
+                style={{ fontSize: "0.82rem", minWidth: 100 }}
+              >
                 Email address
               </label>
               <input
+                id={emailInputId}
                 type="email"
                 className="input"
                 value={emailDraft}
@@ -854,6 +891,7 @@ export default function SettingsPage() {
           <input
             className="input"
             value={watchAddName}
+            aria-label="Add player by name to watchlist"
             placeholder="Add player by name"
             list="brisket-watchlist-player-list"
             onChange={(e) => setWatchAddName(e.target.value)}
@@ -960,8 +998,9 @@ export default function SettingsPage() {
           borderTop: "1px solid var(--border)",
         }}
       >
-        Settings are saved automatically to your browser. They affect trade
-        calculations, rankings display, and value composites.
+        Settings are saved automatically to your browser. They change what
+        the trade tools and rankings show; none of them changes a player&apos;s
+        dynasty value.
         {isAdmin ? (
           <>
             {" "}
@@ -977,7 +1016,19 @@ export default function SettingsPage() {
   );
 }
 
-function SourceTable({ title, sources, onToggle, onWeight }) {
+/** "412 players + 24 picks" from the backend's voting counts; null when the
+ *  board did not report this source (shown as "—", never 0). */
+function votingOnText(src) {
+  const players = Number.isFinite(src.playersVoting) ? src.playersVoting : null;
+  const picks = Number.isFinite(src.picksVoting) ? src.picksVoting : null;
+  if (players === null && picks === null) return null;
+  const parts = [];
+  if (players !== null) parts.push(`${players} player${players === 1 ? "" : "s"}`);
+  if (picks !== null && picks > 0) parts.push(`${picks} pick${picks === 1 ? "" : "s"}`);
+  return parts.join(" + ");
+}
+
+function SourceTable({ title, sources, describedBy }) {
   if (!sources || !sources.length) {
     return (
       <div className="muted" style={{ fontSize: "0.76rem" }}>
@@ -1001,23 +1052,28 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
               >
                 Role
               </th>
+              {/* Named for what they are — the registry's default, not live
+                  inclusion.  A source the registry includes can still cast
+                  no vote on this board (stale, data issue…); that is the
+                  Status column's answer, not this one's. */}
               <th
                 style={{ textAlign: "center", padding: "6px 8px" }}
-                title="Include this source in rank blending"
+                title="Every registered source is included by default. Custom source mixes are switched off, so this cannot be changed. Whether the source voted on this board is in Status."
               >
-                On
+                Registry default
               </th>
               <th
                 style={{ textAlign: "right", padding: "6px 8px" }}
-                title="Weight applied to this source in the blend. Default 1.0"
+                title="The source's base weight, as the board's source voting report states it. Custom weights are switched off, so this cannot be changed."
               >
-                Weight
+                Base weight
               </th>
               <th
                 className="settings-src-col-covered"
                 style={{ textAlign: "right", padding: "6px 8px" }}
+                title="Players (and picks) this source voted on in the current board, as the board reports it"
               >
-                Covered
+                Voting on
               </th>
               <th
                 className="settings-src-col-status"
@@ -1034,21 +1090,17 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
                 : src.isBackbone
                   ? "Backbone (IDP)"
                   : "Expert consensus";
-              const statusLabel = src.nonVoting
-                ? src.voteLabel
-                : src.live
-                  ? "Live"
-                  : "Idle";
+              // Backend status (lib/source-voting-status.js label); a source
+              // the board did not report says so — never "Live", never "Idle".
+              const statusLabel = src.statusLabel;
               const statusColor =
-                src.live && !src.nonVoting ? "var(--green)" : "var(--subtext)";
-              const enabled = src.userInclude !== false;
+                STATUS_TONE_COLOR[src.statusTone] || STATUS_TONE_COLOR.neutral;
+              const votingOn = votingOnText(src);
               return (
                 <tr
                   key={src.key}
-                  style={{
-                    borderBottom: "1px solid var(--border-dim)",
-                    opacity: enabled ? 1 : 0.45,
-                  }}
+                  data-testid={`settings-src-row-${src.key}`}
+                  style={{ borderBottom: "1px solid var(--border-dim)" }}
                 >
                   <td style={{ padding: "6px 8px" }}>
                     <div
@@ -1114,9 +1166,12 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
                       style={{ fontSize: "0.64rem", fontFamily: "var(--mono)" }}
                     >
                       {src.columnLabel} · {src.key}
+                      {/* Mobile hides the Status column, so the status is
+                          stated here as TEXT — the dot above is colour. */}
                       <span className="settings-src-covered-mobile">
                         {" · "}
-                        {src.covered} covered
+                        {statusLabel}
+                        {votingOn ? ` · voting on ${votingOn}` : ""}
                       </span>
                     </div>
                   </td>
@@ -1142,47 +1197,53 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
                     </td>
                   ) : (
                     <>
+                      {/* Disabled, showing the registry's DEFAULT (every
+                          source included): custom mixes are switched off
+                          server-side, so an operable control here would
+                          change nothing.  Its name says it is the registry
+                          default, so "checked" is never announced as "this
+                          source is in the blend" for a source Status says is
+                          not voting. */}
                       <td style={{ padding: "6px 8px", textAlign: "center" }}>
                         <input
                           type="checkbox"
-                          checked={enabled}
-                          onChange={(e) => onToggle?.(src.key, e.target.checked)}
-                          aria-label={`Include ${src.displayName} in blend`}
+                          checked
+                          readOnly
+                          disabled
+                          aria-label={`Include ${src.displayName} by registry default (custom mixes are switched off; Status shows whether it voted)`}
+                          aria-describedby={describedBy}
                           className="settings-src-toggle"
-                          style={{ cursor: "pointer" }}
                         />
                       </td>
+                      {/* Plain text, not a disabled input: nothing here can
+                          be edited.  The backend's own base weight; "—" when
+                          the board did not report the source. */}
                       <td
+                        data-testid={`settings-src-base-weight-${src.key}`}
+                        title={
+                          Number.isFinite(src.baseWeight)
+                            ? undefined
+                            : "The board did not report this source's base weight"
+                        }
                         style={{
                           padding: "6px 8px",
                           textAlign: "right",
                           fontFamily: "var(--mono)",
+                          color: "var(--subtext)",
                         }}
                       >
-                        <input
-                          type="number"
-                          min={0}
-                          max={5}
-                          step={0.1}
-                          value={Number(src.userWeight).toFixed(1)}
-                          onChange={(e) => {
-                            const v = Number(e.target.value);
-                            if (Number.isFinite(v) && v >= 0)
-                              onWeight?.(src.key, v);
-                          }}
-                          disabled={!enabled}
-                          className="input weight-input"
-                          style={{
-                            textAlign: "right",
-                            fontFamily: "var(--mono)",
-                          }}
-                          aria-label={`${src.displayName} weight`}
-                        />
+                        {Number.isFinite(src.baseWeight)
+                          ? src.baseWeight.toFixed(
+                              Number.isInteger(src.baseWeight * 10) ? 1 : 2,
+                            )
+                          : "—"}
                       </td>
                     </>
                   )}
                   <td
                     className="settings-src-col-covered"
+                    data-testid={`settings-src-voting-on-${src.key}`}
+                    title={votingOn ? undefined : "The board did not report this source's voting"}
                     style={{
                       padding: "6px 8px",
                       textAlign: "right",
@@ -1190,10 +1251,12 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
                       color: "var(--subtext)",
                     }}
                   >
-                    {src.covered}
+                    {votingOn ?? "—"}
                   </td>
                   <td
                     className="settings-src-col-status"
+                    data-testid={`settings-src-status-${src.key}`}
+                    title={src.statusReason || undefined}
                     style={{
                       padding: "6px 8px",
                       textAlign: "center",
@@ -1373,6 +1436,7 @@ function RosSourceTable({ overrides, onToggle, onWeight, onResetSource }) {
                       type="checkbox"
                       checked={enabled}
                       onChange={(e) => onToggle(src.key, e.target.checked)}
+                      aria-label={`${src.displayName} ROS source on`}
                       className="settings-src-toggle"
                       style={{ cursor: "pointer" }}
                     />
@@ -1399,6 +1463,7 @@ function RosSourceTable({ overrides, onToggle, onWeight, onResetSource }) {
                       className="input"
                       style={{ width: 64, textAlign: "right" }}
                       disabled={!enabled}
+                      aria-label={`${src.displayName} ROS weight`}
                     />
                   </td>
                   <td

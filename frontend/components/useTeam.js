@@ -169,9 +169,26 @@ export function useTeam() {
   // ownerId + rosterId + managerName so future multi-device syncs
   // can rename-tolerance via ownerId.  Callers that only have a
   // name (TeamSwitcher, /rosters dropdown) pass a string.
+  //
+  // WHICH league slot the pick lands in: the active league once
+  // ``/api/leagues`` has answered.  Before it answers, the pickers are
+  // already live — the contract (and so ``availableTeams``) usually
+  // lands first — and the teams on offer are the CONTRACT's league's
+  // teams, which ``meta.leagueKey`` names.  So a pick made in that
+  // window is recorded under the contract's league, the league the team
+  // actually belongs to.  It used to be dropped (``if
+  // (!selectedLeagueKey) return``): the topbar kept saying "Pick your
+  // team", /trade's own picker showed the team while every
+  // ``useTeam().selectedTeam`` consumer (the War Room, Simulate impact)
+  // saw none, and auto-assign could later overwrite the explicit choice
+  // because nothing marked the league touched (E2E trade-war-room,
+  // mobile-chromium, run 44308798204: the board rendered at 0.72 s, the
+  // test picked its team, and /api/leagues answered at 0.96 s).  Never a
+  // guessed league: with neither key known the write is still refused.
   const setSelectedTeam = useCallback(
     (teamOrName) => {
-      if (!selectedLeagueKey) return;
+      const leagueKey = selectedLeagueKey || contractLeagueKey;
+      if (!leagueKey) return;
       let entry;
       if (!teamOrName) {
         entry = { ownerId: "", teamName: "" };
@@ -203,11 +220,11 @@ export function useTeam() {
 
       const nextByLeague = {
         ...(settings?.selectedTeamsByLeague || {}),
-        [selectedLeagueKey]: entry,
+        [leagueKey]: entry,
       };
       const nextTouched = {
         ...(settings?.selectedTeamTouchedByLeague || {}),
-        [selectedLeagueKey]: true,
+        [leagueKey]: true,
       };
 
       update("selectedTeamsByLeague", nextByLeague);
@@ -215,13 +232,15 @@ export function useTeam() {
 
       // Back-compat mirror: for the default league also write the
       // legacy top-level field so pre-migration builds loaded in
-      // another tab still see the right team name.
-      if (selectedLeagueKey === defaultLeagueKey) {
+      // another tab still see the right team name.  Only once the
+      // default is KNOWN: before /api/leagues answers both keys are "",
+      // and "" === "" must not mirror another league's team into it.
+      if (defaultLeagueKey && leagueKey === defaultLeagueKey) {
         update("selectedTeam", entry.teamName);
         // update() already sets selectedTeamTouched for selectedTeam writes.
       }
     },
-    [selectedLeagueKey, defaultLeagueKey, availableTeams, settings, update],
+    [selectedLeagueKey, contractLeagueKey, defaultLeagueKey, availableTeams, settings, update],
   );
 
   const clearSelectedTeam = useCallback(() => setSelectedTeam(""), [setSelectedTeam]);

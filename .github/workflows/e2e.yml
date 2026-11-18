@@ -165,12 +165,13 @@ jobs:
           python scripts/python_lock.py check
           pip install --require-hashes -r requirements.lock.txt
 
-      # Node 20 is the production runtime this job builds and serves the app
-      # on.  @axe-core/playwright 4.14 declares engines node >=22.12 (npm
-      # prints EBADENGINE); it is plain CommonJS needing only `assert` and
-      # axe-core, and its scans run correctly here.  Accepted on purpose:
-      # moving this job to Node 22 would test a runtime production does not
-      # run.  Revisit when production moves off Node 20.
+      # E2E exercises the app on the production box's Node major.  CI moved to
+      # Node 22 in #2252 while the box still ran 20, and the next deploy failed
+      # at artifact staging (Node majors must match); every lane that builds or
+      # validates what production runs stays on the production major until the
+      # owner's box cutover (docs/ops/NODE22_CUTOVER_2026-11-18.md), when they
+      # all move together.  tests/deploy/test_deploy_node_matches_production.py
+      # pins it.
       - name: Use Node 20
         uses: actions/setup-node@v7
         with:
@@ -230,7 +231,9 @@ jobs:
           # Random per-run secret for the test-only session endpoint
           # (/api/test/create-session).  Both the server and the
           # Playwright runner read it; it never leaves this run.
-          echo "E2E_TEST_SECRET=$(openssl rand -hex 24)" >> "$GITHUB_ENV"
+          secret="$(openssl rand -hex 24)"
+          echo "::add-mask::${secret}"
+          echo "E2E_TEST_SECRET=${secret}" >> "$GITHUB_ENV"
 
       - name: Start backend (FastAPI :8000)
         shell: bash

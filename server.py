@@ -84,6 +84,7 @@ from src.api.data_contract import (
     validate_api_data_contract,
 )
 from src.api import gameplan as _gameplan
+from src.api import startup_guards as _startup_guards
 from src.api import chase_upside_mcp as _chase_upside_mcp
 from src.api.build_identity import PROCESS_BUILD, PROCESS_RELEASE
 from src.api import public_diagnostics as _public_diagnostics
@@ -296,20 +297,18 @@ UPTIME_ALERT_FAIL_THRESHOLD = int(os.getenv("UPTIME_ALERT_FAIL_THRESHOLD", "2"))
 # a known password.
 JASON_LOGIN_USERNAME = (os.getenv("JASON_LOGIN_USERNAME") or "jasonleetucker").strip()
 _JASON_LOGIN_PASSWORD_RAW = (os.getenv("JASON_LOGIN_PASSWORD") or "").strip()
+_STARTUP_REFUSALS = _startup_guards.startup_refusals(os.environ)
+if _STARTUP_REFUSALS:
+    # One shared rule set (src/api/startup_guards.py); deploy.sh runs the same
+    # check against the box .env BEFORE swapping anything.  Names only.
+    raise RuntimeError("Refusing to start: " + "; ".join(_STARTUP_REFUSALS) + ".")
 if not _JASON_LOGIN_PASSWORD_RAW:
-    if _env_bool("ALLOW_DEFAULT_LOGIN_DEV", False):
-        _JASON_LOGIN_PASSWORD_RAW = "changeme"
-        logging.getLogger(__name__).warning(
-            "JASON_LOGIN_PASSWORD unset; ALLOW_DEFAULT_LOGIN_DEV=1 — "
-            "using local-dev placeholder.  DO NOT USE IN PRODUCTION."
-        )
-    else:
-        raise RuntimeError(
-            "JASON_LOGIN_PASSWORD env var is required.  Set it on "
-            "the production .env (loaded via the systemd unit), or "
-            "set ALLOW_DEFAULT_LOGIN_DEV=1 for a placeholder password "
-            "during local development."
-        )
+    # Only reachable with ALLOW_DEFAULT_LOGIN_DEV truthy (see startup_refusals).
+    _JASON_LOGIN_PASSWORD_RAW = "changeme"
+    logging.getLogger(__name__).warning(
+        "JASON_LOGIN_PASSWORD unset; ALLOW_DEFAULT_LOGIN_DEV=1 — "
+        "using local-dev placeholder.  DO NOT USE IN PRODUCTION."
+    )
 JASON_LOGIN_PASSWORD = _JASON_LOGIN_PASSWORD_RAW
 JASON_AUTH_COOKIE_NAME = "jason_session"
 JASON_AUTH_COOKIE_SECURE = _env_bool("JASON_AUTH_COOKIE_SECURE", True)
@@ -365,7 +364,7 @@ def send_alert(subject: str, body: str):
     """Send an email alert in the background. Fails silently if not configured.
 
     Never blocks the caller on the network.  Two callers run ON the event
-    loop — ``get_health`` (stale backups) and ``uptime_watchdog_loop``
+    loop — ``backup_watchdog_loop`` (stale backups) and ``uptime_watchdog_loop``
     (consecutive uptime failures) — and this used to connect to
     ``smtp.gmail.com:465`` synchronously with no timeout, a port the
     production VPS firewalls (commit 54af3811cc).  A connect to a dropped
@@ -4496,6 +4495,55 @@ async def uptime_watchdog_loop():
         await asyncio.sleep(max(30, UPTIME_CHECK_INTERVAL_SEC))
 
 
+BACKUP_WATCHDOG_INTERVAL_SEC = 6 * 3600
+# One threshold: the verdict in src/api/backup_health.py (36 h) is the number
+# the watchdog applies, so the health block and the e-mail cannot drift apart.
+from src.api.backup_health import STALE_AFTER_HOURS as BACKUP_STALE_ALERT_HOURS  # noqa: E402
+
+
+def _alert_if_backups_stale() -> bool:
+    """Send the stale-backup e-mail when the newest backup is missing/old.
+
+    Delivery goes through ``send_alert`` (global cooldown + one in flight),
+    so repeated ticks cannot spam.  Returns whether an alert was requested.
+    """
+    backup_health = _backup_freshness()
+    _bage = backup_health.get("newestBackupAgeHours")
+    if _bage is None or _bage > BACKUP_STALE_ALERT_HOURS:
+        # The public block carries no path.  The file is the private sidecar
+        # memoized with THIS block (no backup observed: the sidecar is None).
+        _bpath = _backup_alert_path(backup_health)
+        send_alert(
+            "Risk It: SQLite backups stale",
+            f"Newest backup age: {_bage}h (dir={backup_health.get('backupDirUsed')}, "
+            f"path={_bpath}, dbCount="
+            f"{backup_health.get('dbCount')}). Expected a fresh backup within 24h "
+            f"from riskit-backup.timer (02:00 UTC). Check "
+            f"deploy/backup_user_kv.sh and /var/log/riskit-backup.log.",
+        )
+        return True
+    return False
+
+
+# The first check waits a little after startup: a short-lived app (tests, a
+# one-off ``TestClient`` lifespan, a restart that is about to be rolled back)
+# must not e-mail, and production still checks within minutes of every start.
+# ``0`` checks immediately; tests drive ``_alert_if_backups_stale`` directly.
+BACKUP_WATCHDOG_FIRST_DELAY_SEC = int(os.getenv("BACKUP_WATCHDOG_FIRST_DELAY_SEC", "900"))
+
+
+async def backup_watchdog_loop():
+    """Periodic stale-backup check (moved off the anonymous /api/health path)."""
+    if BACKUP_WATCHDOG_FIRST_DELAY_SEC > 0:
+        await asyncio.sleep(BACKUP_WATCHDOG_FIRST_DELAY_SEC)
+    while True:
+        try:
+            await asyncio.to_thread(_alert_if_backups_stale)
+        except Exception as exc:  # noqa: BLE001 — a watchdog never dies
+            log.warning("backup watchdog tick failed: %s", exc)
+        await asyncio.sleep(BACKUP_WATCHDOG_INTERVAL_SEC)
+
+
 # ── SCHEDULER ───────────────────────────────────────────────────────────
 async def scheduled_scrape():
     """Called by the background scheduler every SCRAPE_INTERVAL_HOURS."""
@@ -4687,6 +4735,7 @@ async def lifespan(app: FastAPI):
         scrape_task = scheduler_task = None
         log.info("Scrape scheduler disabled (SCRAPE_SCHEDULER_ENABLED=false)")
     uptime_task = asyncio.create_task(uptime_watchdog_loop())
+    backup_watchdog_task = asyncio.create_task(backup_watchdog_loop())
     heap_report_task = asyncio.create_task(heap_report_loop())
     # Rookie auction room runtime (closes, bots, heartbeat, outage pause).
     # Correctness never depends on it — every command settles what is due
@@ -4741,6 +4790,7 @@ async def lifespan(app: FastAPI):
         if task is not None:
             task.cancel()
     uptime_task.cancel()
+    backup_watchdog_task.cancel()
     heap_report_task.cancel()
     if auction_task is not None:
         auction_task.cancel()
@@ -6857,6 +6907,11 @@ def _status_content(status_payload: dict | None = None) -> dict:
             "startup_payload_savings_gzip_bytes": max(0, full_gzip_bytes - startup_gzip_bytes),
         },
         "source_health": source_health,
+        # Aggregate board-freshness numbers an external monitor asserts on
+        # (scripts/check_production_slo.py).  Computed from the loaded contract
+        # without mutating it; the per-source private list is stripped for
+        # anonymous callers by ``public_diagnostics``.
+        "freshness_slo": _freshness_slo_block(),
         "backup_health": _backup_freshness(),
         "uptime": uptime_status,
         "has_data": latest_contract_data is not None,
@@ -6906,6 +6961,25 @@ def _status_content(status_payload: dict | None = None) -> dict:
         "nflDataProvider": _nfl_data_provider_status_safe(),
         "normalizationHealth": _normalization_health_safe(),
     }
+
+
+def _freshness_slo_block() -> dict:
+    """``freshness_slo`` for ``/api/status``; never raises (a diagnostic must
+    not take down the endpoint it reports on)."""
+    try:
+        from src.api import freshness_slo as _fs
+
+        try:
+            from src.api.data_contract import private_source_availability
+
+            private = private_source_availability()
+        except Exception as exc:  # noqa: BLE001
+            log.warning("private source availability unreadable: %s", exc)
+            private = None
+        return _fs.board_freshness_metrics(latest_contract_data, private_availability=private)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("freshness_slo block failed: %s", exc)
+        return {"schemaVersion": "freshness-slo.v1", "state": "unknown", "error": "unavailable"}
 
 
 def _feature_flag_snapshot_safe() -> dict:
@@ -7128,18 +7202,17 @@ async def get_health():
     verdict are computed BEFORE projection and are unchanged by it.  The
     unredacted content is ``GET /api/admin/diagnostics`` (admin-gated).
     """
-    status_code, content = _health_content(send_alerts=True)
+    status_code, content = _health_content()
     return JSONResponse(
         status_code=status_code,
         content=_public_diagnostics.public_health_payload(content, base_dir=BASE_DIR),
     )
 
 
-def _health_content(*, send_alerts: bool) -> tuple[int, dict]:
+def _health_content() -> tuple[int, dict]:
     """``(status code, FULL /api/health content)``.  PRIVATE: see ``get_health``.
 
-    ``send_alerts`` is False for the admin read so looking at the diagnostics
-    never sends the stale-backup e-mail.
+    Side-effect free: reading health never sends an alert.
     """
     status_payload = _scrape_status_payload()
 
@@ -7259,25 +7332,12 @@ def _health_content(*, send_alerts: bool) -> tuple[int, dict]:
 
     # Backup-freshness watchdog.  Backups run nightly (riskit-backup
     # .timer @ 02:00 UTC); anything older than 36h (or missing) means
-    # the backup pipeline is broken — the failure mode that went
-    # unnoticed for ~2 weeks.  send_alert is globally cooldown-rate-
-    # limited and no-ops when SMTP isn't configured.  Backup staleness
-    # does NOT flip the uptime status (the site is still serving).
+    # the backup pipeline is broken.  This READ reports the condition only:
+    # an anonymous GET must never have a side effect, so the stale-backup
+    # e-mail is sent by ``backup_watchdog_loop`` (``_alert_if_backups_stale``),
+    # not from the request path.  Backup staleness does NOT flip the
+    # uptime status (the site is still serving).
     backup_health = _backup_freshness()
-    _bage = backup_health.get("newestBackupAgeHours")
-    if send_alerts and (_bage is None or _bage > 36):
-        # The public block carries no path.  The file is the private sidecar
-        # memoized with THIS block, so age, dir, path and dbCount below all
-        # describe one scan (no backup observed: the sidecar is None).
-        _bpath = _backup_alert_path(backup_health)
-        send_alert(
-            "Risk It: SQLite backups stale",
-            f"Newest backup age: {_bage}h (dir={backup_health.get('backupDirUsed')}, "
-            f"path={_bpath}, dbCount="
-            f"{backup_health.get('dbCount')}). Expected a fresh backup within 24h "
-            f"from riskit-backup.timer (02:00 UTC). Check "
-            f"deploy/backup_user_kv.sh and /var/log/riskit-backup.log.",
-        )
 
     return (
         200 if is_ok else 503,
@@ -19760,7 +19820,7 @@ async def run_custom_alerts(request: Request):
         header = (request.headers.get("authorization") or "").strip()
         if header.lower().startswith("bearer "):
             presented = header.split(None, 1)[1].strip()
-            if hmac.compare_digest(presented, SIGNAL_ALERT_CRON_TOKEN):
+            if _startup_guards.constant_time_equals(presented, SIGNAL_ALERT_CRON_TOKEN):
                 cron_auth_ok = True
     if not cron_auth_ok:
         session = _get_auth_session(request)
@@ -20686,15 +20746,20 @@ async def post_trade_analyze(request: Request):
     # Decision receipt (TC-C): one line in the decision's own run log, the
     # AL-P5 arrangement Best Offers uses.  Best effort; never changes the
     # response beyond naming the run.
-    from src.trade.trade_decision_log import record_decision  # noqa: PLC0415
+    from src.trade.trade_decision_log import (  # noqa: PLC0415
+        is_smoke_request,
+        record_decision_unless_smoke,
+    )
 
+    smoke = is_smoke_request(request.headers, guest=not detail)
     with clock.stage("receipt"):
-        result["analysis"]["decisionRunId"] = record_decision(
+        result["analysis"]["decisionRunId"] = record_decision_unless_smoke(
             result["analysis"],
             league_key=league_key,
             team=(result.get("team") or {}).get("name")
             if isinstance(result.get("team"), dict)
             else None,
+            smoke=smoke,
         )
     result["analysisTiming"] = clock.to_dict(
         shared_stages=shared_stages if shared else None, detail=detail
@@ -21087,8 +21152,12 @@ async def post_trade_analyze_multi(request: Request):
     if shared:
         result = copy.deepcopy(result)
 
-    from src.trade.trade_decision_log import record_decision  # noqa: PLC0415
+    from src.trade.trade_decision_log import (  # noqa: PLC0415
+        is_smoke_request,
+        record_decision_unless_smoke,
+    )
 
+    smoke = is_smoke_request(request.headers, guest=not detail)
     response = _svc.multi_team_payload(
         result,
         snap=snap,
@@ -21100,8 +21169,11 @@ async def post_trade_analyze_multi(request: Request):
     decision_run_ids: dict[str, Any] = {}
     with clock.stage("receipt"):
         for t in response["teams"]:
-            run_id = record_decision(
-                t["analysis"], league_key=league_key, team=(t.get("team") or {}).get("name")
+            run_id = record_decision_unless_smoke(
+                t["analysis"],
+                league_key=league_key,
+                team=(t.get("team") or {}).get("name"),
+                smoke=smoke,
             )
             t["analysis"]["decisionRunId"] = run_id
             decision_run_ids[str(t["rosterId"])] = run_id
@@ -21373,14 +21445,14 @@ async def get_admin_diagnostics(request: Request):
     (``src/api/public_diagnostics.py``): no filesystem path, raw Sleeper id,
     env-derived probe target or traceback.  This is where an operator reads
     what they withheld, behind the same allowlist as every other
-    ``/api/admin/*`` route.  Read-only: it sends no alert (``send_alerts=False``)
+    ``/api/admin/*`` route.  Read-only: it sends no alert (side-effect-free)
     and changes no state.  The backup COVERAGE detail is not here either -- it
     stays on-box (``python -m src.api.backup_health``), per that module.
     """
     session_or_err = _require_admin_session(request)
     if isinstance(session_or_err, JSONResponse):
         return session_or_err
-    health_code, health = _health_content(send_alerts=False)
+    health_code, health = _health_content()
     # Same split as ``get_status``: the state check on the loop, the probes
     # in the threadpool.
     status_payload = _scrape_status_payload()
@@ -21971,7 +22043,7 @@ async def run_signal_alerts(request: Request):
         if header.lower().startswith("bearer "):
             presented = header.split(None, 1)[1].strip()
             # Constant-time compare to avoid timing leaks.
-            if hmac.compare_digest(presented, SIGNAL_ALERT_CRON_TOKEN):
+            if _startup_guards.constant_time_equals(presented, SIGNAL_ALERT_CRON_TOKEN):
                 cron_auth_ok = True
     if not cron_auth_ok:
         session = _get_auth_session(request)

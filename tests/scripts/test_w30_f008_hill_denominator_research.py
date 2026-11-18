@@ -37,8 +37,6 @@ EVIDENCE = (
     / "evidence"
     / "w30_f008_hill_denominator.json"
 )
-ARCHIVE = "dynasty_export_20261107_063955.zip"
-ARCHIVE_SHA256 = "f1ad8517f83008d44c7de1a942626115798d12a4ebdd629887b9ae225157fb60"
 
 
 @pytest.fixture(scope="module")
@@ -150,19 +148,25 @@ def test_fixture_vectors_match_the_git_blobs_when_history_is_present(W, evidence
 
 
 def test_c0_rebuild_structure_on_the_pinned_archive(W):
-    path = REPO / "exports" / "archive" / ARCHIVE
-    if not path.is_file():
-        pytest.skip(f"{ARCHIVE} not in this checkout")
+    """Structural properties of the C0 rebuild, on the PINNED board.
+
+    Hermetic: the payload and the CSV / scrape-state tree it builds against are
+    the committed ``tests/fixtures/pinned_board`` (never ``exports/archive``,
+    a rolling window whose retention pass deletes old exports, and never today's
+    ``CSVs`` / ``data``).  The assertions are structural, so they do not depend
+    on which complete board is pinned.
+    """
     from src.canonical import player_valuation as pv
     from src.canonical import rank_coordinates as rc
+    from tests import archive_fixtures as af
 
     before = dict(rc._CURVE_BY_POOL)
-    payload, sha = W.load_archive_payload(ARCHIVE)
-    assert sha == ARCHIVE_SHA256
+    payload, _label = af.pinned_board_payload()
     inc = {sc: W.V2_PARAMS[sc] for sc in W.SCOPES}
     c0 = {"OFFENSE": (0.077, 1.11), "GLOBAL": (0.088, 0.72), "IDP": (0.024, 1.15)}
-    base = W.build_board(payload, inc)
-    cand = W.build_board(payload, c0)
+    with af.pinned_build_environment():
+        base = W.build_board(payload, inc)
+        cand = W.build_board(payload, c0)
     # the in-process swap restored production exactly
     assert rc._CURVE_BY_POOL == before
     assert (pv.HILL_PERCENTILE_C, pv.HILL_PERCENTILE_S) == W.V2_PARAMS["OFFENSE"]
@@ -217,9 +221,10 @@ def test_c0_magnitudes_on_todays_csvs(W):
     deterministic record of the same claims is
     ``test_committed_evidence_headline_numbers``.
     """
-    if not (REPO / "exports" / "archive" / ARCHIVE).is_file():
-        pytest.skip(f"{ARCHIVE} not in this checkout")
-    payload, _ = W.load_archive_payload(ARCHIVE)
+    archive = "dynasty_export_20261107_063955.zip"
+    if not (REPO / "exports" / "archive" / archive).is_file():
+        pytest.skip(f"{archive} not in this checkout")
+    payload, _ = W.load_archive_payload(archive)
     inc = {sc: W.V2_PARAMS[sc] for sc in W.SCOPES}
     c0 = {"OFFENSE": (0.077, 1.11), "GLOBAL": (0.088, 0.72), "IDP": (0.024, 1.15)}
     base = W.build_board(payload, inc)

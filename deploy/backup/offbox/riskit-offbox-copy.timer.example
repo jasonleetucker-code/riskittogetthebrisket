@@ -1,0 +1,14 @@
+# TEMPLATE ONLY (see riskit-offbox-copy.service.example). 03:30 UTC, one hour after
+# the 02:30 nightly state backup. The copy picks the newest generation that exists
+# and restore-verifies it first, so a slow or failed backup delays the off-box copy
+# by a day; it can never copy something unverified.
+[Unit]
+Description=Daily off-box copy trigger (opt-in)
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 UTC
+Persistent=true
+AccuracySec=5min
+
+[Install]
+WantedBy=timers.target

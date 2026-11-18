@@ -239,6 +239,36 @@
     "crowd-faab-diagnostics.yml::crowd-faab-status::Probe crowd FAAB on production": {
       "category": "blocking"
     },
+    "data-delivery-shadow.yml::shadow::Check out the deploy target tree (DATA_ONLY only)": {
+      "category": "blocking"
+    },
+    "data-delivery-shadow.yml::shadow::Checkout (workflow commit, full history)": {
+      "category": "blocking"
+    },
+    "data-delivery-shadow.yml::shadow::Classify the delta (DATA_ONLY or CODE)": {
+      "category": "blocking"
+    },
+    "data-delivery-shadow.yml::shadow::Compare with the full Deploy Production verdict": {
+      "category": "blocking"
+    },
+    "data-delivery-shadow.yml::shadow::Install the target's locked dependencies (DATA_ONLY only)": {
+      "category": "blocking"
+    },
+    "data-delivery-shadow.yml::shadow::Record shadow start": {
+      "category": "blocking"
+    },
+    "data-delivery-shadow.yml::shadow::Resolve the deploy target and the last fully validated deploy": {
+      "category": "blocking"
+    },
+    "data-delivery-shadow.yml::shadow::Run the data gate set (shadow, decides nothing)": {
+      "category": "advisory"
+    },
+    "data-delivery-shadow.yml::shadow::Set up Python": {
+      "category": "blocking"
+    },
+    "data-delivery-shadow.yml::shadow::Upload shadow receipts": {
+      "category": "blocking"
+    },
     "deploy.yml::resolve::Checkout (workflow commit, full history for resolution)": {
       "category": "blocking"
     },
@@ -518,6 +548,30 @@
     "fd-diagnostics.yml::inventory::Configure production SSH": {
       "category": "blocking"
     },
+    "future-clock.yml::custom-instant::Checkout": {
+      "category": "blocking"
+    },
+    "future-clock.yml::custom-instant::Date-sensitive suites under the fake clock": {
+      "category": "blocking"
+    },
+    "future-clock.yml::custom-instant::Install dependencies": {
+      "category": "blocking"
+    },
+    "future-clock.yml::custom-instant::Set up Python": {
+      "category": "blocking"
+    },
+    "future-clock.yml::future-clock::Checkout": {
+      "category": "blocking"
+    },
+    "future-clock.yml::future-clock::Date-sensitive suites under the fake clock": {
+      "category": "blocking"
+    },
+    "future-clock.yml::future-clock::Install dependencies": {
+      "category": "blocking"
+    },
+    "future-clock.yml::future-clock::Set up Python": {
+      "category": "blocking"
+    },
     "game-day-capture.yml::capture::Configure production SSH": {
       "category": "blocking"
     },
@@ -558,6 +612,21 @@
       "category": "blocking"
     },
     "health-check.yml::health::Resolve production URL": {
+      "category": "blocking"
+    },
+    "health-check.yml::slo::Check out main with full history": {
+      "category": "blocking"
+    },
+    "health-check.yml::slo::Check production SLOs": {
+      "category": "blocking"
+    },
+    "health-check.yml::slo::Install PyYAML": {
+      "category": "blocking"
+    },
+    "health-check.yml::slo::Set up Python": {
+      "category": "blocking"
+    },
+    "health-check.yml::slo::Sync the rolling SLO tracking issue": {
       "category": "blocking"
     },
     "intel-refresh.yml::refresh::Alert on workflow failure": {
@@ -617,10 +686,10 @@
     "pr-validation.yml::dependency-audit::Set up Python": {
       "category": "advisory"
     },
-    "pr-validation.yml::dependency-audit::pip-audit (advisory — non-blocking)": {
+    "pr-validation.yml::dependency-audit::pip-audit (advisory \u2014 non-blocking)": {
       "category": "advisory"
     },
-    "pr-validation.yml::dependency-audit::npm audit (advisory — non-blocking)": {
+    "pr-validation.yml::dependency-audit::npm audit (advisory \u2014 non-blocking)": {
       "category": "advisory"
     },
     "pr-validation.yml::scope::Checkout": {
@@ -672,6 +741,9 @@
       "category": "blocking"
     },
     "pr-validation.yml::checks::Product-plan governance gate": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::checks::Tracked-data exposure guard (PR diff)": {
       "category": "blocking"
     },
     "pr-validation.yml::checks::Python import gate": {
@@ -785,7 +857,7 @@
     "prod-e2e-smoke.yml::smoke::Upload the Playwright report on failure": {
       "category": "blocking"
     },
-    "prod-e2e-smoke.yml::smoke::Use Node 20": {
+    "prod-e2e-smoke.yml::smoke::Use Node 22": {
       "category": "blocking"
     },
     "prod-heap-report.yml::heap-report::Checkout": {
@@ -1265,6 +1337,9 @@
     "v1-authenticated-verification.yml::v1-authenticated::Upload the reports": {
       "category": "blocking"
     },
+    "v1-authenticated-verification.yml::v1-authenticated::Trade analysis smoke (2-team analyze + 3-team analyze-multi)": {
+      "category": "blocking"
+    },
     "v1-authenticated-verification.yml::v1-authenticated::Wait for a warm backend (bounded, public endpoints)": {
       "category": "advisory"
     },
@@ -1334,10 +1409,16 @@
     "weekly-narratives.yml::narratives::Upload exported package (export mode only)": {
       "category": "blocking"
     },
-    "v1-authenticated-verification.yml::v1-authenticated::Set up Node 20 for production baseline": {
+    "v1-authenticated-verification.yml::v1-authenticated::Set up Node 22 for production baseline": {
       "category": "blocking"
     },
     "v1-authenticated-verification.yml::v1-authenticated::Collect authenticated route baseline": {
+      "category": "blocking"
+    },
+    "audit-rank-form-drift.yml::audit::Classify drift against the accepted baseline": {
+      "category": "blocking"
+    },
+    "verify-sharp-production.yml::verdict::Record measured verdict": {
       "category": "blocking"
     }
   },

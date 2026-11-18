@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useApp } from "@/components/AppShell";
 import { useLeague } from "@/components/useLeague";
 import { useRosterIntelligence } from "@/components/useRosterIntelligence";
@@ -40,7 +40,10 @@ import { computeWaiverAnalysis } from "@/lib/waiver-logic";
  *     ``POST /api/waiver/suggestions``.  The page joins it onto its
  *     own rows at render time (``lib/waiver-faab.js``), exactly like
  *     the BDVM "Fund gap" column on /rankings, rather than letting a
- *     bid become a contract field.
+ *     bid become a contract field.  ``bidFeed`` states the request's
+ *     status (``"loading"`` / ``"failed"`` / ``null``) and ``retryBids``
+ *     re-issues it, so the page can tell a pending bid from a failed one
+ *     and offer a retry instead of one cause-less blank.
  *
  *   • WHO MAY BE DROPPED is fetched too, never computed (C2-DROP-01):
  *     the team's canonical cut ladder from
@@ -131,13 +134,26 @@ export function useWaiverAnalysis({
 
   // ── Backend FAAB bids (optional enrichment) ─────────────────────
   //
-  // Silent-vanish, per the BDVM gap-column posture: any non-OK
-  // response, malformed body, abort or network failure leaves
-  // ``bidPayload`` null, the index null, and the FAAB cells "—".  It
-  // is deliberately NOT folded into ``error`` — the add/drop tables
-  // are fully usable without a bid, and a red banner over a working
-  // page because an optional column couldn't load is a worse outcome
-  // than a blank column.
+  // Optional, but STATED, never silent.  A failed bid request is
+  // deliberately NOT folded into ``error`` — the add/drop tables are fully
+  // usable without a bid, and a red page banner over a working page
+  // because an optional column couldn't load is the wrong answer.  But it
+  // is not hidden either: ``bidFeed`` says why there is no index, so a bid
+  // that is still loading and one whose request failed do not render as
+  // the same blank, and ``retryBids`` lets the page offer a retry.
+  //
+  //   "loading"  a request for the CURRENT bid identity (team, league,
+  //              balance) and the current retry attempt has not settled.
+  //   "failed"   it settled with a non-OK status, a malformed body (not a
+  //              JSON object, a body carrying an ``error``, or a payload
+  //              labelled for a different league) or a network error.
+  //   null       it settled with a usable payload — or no request applies
+  //              (no team selected, league mismatch).
+  //
+  // An ABORT is never "failed": the request is aborted only because the
+  // identity changed, a retry superseded it, or the component unmounted —
+  // in the first two cases the new request is what is in flight, so the
+  // feed reads "loading" for it.
   const leagueKey = selectedLeague?.key || "";
   const rawBalance = selectedTeam?.faabRemaining;
   const numericBalance = typeof rawBalance === "number" ||
@@ -148,6 +164,18 @@ export function useWaiverAnalysis({
   const bidsEnabled = Boolean(selectedTeam) && !leagueMismatch;
   const bidIdentity = JSON.stringify([bidsEnabled, leagueKey, selectedTeam?.ownerId || null, faabRemaining]);
   const [bidPayload, setBidPayload] = useState(null);
+  // Bumped by ``retryBids``; it rides in ``bidRequestKey``, which is in
+  // the fetch effect's deps, so a bump re-issues the request for the
+  // same identity.
+  const [bidAttempt, setBidAttempt] = useState(0);
+  const bidRequestKey = `${bidIdentity}#${bidAttempt}`;
+  // The settled outcome of the LAST request, tagged with the request key
+  // it answers.  A tag that is not the current key means the current
+  // request has not settled yet — "loading" — whatever the previous one
+  // said, so a stale "failed" can never outlive a retry or an identity
+  // change.
+  const [bidSettled, setBidSettled] = useState(null);
+  const retryBids = useCallback(() => setBidAttempt((n) => n + 1), []);
 
   useEffect(() => {
     if (!bidsEnabled) {
@@ -156,6 +184,7 @@ export function useWaiverAnalysis({
     }
     let cancelled = false;
     const ctl = new AbortController();
+    const settle = (state) => setBidSettled({ key: bidRequestKey, state });
     (async () => {
       try {
         const res = await fetch("/api/waiver/suggestions", {
@@ -187,17 +216,27 @@ export function useWaiverAnalysis({
         if (cancelled) return;
         if (!res.ok) {
           setBidPayload(null);
+          settle("failed");
           return;
         }
         const json = await res.json();
         if (cancelled) return;
+        // The endpoint states every error with a non-2xx status and never
+        // puts ``error`` on a success body (server.py
+        // ``post_waiver_suggestions``), so a 2xx body carrying one is not
+        // a bid board.
         const valid = json && typeof json === "object" && !Array.isArray(json) &&
+          !Object.hasOwn(json, "error") &&
           (!leagueKey || !Object.hasOwn(json, "leagueKey") || json.leagueKey === leagueKey);
         setBidPayload(valid ? { identity: bidIdentity, payload: json } : null);
-      } catch {
-        // Includes AbortError on unmount/league switch.  Nothing to
-        // report: the column simply doesn't appear.
-        if (!cancelled) setBidPayload(null);
+        settle(valid ? "loaded" : "failed");
+      } catch (err) {
+        // An abort is this effect's own cleanup (identity change, retry,
+        // unmount) — never a failure; the request that replaced it, if
+        // any, is the one in flight.
+        if (cancelled || err?.name === "AbortError") return;
+        setBidPayload(null);
+        settle("failed");
       }
     })();
     return () => {
@@ -208,7 +247,13 @@ export function useWaiverAnalysis({
     // via bidsEnabled: switching between two already-selected teams
     // keeps bidsEnabled === true, so without this the bids for the
     // PREVIOUS team would silently stay on screen under the new one.
-  }, [bidsEnabled, leagueKey, faabRemaining, selectedTeam?.ownerId, bidIdentity]);
+  }, [bidsEnabled, leagueKey, faabRemaining, selectedTeam?.ownerId, bidIdentity, bidRequestKey]);
+
+  let bidFeed = null;
+  if (bidsEnabled) {
+    if (bidSettled?.key !== bidRequestKey) bidFeed = "loading";
+    else if (bidSettled.state === "failed") bidFeed = "failed";
+  }
 
   const faabIndex = useMemo(() => buildWaiverBidIndex(
     bidsEnabled && bidPayload?.identity === bidIdentity ? bidPayload.payload : null,
@@ -217,6 +262,8 @@ export function useWaiverAnalysis({
   return {
     analysis,
     faabIndex,
+    bidFeed,
+    retryBids,
     loading: Boolean(loading) || ladderPending,
     error,
     leagueMismatch,

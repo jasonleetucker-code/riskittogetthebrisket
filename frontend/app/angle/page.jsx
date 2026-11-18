@@ -6,6 +6,7 @@ import { useTeam } from "@/components/useTeam";
 import {
   Badge,
   Banner,
+  FailureState,
   Button,
   DataTable,
   EmptyState,
@@ -28,6 +29,11 @@ import {
   toggleLock,
 } from "@/lib/trade-refinement";
 import { OutgoingRefinement, RefinementBar } from "@/components/trade/RefinementControls";
+import ForcedReleaseNote from "@/components/arbitrage/ForcedReleaseNote";
+import { failureForDisplay } from "@/lib/contract-failure";
+import TradeToolErrorBanner from "@/components/arbitrage/TradeToolErrorBanner";
+import { failureFromError, tradeToolFailure } from "@/lib/trade-finder-errors";
+import { angleNoResultDescription, angleResultsSubtitle } from "@/lib/trade-finder-angle";
 import styles from "./angle.module.css";
 
 // ── /angle — the counter-pitch builder ────────────────────────────────
@@ -166,7 +172,14 @@ function FixedSidePanel({ fixedSide, resultIsAcquire }) {
 // ── Page ──────────────────────────────────────────────────────────────
 
 export default function AnglePage() {
-  const { loading: dataLoading, error: dataError, rawData, rows } = useDynastyData();
+  const {
+    loading: dataLoading,
+    error: dataError,
+    failure: dataFailure,
+    retry: retryData,
+    rawData,
+    rows,
+  } = useDynastyData();
   const { selectedLeagueKey, selectedOwnerId: activeOwnerId } = useTeam();
 
   const teams = useMemo(() => {
@@ -325,13 +338,15 @@ export default function AnglePage() {
 
   async function findTrades(nextRefinement = refinement) {
     if (!ownerId) {
-      setErr("Pick your team.");
+      setErr({ message: "Pick your team.", code: "" });
       return;
     }
     if (!isAcquireMode && playerNameList.length === 0) {
-      setErr(
-        "Pick at least one player on your roster to send, or select players from the target team to acquire.",
-      );
+      setErr({
+        message:
+          "Pick at least one player on your roster to send, or select players from the target team to acquire.",
+        code: "",
+      });
       return;
     }
     setLoading(true);
@@ -366,17 +381,15 @@ export default function AnglePage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.error) {
-        setErr(
-          res.status === 503
-            ? "Roster data not loaded for this league yet — try again in a moment."
-            : data?.error || `HTTP ${res.status}`,
-        );
+        // A readable sentence; the backend's code (auth_required,
+        // data_not_ready, unknown_team, …) is kept only as a detail.
+        setErr(tradeToolFailure(res.status, data, { tool: "Package Builder" }));
         setResult(null);
       } else {
         setResult(data);
       }
     } catch (e) {
-      setErr(e?.message || "Network error");
+      setErr(failureFromError(e, { tool: "Package Builder" }));
       setResult(null);
     } finally {
       setLoading(false);
@@ -442,6 +455,9 @@ export default function AnglePage() {
               · {c.size} {c.size === 1 ? "player" : "players"}
             </span>
             <PackagePlayers players={c.players} refine={refine} />
+            {/* What this package does to YOUR roster — forced releases and
+                their value, from roster_capacity; absent reads "not checked". */}
+            <ForcedReleaseNote capacity={c.rosterCapacity} />
           </div>
         ),
       },
@@ -509,9 +525,11 @@ export default function AnglePage() {
     return (
       <div className={`main-shell ${styles.page}`}>
         <PageHeader eyebrow="Trades" title="Package Builder" />
-        <Banner tone="negative" title="Failed to load data">
-          {String(dataError)}
-        </Banner>
+        <FailureState
+          failure={failureForDisplay(dataFailure, dataError)}
+          onRetry={retryData}
+          context="player pool"
+        />
       </div>
     );
   }
@@ -662,7 +680,7 @@ export default function AnglePage() {
                 </Field>
                 <Field
                   label="Max market gap %"
-                  hint="KTC for offense, IDPTC for IDP."
+                  hint="An upper bound only — packages can sit below it. KTC for offense, IDPTC for IDP."
                   id="angle-max-market"
                 >
                   <Input
@@ -713,11 +731,7 @@ export default function AnglePage() {
           />
         ) : null}
 
-        {err ? (
-          <Banner tone="negative" title="Couldn't find packages">
-            {err}
-          </Banner>
-        ) : null}
+        <TradeToolErrorBanner failure={err} title="Couldn't find packages" />
       </Panel>
 
       {warnings.length > 0 ? (
@@ -742,7 +756,7 @@ export default function AnglePage() {
                 ? `Return options from ${targetTeam.name}`
                 : "Return options from any team"
           }
-          subtitle={`Each package clears +${Number(minMyGainPct)}% on your board and stays within ±${Number(maxMarketGainPct)}% on the market the other side consults.`}
+          subtitle={angleResultsSubtitle(result)}
         >
           <DataTable
             caption="Ranked counter-packages, best disagreement edge first"
@@ -756,9 +770,7 @@ export default function AnglePage() {
             emptyState={
               <EmptyState
                 title={result?.noResultLabel || "No packages clear the bar"}
-                description={`Nothing hits +${Number(minMyGainPct)}% / ±${Number(maxMarketGainPct)}% with this selection${
-                  targetTeam ? ` against ${targetTeam.name}` : ""
-                }. Try a different selection, loosen the thresholds under Advanced, or remove the team filter.`}
+                description={angleNoResultDescription(result, targetTeam?.name)}
               />
             }
           />

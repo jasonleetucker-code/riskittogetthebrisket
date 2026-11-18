@@ -118,3 +118,28 @@ describe("privateDataEnabled composition", () => {
     }
   });
 });
+
+describe("the landing route waits for a confirmed session before mounting the private pipeline", () => {
+  const { privateDataEnabledFor } = __routeGates;
+
+  it("`/` does NOT fetch the private contract for an anonymous or still-probing visitor", () => {
+    expect(privateDataEnabledFor("/", false)).toBe(false);
+    expect(privateDataEnabledFor("/", null)).toBe(false);
+  });
+
+  it("`/` mounts it for a confirmed signed-in user (what they see is unchanged)", () => {
+    expect(privateDataEnabledFor("/", true)).toBe(true);
+  });
+
+  it("every other private route keeps the eager fetch regardless of the probe", () => {
+    for (const p of ["/trade", "/rankings", "/angle", "/arbitrage", "/edge", "/settings"]) {
+      expect(privateDataEnabledFor(p, false)).toBe(true);
+      expect(privateDataEnabledFor(p, true)).toBe(true);
+    }
+  });
+
+  it("the public-only and no-player-data gates are unaffected", () => {
+    expect(privateDataEnabledFor("/league", true)).toBe(false);
+    expect(privateDataEnabledFor("/admin", true)).toBe(false);
+  });
+});

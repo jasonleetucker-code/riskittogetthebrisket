@@ -1,0 +1,180 @@
+name: Data Delivery Shadow
+
+# SHADOW MODE ONLY -- audit-remediation Task 3 (owner directive 2026-11-18).
+#
+# For every completed Deploy Production run this asks: "had the delta from the
+# last fully validated deploy been DATA_ONLY, and had a data-only path shipped
+# it after only the data gate set, would that path have agreed with the full
+# gate?"  It records the answer (job summary + an artifact) and does NOTHING
+# else: it holds no secret, never contacts the production box, never deploys,
+# dispatches, pushes or gates anything, and it is not a required check.
+#
+# WHY A SEPARATE WORKFLOW, NOT A JOB IN deploy.yml
+#   * deploy.yml is the strict L3 file; docs/AGENT_OPERATING_SYSTEM.md s3 keeps
+#     it "fully unconditional", and a shadow job there would change its job
+#     graph and runtime.
+#   * A job in deploy.yml would share the `production-deploy` concurrency group,
+#     and a separate workflow in that group can EVICT a queued deploy
+#     (tests/deploy/test_production_deploy_concurrency.py, measured 2026-09-24).
+#     This one has its own per-deploy-run group.
+#   * `workflow_run` on Deploy Production sees EVERY deploy run however it was
+#     started: a push, scheduled-refresh.yml's explicit dispatch after a data
+#     commit, or a manual dispatch.  A push trigger would miss the dispatches,
+#     which are most of the data-triggered deploys.
+#   * It runs after the deploy run completes because the agreement metric needs
+#     the full gate's verdict; the fast path's own cost is measured directly
+#     (gate seconds and this job's wall clock), so nothing is lost by not
+#     racing the deploy, and no runner sits polling for an hour.
+#
+# Activating any path that ships on this verdict is BLOCKED on an owner
+# decision: docs/ops/DATA_ONLY_DELIVERY_DESIGN_2026-11-18.md.
+
+run-name: >-
+  Data delivery shadow for deploy run ${{ github.event.workflow_run.id || inputs.deploy_run_id }}
+
+on:
+  workflow_run:
+    workflows:
+      - Deploy Production
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      deploy_run_id:
+        description: "Deploy Production run id to evaluate again (read-only; deploys nothing)."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: data-delivery-shadow-${{ github.event.workflow_run.id || inputs.deploy_run_id }}
+  cancel-in-progress: false
+
+jobs:
+  shadow:
+    name: Shadow the data-only fast path
+    # A cancelled deploy run (an evicted queued run, or one cancelled mid-gate)
+    # produced no full verdict to compare against.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion != 'cancelled' }}
+    runs-on: ubuntu-latest
+    # Budget: the gate set carries its own 45 min deadline
+    # (scripts/data_delivery_gate.py GATE_SET_BUDGET_SECONDS = 2700); checkout,
+    # dependency install, classify, compare and upload take well under 15 min,
+    # leaving >= 15 min margin.  Pinned by tests/deploy/test_data_delivery_shadow.py.
+    timeout-minutes: 75
+    env:
+      DEPLOY_RUN_ID: ${{ github.event.workflow_run.id || inputs.deploy_run_id }}
+    steps:
+      - name: Record shadow start
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "${DEPLOY_RUN_ID}" =~ ^[0-9]+$ ]] || { echo "::error title=Data delivery shadow::deploy run id must be numeric"; exit 1; }
+          mkdir -p "${RUNNER_TEMP}/data-delivery-shadow"
+          {
+            echo "SHADOW_DIR=${RUNNER_TEMP}/data-delivery-shadow"
+            echo "SHADOW_STARTED_AT=$(date +%s)"
+          } >> "$GITHUB_ENV"
+
+      - name: Checkout (workflow commit, full history)
+        # The classifier compares two commits' trees, so it needs history; the
+        # base and the target are both on main, which this fetches in full.
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements-dev.lock.txt
+
+      - name: Resolve the deploy target and the last fully validated deploy
+        id: resolve
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/data_delivery_shadow.py resolve \
+            --deploy-run-id "${DEPLOY_RUN_ID}" \
+            --repo-slug "${GITHUB_REPOSITORY}" \
+            --out "${SHADOW_DIR}/inputs.json"
+
+      - name: Classify the delta (DATA_ONLY or CODE)
+        id: classify
+        env:
+          BASE_SHA: ${{ steps.resolve.outputs.base }}
+          BASE_SOURCE: ${{ steps.resolve.outputs.base_source }}
+          TARGET_SHA: ${{ steps.resolve.outputs.target }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # An empty target or base is classified CODE (fail closed), never skipped.
+          python scripts/classify_deploy_delta.py \
+            --base "${BASE_SHA}" --base-source "${BASE_SOURCE}" \
+            --target "${TARGET_SHA:-unresolved}" \
+            --receipt "${SHADOW_DIR}/classification.json"
+
+      - name: Check out the deploy target tree (DATA_ONLY only)
+        if: ${{ steps.classify.outputs.classification == 'DATA_ONLY' }}
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.resolve.outputs.target }}
+          path: target-tree
+          persist-credentials: false
+
+      - name: Install the target's locked dependencies (DATA_ONLY only)
+        if: ${{ steps.classify.outputs.classification == 'DATA_ONLY' }}
+        shell: bash
+        working-directory: target-tree
+        run: |
+          set -Eeuo pipefail
+          python -m pip install --upgrade pip
+          python scripts/python_lock.py check
+          pip install --require-hashes -r requirements-dev.lock.txt
+
+      - name: Run the data gate set (shadow, decides nothing)
+        id: gates
+        if: ${{ steps.classify.outputs.classification == 'DATA_ONLY' }}
+        # Its verdict is the thing under evaluation: a red gate here is a
+        # recorded "the fast path would have refused", never a failed shadow.
+        continue-on-error: true
+        # Backstop above the in-script budget; gates.json is written after each gate.
+        timeout-minutes: 50
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/data_delivery_gate.py run \
+            --repo target-tree \
+            --receipt "${SHADOW_DIR}/gates.json"
+
+      - name: Compare with the full Deploy Production verdict
+        if: ${{ !cancelled() && steps.classify.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/data_delivery_shadow.py compare \
+            --inputs "${SHADOW_DIR}/inputs.json" \
+            --classification "${SHADOW_DIR}/classification.json" \
+            --gates "${SHADOW_DIR}/gates.json" \
+            --started-at "${SHADOW_STARTED_AT}" \
+            --out "${SHADOW_DIR}/shadow.json" \
+            --summary "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload shadow receipts
+        if: ${{ always() && env.SHADOW_DIR != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: data-delivery-shadow-${{ env.DEPLOY_RUN_ID }}
+          path: ${{ env.SHADOW_DIR }}
+          if-no-files-found: warn
+          # Long enough to aggregate the shadow window (design doc: >= 14 days).
+          retention-days: 90
+          overwrite: true

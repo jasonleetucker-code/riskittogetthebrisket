@@ -337,7 +337,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "20"  # = production Node major (see deploy.yml)
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
@@ -436,8 +436,22 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          sudo apt-get -o Acquire::Retries=3 update -q
-          sudo apt-get -o Acquire::Retries=3 install -y -q --no-install-recommends tesseract-ocr
+          # Bounded retry for transient mirror/DNS failures (apt's own Acquire::Retries
+          # does not cover a failed name resolution).  After 4 attempts the step
+          # FAILS: nothing here skips or weakens the gate.
+          ok=0
+          for attempt in 1 2 3 4; do
+            if sudo apt-get -o Acquire::Retries=3 update -q \
+              && sudo apt-get -o Acquire::Retries=3 install -y -q --no-install-recommends tesseract-ocr; then
+              ok=1
+              break
+            fi
+            if [ "$attempt" -lt 4 ]; then
+              echo "::warning::apt attempt ${attempt}/4 failed; retrying in $((attempt * 10))s"
+              sleep $((attempt * 10))
+            fi
+          done
+          [ "$ok" = 1 ] || { echo "::error::apt install of tesseract-ocr failed after 4 attempts"; exit 1; }
           tesseract --version | head -1
 
       - name: Unit tests (hard gate — pure logic)

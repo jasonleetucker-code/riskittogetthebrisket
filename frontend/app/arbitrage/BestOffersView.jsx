@@ -10,7 +10,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Badge,
-  Banner,
   Button,
   EmptyState,
   SegmentedControl,
@@ -22,6 +21,13 @@ import { buildShareUrl } from "@/lib/trade-share";
 import { deskBodyFromOffer } from "@/lib/trade-desk";
 import SaveToDeskButton from "@/components/trade/SaveToDeskButton";
 import ManagerEvidence from "@/components/trade/ManagerEvidence";
+import ForcedReleaseNote from "@/components/arbitrage/ForcedReleaseNote";
+import TradeToolErrorBanner from "@/components/arbitrage/TradeToolErrorBanner";
+import {
+  TradeToolRequestError,
+  failureFromError,
+  tradeToolFailure,
+} from "@/lib/trade-finder-errors";
 import {
   UNKNOWN,
   concentrationLine,
@@ -205,6 +211,9 @@ function OfferCard({ card, myTeam, leagueKey, runId, refine, regenerating }) {
               </li>
             ))}
           </ul>
+          {/* The release(s) this offer forces on YOUR roster and their value
+              (roster_capacity); a missing block reads "not checked". */}
+          <ForcedReleaseNote capacity={offer.rosterCapacity} />
           <ManagerEvidence evidence={offer.managerEvidence} team={card.team} />
           <details className={styles.factors}>
             <summary>How this offer ranked</summary>
@@ -274,7 +283,8 @@ export default function BestOffersView({
   const [running, setRunning] = useState(false);
   // Teams whose card is regenerating (several can be in flight at once).
   const [regenerating, setRegenerating] = useState(() => new Set());
-  const [error, setError] = useState("");
+  // A classified failure ({message, code}) or null — never a bare code.
+  const [error, setError] = useState(null);
   const [useTeamContext, setUseTeamContext] = useState(true);
   const [refinements, setRefinements] = useState({});
   const seq = useRef(0);
@@ -321,7 +331,9 @@ export default function BestOffersView({
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok)
-      throw new Error(data?.error || `Request failed (${res.status})`);
+      throw new TradeToolRequestError(
+        tradeToolFailure(res.status, data, { tool: "Best Offers" }),
+      );
     return data;
   }
 
@@ -330,7 +342,7 @@ export default function BestOffersView({
     const mine = ++seq.current;
     setRunning(true);
     setRegenerating(new Set()); // a full scan supersedes any card in flight
-    setError("");
+    setError(null);
     try {
       // Saved per-card refinements travel with the full scan, so a stored
       // LOCK / EXCLUDE is honoured from the first result.
@@ -356,7 +368,7 @@ export default function BestOffersView({
         loaded[o.team] = refinementFor(o.team);
       setRefinements(loaded);
     } catch (err) {
-      if (mine === seq.current) setError(err?.message || "Request failed");
+      if (mine === seq.current) setError(failureFromError(err, { tool: "Best Offers" }));
     } finally {
       if (mine === seq.current) setRunning(false);
     }
@@ -369,7 +381,7 @@ export default function BestOffersView({
     const current = () =>
       cardSeq.current[opp] === mine && seq.current === scanAtStart;
     setRegenerating((prev) => new Set(prev).add(opp));
-    setError("");
+    setError(null);
     try {
       const data = await request({
         myTeam,
@@ -380,7 +392,7 @@ export default function BestOffersView({
       });
       if (current()) setResult((prev) => mergeCards(prev, data));
     } catch (err) {
-      if (current()) setError(err?.message || "Request failed");
+      if (current()) setError(failureFromError(err, { tool: "Best Offers" }));
     } finally {
       if (current())
         setRegenerating((prev) => {
@@ -437,7 +449,7 @@ export default function BestOffersView({
             : `Ranking: declared prior (${result.rankingMethod.status}); open “How this offer ranked” on any card for its factors. Best opportunity first.`}
         </p>
       ) : null}
-      {error ? <Banner tone="negative">{error}</Banner> : null}
+      <TradeToolErrorBanner failure={error} />
       {running ? <SkeletonTable rows={4} /> : null}
       {!running && result ? (
         <p className={styles.count} role="status">

@@ -6,6 +6,10 @@ on:
     - cron: "15 6 * * *"
   workflow_dispatch:
 
+# Checkout + read-only validation.
+permissions:
+  contents: read
+
 concurrency:
   group: smoke-test
   cancel-in-progress: true

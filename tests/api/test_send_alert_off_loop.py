@@ -6,7 +6,9 @@ THE DEFECT (found during the 2026-10-19 production stall investigation)
 timeout (``smtplib``'s default), and two of its callers run ON the single
 event-loop thread:
 
-* ``get_health`` (``async def``), whenever backups look stale;
+* ``backup_watchdog_loop`` (a coroutine), whenever backups look stale
+  (it was ``get_health`` until the Task 13 audit moved the send off the
+  anonymous request path);
 * ``uptime_watchdog_loop`` (a coroutine), after consecutive uptime failures.
 
 The production VPS firewalls outbound 465 (commit 54af3811cc).  A connect to
@@ -150,10 +152,10 @@ def test_unconfigured_alerting_starts_nothing(monkeypatch):
     assert not _delivery_threads()
 
 
-def test_health_keeps_answering_when_backups_are_stale(monkeypatch):
+def test_backup_watchdog_keeps_loop_alive_when_backups_are_stale(monkeypatch):
     """The event-loop caller from the incident, end to end.
 
-    Stale backups make ``get_health`` call ``send_alert``.  While the SMTP
+    Stale backups make the backup watchdog call ``send_alert``.  While the SMTP
     connect hangs, a second coroutine on the same loop must keep ticking and
     the health response must still arrive promptly.
     """
@@ -180,7 +182,7 @@ def test_health_keeps_answering_when_backups_are_stale(monkeypatch):
 
         task = asyncio.create_task(ticker())
         started = time.monotonic()
-        response = await server.get_health()
+        response = await asyncio.to_thread(server._alert_if_backups_stale)
         elapsed = time.monotonic() - started
         await asyncio.sleep(0.1)
         stop.set()
@@ -188,7 +190,7 @@ def test_health_keeps_answering_when_backups_are_stale(monkeypatch):
         return response, elapsed, ticks
 
     response, elapsed, ticks = asyncio.run(scenario())
-    assert response.status_code in (200, 503)
+    assert response is True
     assert elapsed < _PROMPT_SECONDS
     assert ticks >= 3, "the event loop stalled while the alert was being sent"
     assert _wait_for(lambda: len(_BlockingSMTP.instances) == 1), "the alert was not attempted"

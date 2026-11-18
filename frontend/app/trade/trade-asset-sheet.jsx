@@ -21,6 +21,12 @@ import { tradeEntryLabel } from "@/lib/trade-assets";
 import { SearchResultList } from "./trade-sections";
 import styles from "./trade.module.css";
 
+/** True when nothing holds focus: it fell to <body>, or onto a node that is gone. */
+function focusWasDropped() {
+  const active = document.activeElement;
+  return !active || active === document.body || !active.isConnected;
+}
+
 export function TradeAssetSheet({ side, sideIdx, searchAssets, settings, onAdd, onClose }) {
   const [query, setQuery] = useState("");
   const [added, setAdded] = useState([]);
@@ -33,7 +39,18 @@ export function TradeAssetSheet({ side, sideIdx, searchAssets, settings, onAdd, 
     onAdd(row, sideIdx);
     setAdded((prev) => [...prev, tradeEntryLabel(row)]);
     setQuery("");
-    requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }));
+    // Clearing the query unmounts the result row that was just activated,
+    // which drops focus to <body>; the next frame puts it back in the
+    // search field so typing on works.  Only focus that was DROPPED: by
+    // that frame the "Added …" status is already on screen, and a user (or
+    // assistive tech, or a test) may already have moved to Done or the
+    // close button.  Taking focus back from there sent their Enter into
+    // the search field and left the sheet open (E2E trade-tce, WebKit
+    // mobile-390: Done focused, the frame fired, Enter landed in the
+    // input -- runs 41061165921, 42516081225, 44020636649, 44308798204).
+    requestAnimationFrame(() => {
+      if (focusWasDropped()) inputRef.current?.focus({ preventScroll: true });
+    });
   }
 
   return (

@@ -41,6 +41,10 @@ Environment=SCRAPE_REAP_SERVICE_CGROUP=1
 # in .env: glibc reads it once, before the interpreter starts.
 Environment=MALLOC_ARENA_MAX=2
 EnvironmentFile=-__APP_DIR__/.env
+# Production marker (audit Task 13).  Placed AFTER EnvironmentFile= so .env
+# cannot unset it: with it present server.py refuses to start if
+# E2E_TEST_MODE or ALLOW_DEFAULT_LOGIN_DEV is enabled in this environment.
+Environment=RISKIT_ENV=production
 
 # ── Resource sanity ─────────────────────────────────────────────────
 # Assumes a >=4 GB production VPS (see docs/PROD-HARDENING.md; verify

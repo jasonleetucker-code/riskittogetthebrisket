@@ -89,3 +89,51 @@ describe("missing inputs withhold advice (never zero)", () => {
     expect(buildAdviceInput({ view: v, pool, adviceCtx: ctx, applyDraftProgress }).reason).toBe("budget_missing");
   });
 });
+
+// 2026-11-16 verified sweep: won lots are counted by their CURRENT owner.
+// An in-room trade moves a lot (engine.lot_owner → the public `owner`); the
+// adapter used to read the original `winner`, so a traded-away rookie stayed
+// on the seller's roster and a traded-for one never reached the buyer's.
+describe("won lots follow the current owner, not the original winner", () => {
+  const closed = (id, player, winner, owner, price) => ({ id, player, status: "closed", price, leader: null, winner, owner });
+
+  it("a lot S1 won and traded to S2 is no longer S1's", () => {
+    const out = buildAdviceInput({
+      view: view({ auctions: [closed("A1", "a", "S1", "S2", 40)] }),
+      pool,
+      adviceCtx: ctx,
+      applyDraftProgress,
+    });
+    expect(out.held).toEqual([]);
+    expect(out.progress.openRosterSpots).toBe(3); // no roster room consumed
+    expect(out.input.rookies.map((r) => r.id)).not.toContain("a"); // sold: not a candidate either
+  });
+
+  it("a lot S2 won and traded to S1 is S1's purchase and occupies its roster room", () => {
+    const out = buildAdviceInput({
+      view: view({ auctions: [closed("A2", "b", "S2", "S1", 20)] }),
+      pool,
+      adviceCtx: ctx,
+      applyDraftProgress,
+    });
+    expect(out.held).toEqual([{ id: "b", name: "Bravo", price: 20, state: "won" }]);
+    expect(out.progress.openRosterSpots).toBe(2);
+  });
+
+  it("an untraded win is still the winner's (owner === winner)", () => {
+    const out = buildAdviceInput({
+      view: view({ auctions: [closed("A3", "c", "S1", "S1", 5)] }),
+      pool,
+      adviceCtx: ctx,
+      applyDraftProgress,
+    });
+    expect(out.held).toEqual([{ id: "c", name: "Charlie", price: 5, state: "won" }]);
+  });
+
+  it("withholds advice when a closed lot's owner is not stated (unknown roster room)", () => {
+    const lot = { id: "A4", player: "a", status: "closed", price: 40, leader: null, winner: "S1" };
+    const out = buildAdviceInput({ view: view({ auctions: [lot] }), pool, adviceCtx: ctx, applyDraftProgress });
+    expect(out.input).toBeNull();
+    expect(out.reason).toBe("lot_owner_unknown");
+  });
+});

@@ -934,6 +934,28 @@ describe("live draft progress", () => {
     expect(out.netValue).toBe(4900);
   });
 
+  it("counts ANOTHER team's purchases, not yours, when the panel optimizes that team", () => {
+    // 2026-11-16 verified sweep: "Team to optimize" kept YOUR purchases under
+    // the chosen team's roster.  `teamIdx` names the team; its own picks count.
+    const stats = {
+      enrichedPlayers: [
+        { id: "a", name: "A", pos: "WR", boardValue: 6000, drafted: true, mine: true, pick: { teamIdx: 0, amount: 30 } },
+        { id: "b", name: "B", pos: "WR", boardValue: 5000, drafted: true, mine: false, pick: { teamIdx: 1, amount: 25 } },
+        { id: "d", name: "D", pos: "WR", boardValue: 3000, drafted: true, mine: false, pick: { teamIdx: 2, amount: 9 } },
+      ],
+    };
+    const other = realizedResults({ stats, waiverValues: { WR: 1000 }, cutLadder: cuts, openRosterSpots: 0, teamIdx: 1 });
+    expect(other.count).toBe(1);
+    expect(other.spend).toBe(25);
+    expect(other.players.map((p) => p.id)).toEqual(["b"]);
+    // Without a team index it is still the user's own purchases.
+    const mine = realizedResults({ stats, waiverValues: { WR: 1000 }, cutLadder: cuts, openRosterSpots: 0 });
+    expect(mine.players.map((p) => p.id)).toEqual(["a"]);
+    // A team with no purchases has none — never the user's.
+    const none = realizedResults({ stats, waiverValues: { WR: 1000 }, cutLadder: cuts, openRosterSpots: 0, teamIdx: 5 });
+    expect(none.count).toBe(0);
+  });
+
   it("reports nothing bought before the draft starts", () => {
     const out = realizedResults({
       stats: { enrichedPlayers: [{ id: "a", boardValue: 6000, drafted: false }] },

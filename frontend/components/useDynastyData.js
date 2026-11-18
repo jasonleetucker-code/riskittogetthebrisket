@@ -11,6 +11,7 @@ import { useSettings } from "@/components/useSettings";
 import {
   classifyContractFailure,
   classifyContractPayload,
+  classifyContractTimeout,
   shouldRedirectToLogin,
 } from "@/lib/contract-failure";
 
@@ -161,7 +162,13 @@ export function useDynastyData() {
         // this no longer has to read it back out of the message with a
         // regex — which could not tell a 503 from a 500 from a timeout,
         // and would have matched a player named "401" in the body.
-        const classified = classifyContractFailure(err?.status ?? null, err?.body ?? null);
+        // A client-deadline abort is its own state ("timed out" + Retry).
+        // It is only reached for a LIVE consumer: the `!active` return
+        // above means an unmount never produces a failure, whatever the
+        // request did.
+        const classified = err?.timedOut
+          ? classifyContractTimeout()
+          : classifyContractFailure(err?.status ?? null, err?.body ?? null);
 
         // A 401 here means the server-side session is gone (cookie
         // expired, deploy invalidated, allowlist rotated).  The

@@ -12,6 +12,7 @@ import {
 } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import { isFairGap } from "@/lib/fairness-bands";
+import { failureForDisplay } from "@/lib/contract-failure";
 import {
   ACTIVE_PACKAGE_MODEL_ID,
   PACKAGE_MODELS,
@@ -206,6 +207,13 @@ const RosTradeFitPanel = dyn(
   "Rest-of-season fit",
   "Loading rest-of-season fit…",
 );
+// The shared contract-failure renderer (components/ds/FailureState — the one
+// /rankings, /rosters and /settings use), loaded only when the contract fails:
+// /trade has ~1 KB of bundle headroom and the failure path is the rare one.
+const FailureState = dyn(
+  () => import("@/components/ds/FailureState").then((m) => ({ default: m.FailureState })),
+  "Load failure",
+);
 const BdvmTradePanel = dyn(() => import("@/components/BdvmTradePanel"), "Fundamentals check");
 // TC-B2 / TCM-M01, M02, M04, M05: how each package is built (stacked value
 // bars, Quick Trade Facts, concentration) -- the Value tab's first panel.  It
@@ -321,7 +329,7 @@ const ScreenshotImportDialog = dyn(
 );
 
 export default function TradePage() {
-  const { loading, error, rows, rawData } = useDynastyData();
+  const { loading, error, failure, retry, rows, rawData } = useDynastyData();
   const { settings } = useSettings();
   const { openPlayerPopup, registerAddToTrade } = useApp();
   // Trade math is canonical, always (TC-A P0-4): the retired "Raw" mode read
@@ -2472,9 +2480,11 @@ export default function TradePage() {
       ) : null}
 
       {error ? (
-        <Banner tone="negative" title="Couldn't load the player pool">
-          {error}
-        </Banner>
+        <FailureState
+          failure={failureForDisplay(failure, error)}
+          onRetry={retry}
+          context="player pool"
+        />
       ) : null}
 
       {!loading && !error && leagueMismatch ? (
