@@ -60,7 +60,11 @@ jobs:
     # produced no full verdict to compare against.
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion != 'cancelled' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # Budget: the gate set carries its own 45 min deadline
+    # (scripts/data_delivery_gate.py GATE_SET_BUDGET_SECONDS = 2700); checkout,
+    # dependency install, classify, compare and upload take well under 15 min,
+    # leaving >= 15 min margin.  Pinned by tests/deploy/test_data_delivery_shadow.py.
+    timeout-minutes: 75
     env:
       DEPLOY_RUN_ID: ${{ github.event.workflow_run.id || inputs.deploy_run_id }}
     steps:
@@ -142,6 +146,8 @@ jobs:
         # Its verdict is the thing under evaluation: a red gate here is a
         # recorded "the fast path would have refused", never a failed shadow.
         continue-on-error: true
+        # Backstop above the in-script budget; gates.json is written after each gate.
+        timeout-minutes: 50
         shell: bash
         run: |
           set -Eeuo pipefail

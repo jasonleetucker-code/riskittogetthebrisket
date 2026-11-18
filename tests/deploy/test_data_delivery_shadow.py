@@ -16,6 +16,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+from unittest import mock
 
 import pytest
 import yaml
@@ -267,7 +268,7 @@ def _job(name: str, conclusion: str | None, job_id: int = 1, **extra) -> dict:
 def test_a_dispatch_target_comes_from_the_resolve_log_not_head_sha():
     run = {"event": "workflow_dispatch", "head_sha": SHA_A}
     jobs = [_job(shadow.RESOLVE_JOB, "success", 7)]
-    log = f"x resolved deploy target: {SHA_B} (commit; requested '{SHA_B}')"
+    log = f"2026-11-18T10:51:20.1Z resolved deploy target: {SHA_B} (commit; requested '{SHA_B}')"
     assert shadow.deployed_target(run, jobs, lambda path: log) == (SHA_B, "resolve_job_log:commit")
 
 
@@ -351,7 +352,10 @@ def test_resolve_inputs_end_to_end_on_fakes():
         ],
         9: [_job(shadow.RESOLVE_JOB, "success", 90)],
     }
-    logs = {100: f"resolved deploy target: {SHA_C} (default; requested '<default>')", 90: ""}
+    logs = {
+        100: f"2026-11-18T10:51:20.1Z resolved deploy target: {SHA_C} (default; requested '<default>')",
+        90: "",
+    }
     get_json, get_text = _fake_github(runs, jobs, logs)
     inputs = shadow.resolve_inputs(get_json, get_text, 10)
     assert inputs["errors"] == []
@@ -539,3 +543,70 @@ def test_github_reader_refuses_a_bad_slug_or_no_token():
         shadow.GitHubReader("not a slug", "t")
     with pytest.raises(ValueError):
         shadow.GitHubReader("owner/name", "")
+
+
+# ── review fixes: gate-set budget, incremental receipt, anchored log line ───
+def test_gate_set_budget_fits_the_job_limit_with_margin():
+    job = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))["jobs"]["shadow"]
+    assert job["timeout-minutes"] * 60 >= gate.GATE_SET_BUDGET_SECONDS + 15 * 60
+    steps = {s.get("id"): s for s in job["steps"]}
+    assert steps["gates"]["timeout-minutes"] * 60 > gate.GATE_SET_BUDGET_SECONDS
+    # the per-gate timeouts alone would NOT fit, which is why the deadline exists
+    assert sum(g.timeout_seconds for g in gate.default_gates()) > job["timeout-minutes"] * 60 - 900
+
+
+def test_budget_exhaustion_skips_later_gates_and_refuses(tmp_path: Path):
+    gates = (
+        gate.Gate("first", True, _py("import time; time.sleep(60)"), "m", 600),
+        gate.Gate("second", True, _py("print('never runs')"), "m", 600),
+        gate.Gate("adv", False, _py("print('never runs')"), "m", 600),
+    )
+    receipt = gate.run_gates(gates, tmp_path, budget_seconds=31)
+    statuses = {g["name"]: g["status"] for g in receipt["gates"]}
+    assert statuses["first"] == "timeout"  # capped to the 31s budget, not 600s
+    assert statuses["second"] == "skipped_budget"
+    assert statuses["adv"] == "skipped_budget"
+    assert receipt["wouldShip"] is False
+    assert "second" in receipt["blockingFailures"]
+
+
+def test_receipt_is_written_after_every_gate_and_partial_never_ships(tmp_path: Path):
+    path = tmp_path / "out" / "gates.json"
+    seen: list[dict] = []
+    real = gate._write_receipt
+
+    def spy(p, receipt):
+        real(p, receipt)
+        seen.append(json.loads(p.read_text(encoding="utf-8")))
+
+    gates = (
+        gate.Gate("a", True, _py("print('a')"), "m", 60),
+        gate.Gate("b", True, _py("print('b')"), "m", 60),
+    )
+    with mock.patch.object(gate, "_write_receipt", spy):
+        final = gate.run_gates(gates, tmp_path, receipt_path=path)
+    assert [len(r["gates"]) for r in seen] == [1, 2]
+    assert seen[0]["complete"] is False and seen[0]["wouldShip"] is False
+    assert seen[1]["complete"] is True and seen[1]["wouldShip"] is True
+    assert final["complete"] is True
+
+
+def test_resolved_line_is_anchored_against_a_spoofing_branch_name():
+    spoof = f"resolved deploy target: {SHA_A} (commit; requested 'x')"
+    log = (
+        f"2026-11-18T10:51:19.0Z REQUESTED: feature/{spoof}\n"
+        f"2026-11-18T10:51:19.1Z echo requested feature/{spoof}\n"
+    )
+    assert shadow.RESOLVED_LINE.search(log) is None
+    run = {"event": "workflow_dispatch", "head_sha": SHA_C}
+    jobs = [_job(shadow.RESOLVE_JOB, "success", 7)]
+    assert shadow.deployed_target(run, jobs, lambda path: log)[0] is None
+
+
+def test_the_real_line_wins_over_an_earlier_full_line_spoof():
+    real = f"resolved deploy target: {SHA_B} (branch; requested 'main')"
+    fake = f"resolved deploy target: {SHA_A} (commit; requested 'x')"
+    log = f"2026-11-18T10:51:19.0Z {fake}\n2026-11-18T10:51:20.1Z {real}\n"
+    run = {"event": "workflow_dispatch", "head_sha": SHA_C}
+    jobs = [_job(shadow.RESOLVE_JOB, "success", 7)]
+    assert shadow.deployed_target(run, jobs, lambda path: log) == (SHA_B, "resolve_job_log:branch")

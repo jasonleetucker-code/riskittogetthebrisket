@@ -115,7 +115,11 @@ DATA_ROOTS: dict[str, str] = {
 DATA_MODE = "100644"
 
 #: A file under a data root with one of these suffixes is executable or
-#: configuration-shaped, so it is CODE wherever it lives.  None exists today
+#: configuration-shaped, so it is CODE wherever it lives.  Serialized-object
+#: formats that unpickle arbitrary Python on load (.pkl/.pickle/.joblib/.dill, and
+#: torch's .pt) are executable code in a binary wrapper.  Deliberately NOT here:
+#: .npy/.npz (numpy refuses pickled objects unless the caller opts in with
+#: allow_pickle) and .parquet (columnar data, no object deserialization).  None exists today
 #: (measured 2026-11-18: the 12,184 tracked entries under the three roots are
 #: .json/.csv/.jsonl/.zip/.xlsx/.md, extensionless stamps, one .gitkeep and the
 #: one DATA_EXCEPTIONS file).
@@ -138,6 +142,11 @@ CODE_SUFFIXES = frozenset(
         ".jsx",
         ".mjs",
         ".ps1",
+        ".pickle",
+        ".pkl",
+        ".joblib",
+        ".dill",
+        ".pt",
         ".pth",
         ".py",
         ".pyc",

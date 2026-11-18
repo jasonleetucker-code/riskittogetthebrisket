@@ -70,7 +70,14 @@ DEPLOY_JOB = "Deploy To Production"
 SHARD_PREFIX = "Hard gate ("
 
 #: ``scripts/resolve_deploy_ref.py`` prints exactly this line (pinned by test).
-RESOLVED_LINE = re.compile(r"resolved deploy target: ([0-9a-f]{40}) \((default|commit|branch|tag);")
+#: Anchored to the START of a log line (after the runner's optional timestamp
+#: and BOM) and to its exact tail, so the same words echoed mid-line -- a
+#: ``requested`` branch name, a step's ``env:`` dump -- cannot spoof the target.
+RESOLVED_LINE = re.compile(
+    r"^\ufeff?(?:\d{4}-\d{2}-\d{2}T[\d:.]+Z )?"
+    r"resolved deploy target: ([0-9a-f]{40}) \((default|commit|branch|tag); requested .*\)\s*$",
+    re.MULTILINE,
+)
 
 _FAILED = frozenset({"failure", "timed_out", "startup_failure"})
 
@@ -155,7 +162,10 @@ def deployed_target(run: dict, jobs: list[dict], get_text: Fetch) -> tuple[str |
             log, error = "", f"{type(exc).__name__}"
         else:
             error = ""
-        match = RESOLVED_LINE.search(log)
+        # The real line is printed by the step AFTER any echo of its inputs, so the
+        # last anchored match is the script's own output.
+        matches = list(RESOLVED_LINE.finditer(log))
+        match = matches[-1] if matches else None
         if match:
             return match.group(1), f"resolve_job_log:{match.group(2)}"
         if run.get("event") == "push":
