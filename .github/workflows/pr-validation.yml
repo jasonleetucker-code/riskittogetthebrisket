@@ -321,6 +321,16 @@ jobs:
           set -Eeuo pipefail
           python scripts/check_product_plan_governance.py
 
+      - name: Tracked-data exposure guard (PR diff)
+        # Task 8 (docs/security/DATA_EXPOSURE_DECISION_BRIEF_2026-11-18.md):
+        # fails when THIS PR adds/modifies a tracked file carrying owner-id-like
+        # fields or a paid-vendor board outside the paths-only baseline.
+        # Diff-scoped, so rolling refresh pushes to main cannot turn it red.
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/audit_tracked_data_exposure.py --changed-since origin/main
+
       - name: Python import gate
         shell: bash
         env:
