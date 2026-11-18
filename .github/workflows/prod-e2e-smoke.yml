@@ -74,10 +74,10 @@ jobs:
             exit 1
           fi
 
-      - name: Use Node 20
+      - name: Use Node 22
         uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "22"
 
       - name: Install root deps
         shell: bash

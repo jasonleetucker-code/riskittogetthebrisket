@@ -165,16 +165,15 @@ jobs:
           python scripts/python_lock.py check
           pip install --require-hashes -r requirements.lock.txt
 
-      # Node 20 is the production runtime this job builds and serves the app
-      # on.  @axe-core/playwright 4.14 declares engines node >=22.12 (npm
-      # prints EBADENGINE); it is plain CommonJS needing only `assert` and
-      # axe-core, and its scans run correctly here.  Accepted on purpose:
-      # moving this job to Node 22 would test a runtime production does not
-      # run.  Revisit when production moves off Node 20.
-      - name: Use Node 20
+      # CI runs Node 22 LTS (Node 20 reached EOL 2026-04-30; see
+      # docs/ops/NODE22_CUTOVER_2026-11-18.md).  @axe-core/playwright 4.14
+      # declares engines node >=22.12, which this job now satisfies.  The
+      # production box stays on Node 20 until the owner's cutover; the
+      # frontend dependency set is valid on both lines (engines >=20 <23).
+      - name: Use Node 22
         uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "22"
 
       - name: Install root + frontend deps
         shell: bash

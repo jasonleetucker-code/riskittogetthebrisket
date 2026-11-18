@@ -89,9 +89,9 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "react-dom"
         update-types: ["version-update:semver-major"]
-      # jest-dom 7 requires Node >= 22; CI and production still run Node
-      # 20. Unblocked by the Node 22 migration, issue #1467 (#1354 closed
-      # 2026-09-26). Remove this entry as part of that migration.
+      # jest-dom 7 requires Node >= 22. CI moved to Node 22 (T16); the
+      # production box cutover is owner work. Remove this entry in the
+      # follow-up that raises engines to >=22 (docs/ops/NODE22_CUTOVER_2026-11-18.md).
       - dependency-name: "@testing-library/jest-dom"
         update-types: ["version-update:semver-major"]
 

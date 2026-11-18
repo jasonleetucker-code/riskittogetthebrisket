@@ -26,7 +26,7 @@
     "`npm run start:lan`. Pinned by tests/deploy/test_loopback_bind.py."
   ],
   "engines": {
-    "node": ">=20 <21"
+    "node": ">=20 <23"
   },
   "scripts": {
     "dev": "next dev -p 3000",
