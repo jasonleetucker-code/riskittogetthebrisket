@@ -88,6 +88,17 @@ def test_constant_time_equals_semantics():
     assert not constant_time_equals("abc", "abd")
     assert not constant_time_equals("café", "cafe")
     assert not constant_time_equals("", "x")
+    assert not constant_time_equals("", "")
+    assert not constant_time_equals("anything", "")
+
+
+@pytest.mark.parametrize("path", ["/api/signal-alerts/run", "/api/custom-alerts/run"])
+def test_unset_cron_token_never_authorizes(monkeypatch, path):
+    monkeypatch.setattr(server, "SIGNAL_ALERT_CRON_TOKEN", "")
+    client = TestClient(server.app, raise_server_exceptions=False)
+    for hdr in ("Bearer ", "Bearer x", None):
+        headers = {"authorization": hdr} if hdr is not None else {}
+        assert client.post(path, headers=headers).status_code in (401, 403, 503)
 
 
 # ── C: CSV formula injection ─────────────────────────────────────────────

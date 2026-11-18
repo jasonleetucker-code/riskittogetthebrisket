@@ -297,35 +297,17 @@ UPTIME_ALERT_FAIL_THRESHOLD = int(os.getenv("UPTIME_ALERT_FAIL_THRESHOLD", "2"))
 # a known password.
 JASON_LOGIN_USERNAME = (os.getenv("JASON_LOGIN_USERNAME") or "jasonleetucker").strip()
 _JASON_LOGIN_PASSWORD_RAW = (os.getenv("JASON_LOGIN_PASSWORD") or "").strip()
-_PRODUCTION_ENV_VIOLATIONS = _startup_guards.production_env_violations(os.environ)
-if _PRODUCTION_ENV_VIOLATIONS:
-    raise RuntimeError(
-        "Refusing to start: RISKIT_ENV=production but these test/dev switches "
-        "are enabled: " + ", ".join(_PRODUCTION_ENV_VIOLATIONS) + ".  Remove them "
-        "from the production .env."
-    )
+_STARTUP_REFUSALS = _startup_guards.startup_refusals(os.environ)
+if _STARTUP_REFUSALS:
+    # One shared rule set (src/api/startup_guards.py); deploy.sh runs the same
+    # check against the box .env BEFORE swapping anything.  Names only.
+    raise RuntimeError("Refusing to start: " + "; ".join(_STARTUP_REFUSALS) + ".")
 if not _JASON_LOGIN_PASSWORD_RAW:
-    if _env_bool("ALLOW_DEFAULT_LOGIN_DEV", False):
-        _JASON_LOGIN_PASSWORD_RAW = "changeme"
-        logging.getLogger(__name__).warning(
-            "JASON_LOGIN_PASSWORD unset; ALLOW_DEFAULT_LOGIN_DEV=1 — "
-            "using local-dev placeholder.  DO NOT USE IN PRODUCTION."
-        )
-    else:
-        raise RuntimeError(
-            "JASON_LOGIN_PASSWORD env var is required.  Set it on "
-            "the production .env (loaded via the systemd unit), or "
-            "set ALLOW_DEFAULT_LOGIN_DEV=1 for a placeholder password "
-            "during local development."
-        )
-elif _startup_guards.is_placeholder_password(_JASON_LOGIN_PASSWORD_RAW) and not _env_bool(
-    "ALLOW_DEFAULT_LOGIN_DEV", False
-):
-    # ``.env.example`` ships ``changeme``; copying it unchanged must not boot.
-    raise RuntimeError(
-        "JASON_LOGIN_PASSWORD is a known placeholder/example value.  Set a "
-        "real password in the production .env (ALLOW_DEFAULT_LOGIN_DEV=1 "
-        "permits a placeholder for local development only)."
+    # Only reachable with ALLOW_DEFAULT_LOGIN_DEV truthy (see startup_refusals).
+    _JASON_LOGIN_PASSWORD_RAW = "changeme"
+    logging.getLogger(__name__).warning(
+        "JASON_LOGIN_PASSWORD unset; ALLOW_DEFAULT_LOGIN_DEV=1 — "
+        "using local-dev placeholder.  DO NOT USE IN PRODUCTION."
     )
 JASON_LOGIN_PASSWORD = _JASON_LOGIN_PASSWORD_RAW
 JASON_AUTH_COOKIE_NAME = "jason_session"

@@ -958,15 +958,13 @@ verify_runtime_state() {
 # Prints variable NAMES only, never values.  server.py refuses the same
 # combination at startup when RISKIT_ENV=production (set by the unit).
 check_box_env_guards() {
-  local env_file="${APP_DIR}/.env" name bad=""
+  local env_file="${APP_DIR}/.env"
   [[ -f "${env_file}" ]] || return 0
-  for name in E2E_TEST_MODE ALLOW_DEFAULT_LOGIN_DEV; do
-    if grep -Eiq "^[[:space:]]*(export[[:space:]]+)?${name}=[\"']?(1|true|yes|on)[\"']?[[:space:]]*(#.*)?$" "${env_file}"; then
-      bad="${bad} ${name}"
-    fi
-  done
-  if [[ -n "${bad}" ]]; then
-    error "${env_file} enables test/dev switch(es) forbidden in production:${bad}"
+  # Single owner of the rules: src/api/startup_guards.py (the same function
+  # server.py calls at startup).  Run from the release dir; stdlib only.
+  if ! (cd "${APP_DIR}" && python3 -E -s -m src.api.startup_guards \
+        --check-env-file "${env_file}" --production); then
+    error "${env_file} would make the backend refuse to start; refusing to deploy (old release keeps serving)."
     return 1
   fi
 }
@@ -1514,6 +1512,9 @@ main() {
     log "Repository already at target revision."
   fi
 
+  # Release code is on disk; nothing has been swapped or restarted yet.  A
+  # refusal here leaves the old frontend and backend serving.
+  check_box_env_guards || exit 1
   prepare_python_runtime
   maybe_build_frontend
   ensure_systemd_service
@@ -1529,7 +1530,6 @@ main() {
   else
     rm -f "${APP_DIR}/.release-manifest.json"
   fi
-  check_box_env_guards
   restart_service
   verify_runtime_state
   reconcile_source_history
