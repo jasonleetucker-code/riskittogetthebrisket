@@ -35,7 +35,7 @@ BLOCKED — OWNER ACTION · BLOCKED — EXTERNAL DEPENDENCY · VERIFIED NO LONGE
 | 12 | Live roster refresh — measure first | P2 | VERIFIED NO LONGER NEEDED (measured; owner may override) | #2246 → `6b0546a7` | measurement doc only; no runtime change | owner may override (median post-trade misattribution 1.1 h) |
 | 13 | Security hardening batch | P2 | DEPLOYED | #2240 → `5f7e6080` | production `eb604ee2`; the box `.env` pre-flight ran and passed on deploys 44330192334 and 44345462077 | box `.env` is pre-checked against the target revision before the deploy moves anything |
 | 14 | Next.js 16.4.5+ (#2233) | P2 | DEPLOYED | #2241 → `0dc1c6cd` | production build `bd17e684` | dependabot #2233 superseded |
-| 15 | Make permanent-red / vacuous-green checks meaningful | P3 | DEPLOYED | #2247 → `123c08df`; #2253 → `83cc4061` (train 5) | production `eb604ee2`; CI-only change | 57 stale workflow registrations need an owner disable; #898 owner decision; E2E skip ceiling sits at exactly 70/70 on main |
+| 15 | Make permanent-red / vacuous-green checks meaningful | P3 | DEPLOYED | #2247 → `123c08df`; #2253 → `83cc4061` (train 5) | Verify Sharp run 44359806209 (production `bb95f1e6`): `verify` success with warning "SHARP_SMOKE_TOKEN is not provisioned — nothing was measured"; `Sharp production population verified (measured)` SKIPPED — no longer a vacuous green; rank-form drift dispatched for its first post-fix run | 57 stale workflow registrations need an owner disable; #898 owner decision; E2E skip ceiling sits at exactly 70/70 on main |
 | 16 | Node 20 → 22 | P3 | MERGED, then PARTIALLY REVERTED by hotfix #2256 (production lanes back on 20 until the box cutover) | #2252 → `79c60f26`; #2256 → `6f87d9d0` (RC 44340812140 green) | — | production runtime cutover BLOCKED — OWNER ACTION; engines `>=20 <23` until then |
 
 ## Baseline (2026-11-18, before any change)
@@ -415,6 +415,9 @@ Record (PR #2252 → `79c60f26`, train 4; hotfix #2256 → `6f87d9d0`):
    `reconnectNoticeAttempts` shows whether a notice channel (ntfy `NOTIFY_WEBHOOK_URL` / SMTP `ALERT_TO`) also needs
    configuring or repairing.
 5. Task 16 — authorize the production Node runtime cutover.
+7. Task 15 — provision the `SHARP_SMOKE_TOKEN` repository secret (#1727) so the Sharp population check can
+   measure; disable the 57 stale workflow registrations with the command in
+   `docs/ops/STALE_WORKFLOW_REGISTRATIONS_2026-11-18.md` (needs `actions:write`); decide #898 (rank-form drift).
 6. Task 11/15 — force-cancel the two orphaned Deploy Production runs 32212914036 and 43096180672 in the Actions UI
    (the API's ordinary cancel refuses them; the force-cancel call was not permitted from this session). The August run
    would deploy a three-month-old SHA if GitHub ever started it.
