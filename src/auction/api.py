@@ -1030,8 +1030,10 @@ def _csv_safe(v: Any) -> Any:
     """Names come from league members' own Sleeper display names; a leading
     = + - @ (or tab/CR) would run as a formula in Excel/Sheets.  Numbers pass
     through untouched."""
-    if isinstance(v, str) and v[:1] in ("=", "+", "-", "@", "\t", "\r"):
-        return "'" + v
+    if isinstance(v, str):
+        from src.public_league.csv_export import neutralize_csv_text
+
+        return neutralize_csv_text(v)
     return v
 
 

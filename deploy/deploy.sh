@@ -954,6 +954,23 @@ verify_runtime_state() {
   fi
 }
 
+# Production must never run with the test/dev switches on (audit Task 13).
+# Prints variable NAMES only, never values.  server.py refuses the same
+# combination at startup when RISKIT_ENV=production (set by the unit).
+check_box_env_guards() {
+  local env_file="${APP_DIR}/.env" name bad=""
+  [[ -f "${env_file}" ]] || return 0
+  for name in E2E_TEST_MODE ALLOW_DEFAULT_LOGIN_DEV; do
+    if grep -Eiq "^[[:space:]]*(export[[:space:]]+)?${name}=[\"']?(1|true|yes|on)[\"']?[[:space:]]*(#.*)?$" "${env_file}"; then
+      bad="${bad} ${name}"
+    fi
+  done
+  if [[ -n "${bad}" ]]; then
+    error "${env_file} enables test/dev switch(es) forbidden in production:${bad}"
+    return 1
+  fi
+}
+
 restart_service() {
   require_command systemctl
   # NOTE: the frontend (dynasty-frontend) is restarted by
@@ -1512,6 +1529,7 @@ main() {
   else
     rm -f "${APP_DIR}/.release-manifest.json"
   fi
+  check_box_env_guards
   restart_service
   verify_runtime_state
   reconcile_source_history

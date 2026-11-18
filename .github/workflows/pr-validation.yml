@@ -38,6 +38,10 @@ on:
       # that looks mergeable into something that cannot be merged.
       # Without it, a conflicted PR is an ungated PR.
 
+# Read-only by default; a job needing more declares it itself.
+permissions:
+  contents: read
+
 concurrency:
   group: pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true

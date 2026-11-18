@@ -20,6 +20,10 @@ on:
     - cron: "17 */4 * * *"
   workflow_dispatch: {}
 
+# Checkout only; the report upload needs no token scope.
+permissions:
+  contents: read
+
 concurrency:
   group: prod-e2e-smoke
   cancel-in-progress: true
