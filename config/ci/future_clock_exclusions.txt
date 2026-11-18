@@ -1,0 +1,30 @@
+# Tests excluded from the ADVISORY future-clock sweep (scripts/run_future_clock_suites.sh).
+#
+# Every entry is a HARNESS artifact, not a product defect: the fake clock
+# (tests/fake_clock.py) moves the in-process Python clock only, so a test that
+# mixes it with a clock it cannot move fails under any fake instant but passes
+# in real time.  Two classes qualify, and only these:
+#
+#   SUBPROCESS - the test runs a child process (bash `date`, a fresh Python
+#                interpreter) that reads the REAL OS clock while the test body
+#                computes "today" from the fake one.
+#   MTIME      - the test creates real files (their mtime is the real clock) and
+#                the code under test compares that mtime with the fake clock
+#                (``time.time()`` / ``datetime.now()``).
+#
+# Format: <pytest node id or file>   # CLASS: why.  A year-boundary defect in a
+# test or in production code is FIXED, never listed here.  Adding an entry needs
+# its class and a one-line reason; the pytest invocation prints each deselect.
+
+tests/deploy/test_backup_root_resolution.py  # SUBPROCESS: the backup-proof bash script dates generations with real `date`
+tests/deploy/test_state_backup_optional_stores.py  # SUBPROCESS: same bash script, real `date`
+tests/retention/test_health.py::test_a_future_dated_stamp_does_not_grade_ok  # MTIME: artifact mtime is real, "now" is fake
+tests/retention/test_health.py::test_an_undated_artifact_falls_back_to_mtime_and_says_so  # MTIME: artifact mtime is real, "now" is fake
+tests/retention/test_watchdog_semantics.py  # SUBPROCESS: the watchdog shell wrapper runs a child interpreter on the real clock
+tests/ros/test_pick_forecast_snapshot.py::test_a_fresh_persisted_team_strength_file_skips_the_player_dump  # MTIME: snapshot freshness is file mtime vs now
+tests/ros/test_team_strength_fallback.py::TestLoadOrComputeTeamStrengthPrecedence::test_prefers_the_persisted_file_when_present  # MTIME: snapshot freshness is file mtime vs now
+tests/ros/test_team_strength_fallback.py::TestLoadOrComputeTeamStrengthPrecedence::test_two_leagues_do_not_collide_on_one_persisted_file  # MTIME: snapshot freshness is file mtime vs now
+tests/scripts/test_scrape_source_lifecycle_proof.py::test_streamed_script_runs_on_host_and_emits_only_allowlisted_summary  # SUBPROCESS: streamed script runs in a child interpreter on the real clock
+tests/sources/test_signals_auth.py::test_concurrent_workers_renew_exactly_once  # SUBPROCESS: six child workers judge token expiry on the real clock
+tests/trade/test_market_trade_report.py::test_killed_runs_temp_files_are_removed_and_a_failed_build_leaves_none  # MTIME: temp-file age is real mtime vs fake now
+tests/trade/test_market_trade_report.py::test_a_killed_runs_sqlite_companion_files_are_removed_too  # MTIME: temp-file age is real mtime vs fake now

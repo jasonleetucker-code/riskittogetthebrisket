@@ -11,6 +11,8 @@ network anywhere.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -323,7 +325,13 @@ class TestPickProjectionsEndpoint:
 
     def test_no_simulation_is_not_an_error(self, monkeypatch):
         self._pin_league(monkeypatch)
-        teams = teams3({1: [pick(2027, 1, 1, 1)]})
+        # With no simulation the projector's documented default for "the current
+        # season" is the UTC calendar year, and a class at or before it is
+        # excluded.  The class the test owns must therefore be the NEXT one
+        # relative to that same clock, not a literal year (a literal 2027 stops
+        # being a future class on 2027-01-01).
+        next_class = datetime.now(timezone.utc).year + 1
+        teams = teams3({1: [pick(next_class, 1, 1, 1)]})
         import src.api.sleeper_overlay as overlay
         import src.ros.playoff_sim as playoff_sim
 
