@@ -4525,8 +4525,17 @@ def _alert_if_backups_stale() -> bool:
     return False
 
 
+# The first check waits a little after startup: a short-lived app (tests, a
+# one-off ``TestClient`` lifespan, a restart that is about to be rolled back)
+# must not e-mail, and production still checks within minutes of every start.
+# ``0`` checks immediately; tests drive ``_alert_if_backups_stale`` directly.
+BACKUP_WATCHDOG_FIRST_DELAY_SEC = int(os.getenv("BACKUP_WATCHDOG_FIRST_DELAY_SEC", "900"))
+
+
 async def backup_watchdog_loop():
     """Periodic stale-backup check (moved off the anonymous /api/health path)."""
+    if BACKUP_WATCHDOG_FIRST_DELAY_SEC > 0:
+        await asyncio.sleep(BACKUP_WATCHDOG_FIRST_DELAY_SEC)
     while True:
         try:
             await asyncio.to_thread(_alert_if_backups_stale)
