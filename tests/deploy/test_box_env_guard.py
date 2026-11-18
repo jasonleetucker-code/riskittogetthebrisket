@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def _run(tmp_path, text, production=True):
     env = tmp_path / ".env"
-    env.write_text(text)
+    env.write_text(text, encoding="utf-8")
     cmd = [sys.executable, "-E", "-s", "-m", "src.api.startup_guards", "--check-env-file", str(env)]
     if production:
         cmd.append("--production")
@@ -77,8 +77,8 @@ def test_parse_env_file_semantics():
 
 
 def test_server_uses_shared_rules_and_guard_precedes_swaps():
-    assert "startup_refusals(os.environ)" in (ROOT / "server.py").read_text()
-    text = (ROOT / "deploy/deploy.sh").read_text()
+    assert "startup_refusals(os.environ)" in (ROOT / "server.py").read_text(encoding="utf-8")
+    text = (ROOT / "deploy/deploy.sh").read_text(encoding="utf-8")
     body = text[text.index("\nmain() {") :]
     guard = body.index("check_box_env_guards")
     for later in (
@@ -95,7 +95,7 @@ def test_script_runs_by_path_not_module(tmp_path):
     env = tmp_path / ".env"
     script = ROOT / "src/api/startup_guards.py"
     base = [sys.executable, "-E", "-s", str(script), "--check-env-file", str(env), "--production"]
-    env.write_text("JASON_LOGIN_PASSWORD=changeme\n")
+    env.write_text("JASON_LOGIN_PASSWORD=changeme\n", encoding="utf-8")
     assert subprocess.run(base, cwd=tmp_path, capture_output=True).returncode == 1
-    env.write_text("JASON_LOGIN_PASSWORD=real-pw-9x\n")
+    env.write_text("JASON_LOGIN_PASSWORD=real-pw-9x\n", encoding="utf-8")
     assert subprocess.run(base, cwd=tmp_path, capture_output=True).returncode == 0

@@ -531,6 +531,9 @@ def _run_health(monkeypatch, block):
     monkeypatch.setattr(server, "_backup_freshness", lambda: block)
     monkeypatch.setattr(server, "send_alert", lambda subject, body: alerts.append(subject))
     response = asyncio.run(server.get_health())
+    # /api/health is a read: it never sends, whatever the block says.
+    assert alerts == []
+    server._alert_if_backups_stale()
     return response.status_code, alerts
 
 
@@ -566,6 +569,11 @@ def test_missing_legacy_backup_still_alerts_exactly_as_before(monkeypatch):
     }
     _status, alerts = _run_health(monkeypatch, block)
     assert alerts == ["Risk It: SQLite backups stale"]
+    # ... and the anonymous health read alone sends nothing.
+    sent: list[str] = []
+    monkeypatch.setattr(server, "send_alert", lambda subject, body: sent.append(subject))
+    asyncio.run(server.get_health())
+    assert sent == []
 
 
 # -- the paths mirror the shell scripts that own them ---------------------------
@@ -590,8 +598,10 @@ def test_legacy_dirs_mirror_backup_user_kv():
 
 
 def test_stale_threshold_matches_the_health_endpoint_alert():
+    # The watchdog applies the very constant the health verdict uses.
+    assert server.BACKUP_STALE_ALERT_HOURS == bh.STALE_AFTER_HOURS
     source = Path(server.__file__).read_text(encoding="utf-8")
-    assert f"_bage > {int(bh.STALE_AFTER_HOURS)}" in source
+    assert "_bage > BACKUP_STALE_ALERT_HOURS" in source
 
 
 @pytest.mark.parametrize("age,expected", [(0.0, "healthy"), (36.0, "healthy"), (36.01, "stale")])
@@ -1456,6 +1466,9 @@ def _health_alerts(monkeypatch) -> tuple[dict, list[str]]:
     sent: list[tuple[str, str]] = []
     monkeypatch.setattr(server, "send_alert", lambda subject, body: sent.append((subject, body)))
     response = asyncio.run(server.get_health())
+    # The anonymous health read never sends; the watchdog tick does.
+    assert sent == []
+    server._alert_if_backups_stale()
     bodies = [body for subject, body in sent if subject == _ALERT_SUBJECT]
     return json.loads(response.body)["backup_health"], bodies
 

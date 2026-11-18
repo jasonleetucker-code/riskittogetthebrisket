@@ -4496,7 +4496,9 @@ async def uptime_watchdog_loop():
 
 
 BACKUP_WATCHDOG_INTERVAL_SEC = 6 * 3600
-BACKUP_STALE_ALERT_HOURS = 36
+# One threshold: the verdict in src/api/backup_health.py (36 h) is the number
+# the watchdog applies, so the health block and the e-mail cannot drift apart.
+from src.api.backup_health import STALE_AFTER_HOURS as BACKUP_STALE_ALERT_HOURS  # noqa: E402
 
 
 def _alert_if_backups_stale() -> bool:

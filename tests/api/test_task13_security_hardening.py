@@ -68,7 +68,7 @@ def test_production_marker_without_switches_starts():
 
 
 def test_systemd_unit_sets_production_marker_after_env_file():
-    text = (ROOT / "deploy/systemd/dynasty.service.template").read_text()
+    text = (ROOT / "deploy/systemd/dynasty.service.template").read_text(encoding="utf-8")
     assert text.index("EnvironmentFile=") < text.index("Environment=RISKIT_ENV=production")
 
 

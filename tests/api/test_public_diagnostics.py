@@ -339,7 +339,7 @@ def test_status_keeps_what_monitoring_reads(planted):
 
 def test_health_keeps_its_verdicts_and_status_code(planted):
     code, body, _text = _served(server.get_health)
-    full_code, full = server._health_content(send_alerts=False)
+    full_code, full = server._health_content()
     assert code == full_code
     for key in ("status", "has_data", "data_stale", "contract_ok", "source_health_ok"):
         assert body[key] == full[key], key
