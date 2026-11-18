@@ -111,19 +111,10 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          busy=0
-          for status in in_progress queued waiting pending requested; do
-            n="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?status=${status}&per_page=1" --jq '.total_count')"
-            if [[ ! "$n" =~ ^[0-9]+$ ]]; then
-              echo "::error title=Deploy state unreadable::could not list deploy.yml runs (${status})."
-              exit 1
-            fi
-            busy=$((busy + n))
-          done
-          if (( busy > 0 )); then
-            echo "::error title=Production deploy in flight::a deploy.yml run is in progress or queued."
-            exit 1
-          fi
+          # One guard for every on-box workflow (scripts/deploy_in_flight.py):
+          # in-progress deploys and recently queued ones block; a run that never
+          # started within 6 h is reported as orphaned instead of blocking forever.
+          python3 scripts/deploy_in_flight.py --repo "${GITHUB_REPOSITORY}"
 
       - name: Configure production SSH
         env:
