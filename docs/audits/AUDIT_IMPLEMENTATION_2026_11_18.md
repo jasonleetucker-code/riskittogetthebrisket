@@ -31,7 +31,7 @@ BLOCKED — OWNER ACTION · BLOCKED — EXTERNAL DEPENDENCY · VERIFIED NO LONGE
 | 8 | Public-repo data-exposure remediation | P2 | DEPLOYED (guard) — BLOCKED — OWNER DECISION | #2249 → `522c0efc` | production `eb604ee2`; growth guard active as a blocking PR step | publication policy is an owner decision |
 | 9 | Trade-flow resilience (frontend) | P2 | DEPLOYED — automated production checks pass; iOS PWA check outstanding | #2243 → `bd17e684` | production `bb95f1e6`: V1 browser suite 108 passed / 0 failed across trade, War Room, rankings, league and private surfaces | service-worker update on real devices (iOS PWA) |
 | 10 | Mobile ergonomics and 390 px coverage | P2 | DEPLOYED — automated production checks pass; real-device check outstanding | #2245 → `eb604ee2` (train 5: RC 44330233614 + E2E 44330240357 green) | production `eb604ee2` (16:47 UTC) | 4-team tray clearance and info-tip tap accuracy need a real device |
-| 11 | Restore Signals; loud private-source failure | P2 | DIAGNOSED — BLOCKED — OWNER ACTION (reconnect Signals) | #2237 → `3f647d16`; #2257 → `bb95f1e6`; #2259 → `7decca70` (RC 44364618189) | probe run 44359886606 on production `bb95f1e6`: full report published; `signalsSf` `auth_unavailable` x66, last success 400.2 h, session `reconnect_required` / `AUTH_REQUIRED`, renewal exit 2, notice never delivered; SLO alert issue #2258 open | next: run the health probe once no deploy is in flight; two orphaned deploy runs still need a force-cancel |
+| 11 | Restore Signals; loud private-source failure | P2 | DIAGNOSED — BLOCKED — OWNER ACTION (reconnect Signals) | #2237 → `3f647d16`; #2257 → `bb95f1e6`; #2259 → `7decca70` (RC 44364618189) | probe runs 44359886606 (`bb95f1e6`) and 44377419713 (`7decca70`): `signalsSf` `auth_unavailable` x66, last success 401.8 h, session `reconnect_required` / `AUTH_REQUIRED`, renewal exit 2; reconnect notice: 0 sends recorded (ntfy 0, email 0) on an episode open ~400 h with the daily sweep active — no owner-notification channel configured on the box; SLO alert issue #2258 open | next: run the health probe once no deploy is in flight; two orphaned deploy runs still need a force-cancel |
 | 12 | Live roster refresh — measure first | P2 | VERIFIED NO LONGER NEEDED (measured; owner may override) | #2246 → `6b0546a7` | measurement doc only; no runtime change | owner may override (median post-trade misattribution 1.1 h) |
 | 13 | Security hardening batch | P2 | DEPLOYED — bearer fix and deploy pre-flight verified in production | #2240 → `5f7e6080` | production `eb604ee2`; the box `.env` pre-flight ran and passed on deploys 44330192334 and 44345462077; production probe 18:1x UTC: `POST /api/signal-alerts/run` with a non-ASCII (invalid) bearer → HTTP 401 `admin_auth_required` (audit baseline: 500) | box `.env` is pre-checked against the target revision before the deploy moves anything |
 | 14 | Next.js 16.4.5+ (#2233) | P2 | VERIFIED COMPLETE | #2241 → `0dc1c6cd` | production `bb95f1e6` ships `frontend/package-lock.json` `next` 16.4.5 (both advisories fixed in 16.4.5); V1 browser suite on it 108 passed / 0 failed | dependabot #2233 superseded |
@@ -404,6 +404,9 @@ Record (PR #2252 → `79c60f26`, train 4; hotfix #2256 → `6f87d9d0`):
   failed once on #2238 (0.44 s vs 0.35 s bound) and passed on the single permitted re-run — an intermittent timing test
   under runner load; candidate for Task 15's follow-up list.
 
+- 18:5x UTC: the re-run of deploy 44368941410 succeeded; production `build.commit` = `7decca70`. Signals probe
+  44377419713 on it: `reconnectNoticeAttempts` 0, `reconnectNoticeChannelAttempts` ntfy 0 / email 0 on the episode
+  open since the session failed (~400 h, daily sweep active, exit 0) — no notice channel configured on the box.
 - 18:2x UTC: #2259 merged (`7decca70`, RC 44364618189 on base `bb95f1e6` = main). Deploy 44368941410 failed in
   hard-gate shard 2 before any production step (production stayed `bb95f1e6`): infrastructure, not a test. All 8
   shards ran image `ubuntu-26.04` 20261103.629; on the failing runner `apt-get update` saw only
@@ -425,7 +428,7 @@ Record (PR #2252 → `79c60f26`, train 4; hotfix #2256 → `6f87d9d0`):
 
 All 16 tasks have merged engineering work; 26 PRs merged (#2223, #2224, #2226, #2227, #2228, #2236–#2253, #2256,
 #2257, #2259). Production went `71cc45b7` (audit) → `5f35bf8c` → `bd17e684` → `eb604ee2` → `bb95f1e6`
-(→ `7decca70` deploying).
+→ `7decca70` (18:5x UTC).
 
 ### Before / after (measured; nothing estimated)
 
@@ -449,6 +452,10 @@ All 16 tasks have merged engineering work; 26 PRs merged (#2223, #2224, #2226, #
 
 ### Remaining risks
 
+- No owner-notification channel appears configured on the box (0 reconnect-notice sends recorded in ~400 h), and
+  SMTP is firewalled there; box-side alerts that rely on them (the Signals reconnect notice, and the e-mail from the
+  backup / uptime watchdogs via `send_alert`) may be reaching no one. The GitHub-issue alerts (health check, SLO #2258)
+  do work. Not verified for the watchdog paths (box-only state).
 - `signalsSf` stays stale and its votes withheld until the owner reconnects; until then the SLO issue (#2258) stays
   open by design.
 - Production runs Node 20 (past end of life); CI is split 20 (production lanes) / 22 (the rest) until the cutover.
@@ -476,9 +483,11 @@ All 16 tasks have merged engineering work; 26 PRs merged (#2223, #2224, #2226, #
 
 1. **Task 11 — reconnect Signals.** The owner session is `reconnect_required` (probe run 44359886606; `signalsSf`
    400 h stale, votes withheld). On the box: `python scripts/signals_connect.py reconnect` (one email code), then
-   provision again (`docs/sources/SIGNALS_ACCOUNT_CONNECTION.md`). After #2259 deploys, re-run the probe: if
-   `reconnectNoticeAttempts` is 0, also configure a notice channel (`NOTIFY_WEBHOOK_URL` for ntfy, or `ALERT_TO` +
-   SMTP); if > 0, repair the configured one.
+   provision again (`docs/sources/SIGNALS_ACCOUNT_CONNECTION.md`). Also set `NOTIFY_WEBHOOK_URL` (the owner's ntfy
+   webhook) in the box `.env`: the post-#2259 probe (run 44377419713) recorded 0 notice sends on any channel over
+   ~400 h, and SMTP to `smtp.gmail.com:465` is firewalled on the VPS (commit `54af3811cc`), so ntfy is the channel
+   that can reach the owner. Verify by re-running the probe: `reconnectNoticeAttempts` > 0 and, once delivered,
+   `reconnectNoticeDelivered: true`.
 2. **Task 4 — branch protection.** Review `deploy/github/apply-branch-protection.sh --dry-run`, then apply
    `deploy/github/main-protection-ruleset.json` (required checks `Validate PR` and `Receipt check`; refresh pushers
    keep bypass). Runbook: `docs/ops/ADMIN_ONLY_ACTIONS_RUNBOOK.md`.
