@@ -1,0 +1,29 @@
+# TEMPLATE ONLY. Nothing installs this: the deploy installer pairs only
+# deploy/systemd/*.service.template with *.timer.template, and this file ends in
+# .example on purpose. The owner enables it by hand (runbook section 5).
+#
+# Runs as root because the newest generation is root-only (0600). So ExecStart is
+# a ROOT-OWNED copy under /usr/local/lib/riskit/ (never the checkout copy; see
+# riskit-state-backup.service). Install BOTH scripts side by side:
+#   sudo install -o root -g root -m 0755 -D scripts/offbox_backup.py /usr/local/lib/riskit/offbox_backup.py
+#   sudo install -o root -g root -m 0755 -D scripts/verify_state_backup_restore.py /usr/local/lib/riskit/verify_state_backup_restore.py
+# The target and the encryption acknowledgement live in a root-only env file the
+# owner creates (never in this repository):
+#   sudo install -d -m 0700 /etc/riskit && sudo install -m 0600 /dev/null /etc/riskit/offbox.env
+#   then edit it:
+#   OFFBOX_BACKUP_TARGET=rclone:myremote:riskit-state
+#   OFFBOX_BACKUP_ACK_ENCRYPTED_TARGET=1
+[Unit]
+Description=Risk It off-box copy of the newest verified state backup (opt-in)
+After=riskit-state-backup.service network-online.target
+ConditionPathExists=/etc/riskit/offbox.env
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/riskit/offbox.env
+ExecStart=/usr/bin/python3 /usr/local/lib/riskit/offbox_backup.py copy --json
+StandardOutput=append:/var/log/riskit-offbox-backup.log
+StandardError=append:/var/log/riskit-offbox-backup.log
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=2h

@@ -86,7 +86,53 @@ for r in d["rules"]:
 ' "${RULESET}")"
 
   if [[ "${DRY_RUN}" == "true" ]]; then
-    log "--dry-run: payload validated, nothing sent."
+    # READ-ONLY. Fetches the live ruleset (public-readable; GH_TOKEN optional),
+    # prints the exact API call that a real run would make and the diff against
+    # the live ruleset. No POST/PUT is ever built in this branch.
+    local live_json live_id="" live_file
+    live_file="$(mktemp)"
+    if [[ -n "${RULESETS_LIST_FILE:-}" ]]; then
+      live_json="$(cat "${RULESETS_LIST_FILE}")" # test seam: a saved list response
+    elif command -v gh >/dev/null 2>&1; then
+      live_json="$(gh api "repos/${REPO}/rulesets" 2>/dev/null || true)"
+    else
+      live_json="$(curl -sS -H "Accept: application/vnd.github+json" \
+        "https://api.github.com/repos/${REPO}/rulesets" 2>/dev/null || true)"
+    fi
+    live_id="$(printf '%s' "${live_json}" | python3 -c '
+import json, sys
+try:
+    rs = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+for r in rs if isinstance(rs, list) else []:
+    if r.get("name") == "main-protection":
+        print(r.get("id", ""))
+        break
+')" || true
+    if [[ -n "${live_id}" ]]; then
+      if [[ -n "${RULESET_LIVE_FILE:-}" ]]; then
+        cp "${RULESET_LIVE_FILE}" "${live_file}"
+      elif command -v gh >/dev/null 2>&1; then
+        gh api "repos/${REPO}/rulesets/${live_id}" >"${live_file}" 2>/dev/null || true
+      else
+        curl -sS -H "Accept: application/vnd.github+json" \
+          "https://api.github.com/repos/${REPO}/rulesets/${live_id}" >"${live_file}" || true
+      fi
+      log "WOULD CALL: PUT https://api.github.com/repos/${REPO}/rulesets/${live_id}"
+    else
+      [[ -n "${live_json}" ]] || warn "could not read the live rulesets list; the CREATE below may be wrong"
+      log "WOULD CALL: POST https://api.github.com/repos/${REPO}/rulesets"
+      : >"${live_file}"
+    fi
+    log "diff vs live (- live only, + payload only, ~ changed):"
+    if [[ -s "${live_file}" ]]; then
+      python3 "${SCRIPT_DIR}/ruleset_diff.py" "${RULESET}" "${live_file}" | sed 's/^/[ruleset]   /'
+    else
+      python3 "${SCRIPT_DIR}/ruleset_diff.py" "${RULESET}" | sed 's/^/[ruleset]   /'
+    fi
+    rm -f "${live_file}"
+    log "--dry-run: nothing sent."
     log "Re-run without --dry-run and with an admin GH_TOKEN to apply."
     return 0
   fi
