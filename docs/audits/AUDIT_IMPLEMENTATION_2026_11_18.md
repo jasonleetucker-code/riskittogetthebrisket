@@ -31,7 +31,7 @@ BLOCKED — OWNER ACTION · BLOCKED — EXTERNAL DEPENDENCY · VERIFIED NO LONGE
 | 8 | Public-repo data-exposure remediation | P2 | DEPLOYED (guard) — BLOCKED — OWNER DECISION | #2249 → `522c0efc` | production `eb604ee2`; growth guard active as a blocking PR step | publication policy is an owner decision |
 | 9 | Trade-flow resilience (frontend) | P2 | DEPLOYED | #2243 → `bd17e684` | production build `bd17e684` | service-worker update on real devices (iOS PWA) |
 | 10 | Mobile ergonomics and 390 px coverage | P2 | DEPLOYED | #2245 → `eb604ee2` (train 5: RC 44330233614 + E2E 44330240357 green) | production `eb604ee2` (16:47 UTC) | 4-team tray clearance and info-tip tap accuracy need a real device |
-| 11 | Restore Signals; loud private-source failure | P2 | IN PROGRESS (units 1–2 merged; diagnosis next) | #2237 → `3f647d16`; #2257 → `bb95f1e6` (RC 44347627363) | — | next: run the health probe once no deploy is in flight; two orphaned deploy runs still need a force-cancel |
+| 11 | Restore Signals; loud private-source failure | P2 | DIAGNOSED — BLOCKED — OWNER ACTION (reconnect); unit 3 PR #2259 open | #2237 → `3f647d16`; #2257 → `bb95f1e6` (RC 44347627363) | — | next: run the health probe once no deploy is in flight; two orphaned deploy runs still need a force-cancel |
 | 12 | Live roster refresh — measure first | P2 | VERIFIED NO LONGER NEEDED (measured; owner may override) | #2246 → `6b0546a7` | measurement doc only; no runtime change | owner may override (median post-trade misattribution 1.1 h) |
 | 13 | Security hardening batch | P2 | DEPLOYED | #2240 → `5f7e6080` | production `eb604ee2`; the box `.env` pre-flight ran and passed on deploys 44330192334 and 44345462077 | box `.env` is pre-checked against the target revision before the deploy moves anything |
 | 14 | Next.js 16.4.5+ (#2233) | P2 | DEPLOYED | #2241 → `0dc1c6cd` | production build `bd17e684` | dependabot #2233 superseded |
@@ -365,6 +365,26 @@ Record (PR #2252 → `79c60f26`, train 4; hotfix #2256 → `6f87d9d0`):
   deploy (run 44339329955): resolved target `79c60f26` / base `f5e06111` from the deploy logs and classified the delta
   CODE (78 paths, 74 code) — correct, fail-closed; it is running again for this deploy.
 
+- 17:2x UTC: Deploy Production 44351902994 succeeded; production `build.commit` = `bb95f1e6` (adds #2257). The
+  superseded data-refresh deploy 44347459115 (`e00fd9f0`, contained in `bb95f1e6`) was cancelled in its hard gate,
+  before any production step.
+- **Task 11 diagnosis (Signals health probe run 44359886606, production `bb95f1e6`).** The redaction fix works: the
+  full report printed, no `redacted` key (the systemd `exit-code` normalisation removed the leaf that tripped it).
+  Findings:
+  - `signalsSf`: `lastOutcome: auth_unavailable`, 66 consecutive failures, last success 400.2 h ago, upstream age
+    419.5 h; freshness 0.0 / `QUARANTINED` (votes correctly withheld); `wouldAlertContentStale: true`.
+  - IDP families (DL/LB/DB): `auth_unavailable`, 1 consecutive failure each, freshness 0.39 `STALE`; not voting by
+    design (flags off).
+  - Session: `state: reconnect_required`, `acquisitionState: AUTH_REQUIRED`, `episodeOpen: true`. Renewal unit last
+    exit 2 (`exit_code`); collector last exit 1.
+  - `reconnectNoticeDelivered: false` — the owner was never told to reconnect.
+  - Root cause of the stall: the owner's Signals session needs a reconnect (owner-held credential), which no code
+    change can do. Restoring `signalsSf` is an owner action: run the reconnect on the box
+    (`scripts/signals_connect.py`; `docs/sources/SIGNALS_ACCOUNT_CONNECTION.md`).
+  - Loud failure: the Task 2 SLO now alerts on this state (issue #2258, `data_freshness.private_sources` 4/4).
+    Unit 3 (#2259) publishes the reconnect-notice attempt counts, which say whether the box has no notice channel
+    configured (0 attempts) or a failing one.
+
 ## Operational notes
 
 - 2026-11-18 ~11:40 UTC — CI runner saturation: ~10 concurrent PR CI runs (8 shards + E2E each) left Deploy Production
@@ -386,7 +406,10 @@ Record (PR #2252 → `79c60f26`, train 4; hotfix #2256 → `6f87d9d0`):
    off-box backup destination; confirm the deploy-key inventory.
 2. Task 3 — approve or decline the Agent OS amendment that lets a byte-identical code tree reuse its validation.
 3. Task 8 — choose a publication policy for vendor CSVs and board exports.
-4. Task 11 — if Signals' session expired, re-authenticate on the box.
+4. Task 11 — the Signals owner session is `reconnect_required` (probe run 44359886606): run `python scripts/signals_connect.py reconnect`
+   on the box (one email code typed by the owner), then provision again (`docs/sources/SIGNALS_ACCOUNT_CONNECTION.md`). After #2259 deploys, the probe's
+   `reconnectNoticeAttempts` shows whether a notice channel (ntfy `NOTIFY_WEBHOOK_URL` / SMTP `ALERT_TO`) also needs
+   configuring or repairing.
 5. Task 16 — authorize the production Node runtime cutover.
 6. Task 11/15 — force-cancel the two orphaned Deploy Production runs 32212914036 and 43096180672 in the Actions UI
    (the API's ordinary cancel refuses them; the force-cancel call was not permitted from this session). The August run
