@@ -188,3 +188,48 @@ def test_timer_examples_are_not_auto_installed():
     names = sorted(p.name for p in d.iterdir())
     assert names and all(n.endswith(".example") for n in names)
     assert not list((REPO / "deploy" / "systemd").glob("*offbox*"))
+
+
+# ── review fixes: target must not overlap the source; read-back space ───────
+@pytest.mark.parametrize("where", ["root", "daily", "gen", "inside_root"])
+def test_dir_target_overlapping_source_is_refused(env, where):
+    gen, _ = env
+    root = gen.parent.parent
+    tgt = {"root": root, "daily": root / "daily", "gen": gen, "inside_root": root / "sub"}[where]
+    argv = ["copy", "--target", f"dir:{tgt}", "--generation", str(gen), "--root", str(root)]
+    before = sorted(p.name for p in gen.rglob("*"))
+    assert ob.main(argv, env={ob.ENV_ACK: "1"}) == 1
+    assert sorted(p.name for p in gen.rglob("*")) == before  # source untouched
+
+
+def test_local_rsync_target_overlapping_source_is_refused(env):
+    gen, _ = env
+    tgt = ob.CommandTarget("rsync", str(gen.parent.parent), runner=lambda c: None)
+    with pytest.raises(ob.OffboxError, match="refusing"):
+        ob.copy_newest(tgt, gen, verifier=VERIFIER, roots=[str(gen.parent.parent)])
+
+
+def test_remote_rsync_target_is_not_treated_as_local(env):
+    gen, _ = env
+    tgt = ob.CommandTarget("rsync", "me@host:/srv/x", runner=lambda c: None)
+    assert tgt.local_root() is None
+    ob.assert_target_disjoint(tgt, gen)
+
+
+def test_protected_prefix_target_is_refused(env):
+    gen, _ = env
+    with pytest.raises(ob.OffboxError, match="refusing"):
+        ob.assert_target_disjoint(ob.DirTarget(Path("/etc/offbox")), gen)
+
+
+def test_readback_fails_closed_without_free_space(env, monkeypatch):
+    gen, remote = env
+    monkeypatch.setattr(shutil, "disk_usage", lambda p: shutil._ntuple_diskusage(10, 10, 0))
+    with pytest.raises(ob.OffboxError, match="temp space"):
+        ob.copy_newest(ob.DirTarget(remote), gen, verifier=VERIFIER, roots=[str(gen.parent.parent)])
+    assert not (remote / "daily" / gen.name).exists()  # nothing uploaded
+
+
+def test_docstring_does_not_claim_nothing_is_deleted():
+    assert "Nothing is ever" not in ob.__doc__
+    assert "previous copy" in ob.__doc__

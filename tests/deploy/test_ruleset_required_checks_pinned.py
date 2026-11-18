@@ -99,13 +99,15 @@ def test_dry_run_prints_call_and_diff_and_sends_nothing(tmp_path):
         "rules": [{"type": "deletion"}, {"type": "non_fast_forward"}],
     }
     listing = tmp_path / "list.json"
-    listing.write_text(json.dumps([{"id": 19976839, "name": "main-protection"}]))
+    listing.write_text(json.dumps([{"id": 19976839, "name": "main-protection"}]), encoding="utf-8")
     live_file = tmp_path / "live.json"
-    live_file.write_text(json.dumps(live))
+    live_file.write_text(json.dumps(live), encoding="utf-8")
     fakebin = tmp_path / "bin"
     fakebin.mkdir()
     for tool in ("curl", "gh"):  # any network call would hit these and fail the test
-        (fakebin / tool).write_text("#!/bin/sh\necho NETWORK-CALL-ATTEMPTED >&2\nexit 9\n")
+        (fakebin / tool).write_text(
+            "#!/bin/sh\necho NETWORK-CALL-ATTEMPTED >&2\nexit 9\n", encoding="utf-8"
+        )
         (fakebin / tool).chmod(0o755)
     env = {
         "PATH": f"{fakebin}:/usr/bin:/bin",

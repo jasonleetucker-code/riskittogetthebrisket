@@ -8,8 +8,15 @@ side by side under /usr/local/lib/riskit/ - never the checkout copy, same rule a
 
 ``copy``   pick the newest dated generation, restore-verify it locally, copy it to
            the owner's target, then prove the copy: every file is re-read from the
-           target and its SHA-256 must equal the local one.  Nothing is ever
-           deleted on the target (no ``--delete``; pruning is the owner's call).
+           target and its SHA-256 must equal the local one.  No ``--delete`` is
+           ever passed and nothing outside this tool's own output is touched; the
+           ONE thing replaced is this generation's own previous copy on a ``dir:``
+           target (a same-day re-copy ``rmtree``s ``daily/<date>`` there before
+           renaming the fresh copy in).  Because that is a delete, a ``dir:`` (or
+           local-path rsync) target equal to or under any source/backup root or
+           protected path is refused, and the read-back needs free temp space for
+           the whole generation (checked first; fail closed).  Pruning older
+           generations is the owner's call.
 ``drill``  pull the newest (or a named) generation FROM the target into a fresh
            temp directory, check every hash against the manifest, then run the same
            restore verification the nightly proof uses.  Never writes a production
@@ -99,6 +106,10 @@ class Target:
     def describe(self) -> str:
         raise NotImplementedError
 
+    def local_root(self) -> Path | None:
+        """The local filesystem root this target writes under, if it is local."""
+        return None
+
 
 class DirTarget(Target):
     kind = "dir"
@@ -108,6 +119,9 @@ class DirTarget(Target):
 
     def describe(self) -> str:
         return f"dir:{self.root}"
+
+    def local_root(self) -> Path | None:
+        return self.root
 
     def _gen(self, name: str) -> Path:
         return self.root / "daily" / name
@@ -156,6 +170,12 @@ class CommandTarget(Target):
 
     def describe(self) -> str:
         return f"{self.kind}:{self.spec}"
+
+    def local_root(self) -> Path | None:
+        # rsync:/abs/path (no host part) writes to the local disk.
+        if self.kind == "rsync" and ":" not in self.spec and self.spec.startswith("/"):
+            return Path(self.spec)
+        return None
 
     def _remote(self, *parts: str) -> str:
         return "/".join([self.spec, *parts])
@@ -325,19 +345,61 @@ def require_ack(env: dict[str, str], flag: bool) -> None:
 
 
 # ── copy ────────────────────────────────────────────────────────────────────
+READBACK_HEADROOM = 1.10
+
+
+def assert_target_disjoint(
+    target: Target,
+    gen: Path,
+    roots: Sequence[str] = DEFAULT_ROOTS,
+    extra_protected: Sequence[str] = (),
+) -> None:
+    """Refuse a local target that could overwrite or delete the source.
+
+    A same-day re-copy removes ``<target>/daily/<date>``; if the target is (or is
+    under, or contains) the source generation / a backup root / a protected
+    prefix, that removal would destroy the thing being backed up.
+    """
+    root = target.local_root()
+    if root is None:
+        return
+    tr = root.resolve()
+    src = gen.resolve()
+    final = tr / "daily" / gen.name
+    forbidden = [Path(r).resolve() for r in (*roots, *PROTECTED_PREFIXES, *extra_protected)]
+    forbidden += [src, src.parent, src.parent.parent]
+    for pref in forbidden:
+        if tr == pref or pref in tr.parents:
+            raise OffboxError(f"refusing: target {tr} is equal to or under {pref}")
+    if final == src or final in src.parents or src in final.parents:
+        raise OffboxError(f"refusing: target generation path {final} overlaps the source")
+
+
+def assert_readback_space(total_bytes: int, where: str | None = None) -> None:
+    free = shutil.disk_usage(where or tempfile.gettempdir()).free
+    need = int(total_bytes * READBACK_HEADROOM)
+    if free < need:
+        raise OffboxError(
+            f"refusing: read-back verification needs ~{need} bytes of temp space, {free} free"
+        )
+
+
 def copy_newest(
     target: Target,
     gen: Path,
     *,
     verifier: Any,
     full_verify: bool = False,
+    roots: Sequence[str] = DEFAULT_ROOTS,
 ) -> dict[str, Any]:
+    assert_target_disjoint(target, gen, roots)
     local = _verify_tree(gen, verifier=verifier, full=full_verify)
     if not local["ok"]:
         raise OffboxError(
             f"source generation {gen.name} failed local verification: {local['failed']}"
         )
     manifest = build_manifest(gen)
+    assert_readback_space(sum(f["size"] for f in manifest["files"]))
     target.put_tree(gen, gen.name)
     mdir = Path(tempfile.mkdtemp(prefix="riskit-offbox-manifest-"))
     try:
@@ -458,7 +520,13 @@ def main(argv: list[str] | None = None, env: dict[str, str] | None = None) -> in
             if gen is None or not gen.is_dir():
                 print("no readable backup generation found", file=sys.stderr)
                 return 2
-            result = copy_newest(target, gen, verifier=verifier, full_verify=args.full)
+            result = copy_newest(
+                target,
+                gen,
+                verifier=verifier,
+                full_verify=args.full,
+                roots=args.root or list(DEFAULT_ROOTS),
+            )
         else:
             result = run_drill(
                 target,
