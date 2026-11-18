@@ -560,6 +560,21 @@
     "health-check.yml::health::Resolve production URL": {
       "category": "blocking"
     },
+    "health-check.yml::slo::Check out main with full history": {
+      "category": "blocking"
+    },
+    "health-check.yml::slo::Check production SLOs": {
+      "category": "blocking"
+    },
+    "health-check.yml::slo::Install PyYAML": {
+      "category": "blocking"
+    },
+    "health-check.yml::slo::Set up Python": {
+      "category": "blocking"
+    },
+    "health-check.yml::slo::Sync the rolling SLO tracking issue": {
+      "category": "blocking"
+    },
     "intel-refresh.yml::refresh::Alert on workflow failure": {
       "category": "blocking"
     },
