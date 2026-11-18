@@ -1377,4 +1377,10 @@ th[aria-sort="ascending"] .ds-table__sort-glyph {
     position: absolute;
     inset: -10px;
   }
+  /* The slop is painted after, so beside a sort button it would cover
+     that button's rightmost 10px and steal its taps.  Reserve the 10px
+     as margin so the slop lands in empty space, not on the sibling. */
+  .ds-table__sort + .ds-infotip {
+    margin-left: 10px;
+  }
 }

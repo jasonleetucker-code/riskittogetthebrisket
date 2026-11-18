@@ -48,6 +48,12 @@ describe("ds.css coarse-pointer touch targets", () => {
     expect(block).toMatch(/\.ds-infotip__trigger::after\s*\{[^}]*inset:\s*-10px/);
   });
 
+  it("the info slop does not overlap a preceding sort button", () => {
+    expect(block).toMatch(
+      /\.ds-table__sort\s*\+\s*\.ds-infotip\s*\{[^}]*margin-left:\s*10px/,
+    );
+  });
+
   it("never touches desktop: no unconditional 44px override outside the block", () => {
     const before = css.slice(0, marker);
     expect(before).not.toMatch(/\.ds-btn\s*\{[^}]*min-height:\s*44px/);
