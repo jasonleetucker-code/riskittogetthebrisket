@@ -3334,6 +3334,21 @@ body:has(.trade-sticky-tray) .screenshot-fab {
   }
 }
 
+/* Task 10 (2026-11-18) — the N-team summary bar (MultiTeamSummaryBar,
+   `data-testid="trade-multi-summary"`) is TALLER than the 2-team tray:
+   with 3-4 teams its nets wrap onto a second line and the "Final: …"
+   verdict wraps to 2-3 lines at 390px (~105-115px against the 74px
+   2-team tray), so the 88px clearance above left the FAB covering the
+   tray's top ~20px. 136px clears the 4-team maximum
+   (config/trade/multi_team.json maxTeams) at its wrapped worst case with
+   room for a larger system font. Same `:has()` rationale as above: neither
+   component knows the other exists. Placed AFTER both rules above so the
+   later, more specific selector wins on source order, and adjacent to
+   them for the reason the note above gives. */
+body:has([data-testid="trade-multi-summary"]) .screenshot-fab {
+  --sticky-tray-clearance: 136px;
+}
+
 .screenshot-fab:hover {
   transform: translateY(-1px);
   border-color: var(--cyan);

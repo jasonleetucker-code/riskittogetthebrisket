@@ -1316,3 +1316,65 @@ th[aria-sort="ascending"] .ds-table__sort-glyph {
   font-size: var(--font-size-sm);
   color: var(--text-tertiary);
 }
+
+/* ══ Touch targets (Task 10, audit-remediation 2026-11-18) ═══════════════
+   The desktop controls are deliberately compact (32px buttons/inputs,
+   24px segmented options and info triggers) — that density is the PSI
+   terminal look and is untouched for a mouse. On a touch device the same
+   boxes are too small to hit reliably, so every PRIMARY touch control
+   reaches a 44x44 CSS px hit area (WCAG 2.5.5 AAA / platform guidance;
+   2.5.8 AA's 24px is the floor, not the target).
+
+   Condition: `(pointer: coarse)` — the PRIMARY input is imprecise. Not
+   `any-pointer: coarse`, which is also true on every touchscreen laptop
+   whose primary pointer is a mouse and would change their desktop layout.
+   `(max-width: 480px)` is the same belt-and-braces globals.css already
+   uses for engines that do not surface `pointer: coarse` (emulated /
+   headless phone viewports); no desktop window is that narrow.
+
+   Where a visible box can grow without harm (buttons, inputs, tabs,
+   segmented options) it grows. Where growth would disturb a dense row
+   (the info "i" trigger) an invisible ::after widens the HIT area only.
+   Focus rings are box-shadows on the same elements, so they follow the
+   larger box and stay fully visible. */
+@media (pointer: coarse), (max-width: 480px) {
+  .ds-btn,
+  .ds-btn--sm {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .ds-input,
+  .ds-select {
+    min-height: 44px;
+  }
+  .ds-tab {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+  .ds-segmented__option {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .ds-table__sort {
+    min-height: 44px;
+  }
+  .ds-panel__disclosure {
+    min-height: 44px;
+  }
+  .ds-dialog__close {
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  /* Hit slop, no layout change: 24px visible box + 10px each side = 44. */
+  .ds-infotip__trigger {
+    position: relative;
+  }
+  .ds-infotip__trigger::after {
+    content: "";
+    position: absolute;
+    inset: -10px;
+  }
+}

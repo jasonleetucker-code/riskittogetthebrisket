@@ -97,3 +97,63 @@ test.describe("mobile 390px: pinned chrome does not occlude itself", () => {
     ).toEqual([]);
   });
 });
+
+/**
+ * Task 10 (audit-remediation 2026-11-18) — the three PERSISTENT bottom
+ * chrome elements never cover each other on any phone route: the bottom
+ * nav, the trade tray / N-team summary bar and the screenshot FAB.
+ *
+ * Narrower than PINNED above on purpose: only those three selectors, and
+ * only `position: fixed`. The generic PINNED scan also sees sticky table
+ * headers and the top bar, whose legitimate stacking would turn a
+ * route-wide assertion into a cry-wolf check. Content that scrolls under a
+ * floating button is the nature of a FAB and is not asserted here.
+ *
+ * `/trade` is the route where all three can coexist. The 4-team summary
+ * bar is taller than the 2-team tray (its nets wrap and the "Final: …"
+ * verdict wraps at 390px), which is why `body:has([data-testid=
+ * "trade-multi-summary"])` raises the FAB's clearance in globals.css; the
+ * multi-team state itself is driven by trade-multi-team.spec.js, so this
+ * test asserts the invariant on whatever state the route renders.
+ */
+const BOTTOM_CHROME = () => {
+  const out = [];
+  for (const sel of [".mobile-bottom-nav", ".trade-sticky-tray", ".screenshot-fab"]) {
+    for (const el of document.querySelectorAll(sel)) {
+      const s = getComputedStyle(el);
+      if (s.position !== "fixed") continue;
+      if (s.display === "none" || s.visibility === "hidden" || Number(s.opacity) === 0) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue;
+      out.push({
+        name: sel.slice(1),
+        x: Math.round(r.x),
+        y: Math.round(r.y),
+        w: Math.round(r.width),
+        h: Math.round(r.height),
+      });
+    }
+  }
+  return out;
+};
+
+test.describe("mobile 390px: bottom chrome stacks without overlap", () => {
+  test.use({ viewport: MOBILE, isMobile: true, hasTouch: true });
+
+  for (const route of ["/trade", "/rankings", "/draft", "/rosters"]) {
+    test(`${route} — nav, tray and FAB do not overlap`, async ({ authedPage }) => {
+      await authedPage.setViewportSize(MOBILE);
+      await authedPage.goto(pageUrl(route), { waitUntil: "domcontentloaded" });
+      await awaitStreamSettled(authedPage);
+      await authedPage.waitForTimeout(400);
+      const boxes = await authedPage.evaluate(BOTTOM_CHROME);
+      // Non-vacuity: the phone shell always renders the bottom nav.
+      expect(
+        boxes.some((b) => b.name === "mobile-bottom-nav"),
+        `${route}: the bottom nav did not render, so nothing was measured`,
+      ).toBe(true);
+      const bad = overlaps(boxes);
+      expect(bad, `${route}: bottom chrome overlaps at 390x844: ${bad.join("; ")}`).toEqual([]);
+    });
+  }
+});
