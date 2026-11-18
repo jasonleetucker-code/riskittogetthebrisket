@@ -15,7 +15,6 @@ import { boardFirstActivePickYear, isRetiredPickClassRow } from "@/lib/pick-clas
 import {
   resolvedRank,
   RANKING_SOURCES,
-  siteOverridesAreCustomized,
   valuationBasisLabel,
   valuationBasisOf,
 } from "@/lib/dynasty-data";
@@ -251,7 +250,7 @@ function CustomMixBadge({ rankingsOverride }) {
   if (!active) return null;
 
   return (
-    <span className={styles.popoverWrap} aria-label="Custom source mix active">
+    <span className={styles.popoverWrap} aria-label="Stored custom source mix is not applied">
       <button
         type="button"
         className="ds-badge ds-badge--warning custom-mix-badge"
@@ -259,33 +258,41 @@ function CustomMixBadge({ rankingsOverride }) {
         aria-expanded={open}
         title={
           open
-            ? "Hide custom mix details"
-            : "Click to see which sources are customized"
+            ? "Hide stored mix details"
+            : "Click to see what this stored mix is and why it is not applied"
         }
       >
-        Custom Mix {summary}
+        Stored mix not applied {summary}
       </button>
       {open && (
         <div className={styles.popover} role="tooltip">
-          <p className={styles.popoverHeader}>Custom source configuration</p>
+          <p className={styles.popoverHeader}>Stored custom source mix</p>
           {disabled.length > 0 && (
             <p className={styles.popoverHint}>
-              <strong>Disabled:</strong> {disabled.join(", ")}
+              <strong>Stored as excluded:</strong> {disabled.join(", ")}
             </p>
           )}
           {reweighted.length > 0 && (
             <p className={styles.popoverHint}>
-              <strong>Reweighted:</strong> {reweighted.join(", ")}
+              <strong>Stored as reweighted:</strong> {reweighted.join(", ")}
             </p>
           )}
           <p className={styles.popoverHint}>
-            Change these on the Settings page.
+            Custom source mixes are switched off, so this stored mix is
+            ignored and the board blends every source.
           </p>
         </div>
       )}
     </span>
   );
 }
+
+// Custom source mixes are switched off on the server
+// (`_SOURCE_OVERRIDES_DISABLED` in src/api/data_contract.py).  Same wording
+// as /settings so the two pages agree.
+const CUSTOM_MIX_OFF_NOTE =
+  "Custom source mixes are switched off. Every value on the site uses the " +
+  "canonical consensus blend of every source below, and this list cannot be changed.";
 
 // ── Main component ───────────────────────────────────────────────────
 
@@ -294,42 +301,9 @@ export default function RankingsPage() {
   const {
     settings,
     update: updateSetting,
-    updateSiteWeight,
-    resetSiteWeights,
   } = useSettings();
   const [colsMenuOpen, setColsMenuOpen] = useState(false);
   const [sourcesMenuOpen, setSourcesMenuOpen] = useState(false);
-  // Per-source blend inclusion.  ``siteWeights[key].include === false``
-  // removes a source from the average; anything else keeps it in.
-  // useDynastyData already observes ``settings.siteWeights`` and
-  // re-fetches through POST /api/rankings/overrides, which filters
-  // disabled sources in _compute_unified_rankings — so flipping a
-  // checkbox here transparently rebuilds the blend with no extra
-  // wiring and no parallel ranking path.
-  const siteWeights = settings.siteWeights || {};
-  const includedSourceKeys = useMemo(
-    () =>
-      RANKING_SOURCES.filter((s) => siteWeights[s.key]?.include !== false).map(
-        (s) => s.key,
-      ),
-    [siteWeights],
-  );
-  const excludedSourceCount =
-    RANKING_SOURCES.length - includedSourceKeys.length;
-  // Reset clears BOTH exclusions and custom weights, so its enabled
-  // state must track any override — not just excluded sources — or a
-  // weights-only customization (set on /settings) can't be cleared
-  // here even though the tooltip promises it (Codex PR #438 P2).
-  const hasSourceOverrides = useMemo(
-    () => siteOverridesAreCustomized(siteWeights),
-    [siteWeights],
-  );
-  const toggleSourceIncluded = useCallback(
-    (key, included) => {
-      updateSiteWeight(key, "include", included);
-    },
-    [updateSiteWeight],
-  );
   // Only the source clocks feed the per-source cell provenance (as-of /
   // freshness state); memoised so the column set does not rebuild on every
   // unrelated contract field.
@@ -1517,59 +1491,28 @@ export default function RankingsPage() {
                 variant="secondary"
                 aria-expanded={sourcesMenuOpen}
                 onClick={() => setSourcesMenuOpen((v) => !v)}
-                title="Choose which sources are factored into the blended rankings"
+                title="Sources in the blend (read-only: custom source mixes are switched off)"
               >
                 Sources
-                {excludedSourceCount > 0 ? ` (${excludedSourceCount} off)` : ""}
               </Button>
               {sourcesMenuOpen && (
                 <div className={styles.popover}>
                   <div className={styles.popoverHeader}>
                     <span>Sources in blend</span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={resetSiteWeights}
-                      title="Re-include every source and clear custom weights"
-                      disabled={!hasSourceOverrides}
-                    >
-                      Reset
-                    </Button>
                   </div>
                   <p className={styles.popoverHint}>
-                    Unchecking a source removes it from the blended average.
+                    {CUSTOM_MIX_OFF_NOTE}
                   </p>
-                  {RANKING_SOURCES.map((src) => {
-                    const included = siteWeights[src.key]?.include !== false;
-                    // Never let the user disable the last source — the
-                    // blend needs at least one.
-                    const isLastIncluded =
-                      included && includedSourceKeys.length === 1;
-                    return (
-                      <label
-                        key={src.key}
-                        className={`${styles.popoverRow}${isLastIncluded ? ` ${styles.popoverRowDisabled}` : ""}`}
-                        title={
-                          isLastIncluded
-                            ? "At least one source must stay in the blend"
-                            : undefined
-                        }
-                      >
-                        <input
-                          type="checkbox"
-                          checked={included}
-                          disabled={isLastIncluded}
-                          onChange={(e) =>
-                            toggleSourceIncluded(src.key, e.target.checked)
-                          }
-                        />
+                  <ul aria-label="Sources in the blend" style={{ listStyle: "none", margin: 0, padding: 0 }}>
+                    {RANKING_SOURCES.map((src) => (
+                      <li key={src.key} className={styles.popoverRow}>
                         <span>{src.columnLabel}</span>
                         <span className={styles.popoverRowMeta}>
                           {src.displayName}
                         </span>
-                      </label>
-                    );
-                  })}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </span>
@@ -1773,10 +1716,10 @@ export default function RankingsPage() {
         <FailureState
           failure={{
             ...overrideFailure,
-            message: `Your custom source mix could not be applied, so this is the default board. ${overrideFailure.message || ""}`.trim(),
+            message: `Your custom board settings could not be applied, so this is the default board. ${overrideFailure.message || ""}`.trim(),
           }}
           onRetry={retry}
-          context="custom source mix"
+          context="custom board settings"
         />
       ) : null}
       {failure ? (
