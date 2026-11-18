@@ -964,12 +964,14 @@ check_box_env_guards() {
   # working tree moves, so a refusal touches nothing (no rollback needed).
   tmp="$(mktemp -d)" || return 1
   if ! git show "${TARGET_REV}:src/api/startup_guards.py" > "${tmp}/startup_guards.py" 2>/dev/null; then
-    rm -rf "${tmp}"
+    rm -f -- "${tmp}/startup_guards.py"; rmdir -- "${tmp}" 2>/dev/null || true
     warn "Target revision has no src/api/startup_guards.py; skipping box .env pre-flight."
     return 0
   fi
-  python3 -E -s "${tmp}/startup_guards.py" --check-env-file "${env_file}" --production || rc=$?
-  rm -rf "${tmp}"
+  python3 -B -E -s "${tmp}/startup_guards.py" --check-env-file "${env_file}" --production || rc=$?
+  # No recursive delete: deploy.sh may only ``rm -rf`` its own staging dirs
+  # (tests/sources/test_signals_auth.py::test_deploy_cleans_nothing_outside_app_dir).
+  rm -f -- "${tmp}/startup_guards.py"; rmdir -- "${tmp}" 2>/dev/null || true
   if [[ "${rc}" -ne 0 ]]; then
     error "${env_file} would make the backend refuse to start; refusing to deploy (nothing was changed; old release keeps serving)."
     return 1
