@@ -28,6 +28,11 @@ jobs:
     if: ${{ github.event_name == 'push' || github.event.workflow_run.head_branch == 'main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 50
+    outputs:
+      # Published so the ``verdict`` job below can tell "measured" from
+      # "could not measure / no deploy to measure".
+      status: ${{ steps.gate.outputs.status }}
+      measured: ${{ steps.gate.outputs.measured }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -485,6 +490,29 @@ jobs:
               )
               raise SystemExit(0)
 
+          if status == "deploy_failed":
+              # SKIPPED with a stated reason, not red.  This run depends on
+              # the deploy it was triggered by; that deploy failed, so there
+              # is no new production state to verify.  The failure belongs
+              # to "Deploy Production", which is already red and owns it;
+              # a second red here only buries the Sharp signal under a
+              # failure this workflow cannot act on.  Nothing was measured
+              # and the `verdict` job stays skipped.
+              reason = (
+                  f"the triggering deploy concluded '{deploy_conclusion or 'failure'}', so "
+                  "there is no new production state to verify. The failure is owned by "
+                  "'Deploy Production'; Sharp production health was NOT measured."
+              )
+              print(f"::warning title=Sharp smoke SKIPPED (upstream deploy failed)::{reason}")
+              summary = os.environ.get("GITHUB_STEP_SUMMARY")
+              if summary:
+                  with open(summary, "a", encoding="utf-8") as handle:
+                      handle.write(
+                          "### :fast_forward: Sharp smoke SKIPPED\n\n"
+                          f"{reason}\n\nGreen here is not verification; `measured` is `false`.\n"
+                      )
+              raise SystemExit(0)
+
           if status == "deploy_unmeasured":
               print(
                   "::warning title=Sharp smoke has no deploy conclusion::"
@@ -676,3 +704,24 @@ jobs:
 
           Reopened automatically by the tracker step if the credential is lost again."
           done
+
+  verdict:
+    # The tick that MEANS something.  `verify` above can be green without
+    # having measured anything (missing SHARP_SMOKE_TOKEN, no deploy to look
+    # at).  This job runs ONLY when the smoke actually read production
+    # numbers, so on the checks UI an unmeasured run shows this check as
+    # SKIPPED (grey) with the reason in `verify`'s warning and summary,
+    # never as a green "verified".
+    name: Sharp production population verified (measured)
+    needs: verify
+    if: ${{ needs.verify.result == 'success' && needs.verify.outputs.measured == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Record measured verdict
+        env:
+          SMOKE_STATUS: ${{ needs.verify.outputs.status }}
+        run: |
+          echo "### Sharp production verdict: measured (${SMOKE_STATUS})" >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=Sharp production measured::status=${SMOKE_STATUS}"

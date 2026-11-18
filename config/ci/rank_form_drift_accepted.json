@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "description": "Accepted STANDING state of the legacy rank-form Hill constants drift, consumed by scripts/rank_form_drift_tripwire.py (workflow audit-rank-form-drift.yml). While the owner decision below is pending, a drift no worse than this recorded state (plus worseningMargin) is reported as an accepted standing condition (green run, loud warning + summary). A NEW drifted scope, or an excess RMSE above acceptedExcessRmse + worseningMargin, still FAILS the run. Updating this file is the deliberate recorded act: ratchet it only with an owner decision, never to make a red run green.",
+  "pendingOwnerDecision": "Whether to re-pin HILL_MIDPOINT/HILL_SLOPE/IDP_HILL_* (src/canonical/player_valuation.py, frontend/lib/value-history.js RANK_FORM_CURVE, tests/canonical tripwire pins) to the refit values, or to retire the rank-form reconstruction path. ADR-008 forbids automation from rewriting the constants.",
+  "decisionReference": "https://github.com/jasonleetucker-code/riskittogetthebrisket/issues/898 (open since 2026-08-18); recorded under owner audit-remediation directive 2026-11-18 (Task 15)",
+  "recordedAt": "2026-11-18",
+  "recordedFrom": "workflow run 44132778676 (2026-11-17), payload dynasty_data_2026-11-17.json, 740 ranked rows",
+  "worseningMargin": 25.0,
+  "scopes": {
+    "offense": {"acceptedExcessRmse": 96.5},
+    "idp": {"acceptedExcessRmse": 181.8}
+  }
+}

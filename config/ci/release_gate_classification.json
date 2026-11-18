@@ -617,10 +617,10 @@
     "pr-validation.yml::dependency-audit::Set up Python": {
       "category": "advisory"
     },
-    "pr-validation.yml::dependency-audit::pip-audit (advisory — non-blocking)": {
+    "pr-validation.yml::dependency-audit::pip-audit (advisory \u2014 non-blocking)": {
       "category": "advisory"
     },
-    "pr-validation.yml::dependency-audit::npm audit (advisory — non-blocking)": {
+    "pr-validation.yml::dependency-audit::npm audit (advisory \u2014 non-blocking)": {
       "category": "advisory"
     },
     "pr-validation.yml::scope::Checkout": {
@@ -1338,6 +1338,12 @@
       "category": "blocking"
     },
     "v1-authenticated-verification.yml::v1-authenticated::Collect authenticated route baseline": {
+      "category": "blocking"
+    },
+    "audit-rank-form-drift.yml::audit::Classify drift against the accepted baseline": {
+      "category": "blocking"
+    },
+    "verify-sharp-production.yml::verdict::Record measured verdict": {
       "category": "blocking"
     }
   },
