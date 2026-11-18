@@ -22,19 +22,19 @@ BLOCKED — OWNER ACTION · BLOCKED — EXTERNAL DEPENDENCY · VERIFIED NO LONGE
 | # | Task | Pri | Status | Branch / PR | Production evidence | Open issue |
 |---|---|---|---|---|---|---|
 | 1 | Hermetic hard gate and skip-budget repair | P0 | MERGED (deploy pending) | #2239 → `cb5648ff` | pending | follow-ups: two archive readers kept (their day's newest export) |
-| 2 | Freshness and deploy-lag SLO with alerts | P0 | PR OPEN | #2238 `e2bc2309` | — | in independent review; data rules report UNKNOWN until deployed |
+| 2 | Freshness and deploy-lag SLO with alerts | P0 | MERGED (deploy pending) | #2238 → `4a80cca8` | pending | data rules report UNKNOWN until the deploy lands |
 | 3 | Decouple data delivery from the full code gate | P1 | IN PROGRESS (shadow mode) | `claude/serene-shannon-7lsrm9-t03-data-delivery` | — | activation needs an owner policy amendment (Agent OS §3 L3 "no skip logic") |
 | 4 | Owner admin-action pack | P1 | PR OPEN (preparation) | #2244 `0d697dea` | — | ruleset apply, credential rotation, off-box backup destination, deploy-key review are owner-only |
 | 5 | Year-boundary hardening (2026→2027) | P1 | PR OPEN | #2248 `8b47edef` | — | — |
-| 6 | Land five UI-fix PRs #2223/#2224/#2226/#2227/#2228 | P1 | MERGED (deploy running) | #2227 `3945d0a2`, #2224 `0d8bca1f`, #2226 `42bd796c`, #2223 `9a4ad5ca`, #2228 `5f35bf8c` | pending | real-device iOS tap / VoiceOver check for #2223; `/rankings` source-popover copy (claimed by draft #2171) |
-| 7 | Post-deploy trade and War Room smoke | P1 | PR OPEN | #2242 `1dfb1daf` | — | first real run happens on the next post-deploy verification |
+| 6 | Land five UI-fix PRs #2223/#2224/#2226/#2227/#2228 | P1 | DEPLOYED | #2227 `3945d0a2`, #2224 `0d8bca1f`, #2226 `42bd796c`, #2223 `9a4ad5ca`, #2228 `5f35bf8c`; follow-up #2250 | production `/api/status` build `5f35bf8c` (2026-11-18 ~12:20 UTC) | real-device iOS tap / VoiceOver check for #2223; post-deploy signed-in verification pending |
+| 7 | Post-deploy trade and War Room smoke | P1 | MERGED (deploy pending) | #2242 → `c59c0a52` | pending | first real run happens on the next post-deploy verification |
 | 8 | Public-repo data-exposure remediation | P2 | PR OPEN (preparation + decision brief) | #2249 `1f054d32` | — | publication policy is an owner decision |
-| 9 | Trade-flow resilience (frontend) | P2 | PR OPEN | #2243 `1062e5ad` | — | reviewed: nothing blocking |
+| 9 | Trade-flow resilience (frontend) | P2 | MERGED (deploy pending) | #2243 → `bd17e684` | pending | service-worker update on real devices (iOS PWA) |
 | 10 | Mobile ergonomics and 390 px coverage | P2 | PR OPEN | #2245 `ab9edcbc` | — | e2e specs first run in CI; 4-team tray clearance needs a real device |
 | 11 | Restore Signals; loud private-source failure | P2 | IN PROGRESS (unit 1 merged) | #2237 → `3f647d16` | — | next: run the health probe once no deploy is in flight; two orphaned deploy runs still need a force-cancel |
 | 12 | Live roster refresh — measure first | P2 | PR OPEN (measurement: refresh not justified) | #2246 `bb9b1496` | — | owner may override (median post-trade misattribution 1.1 h) |
 | 13 | Security hardening batch | P2 | PR OPEN (CI fixes in progress) | #2240 `35a0f3f5` | — | backup-alert tests being re-pointed at the watchdog |
-| 14 | Next.js 16.4.5+ (#2233) | P2 | PR OPEN | #2241 `240a06c3` | — | supersedes dependabot #2233 |
+| 14 | Next.js 16.4.5+ (#2233) | P2 | MERGED (deploy pending) | #2241 → `0dc1c6cd` | pending | dependabot #2233 superseded |
 | 15 | Make permanent-red / vacuous-green checks meaningful | P3 | PR OPEN | #2247 `67f19166` | — | 57 stale workflow registrations need an owner disable; #898 owner decision |
 | 16 | Node 20 → 22 | P3 | NOT STARTED | — | — | production runtime cutover is box work |
 
@@ -235,6 +235,15 @@ Record: not started.
 ### 16. Node 22 — P3
 Problem: Node 20 (`engines >=20 <21`, every workflow) is past end of life; blocks jsdom/jest-dom/axe upgrades.
 Record: not started.
+
+## Integration log
+
+- Train 1 (UI): RC 44284022341 + E2E 44284026751 green → #2227/#2224/#2226/#2223/#2228 merged ~10:50 UTC; deployed
+  (`5f35bf8c`, deploy 44289183586 success).
+- Train 2: `main 5f35bf8c + #2239 + #2237`, RC 44292795458 green → merged ~11:58 UTC (`cb5648ff`, `3f647d16`).
+- Train 3: `main 3f647d16 + #2238 + #2241 + #2242 + #2243` (`64fda809`), RC 44299420115 + E2E 44299425175 green;
+  main moved only by two class-C refresh commits (`0e330a59`, `28092bf6`: `data/scrape_state/*`) → merged ~12:42 UTC
+  (`4a80cca8`, `0dc1c6cd`, `c59c0a52`, `bd17e684`).
 
 ## Operational notes
 
