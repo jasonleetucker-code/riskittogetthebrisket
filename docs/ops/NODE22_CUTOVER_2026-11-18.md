@@ -37,3 +37,22 @@ Reinstall Node 20 (or switch the nvm default back), then redeploy the previous a
 - Raise `engines.node` to `>=22` in `frontend/package.json` and the lockfile; drop Node 20 wording in docs.
 - Remove the jest-dom ignore entry in the dependabot config.
 - Then take the blocked upgrades in this order: (1) `@testing-library/jest-dom` 7 (#1467), (2) jsdom 31 (#2181), (3) vitest 5.1.0 (#2180), (4) `@axe-core/playwright` 4.14 (needs Node >=22.12; CI already satisfies it, and the box should be 22.12+ before the engines bump).
+
+## Correction 2026-11-18 — the cutover is ONE coordinated change
+
+#2252 moved every workflow to Node 22 while the box still ran Node 20. The next Deploy Production run (`79c60f26`,
+run 44330192334) failed at artifact staging: `scripts/stage_release_artifact.py` refuses an artifact built on a
+different Node major ("release Node major version differs from production") and the deploy auto-rolled back to
+`f5e06111`. Production kept serving; every later deploy would have failed the same way.
+
+The fix restores Node 20 on every lane that builds, validates or exercises what production runs — `deploy.yml`,
+`release-candidate.yml`, `pr-validation.yml`, `e2e.yml` — and pins it in
+`tests/deploy/test_deploy_node_matches_production.py` (`PRODUCTION_NODE_MAJOR`). `prod-e2e-smoke.yml` and
+`v1-authenticated-verification.yml` only run test tooling against the live site and stay on 22.
+
+The cutover is therefore one change window, in this order:
+1. Install Node 22 LTS on the box (steps above); confirm `node --version`.
+2. In ONE PR: set those four workflows to `"22"`, set `PRODUCTION_NODE_MAJOR = "22"`, raise `engines.node` to
+   `>=22 <23`; merge it right after step 1 so the next deploy builds and stages on 22.
+3. Verify the release manifest records v22 and `/` and `/trade` respond.
+Rollback: reinstall Node 20 on the box and revert that PR (both together).
