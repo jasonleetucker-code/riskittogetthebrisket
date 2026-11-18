@@ -295,3 +295,74 @@ def test_systemd_hyphenated_results_are_identifiers():
 )
 def test_error_class_mapping(text, expected):
     assert H.classify_error(text) == expected
+
+
+# ── reconnect-notice attempt counts (owner directive 2026-11-18, Task 11) ──
+
+
+def _session_with(monkeypatch, status):
+    from src.sources import signals_auth as SA
+
+    monkeypatch.setattr(SA, "status", lambda store: status)
+    return H.session_section(auth_store=object())
+
+
+def test_an_open_episode_with_no_attempts_reads_as_no_channel_configured(monkeypatch):
+    sec = _session_with(
+        monkeypatch,
+        {
+            "state": "reconnect_required",
+            "episode": {"id": "e1", "failureClass": "reconnect_required"},
+        },
+    )
+    assert sec["reconnectNoticeDelivered"] is False
+    assert sec["reconnectNoticeAttempts"] == 0
+    assert sec["reconnectNoticeChannelAttempts"] == {"ntfy": 0, "email": 0}
+
+
+def test_failed_attempts_are_counted_per_known_channel_only(monkeypatch):
+    sec = _session_with(
+        monkeypatch,
+        {
+            "state": "reconnect_required",
+            "episode": {
+                "id": "e1",
+                "noticeAttempts": 14,
+                "noticeChannelAttempts": {"ntfy": 14, "email": 9, "https://hook.example/x": 3},
+            },
+        },
+    )
+    assert sec["reconnectNoticeAttempts"] == 14
+    # An unknown (possibly unsafe) channel key is never published.
+    assert sec["reconnectNoticeChannelAttempts"] == {"ntfy": 14, "email": 9}
+
+
+def test_no_episode_publishes_no_counts(monkeypatch):
+    sec = _session_with(monkeypatch, {"state": "healthy"})
+    assert sec["reconnectNoticeAttempts"] is None
+    assert sec["reconnectNoticeChannelAttempts"] is None
+
+
+@pytest.mark.parametrize("bad", ["lots", -1, True])
+def test_a_corrupt_count_is_unknown_not_zero(monkeypatch, bad):
+    sec = _session_with(
+        monkeypatch,
+        {"state": "reconnect_required", "episode": {"id": "e1", "noticeAttempts": bad}},
+    )
+    assert sec["reconnectNoticeAttempts"] is None
+
+
+def test_the_counts_reach_the_public_projection(monkeypatch):
+    report = {
+        "mode": "health",
+        "session": {
+            "state": "reconnect_required",
+            "reconnectNoticeDelivered": False,
+            "reconnectNoticeAttempts": 3,
+            "reconnectNoticeChannelAttempts": {"ntfy": 3, "email": 0},
+        },
+    }
+    out = H.public_projection(report)
+    assert out["session"]["reconnectNoticeAttempts"] == 3
+    assert out["session"]["reconnectNoticeChannelAttempts"] == {"ntfy": 3, "email": 0}
+    assert "redacted" not in out

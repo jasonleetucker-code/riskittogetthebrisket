@@ -204,6 +204,26 @@ def _int_or_none(v: Any) -> int | None:
         return None
 
 
+#: Channel names ``deliver_reconnect_notice`` records attempts under.
+NOTICE_CHANNELS: tuple[str, ...] = ("ntfy", "email")
+
+
+def _count_or_none(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None  # the writer stores ints; a bool is a hand edit, not a count
+    try:
+        n = int(value or 0)
+    except (TypeError, ValueError):
+        return None
+    return n if n >= 0 else None
+
+
+def _channel_attempts(value: Any) -> dict[str, int | None]:
+    """Attempts per KNOWN channel; an unknown key is never published."""
+    raw = value if isinstance(value, Mapping) else {}
+    return {name: _count_or_none(raw.get(name)) for name in NOTICE_CHANNELS}
+
+
 def session_section(auth_store: Any | None) -> dict[str, Any]:
     from src.sources import signals_auth as SA  # noqa: PLC0415
 
@@ -227,6 +247,17 @@ def session_section(auth_store: Any | None) -> dict[str, Any]:
         "episodeOpen": bool(episode),
         "episodeFailureClass": episode.get("failureClass"),
         "reconnectNoticeDelivered": bool(episode.get("noticeDeliveredAt")) if episode else None,
+        # Sends RECORDED for this episode (``deliver_reconnect_notice`` counts a
+        # send only when it stamps the result).  0 = no send recorded: usually no
+        # channel configured, but also a brand-new episode not yet swept, a send
+        # in flight elsewhere, or a send whose stamp failed.  > 0 without a
+        # delivery = a configured channel kept failing.  Counts only, never content.
+        "reconnectNoticeAttempts": _count_or_none(episode.get("noticeAttempts"))
+        if episode
+        else None,
+        "reconnectNoticeChannelAttempts": (
+            _channel_attempts(episode.get("noticeChannelAttempts")) if episode else None
+        ),
         # private only (leading underscore never reaches the projection)
         "_lastRenewedAt": st.get("lastRenewedAt"),
         "_accessTokenExpiresAt": st.get("accessTokenExpiresAt"),
@@ -481,6 +512,8 @@ PUBLIC_PATHS: tuple[str, ...] = (
     "session.episodeOpen",
     "session.episodeFailureClass",
     "session.reconnectNoticeDelivered",
+    "session.reconnectNoticeAttempts",
+    "session.reconnectNoticeChannelAttempts.*",
     "session.error",
     "session.errorClass",
     "collection.provisioned",
