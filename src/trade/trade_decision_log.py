@@ -35,6 +35,38 @@ DECISION_RUN_LOG_DIR = Path(__file__).resolve().parents[2] / "data" / "trade" / 
 LOG_DIR_ENV = "RISKIT_TRADE_DECISION_LOG_DIR"
 
 
+#: Post-deploy smoke marker.  Honored ONLY for a guest-pass session (the
+#: verification workflow's ephemeral session); for anyone else it is ignored
+#: and the decision is recorded as usual.  The smoke's synthetic decisions
+#: must never enter the decision ledger the AL-P5 learning layer reads.
+SMOKE_HEADER = "x-chase-smoke"
+
+
+def is_smoke_request(headers: Mapping[str, Any] | None, *, guest: bool) -> bool:
+    """True when this call is a guest-session smoke request (header ``1``)."""
+    if not guest or headers is None:
+        return False
+    try:
+        return str(headers.get(SMOKE_HEADER) or "").strip() == "1"
+    except Exception:  # noqa: BLE001 -- an odd header mapping is simply "not smoke"
+        return False
+
+
+def record_decision_unless_smoke(
+    analysis: Mapping[str, Any],
+    *,
+    league_key: str | None,
+    team: str | None,
+    smoke: bool,
+    log_dir: Path | None = None,
+) -> str | None:
+    """``record_decision``, skipped (``None``, the existing "not recorded"
+    value) for a smoke request.  Nothing else about the response changes."""
+    if smoke:
+        return None
+    return record_decision(analysis, league_key=league_key, team=team, log_dir=log_dir)
+
+
 def _default_dir() -> Path:
     override = os.environ.get(LOG_DIR_ENV)
     return Path(override) if override else DECISION_RUN_LOG_DIR
