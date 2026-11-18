@@ -21,11 +21,11 @@ BLOCKED — OWNER ACTION · BLOCKED — EXTERNAL DEPENDENCY · VERIFIED NO LONGE
 
 | # | Task | Pri | Status | Branch / PR | Production evidence | Open issue |
 |---|---|---|---|---|---|---|
-| 1 | Hermetic hard gate and skip-budget repair | P0 | IN PROGRESS | `claude/serene-shannon-7lsrm9-t01-hermetic-gate` | — | archive `…20261107_063955.zip` expected pruned ~2026-11-21 |
-| 2 | Freshness and deploy-lag SLO with alerts | P0 | IN PROGRESS | `claude/serene-shannon-7lsrm9-t02-freshness-slo` | — | — |
+| 1 | Hermetic hard gate and skip-budget repair | P0 | PR OPEN | #2239 `9f764920` | — | in independent review; must merge before ~2026-11-21 |
+| 2 | Freshness and deploy-lag SLO with alerts | P0 | PR OPEN | #2238 `e2bc2309` | — | in independent review; data rules report UNKNOWN until deployed |
 | 3 | Decouple data delivery from the full code gate | P1 | NOT STARTED | — | — | activation needs an owner policy amendment (Agent OS §3 L3 "no skip logic") |
 | 4 | Owner admin-action pack | P1 | NOT STARTED | — | — | ruleset apply, credential rotation, off-box backup destination, deploy-key review are owner-only |
-| 5 | Year-boundary hardening (2026→2027) | P1 | NOT STARTED | — | — | — |
+| 5 | Year-boundary hardening (2026→2027) | P1 | IN PROGRESS | `claude/serene-shannon-7lsrm9-t05-year-boundary` | — | — |
 | 6 | Land five UI-fix PRs #2223/#2224/#2226/#2227/#2228 | P1 | IN PROGRESS (reviewed MERGE ×5; train RC + E2E running) | train `claude/serene-shannon-7lsrm9-t06-ui-train` `a27c176c` | — | real-device iOS tap / VoiceOver check for #2223; `/rankings` source-popover copy (claimed by draft #2171) |
 | 7 | Post-deploy trade and War Room smoke | P1 | NOT STARTED | — | — | — |
 | 8 | Public-repo data-exposure remediation | P2 | NOT STARTED | — | — | publication policy is an owner decision |
@@ -60,11 +60,46 @@ production evidence, remaining risk. Updated as work lands.
 Problem: blocking tests read rolling `exports/archive/` zips and refresh-rewritten inputs; skip budget has zero
 headroom; retention will delete `dynasty_export_20261107_063955.zip` (not the newest of its day) about 2026-11-21,
 turning every gate red. Precedent: `c9a3d02f` (#2234).
-Record: in progress.
+Record (PR #2239, head `9f764920`):
+- W30 rebuild-structure test reads the committed pinned board (`tests/fixtures/pinned_board`); W27 provenance test
+  checks the committed fixture's recorded provenance; W06 identity regression reads a 22 KB extraction
+  (`tests/fixtures/w06_f001_identity_rows.json`: names + has-id flag, source zip sha256 recorded). All pass with
+  `…20261107_063955.zip` and `…20261106_194518.zip` moved out of `exports/archive`.
+- Four checks in `tests/api/test_tracked_artifacts_privacy.py` that read a gitignored live ROS artifact (so could only
+  skip in a checkout) are now `livedata`.
+- Guard `tests/test_hermetic_gate_inputs.py` + `tests/hermetic_gate_scan.py` + `tests/hermetic_gate_allowlist.json`:
+  static AST scan of blocking tests; fails on a new `exports/archive/<file>.zip` literal or a missing-data skip;
+  90 existing files allowlisted with reasons; seeded-violation self-tests.
+- apt-get (tesseract) wrapped in a 4-attempt retry in `deploy.yml`, `release-candidate.yml`, `pr-validation.yml`;
+  still exits 1 after the last attempt.
+- Skip inventory from deploy run 44234235112's shard manifests: 7 before → 3 after (4 ROS-artifact checks moved to
+  livedata; remaining: a POSIX read-only-file case, one declared-exempt pbp call site, one unreachable Signals
+  refusal path). Headroom 0 → 4.
+- Failure census, last 40 failed deploys / 65 failed jobs: MCP roster test 16 (fixed #2199/#2208), heap-report loop
+  11 (RSS, not data; none since 11-15), BDVM study 7 (fixed #2234), IDP Hampel challenger 5, CW40 batch 5,
+  IDPTC cutoff 6 (all fixed #2208), FAAB calibration 2 and DLF offense-only 2 (none since 11-07), Hill alignment 2
+  (fixed #2213), W30 1 (fixed here). No refresh-driven offender left unpinned.
+- Tests: targeted 140 passed / 1 skipped (shallow-clone git-history check) / 1 xfailed; L1 not completed locally.
+- Follow-ups: `tests/scripts/test_w27_f005_te_skew_research.py` (export 20261106_194518) and
+  `tests/idp_accuracy/test_backtest.py` (export 20260909_211525) still read real archive exports; both are their day's
+  newest export, so retention keeps them 365 days.
 
 ### 2. Freshness and deploy-lag SLO — P0
 Problem: no alert on "production N hours behind validated main" or "decision surface mostly withheld".
-Record: in progress.
+Record (PR #2238, head `e2bc2309`):
+- `/api/status` gains `freshness_slo`: public numbers (top-200 stale / withheld shares, priced-withheld share, board
+  age, private sources provisioned / stale / unknown) and an admin-only `privateSourceDetail` (anonymous projection:
+  `"withheld"`). Missing inputs → `null` + `state: "unknown"`. Owner: `src/api/freshness_slo.py`.
+- `scripts/check_production_slo.py` + `config/ops/production_slo.json`: deploy lag 12 h (only commits `deploy.yml`
+  does not path-ignore), deploy failures (≥3 consecutive AND >12 h since a success), refresh 14 h, top-200 stale 10 %,
+  priced-withheld 10 %, board age 18 h, stale private sources 0. OK / BREACH / UNKNOWN per rule; exit 0 / 1 / 3.
+- `health-check.yml`: workflow `permissions: contents read, actions read`; new `slo` job; one rolling issue
+  "Production SLO breach" (label `production-health`), body rewritten in place, a comment only when the breached set
+  changes, closed on green.
+- Backtest, 14 days hourly (337 samples): deploy_lag 132 alert-hours in 5 real episodes incl. 11-13 → 11-15 and
+  11-17; deploy_failures 136; refresh 0 (median refresh gap 7.1 h, max 11.6 h). At 24 h lag the 11-17 incident would
+  fire only in its last hour, so 12 h kept.
+- Tests: 50 new passed; related deploy/diagnostics guards 112 passed; tests/ops + status/diagnostics/backup 530 passed.
 
 ### 3. Data delivery decoupled from the full code gate — P1
 Problem: each data commit runs the 8-shard gate (~115 runner-minutes) and restarts the backend; 62% of data-triggered
