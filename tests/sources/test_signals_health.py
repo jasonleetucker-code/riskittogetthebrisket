@@ -343,10 +343,11 @@ def test_no_episode_publishes_no_counts(monkeypatch):
     assert sec["reconnectNoticeChannelAttempts"] is None
 
 
-def test_a_corrupt_count_is_unknown_not_zero(monkeypatch):
+@pytest.mark.parametrize("bad", ["lots", -1, True])
+def test_a_corrupt_count_is_unknown_not_zero(monkeypatch, bad):
     sec = _session_with(
         monkeypatch,
-        {"state": "reconnect_required", "episode": {"id": "e1", "noticeAttempts": "lots"}},
+        {"state": "reconnect_required", "episode": {"id": "e1", "noticeAttempts": bad}},
     )
     assert sec["reconnectNoticeAttempts"] is None
 

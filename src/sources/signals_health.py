@@ -209,6 +209,8 @@ NOTICE_CHANNELS: tuple[str, ...] = ("ntfy", "email")
 
 
 def _count_or_none(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None  # the writer stores ints; a bool is a hand edit, not a count
     try:
         n = int(value or 0)
     except (TypeError, ValueError):
@@ -245,10 +247,11 @@ def session_section(auth_store: Any | None) -> dict[str, Any]:
         "episodeOpen": bool(episode),
         "episodeFailureClass": episode.get("failureClass"),
         "reconnectNoticeDelivered": bool(episode.get("noticeDeliveredAt")) if episode else None,
-        # How often a CONFIGURED channel was tried for this episode.  0 with an
-        # open episode means no channel was configured (``deliver_reconnect_notice``
-        # returns before sending and counts nothing); > 0 without a delivery
-        # means a configured channel kept failing.  Counts only, never content.
+        # Sends RECORDED for this episode (``deliver_reconnect_notice`` counts a
+        # send only when it stamps the result).  0 = no send recorded: usually no
+        # channel configured, but also a brand-new episode not yet swept, a send
+        # in flight elsewhere, or a send whose stamp failed.  > 0 without a
+        # delivery = a configured channel kept failing.  Counts only, never content.
         "reconnectNoticeAttempts": _count_or_none(episode.get("noticeAttempts"))
         if episode
         else None,
