@@ -954,6 +954,30 @@ verify_runtime_state() {
   fi
 }
 
+# Production must never run with the test/dev switches on (audit Task 13).
+# Prints variable NAMES only, never values.  server.py refuses the same
+# combination at startup when RISKIT_ENV=production (set by the unit).
+check_box_env_guards() {
+  local env_file="${APP_DIR}/.env" tmp rc=0
+  [[ -f "${env_file}" ]] || return 0
+  # Evaluated against the TARGET revision's own copy of the guard, BEFORE the
+  # working tree moves, so a refusal touches nothing (no rollback needed).
+  tmp="$(mktemp -d)" || return 1
+  if ! git show "${TARGET_REV}:src/api/startup_guards.py" > "${tmp}/startup_guards.py" 2>/dev/null; then
+    rm -f -- "${tmp}/startup_guards.py"; rmdir -- "${tmp}" 2>/dev/null || true
+    warn "Target revision has no src/api/startup_guards.py; skipping box .env pre-flight."
+    return 0
+  fi
+  python3 -B -E -s "${tmp}/startup_guards.py" --check-env-file "${env_file}" --production || rc=$?
+  # No recursive delete: deploy.sh may only ``rm -rf`` its own staging dirs
+  # (tests/sources/test_signals_auth.py::test_deploy_cleans_nothing_outside_app_dir).
+  rm -f -- "${tmp}/startup_guards.py"; rmdir -- "${tmp}" 2>/dev/null || true
+  if [[ "${rc}" -ne 0 ]]; then
+    error "${env_file} would make the backend refuse to start; refusing to deploy (nothing was changed; old release keeps serving)."
+    return 1
+  fi
+}
+
 restart_service() {
   require_command systemctl
   # NOTE: the frontend (dynasty-frontend) is restarted by
@@ -1485,6 +1509,9 @@ main() {
 
   target_short="$(git rev-parse --short "${TARGET_REV}")"
   log "Resolved target revision: ${TARGET_REV} (${target_short})"
+
+  # Before the working tree moves: a refusal must leave the box untouched.
+  check_box_env_guards || exit 1
 
   if [[ "${current_rev}" != "${TARGET_REV}" ]]; then
     log "Checking out target revision."

@@ -230,7 +230,9 @@ jobs:
           # Random per-run secret for the test-only session endpoint
           # (/api/test/create-session).  Both the server and the
           # Playwright runner read it; it never leaves this run.
-          echo "E2E_TEST_SECRET=$(openssl rand -hex 24)" >> "$GITHUB_ENV"
+          secret="$(openssl rand -hex 24)"
+          echo "::add-mask::${secret}"
+          echo "E2E_TEST_SECRET=${secret}" >> "$GITHUB_ENV"
 
       - name: Start backend (FastAPI :8000)
         shell: bash
