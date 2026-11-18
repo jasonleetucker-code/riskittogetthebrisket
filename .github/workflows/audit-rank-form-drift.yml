@@ -47,7 +47,11 @@ name: Audit Rank-Form Curve Drift
 # Exit codes from scripts/check_rank_form_drift.py:
 #   0  within tolerance                        -> green, job summary only
 #   1  error (missing/unreadable snapshot)     -> RED
-#   2  drift detected                          -> RED + issue
+#   2  drift detected                          -> classified by
+#        scripts/rank_form_drift_tripwire.py against
+#        config/ci/rank_form_drift_accepted.json: accepted standing drift
+#        (owner decision pending, issue #898) -> green + warning + summary;
+#        new or worse drift -> RED + issue comment
 
 on:
   schedule:
@@ -128,6 +132,31 @@ jobs:
           echo "exit_code=${code}" >> "$GITHUB_OUTPUT"
           echo "Driver exited ${code}"
 
+      - name: Classify drift against the accepted baseline
+        # The drift has been standing since 2026-08-18 awaiting an owner
+        # decision (issue #898), so a bare "any drift is red" check was red
+        # for 13+ weeks and said nothing.  This keeps it a real tripwire:
+        # drift no worse than config/ci/rank_form_drift_accepted.json is an
+        # ACCEPTED STANDING condition (green + warning + summary naming the
+        # pending decision); a new drifted scope, a worse excess RMSE, or an
+        # errored driver still fails the run.  Logic and tests live in
+        # scripts/rank_form_drift_tripwire.py.
+        id: tripwire
+        if: ${{ always() }}
+        shell: bash
+        env:
+          DRIVER_EXIT: ${{ steps.drift.outputs.exit_code }}
+        run: |
+          set -Eeuo pipefail
+          if [[ "${DRIVER_EXIT}" == "0" ]]; then
+            echo "state=ok" >> "$GITHUB_OUTPUT"
+          elif [[ "${DRIVER_EXIT}" == "2" && -f /tmp/rank_form_drift.json ]]; then
+            python scripts/rank_form_drift_tripwire.py --verdict /tmp/rank_form_drift.json || true
+          else
+            echo "::error title=Rank-form drift check errored::driver exit '${DRIVER_EXIT}'"
+            echo "state=error" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Job summary
         if: ${{ always() }}
         shell: bash
@@ -139,7 +168,7 @@ jobs:
             if [[ "${{ steps.drift.outputs.exit_code }}" == "0" ]]; then
               echo "Committed constants still reproduce the board within budget."
             elif [[ "${{ steps.drift.outputs.exit_code }}" == "2" ]]; then
-              echo "**Drift detected** — see the opened issue."
+              echo "**Drift measured** (driver exit 2) — tripwire verdict: \`${{ steps.tripwire.outputs.state }}\` (accepted standing vs worse)."
             else
               echo "**Check errored** (exit ${{ steps.drift.outputs.exit_code }})."
             fi
@@ -154,7 +183,7 @@ jobs:
         # (#716). This workflow's only non-main path is workflow_dispatch,
         # and drift measured against a branch's constants is not a
         # statement about the committed ones.
-        if: ${{ steps.drift.outputs.exit_code == '2' && github.ref == 'refs/heads/main' }}
+        if: ${{ steps.tripwire.outputs.state == 'worse' && github.ref == 'refs/heads/main' }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -215,10 +244,10 @@ jobs:
           fi
 
       - name: Fail loudly on drift or error
-        if: ${{ steps.drift.outputs.exit_code != '0' }}
+        if: ${{ steps.tripwire.outputs.state != 'ok' && steps.tripwire.outputs.state != 'accepted' }}
         shell: bash
         run: |
-          echo "::error title=Rank-form drift check::driver exited ${{ steps.drift.outputs.exit_code }}"
+          echo "::error title=Rank-form drift check::state '${{ steps.tripwire.outputs.state }}' (driver exited ${{ steps.drift.outputs.exit_code }})"
           exit 1
 
       - name: Close the tracking issue when the drift audit is green
@@ -240,7 +269,9 @@ jobs:
         #
         # Mainline only, for the reason in e2e.yml: a green dispatch from a
         # branch would close a real open mainline issue.
-        if: success() && github.ref == 'refs/heads/main'
+        # Only on a genuinely clean audit: an ACCEPTED standing drift must
+        # NOT close issue #898, which carries the pending owner decision.
+        if: success() && steps.tripwire.outputs.state == 'ok' && github.ref == 'refs/heads/main'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
