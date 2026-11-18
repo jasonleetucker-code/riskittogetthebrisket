@@ -26,14 +26,14 @@ BLOCKED — OWNER ACTION · BLOCKED — EXTERNAL DEPENDENCY · VERIFIED NO LONGE
 | 3 | Decouple data delivery from the full code gate | P1 | NOT STARTED | — | — | activation needs an owner policy amendment (Agent OS §3 L3 "no skip logic") |
 | 4 | Owner admin-action pack | P1 | NOT STARTED | — | — | ruleset apply, credential rotation, off-box backup destination, deploy-key review are owner-only |
 | 5 | Year-boundary hardening (2026→2027) | P1 | NOT STARTED | — | — | — |
-| 6 | Land five UI-fix PRs #2223/#2224/#2226/#2227/#2228 | P1 | IN PROGRESS (independent review + train validation) | train `claude/serene-shannon-7lsrm9-t06-ui-train` | — | real-device touch check for #2223 |
+| 6 | Land five UI-fix PRs #2223/#2224/#2226/#2227/#2228 | P1 | IN PROGRESS (reviewed MERGE ×5; train RC + E2E running) | train `claude/serene-shannon-7lsrm9-t06-ui-train` `a27c176c` | — | real-device iOS tap / VoiceOver check for #2223; `/rankings` source-popover copy (claimed by draft #2171) |
 | 7 | Post-deploy trade and War Room smoke | P1 | NOT STARTED | — | — | — |
 | 8 | Public-repo data-exposure remediation | P2 | NOT STARTED | — | — | publication policy is an owner decision |
 | 9 | Trade-flow resilience (frontend) | P2 | NOT STARTED | — | — | — |
 | 10 | Mobile ergonomics and 390 px coverage | P2 | NOT STARTED | — | — | — |
 | 11 | Restore Signals; loud private-source failure | P2 | PR OPEN (unit 1 of 2) | #2237 `claude/serene-shannon-7lsrm9-t11-signals` | — | diagnosis waits on #2237 merge; two orphaned deploy runs need a force-cancel |
 | 12 | Live roster refresh — measure first | P2 | NOT STARTED | — | — | — |
-| 13 | Security hardening batch | P2 | NOT STARTED | — | — | — |
+| 13 | Security hardening batch | P2 | IN PROGRESS | `claude/serene-shannon-7lsrm9-t13-security` | — | — |
 | 14 | Next.js 16.4.5+ (#2233) | P2 | NOT STARTED | — | — | — |
 | 15 | Make permanent-red / vacuous-green checks meaningful | P3 | NOT STARTED | — | — | — |
 | 16 | Node 20 → 22 | P3 | NOT STARTED | — | — | production runtime cutover is box work |
@@ -83,7 +83,22 @@ Problem: calendar-derived draft years and pick horizons (`draft_class_evidence.p
 Record: not started.
 
 ### 6. Five UI-fix PRs — P1
-Record: independent review and release-train validation in progress.
+Record:
+- Independent review (2026-11-18): MERGE for #2227, #2224, #2226, #2228; MERGE with a real-device check for #2223.
+  Each defect re-confirmed on main (e.g. `ManualAddDrop.jsx:254` 120 ms blur timer and mouse/touch-only picks;
+  `ros-trade-deadline.jsx:94` raw status; `angle/page.jsx` never reads `rosterCapacity`; `movers.js:70` coercion).
+- Train `claude/serene-shannon-7lsrm9-t06-ui-train` `a27c176c` = `de63c768` + the five heads (order #2227, #2224,
+  #2226, #2223, #2228), no conflicts. On it: decision-coercion gate 616/616 clean (main baseline 617 → 616 as
+  intended); `npx vitest run` 446 files / 5795 passed / 3 expected-fail; `npm run build` exit 0 (first attempt hit Next
+  16.4.3's build-time advisory `SecurityFatalError`, which is Task 14's); bundle, public-privacy and advisor-bundle
+  checks pass (tightest headroom `/trade` 0.9 KB, `/league` 1.0 KB).
+- Release Candidate run 44284022341 and E2E Safety Net run 44284026751 dispatched on the train.
+- Not verified here (need a real device): iOS Safari tap-to-pick and VoiceOver on the waivers pickers (#2223 drops
+  `onTouchStart`; a tap now picks through compatibility click); phone test-push; a live auction room (#2228).
+- Out of the train's scope: `/rankings` still has an operable "Sources in blend" popover saying "Unchecking a source
+  removes it from the blended average" (`frontend/app/rankings/page.jsx:1528-1575`, `:254-292`, `:1776-1779`) and
+  `frontend/lib/value-explainers.js:68`, although `_SOURCE_OVERRIDES_DISABLED = True`. `rankings/page.jsx` is touched
+  by draft #2171 (Sports Network, owner-held); the fix is sequenced as a separate small PR.
 
 ### 7. Post-deploy trade / War Room smoke — P1
 Problem: authenticated post-deploy verification never calls `/api/trade/analyze` or `/api/trade/analyze-multi`.
