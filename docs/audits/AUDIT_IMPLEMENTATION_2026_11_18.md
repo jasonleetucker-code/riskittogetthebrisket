@@ -21,7 +21,7 @@ BLOCKED — OWNER ACTION · BLOCKED — EXTERNAL DEPENDENCY · VERIFIED NO LONGE
 
 | # | Task | Pri | Status | Branch / PR | Production evidence | Open issue |
 |---|---|---|---|---|---|---|
-| 1 | Hermetic hard gate and skip-budget repair | P0 | PR OPEN | #2239 `9f764920` | — | in independent review; must merge before ~2026-11-21 |
+| 1 | Hermetic hard gate and skip-budget repair | P0 | MERGED (deploy pending) | #2239 → `cb5648ff` | pending | follow-ups: two archive readers kept (their day's newest export) |
 | 2 | Freshness and deploy-lag SLO with alerts | P0 | PR OPEN | #2238 `e2bc2309` | — | in independent review; data rules report UNKNOWN until deployed |
 | 3 | Decouple data delivery from the full code gate | P1 | IN PROGRESS (shadow mode) | `claude/serene-shannon-7lsrm9-t03-data-delivery` | — | activation needs an owner policy amendment (Agent OS §3 L3 "no skip logic") |
 | 4 | Owner admin-action pack | P1 | PR OPEN (preparation) | #2244 `0d697dea` | — | ruleset apply, credential rotation, off-box backup destination, deploy-key review are owner-only |
@@ -31,7 +31,7 @@ BLOCKED — OWNER ACTION · BLOCKED — EXTERNAL DEPENDENCY · VERIFIED NO LONGE
 | 8 | Public-repo data-exposure remediation | P2 | PR OPEN (preparation + decision brief) | #2249 `1f054d32` | — | publication policy is an owner decision |
 | 9 | Trade-flow resilience (frontend) | P2 | PR OPEN | #2243 `1062e5ad` | — | reviewed: nothing blocking |
 | 10 | Mobile ergonomics and 390 px coverage | P2 | PR OPEN | #2245 `ab9edcbc` | — | e2e specs first run in CI; 4-team tray clearance needs a real device |
-| 11 | Restore Signals; loud private-source failure | P2 | PR OPEN (unit 1 of 2) | #2237 `claude/serene-shannon-7lsrm9-t11-signals` | — | diagnosis waits on #2237 merge; two orphaned deploy runs need a force-cancel |
+| 11 | Restore Signals; loud private-source failure | P2 | IN PROGRESS (unit 1 merged) | #2237 → `3f647d16` | — | next: run the health probe once no deploy is in flight; two orphaned deploy runs still need a force-cancel |
 | 12 | Live roster refresh — measure first | P2 | PR OPEN (measurement: refresh not justified) | #2246 `bb9b1496` | — | owner may override (median post-trade misattribution 1.1 h) |
 | 13 | Security hardening batch | P2 | PR OPEN (CI fixes in progress) | #2240 `35a0f3f5` | — | backup-alert tests being re-pointed at the watchdog |
 | 14 | Next.js 16.4.5+ (#2233) | P2 | PR OPEN | #2241 `240a06c3` | — | supersedes dependabot #2233 |
@@ -80,6 +80,13 @@ Record (PR #2239, head `9f764920`):
   IDPTC cutoff 6 (all fixed #2208), FAAB calibration 2 and DLF offense-only 2 (none since 11-07), Hill alignment 2
   (fixed #2213), W30 1 (fixed here). No refresh-driven offender left unpinned.
 - Tests: targeted 140 passed / 1 skipped (shallow-clone git-history check) / 1 xfailed; L1 not completed locally.
+- Independent review blocker (fixed in `b23dc419`): the guard itself flagged bare archive names only when the file
+  existed, so the ~11-21 prune would have turned it red; now data-independent, with `+`/`/` constant folding,
+  archive-listing detection and broader skip-reason phrases (106 allowlisted files). Verified by the coordinator with
+  both pinned zips deleted: 39 passed / 1 skipped (shallow-clone history check) / 1 xfailed.
+- Train 2 (`claude/serene-shannon-7lsrm9-train2` = main `5f35bf8c` + #2239 + #2237): Release Candidate run
+  44292795458 success (static/contract/frontend + 8 hard-gate shards). Merged 2026-11-18 ~11:58 UTC: #2239 →
+  `cb5648ff`, #2237 → `3f647d16`.
 - Follow-ups: `tests/scripts/test_w27_f005_te_skew_research.py` (export 20261106_194518) and
   `tests/idp_accuracy/test_backtest.py` (export 20260909_211525) still read real archive exports; both are their day's
   newest export, so retention keeps them 365 days.
