@@ -404,20 +404,37 @@ Record (PR #2252 → `79c60f26`, train 4; hotfix #2256 → `6f87d9d0`):
   failed once on #2238 (0.44 s vs 0.35 s bound) and passed on the single permitted re-run — an intermittent timing test
   under runner load; candidate for Task 15's follow-up list.
 
-## Owner actions (consolidated, kept current)
+## Owner actions (consolidated, kept current — priority order)
 
-1. Task 4 — apply `deploy/github/main-protection-ruleset.json`; rotate the production login credential; choose an
-   off-box backup destination; confirm the deploy-key inventory.
-2. Task 3 — approve or decline the Agent OS amendment that lets a byte-identical code tree reuse its validation.
-3. Task 8 — choose a publication policy for vendor CSVs and board exports.
-4. Task 11 — the Signals owner session is `reconnect_required` (probe run 44359886606): run `python scripts/signals_connect.py reconnect`
-   on the box (one email code typed by the owner), then provision again (`docs/sources/SIGNALS_ACCOUNT_CONNECTION.md`). After #2259 deploys, the probe's
-   `reconnectNoticeAttempts` shows whether a notice channel (ntfy `NOTIFY_WEBHOOK_URL` / SMTP `ALERT_TO`) also needs
-   configuring or repairing.
-5. Task 16 — authorize the production Node runtime cutover.
-7. Task 15 — provision the `SHARP_SMOKE_TOKEN` repository secret (#1727) so the Sharp population check can
-   measure; disable the 57 stale workflow registrations with the command in
-   `docs/ops/STALE_WORKFLOW_REGISTRATIONS_2026-11-18.md` (needs `actions:write`); decide #898 (rank-form drift).
-6. Task 11/15 — force-cancel the two orphaned Deploy Production runs 32212914036 and 43096180672 in the Actions UI
-   (the API's ordinary cancel refuses them; the force-cancel call was not permitted from this session). The August run
-   would deploy a three-month-old SHA if GitHub ever started it.
+1. **Task 11 — reconnect Signals.** The owner session is `reconnect_required` (probe run 44359886606; `signalsSf`
+   400 h stale, votes withheld). On the box: `python scripts/signals_connect.py reconnect` (one email code), then
+   provision again (`docs/sources/SIGNALS_ACCOUNT_CONNECTION.md`). After #2259 deploys, re-run the probe: if
+   `reconnectNoticeAttempts` is 0, also configure a notice channel (`NOTIFY_WEBHOOK_URL` for ntfy, or `ALERT_TO` +
+   SMTP); if > 0, repair the configured one.
+2. **Task 4 — branch protection.** Review `deploy/github/apply-branch-protection.sh --dry-run`, then apply
+   `deploy/github/main-protection-ruleset.json` (required checks `Validate PR` and `Receipt check`; refresh pushers
+   keep bypass). Runbook: `docs/ops/ADMIN_ONLY_ACTIONS_RUNBOOK.md`.
+3. **Task 4 — rotate `JASON_LOGIN_PASSWORD`** per the runbook (backup `.env`, set, restart, verify). The startup and
+   deploy guards (Task 13) refuse a placeholder value.
+4. **Task 6/11/15 — force-cancel the two orphaned Deploy Production runs** 32212914036 (queued since 2026-08-19,
+   would deploy a three-month-old SHA if ever started) and 43096180672, in the Actions UI. The API's ordinary cancel
+   answers 409 and force-cancel was not permitted from this session.
+5. **Task 4 — choose an off-box backup destination** (a provider and spend decision), then enable
+   `scripts/offbox_backup.py` from the `deploy/backup/offbox/*.example` units and run the restore drill. Also confirm
+   the deploy-key / collaborator inventory, which the agent cannot read.
+6. **Task 16 — authorize the Node 22 production cutover** as one coordinated change: box runtime to 22 and the four
+   production-runtime lanes (deploy, release candidate, PR validation, E2E) to 22 in the same window
+   (`docs/ops/NODE22_CUTOVER_2026-11-18.md`). Node 20 is past end of life.
+7. **Task 5 — before 2027-01-01:** accept or change the documented board-vs-league divergence (2030 picks stay
+   unpriced on the board until the 2027 rookie draft is proven complete, while the league window already lists them).
+8. **Task 8 — publication policy** for tracked vendor CSVs and board exports
+   (`docs/security/DATA_EXPOSURE_DECISION_BRIEF_2026-11-18.md` §4). The growth guard holds the line meanwhile.
+9. **Task 15 —** provision the `SHARP_SMOKE_TOKEN` secret (#1727); disable the 57 stale workflow registrations
+   (command in `docs/ops/STALE_WORKFLOW_REGISTRATIONS_2026-11-18.md`, needs `actions:write`); decide #898.
+10. **Task 3 — after the shadow evidence bar is met** (≥30 compared DATA_ONLY deliveries over ≥14 days, zero unsafe
+    disagreements): approve or decline the Agent OS §3 amendment in `docs/ops/DATA_ONLY_DELIVERY_DESIGN_2026-11-18.md`.
+11. **Real-device checks (Tasks 6, 9, 10):** iOS Safari tap-to-pick and VoiceOver on the waiver pickers (#2223); a
+    service-worker update on an installed iOS PWA (Task 9); 4-team tray clearance and info-tip tap accuracy at 390 px
+    (Task 10); phone test-push and a live auction room (#2228).
+12. **Task 12 (optional):** override the measured decision and ask for a light roster refresh if stale post-trade
+    ownership (median 1.1 h) is unacceptable.
