@@ -39,14 +39,13 @@ def _allowlist() -> dict[str, dict]:
 
 
 def _current_hits() -> dict[str, dict[str, int]]:
-    known = scan.present_archive_names()
     out: dict[str, dict[str, int]] = {}
     for path in scan.gate_test_files(frozenset(_LIVEDATA_MODULES)):
         rel = path.relative_to(scan.REPO).as_posix()
         if rel == SELF:
             continue
         counts: dict[str, int] = {}
-        for hit in scan.scan_source(path.read_text(encoding="utf-8"), known_archives=known):
+        for hit in scan.scan_source(path.read_text(encoding="utf-8")):
             counts[hit.kind] = counts.get(hit.kind, 0) + 1
         if counts:
             out[rel] = counts
@@ -93,11 +92,29 @@ def test_scanner_flags_an_archive_zip_literal():
     assert [(h.kind, h.line) for h in hits] == [("archive-literal", 1)]
 
 
-def test_scanner_flags_a_bare_export_name_only_when_it_is_a_real_archive():
+def test_scanner_flags_a_bare_export_name_whether_or_not_the_file_exists():
+    """Data-independent: the verdict never depends on what is in exports/archive."""
     src = 'NAME = "dynasty_export_20991231_235959.zip"\n'
-    assert scan.scan_source(src) == []
-    known = frozenset({"dynasty_export_20991231_235959.zip"})
-    assert [h.kind for h in scan.scan_source(src, known_archives=known)] == ["archive-literal"]
+    assert [h.kind for h in scan.scan_source(src)] == ["archive-literal"]
+
+
+def test_scanner_folds_string_concatenation_and_path_joins():
+    for src in (
+        'A = "exports/archive/" + "dynasty_export_20991231_235959.zip"\n',
+        'A = REPO / "exports" / "archive" / "dynasty_export_20991231_235959.zip"\n',
+        'A = Path("exports") / "archive" / "dynasty_export_20991231_235959.zip"\n',
+    ):
+        hits = scan.scan_source(src)
+        assert [(h.kind, h.line) for h in hits] == [("archive-literal", 1)], src
+
+
+def test_scanner_flags_listing_the_archive_directory():
+    for src in (
+        'for p in (REPO / "exports" / "archive").glob("*.zip"):\n    pass\n',
+        'os.listdir(os.path.join(REPO, "exports", "archive"))\n',
+    ):
+        kinds = [h.kind for h in scan.scan_source(src)]
+        assert kinds == ["archive-listing"], src
 
 
 def test_scanner_flags_missing_data_skips_in_every_spelling():
@@ -116,6 +133,12 @@ def test_scanner_flags_missing_data_skips_in_every_spelling():
         ("missing-data-skip", 9),
         ("missing-data-skip", 11),
     ]
+
+
+def test_scanner_flags_the_broadened_missing_data_phrases():
+    for why in ("fixture not found", "no data for this week", "file does not exist", "unavailable"):
+        src = f"import pytest\ndef test_a():\n    pytest.skip({why!r})\n"
+        assert [h.kind for h in scan.scan_source(src)] == ["missing-data-skip"], why
 
 
 def test_scanner_ignores_livedata_scopes_docstrings_and_unrelated_skips():

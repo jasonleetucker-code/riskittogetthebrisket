@@ -3,7 +3,7 @@
  "files": {
   "tests/api/test_audit_cw40_batch_s_open.py": {
    "maxHits": {
-    "missing-data-skip": 1
+    "missing-data-skip": 3
    },
    "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'shallow clone: audited SHAs not present'"
   },
@@ -27,7 +27,7 @@
   },
   "tests/api/test_canonical_ownership_protections.py": {
    "maxHits": {
-    "missing-data-skip": 1
+    "missing-data-skip": 2
    },
    "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no full-contract capture in this environment'"
   },
@@ -91,11 +91,35 @@
    },
    "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape available'"
   },
+  "tests/api/test_draft_capital.py": {
+   "maxHits": {
+    "missing-data-skip": 11
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'Workbook unavailable'"
+  },
   "tests/api/test_draft_capital_batch_f.py": {
+   "maxHits": {
+    "missing-data-skip": 2
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'draft_data.csv not in this checkout'"
+  },
+  "tests/api/test_draft_capital_correctness.py": {
    "maxHits": {
     "missing-data-skip": 1
    },
-   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'draft_data.csv not in this checkout'"
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'Draft Data workbook unavailable'"
+  },
+  "tests/api/test_draft_capital_last_known_good.py": {
+   "maxHits": {
+    "missing-data-skip": 2
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'Draft Data workbook unavailable'"
+  },
+  "tests/api/test_draft_capital_vendor_comparison.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'canonical ladder unavailable in this environment'"
   },
   "tests/api/test_draft_contract_view_fields.py": {
    "maxHits": {
@@ -217,6 +241,12 @@
    },
    "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'dynastyNerdsSfTep CSV not present'"
   },
+  "tests/api/test_public_league_privacy_boundary.py": {
+   "maxHits": {
+    "missing-data-skip": 3
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): ': snapshot unavailable in this environment'; ' unavailable in this environment'"
+  },
   "tests/api/test_rank_space_hampel_per_vote_challenger.py": {
    "maxHits": {
     "missing-data-skip": 1
@@ -337,11 +367,35 @@
    },
    "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived payload'"
   },
+  "tests/deploy/test_performance_inventory.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'symlink capability unavailable'"
+  },
+  "tests/deploy/test_release_retention.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'symlink creation unavailable'"
+  },
+  "tests/deploy/test_signals_idp_family_rollback_wiring.py": {
+   "maxHits": {
+    "missing-data-skip": 4
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'bash unavailable'"
+  },
   "tests/identity/test_audit_w06_f001_regression.py": {
    "maxHits": {
     "archive-literal": 2
    },
    "reason": "Names the source export only to RE-VERIFY the committed fixture when the zip is still present; absent is a pass, never a skip. The fixture (tests/fixtures/w06_f001_identity_rows.json) is the evidence."
+  },
+  "tests/identity/test_capture_evidence_pin.py": {
+   "maxHits": {
+    "archive-literal": 1
+   },
+   "reason": "Synthetic archive file names created under tmp_path (or asserted as plain strings) to exercise the code under test; nothing is read from the real exports/archive."
   },
   "tests/idp_accuracy/test_backtest.py": {
    "maxHits": {
@@ -392,6 +446,12 @@
    },
    "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'league pool fixture not present'"
   },
+  "tests/maintenance/test_retention.py": {
+   "maxHits": {
+    "archive-literal": 9
+   },
+   "reason": "Synthetic archive file names created under tmp_path (or asserted as plain strings) to exercise the code under test; nothing is read from the real exports/archive."
+  },
   "tests/pool/test_builder.py": {
    "maxHits": {
     "missing-data-skip": 1
@@ -430,7 +490,7 @@
   },
   "tests/roster_intel/test_before_side_reuse_real_board.py": {
    "maxHits": {
-    "missing-data-skip": 2
+    "missing-data-skip": 3
    },
    "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived board in exports/archive'; 'archived board carries no league rosters'"
   },
@@ -446,12 +506,42 @@
    },
    "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived payload available in this environment'"
   },
+  "tests/scripts/test_backend_wheelhouse.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'symlink creation unavailable'"
+  },
+  "tests/scripts/test_backfill_rank_history.py": {
+   "maxHits": {
+    "archive-literal": 16
+   },
+   "reason": "Synthetic archive file names created under tmp_path (or asserted as plain strings) to exercise the code under test; nothing is read from the real exports/archive."
+  },
   "tests/scripts/test_bdvm_saturation_study.py": {
    "maxHits": {
-    "archive-literal": 1,
+    "archive-literal": 2,
     "missing-data-skip": 1
    },
    "reason": "Asserts the NAMES the study recorded; the bytes are read from tests/fixtures/bdvm_saturation_outcome_archives (hash-pinned), not exports/archive. Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'recorded W13 engine run absent'"
+  },
+  "tests/scripts/test_class_b_branch_pilot.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'symlink creation unavailable'"
+  },
+  "tests/scripts/test_tiered_validate.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'bash unavailable'"
+  },
+  "tests/scripts/test_u3_columns_vs_source_health.py": {
+   "maxHits": {
+    "archive-listing": 1
+   },
+   "reason": "Globs a tmp_path/exports/archive tree the test itself builds; never the real one."
   },
   "tests/scripts/test_w27_f001_idp_edge_benchmark.py": {
    "maxHits": {

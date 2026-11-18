@@ -606,8 +606,10 @@ jobs:
               ok=1
               break
             fi
-            echo "::warning::apt attempt ${attempt}/4 failed; retrying in $((attempt * 10))s"
-            sleep $((attempt * 10))
+            if [ "$attempt" -lt 4 ]; then
+              echo "::warning::apt attempt ${attempt}/4 failed; retrying in $((attempt * 10))s"
+              sleep $((attempt * 10))
+            fi
           done
           [ "$ok" = 1 ] || { echo "::error::apt install of tesseract-ocr failed after 4 attempts"; exit 1; }
           tesseract --version | head -1

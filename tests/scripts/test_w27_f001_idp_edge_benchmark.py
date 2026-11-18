@@ -13,6 +13,7 @@ regenerated fixture and an updated proposal, never a loosened assertion.
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
 import math
 import shutil
@@ -51,12 +52,20 @@ def result(fixture) -> dict:
 # ── provenance ────────────────────────────────────────────────────────────
 
 
-def test_fixture_records_the_pinned_archive_it_was_extracted_from(fixture):
-    """Hermetic: the fixture IS the evidence, so this holds it to its own recorded
-    provenance.  It deliberately does not open ``exports/archive`` -- that is a
-    rolling window whose retention pass deletes old exports, which turned this
-    check into a skip (and, past the skip budget, a red gate)."""
-    prov = fixture["provenance"]
+FIXTURE_SHA256 = "ddb7cce91c26b587471b0f1513633c4f7697de1132de603fa81190df520e8164"
+
+
+def test_fixture_bytes_are_the_pinned_extraction():
+    """Hermetic: binds the fixture's exact bytes, plus its recorded provenance.
+
+    It deliberately does not open ``exports/archive`` -- a rolling window whose
+    retention pass deletes old exports, which turned the old check into a skip (and,
+    past the skip budget, a red gate).  Re-extraction needs the repository tree at
+    the recorded ``gitHead`` (a full contract build), so it is a research-script
+    step (``extract``), not part of the gate; the byte pin is what stops the
+    evidence changing without a regenerated fixture and an updated proposal."""
+    assert hashlib.sha256(FIXTURE.read_bytes()).hexdigest() == FIXTURE_SHA256
+    prov = json.loads(FIXTURE.read_text(encoding="utf-8"))["provenance"]
     assert prov["archive"] == "dynasty_export_20261107_063955.zip"
     assert prov["archiveSha256"] == (
         "f1ad8517f83008d44c7de1a942626115798d12a4ebdd629887b9ae225157fb60"
