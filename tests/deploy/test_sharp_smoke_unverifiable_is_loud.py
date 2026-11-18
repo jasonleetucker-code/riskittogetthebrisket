@@ -232,11 +232,15 @@ def test_a_healthy_run_does_not_emit_the_unverifiable_warning(tmp_path):
     assert "UNVERIFIABLE" not in proc.stdout + summary
 
 
-def test_a_failed_deploy_is_still_red_and_is_not_called_unverifiable(tmp_path):
+def test_a_failed_deploy_is_skipped_with_a_reason_not_red_and_not_called_unverifiable(tmp_path):
+    """The upstream deploy owns that failure; this run measured nothing (T15)."""
     failed = _run_scoped({"status": "deploy_failed", "cohort": {}, "ffpcMarket": {}, "errors": []})
-    proc, summary, _outputs = _run_gate(tmp_path, failed)
-    assert proc.returncode != 0
+    proc, summary, outputs = _run_gate(tmp_path, failed)
+    assert proc.returncode == 0, proc.stderr
+    assert "::warning title=Sharp smoke SKIPPED (upstream deploy failed)" in proc.stdout
+    assert "SKIPPED" in summary and "NOT measured" in summary
     assert "UNVERIFIABLE" not in proc.stdout + summary
+    assert "measured=false" in outputs
 
 
 def test_a_superseded_deploy_makes_no_unverifiable_claim(tmp_path):
