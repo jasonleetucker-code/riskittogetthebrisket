@@ -30,13 +30,13 @@ BLOCKED — OWNER ACTION · BLOCKED — EXTERNAL DEPENDENCY · VERIFIED NO LONGE
 | 7 | Post-deploy trade and War Room smoke | P1 | DEPLOYED — smoke VERIFIED on production | #2242 → `c59c0a52` | V1 run 44331428925 against production `f5e06111`: trade smoke exit 0 — `analyze_2team` HTTP 200 (2 priced rows), `analyze_multi_3team` HTTP 200 (6 priced rows, rosters current); security acceptance pass | the same run's browser suite failed once: desktop War Room spec timeout (125 s) on a backend restarted 6 min earlier by the train-4 rollback; the mobile War Room spec passed in 41 s on the same build. Re-test on the next V1 run |
 | 8 | Public-repo data-exposure remediation | P2 | MERGED (deploy pending) | #2249 → `522c0efc` | — | publication policy is an owner decision |
 | 9 | Trade-flow resilience (frontend) | P2 | DEPLOYED | #2243 → `bd17e684` | production build `bd17e684` | service-worker update on real devices (iOS PWA) |
-| 10 | Mobile ergonomics and 390 px coverage | P2 | PR OPEN (E2E flake fix #2253 pending) | #2245 `26eab497` | — | 4-team tray clearance and info-tip tap accuracy need a real device |
+| 10 | Mobile ergonomics and 390 px coverage | P2 | MERGED (deploy in progress) | #2245 → `eb604ee2` (train 5: RC 44330233614 + E2E 44330240357 green) | — | 4-team tray clearance and info-tip tap accuracy need a real device |
 | 11 | Restore Signals; loud private-source failure | P2 | IN PROGRESS (unit 1 merged) | #2237 → `3f647d16` | — | next: run the health probe once no deploy is in flight; two orphaned deploy runs still need a force-cancel |
 | 12 | Live roster refresh — measure first | P2 | MERGED (deploy pending) | #2246 → `6b0546a7` | — | owner may override (median post-trade misattribution 1.1 h) |
 | 13 | Security hardening batch | P2 | MERGED (deploy pending) | #2240 → `5f7e6080` | — | box `.env` is pre-checked against the target revision before the deploy moves anything |
 | 14 | Next.js 16.4.5+ (#2233) | P2 | DEPLOYED | #2241 → `0dc1c6cd` | production build `bd17e684` | dependabot #2233 superseded |
-| 15 | Make permanent-red / vacuous-green checks meaningful | P3 | MERGED (deploy pending) | #2247 → `123c08df`; #2253 open (train 5) | — | 57 stale workflow registrations need an owner disable; #898 owner decision; E2E skip ceiling sits at exactly 70/70 on main |
-| 16 | Node 20 → 22 | P3 | MERGED, then PARTIALLY REVERTED by hotfix #2256 (production lanes back on 20 until the box cutover) | #2252 → `79c60f26`; #2256 | — | production runtime cutover BLOCKED — OWNER ACTION; engines `>=20 <23` until then |
+| 15 | Make permanent-red / vacuous-green checks meaningful | P3 | MERGED (deploy pending) | #2247 → `123c08df`; #2253 → `83cc4061` (train 5) | — | 57 stale workflow registrations need an owner disable; #898 owner decision; E2E skip ceiling sits at exactly 70/70 on main |
+| 16 | Node 20 → 22 | P3 | MERGED, then PARTIALLY REVERTED by hotfix #2256 (production lanes back on 20 until the box cutover) | #2252 → `79c60f26`; #2256 → `6f87d9d0` (RC 44340812140 green) | — | production runtime cutover BLOCKED — OWNER ACTION; engines `>=20 <23` until then |
 
 ## Baseline (2026-11-18, before any change)
 
@@ -270,6 +270,11 @@ Record: not started.
   ignored)"); the probe ran on the box (run 44339687295) but its fail-closed public projection withheld the whole
   report (`{"error": "PublicLeak"}`) because a free-text leaf (likely the source's error text) is not public-safe.
   Fix: PR #2257 (unsafe leaves replaced by `withheld_unsafe_value`, path recorded under `redacted`; `errorClass` vocabulary; systemd `Result` normalised, e.g. `exit-code` -> `exit_code`, the most likely tripped leaf). Takes effect after merge + deploy; then re-run the probe to diagnose `signalsSf`.
+
+- 16:16 UTC: merged #2256 (`6f87d9d0`, RC 44340812140 on base `4790727e` = main at merge), then train 5 #2253
+  (`83cc4061`) and #2245 (`eb604ee2`). Main drift since train 5's validated base `79c60f26` was #2256 only (CI Node
+  version; no shared files). Superseded deploy 44345387765 (`6f87d9d0`) cancelled at "Resolve Deploy Target", before
+  any production step; deploy 44345462077 (`eb604ee2`) carries all three.
 
 ## Operational notes
 
