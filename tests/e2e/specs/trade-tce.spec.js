@@ -108,6 +108,15 @@ async function keyboardAddSheet(page, side, name) {
   await expect(row).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(dialog.getByRole("status")).toHaveText(new RegExp(`Added ${name}`));
+  // The added row unmounts and the sheet hands focus back to its search
+  // field one frame later, so typing on works.  Wait for that hand-back
+  // before the next key: the status above renders a frame earlier, and a
+  // key sent inside that frame raced the hand-back (WebKit mobile-390,
+  // runs 41061165921 / 42516081225 / 44020636649 / 44308798204).  The
+  // sheet no longer takes focus back from a control focused in that
+  // frame (pinned in trade-asset-sheet-focus.test.jsx); this asserts the
+  // hand-back.
+  await expect(input).toBeFocused();
   await dialog.getByRole("button", { name: "Done" }).press("Enter");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   // The Drawer returns focus to its opener.
