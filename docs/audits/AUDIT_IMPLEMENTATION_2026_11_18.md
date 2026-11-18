@@ -202,12 +202,16 @@ Record (PR #2242, head `1dfb1daf`):
 Problem: public repo tracks ~30 vendor CSVs and ~158 full-board export zips (with Sleeper owner IDs) while
 `SECURITY.md` calls valuations private. No history rewrite, visibility change or purge without the owner.
 Record (PR #2249 → `522c0efc`, merged in train 4):
-- Read-only inventory of tracked data (counts only, no content): vendor CSVs, export zips and owner-id-bearing files.
-- Owner decision brief with publication options (keep public, stop adding, move to private storage, history rewrite —
-  each with cost and risk); nothing deleted, untracked, moved or rewritten; visibility unchanged.
-- CI growth guard: fails on a NEW tracked file that carries owner ids or a paid-vendor source, with the current set
-  allowlisted, so exposure cannot grow while the owner decides. Review fix: the guard is hermetic (no dependency on
-  local data).
+- `scripts/audit_tracked_data_exposure.py`: read-only inventory over 12,554 in-scope tracked files (2.28 GB);
+  aggregate committed as counts, field names, paths and vendors only
+  (`docs/security/DATA_EXPOSURE_INVENTORY_2026-11-18.md` + `.json`).
+- `docs/security/DATA_EXPOSURE_DECISION_BRIEF_2026-11-18.md`: owner decisions in its section 4 (vendor policy,
+  owner-id policy, history rewrite, private repository, with an order-of-magnitude Actions-minutes estimate for a
+  private repo). Only FantasyPros terms were located; other vendors are labelled "not verified".
+- Growth guard: a blocking, diff-scoped PR step (`--changed-since origin/main`) fails on a NEW owner-id-bearing or
+  paid-vendor tracked file; existing files are in `config/security/tracked_data_exposure_baseline.txt`. The
+  real-tree scan is `livedata` (advisory); review fix made the hard-gate tests hermetic.
+- Nothing deleted, untracked, moved or rewritten; visibility and refresh/deploy publishing unchanged.
 - Status: BLOCKED — OWNER DECISION on the publication policy.
 
 ### 9. Trade-flow resilience — P2
