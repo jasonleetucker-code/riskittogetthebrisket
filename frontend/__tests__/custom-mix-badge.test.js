@@ -22,7 +22,7 @@
  *      ``isCustomized`` flag).
  */
 import { describe, expect, it } from "vitest";
-import { describeCustomMix } from "@/app/rankings/page";
+import { describeCustomMix, storedMixBadgeState } from "@/app/rankings/page";
 
 describe("describeCustomMix", () => {
   it("returns active:false for null / undefined / empty override block", () => {
@@ -160,5 +160,37 @@ describe("describeCustomMix", () => {
     expect(result.disabled).toEqual([]);
     expect(result.reweighted).toEqual([]);
     expect(result.summary).toBe("");
+  });
+});
+
+describe("storedMixBadgeState (client-side stored mix, overrides switched off)", () => {
+  it("shows an honest badge when a stored mix exists but the server stamps nothing", () => {
+    const state = storedMixBadgeState(
+      { isCustomized: false },
+      { ktcCrowdSfTep: { include: false } },
+    );
+    expect(state.active).toBe(true);
+    expect(state.hasDetail).toBe(false);
+    expect(state.disabled).toEqual([]);
+    expect(state.reweighted).toEqual([]);
+    expect(state.summary).toBe("");
+  });
+
+  it("shows no badge when nothing is stored", () => {
+    expect(storedMixBadgeState(null, undefined).active).toBe(false);
+    expect(storedMixBadgeState({ isCustomized: false }, {}).active).toBe(false);
+    expect(
+      storedMixBadgeState({ isCustomized: false }, { dlfSf: { weight: 1 } }).active,
+    ).toBe(false);
+  });
+
+  it("prefers server detail when the backend does stamp isCustomized", () => {
+    const state = storedMixBadgeState(
+      { isCustomized: true, received: { ktcCrowdSfTep: { include: false } } },
+      {},
+    );
+    expect(state.active).toBe(true);
+    expect(state.hasDetail).toBe(true);
+    expect(state.disabled).toEqual(["KTC Crowd"]);
   });
 });
