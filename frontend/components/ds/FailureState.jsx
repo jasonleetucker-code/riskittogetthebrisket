@@ -96,6 +96,12 @@ const PRESENTATION = {
     hint: "Too many requests. Wait a moment before retrying.",
     canRetry: true,
   },
+  timeout: {
+    tone: "negative",
+    title: "Request timed out",
+    hint: "The request did not finish in time. Try again.",
+    canRetry: true,
+  },
   offline: {
     tone: "negative",
     title: "Could not reach the server",

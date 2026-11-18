@@ -11,14 +11,15 @@
  *     offline fallback.  The backend already owns the short-lived
  *     snapshot cache; serving an unbounded browser-cache entry first
  *     can preserve an obsolete API schema across a deployment.
- *   - Network-first for everything else (HTML routes, private
- *     API calls).  We never want to serve stale private contract
- *     data; the public hub is the only API safe to read from cache
- *     because the snapshot is intentionally cache-warmed every
- *     20 min by ``public-league-warmup.yml``.
- *   - Offline fallback: when both network AND cache miss, serve
- *     the homepage HTML ``/offline``-style shell so the user sees
- *     "You're offline" instead of Chrome's dino.
+ *   - Network-first for page navigations and other non-API GETs.
+ *   - ``/api/*`` is NEVER cached except the explicit allowlist in
+ *     "Request policy" below (today: the public league API only; it is
+ *     cache-warmed every 20 min by ``public-league-warmup.yml``).
+ *     Every other API request is not intercepted at all.
+ *   - Offline fallback depends on WHAT was requested: a page navigation
+ *     gets the homepage shell ("You're offline" instead of Chrome's
+ *     dino); an API request gets a JSON 503 ``{"error":"offline"}``,
+ *     never HTML; a script/image/font gets a network error.
  *
  * Push (`push` + `notificationclick`):
  *   - On `push`, parses the JSON payload (`{title, body, url, tag}`)
@@ -29,9 +30,8 @@
  *
  * What this deliberately does NOT do:
  *   - Background sync.
- *   - Cache any authenticated API endpoint.  ``/api/user/*`` and
- *     ``/api/terminal`` intentionally pass straight through so we
- *     never accidentally show another user's cached state.
+ *   - Cache any authenticated API endpoint.  Allow-list, not deny-list:
+ *     a new private endpoint is uncached by default.
  *
  * Versioning: bump ``CACHE_VERSION`` when the cache layout changes.
  * Old caches are deleted on ``activate``.
@@ -74,7 +74,13 @@
 // contract and an offline replay of a stale roster list would build a
 // trade against rosters that no longer exist.  The bump evicts anything
 // already stored.
-const CACHE_VERSION = "chaseupside-v10";
+// v11: API caching inverted from a deny-list to an ALLOW-list (see "Request
+// policy" below) and the offline fallback made type-aware.  The deny-list
+// omitted /api/terminal, /api/roster/intelligence, /api/draft-capital and
+// every later private endpoint, so they were written to CacheStorage by the
+// generic network-first branch; and an offline API miss was answered with
+// the homepage HTML.  The bump evicts everything the old rules stored.
+const CACHE_VERSION = "chaseupside-v11";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const PUBLIC_LEAGUE_CACHE = `${CACHE_VERSION}-public-league`;
@@ -86,38 +92,66 @@ const PRECACHE_URLS = [
   "/icons/icon-512.png",
 ];
 
-// Paths we NEVER cache.  Keep this list short and explicit.
-const NEVER_CACHE = [
-  "/api/user/",
-  "/api/auth/",
-  "/api/trade/simulate",
-  "/api/signal-alerts/",
-  "/api/rankings/overrides",
-  // The multi-MB private contract: networkFirst wrote it to
-  // CacheStorage on EVERY navigation but only ever read it back when
-  // offline — pure write cost per page load, plus private data at
-  // rest.  The in-memory data layer + HTTP ETag revalidation own this
-  // payload's caching now.
-  "/api/data",
-  "/api/dynasty-data",
-  // Rookie auction room: private bids/balances + authoritative live
-  // state.  Never at rest, never replayed offline.  The pages too: invite,
-  // reset and email-verification URLs carry one-time tokens.
-  "/api/auction/",
-  "/auction",
-  // Brisket Trade Advisor (public, value-free, but served no-store and
-  // roster-state dependent): never at rest, never replayed offline.  Must
-  // sit here because the generic `/api/public/league` branch below would
-  // otherwise network-first-and-put it.
-  "/api/public/league/trade-advisor",
-  // Waiver Wire Comparison: live roster ownership, served with its own
-  // freshness stamps — never replayed from CacheStorage.
-  "/api/public/waiver-compare",
-];
+// ── Request policy ─────────────────────────────────────────────────────
+// Two fail-safe rules (pinned by __tests__/service-worker-public-league-
+// cache.test.js):
+//   1. `/api/*` is NEVER cached unless its prefix is on API_CACHE_ALLOWLIST.
+//      A new endpoint is uncached by default.  The old deny-list let every
+//      private endpoint nobody remembered to list (terminal, roster
+//      intelligence, draft capital, waiver, trade analyze ...) fall into the
+//      generic network-first-and-put branch.
+//   2. An API request never receives HTML (see offlineFallback).
+//
+// The only API reads safe to hold in CacheStorage: the PUBLIC league
+// snapshot (cache-warmed server side, nothing roster-state dependent),
+// network-first and used only as an offline fallback.
+const API_CACHE_ALLOWLIST = ["/api/public/league"];
+// Public but served no-store / live: carved out of the allowlist.
+const API_CACHE_DENY_WITHIN_ALLOWLIST = ["/api/public/league/trade-advisor"];
+// Non-API pages never at rest (invite / reset / verification URLs carry
+// one-time tokens).
+const PAGE_NEVER_CACHE = ["/auction"];
 
-function isNeverCache(url) {
-  return NEVER_CACHE.some((prefix) => url.pathname.startsWith(prefix));
+function startsWithAny(pathname, prefixes) {
+  return prefixes.some((prefix) => pathname.startsWith(prefix));
 }
+
+function isApiPath(pathname) {
+  return pathname === "/api" || pathname.startsWith("/api/");
+}
+
+// "passthrough" = not intercepted (the browser's own network path and its own
+// failure apply); "cache-first" = immutable static assets;
+// "network-first-public" = allowlisted public API; "network-first" = page
+// navigations and other non-API GETs.
+function routeFor(pathname) {
+  if (isApiPath(pathname)) {
+    return startsWithAny(pathname, API_CACHE_ALLOWLIST) &&
+      !startsWithAny(pathname, API_CACHE_DENY_WITHIN_ALLOWLIST)
+      ? "network-first-public"
+      : "passthrough";
+  }
+  if (startsWithAny(pathname, PAGE_NEVER_CACHE)) return "passthrough";
+  if (pathname.startsWith("/_next/static/") || pathname.startsWith("/icons/")) {
+    return "cache-first";
+  }
+  return "network-first";
+}
+
+// What an offline CACHE MISS answers with: "json" for an API path (a JSON
+// 503, never markup), "shell" for a page navigation, "error" for anything
+// else (a failed script/image/font is not "answered" with an HTML document).
+function offlineKindFor(pathname, mode, accept) {
+  if (isApiPath(pathname)) return "json";
+  const wantsHtml = typeof accept === "string" && accept.includes("text/html");
+  if (mode === "navigate" || wantsHtml) return "shell";
+  return "error";
+}
+
+const OFFLINE_JSON_BODY = JSON.stringify({
+  error: "offline",
+  message: "You appear to be offline and this response is not available from the cache.",
+});
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -151,25 +185,29 @@ self.addEventListener("fetch", (event) => {
   }
   // Cross-origin — let the browser handle it.
   if (url.origin !== self.location.origin) return;
-  if (isNeverCache(url)) return;
+  const route = routeFor(url.pathname);
+
+  // Private / unlisted API and one-time-token pages: not intercepted at all.
+  // A network failure propagates as the browser's own fetch error, never as
+  // a cached or synthesized HTML page.
+  if (route === "passthrough") return;
 
   // Static assets (``/_next/static/*``, ``/icons/*``): cache-first.
-  if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/icons/")) {
+  if (route === "cache-first") {
     event.respondWith(cacheFirst(req));
     return;
   }
 
-  // Public league API: network-first, cached only for offline use.
-  // CacheStorage does not enforce the backend response's max-age, so
-  // stale-while-revalidate here could return an arbitrarily old API
-  // schema before its background refresh completed.  The backend and
-  // Next server already own bounded caches for this data.
-  if (url.pathname.startsWith("/api/public/league")) {
+  // Public league API (the only cacheable API): network-first, cached only
+  // for offline use.  CacheStorage does not enforce the backend response's
+  // max-age, so stale-while-revalidate here could return an arbitrarily old
+  // API schema before its background refresh completed.
+  if (route === "network-first-public") {
     event.respondWith(networkFirst(req, PUBLIC_LEAGUE_CACHE));
     return;
   }
 
-  // Everything else: network-first with cache fallback.
+  // Everything else (page navigations, non-API GETs): network-first.
   event.respondWith(networkFirst(req));
 });
 
@@ -185,7 +223,7 @@ async function cacheFirst(request) {
     return res;
   } catch {
     // No network + no cache → fall through to offline shell.
-    return offlineFallback();
+    return offlineFallback(request);
   }
 }
 
@@ -201,7 +239,7 @@ async function networkFirst(request, cacheName = RUNTIME_CACHE) {
   } catch {
     const cached = await cache.match(request);
     if (cached) return cached;
-    return offlineFallback();
+    return offlineFallback(request);
   }
 }
 
@@ -272,7 +310,25 @@ function safeNotificationPath(raw) {
   }
 }
 
-async function offlineFallback() {
+async function offlineFallback(request) {
+  let pathname = "/";
+  try {
+    pathname = new URL(request.url).pathname;
+  } catch {
+    // keep "/"
+  }
+  const kind = offlineKindFor(
+    pathname,
+    request.mode,
+    request.headers && request.headers.get && request.headers.get("accept"),
+  );
+  if (kind === "json") {
+    return new Response(OFFLINE_JSON_BODY, {
+      status: 503,
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+    });
+  }
+  if (kind === "error") return Response.error();
   const shell = await caches.match("/");
   if (shell) return shell;
   return new Response(

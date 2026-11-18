@@ -21,8 +21,9 @@ import {
   PREMIUM_SUMMARY_VALUE_RATIO,
 } from "@/lib/thresholds";
 import { getRetailLabel } from "@/lib/dynasty-data";
+import { failureForDisplay } from "@/lib/contract-failure";
 import {
-  Banner,
+  FailureState,
   DataTable,
   EmptyState,
   InfoTip,
@@ -87,7 +88,7 @@ function idpGapOf(action) {
 }
 
 export default function EdgePage() {
-  const { loading, error, rows, rawData } = useDynastyData();
+  const { loading, error, failure, retry, rows, rawData } = useDynastyData();
   const { openPlayerPopup } = useApp();
 
   const sleeperTeams = rawData?.sleeper?.teams || [];
@@ -277,9 +278,11 @@ export default function EdgePage() {
       <ValueBasisNote contract={rawData} />
 
       {!!error && (
-        <Banner tone="negative" title="Couldn't load edge data">
-          {String(error)}
-        </Banner>
+        <FailureState
+          failure={failureForDisplay(failure, error)}
+          onRetry={retry}
+          context="edge data"
+        />
       )}
 
       {loading && (

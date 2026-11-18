@@ -7,6 +7,7 @@ import { useTeam } from "@/components/useTeam";
 import {
   Badge,
   Banner,
+  FailureState,
   Button,
   CollapsiblePanel,
   EmptyState,
@@ -44,6 +45,7 @@ import {
   RefinementBar,
 } from "@/components/trade/RefinementControls";
 import DiscoveryControls from "@/components/trade/DiscoveryControls";
+import { failureForDisplay } from "@/lib/contract-failure";
 import TradeToolErrorBanner from "@/components/arbitrage/TradeToolErrorBanner";
 import ForcedReleaseNote from "@/components/arbitrage/ForcedReleaseNote";
 import { failureFromError, tradeToolFailure } from "@/lib/trade-finder-errors";
@@ -419,7 +421,14 @@ function tradeContainsPlayer(trade, playerName) {
 }
 
 export default function ArbitragePage() {
-  const { loading: dataLoading, error: dataError, rawData, rows } = useDynastyData();
+  const {
+    loading: dataLoading,
+    error: dataError,
+    failure: dataFailure,
+    retry: retryData,
+    rawData,
+    rows,
+  } = useDynastyData();
   const { selectedLeagueKey, selectedOwnerId } = useTeam();
 
   const teams = useMemo(() => {
@@ -628,7 +637,13 @@ export default function ArbitragePage() {
         description="Find trades that matter: better players your league's markets price below our board, built into packages the other side can still see as fair. A disagreement is not proof the market is wrong."
       />
 
-      {dataError ? <Banner tone="negative">{String(dataError)}</Banner> : null}
+      {dataError ? (
+        <FailureState
+          failure={failureForDisplay(dataFailure, dataError)}
+          onRetry={retryData}
+          context="player pool"
+        />
+      ) : null}
 
       <Tabs
         idPrefix="trade-finder"
