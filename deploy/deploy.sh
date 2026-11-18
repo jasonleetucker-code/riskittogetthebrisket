@@ -958,13 +958,20 @@ verify_runtime_state() {
 # Prints variable NAMES only, never values.  server.py refuses the same
 # combination at startup when RISKIT_ENV=production (set by the unit).
 check_box_env_guards() {
-  local env_file="${APP_DIR}/.env"
+  local env_file="${APP_DIR}/.env" tmp rc=0
   [[ -f "${env_file}" ]] || return 0
-  # Single owner of the rules: src/api/startup_guards.py (the same function
-  # server.py calls at startup).  Run from the release dir; stdlib only.
-  if ! (cd "${APP_DIR}" && python3 -E -s -m src.api.startup_guards \
-        --check-env-file "${env_file}" --production); then
-    error "${env_file} would make the backend refuse to start; refusing to deploy (old release keeps serving)."
+  # Evaluated against the TARGET revision's own copy of the guard, BEFORE the
+  # working tree moves, so a refusal touches nothing (no rollback needed).
+  tmp="$(mktemp -d)" || return 1
+  if ! git show "${TARGET_REV}:src/api/startup_guards.py" > "${tmp}/startup_guards.py" 2>/dev/null; then
+    rm -rf "${tmp}"
+    warn "Target revision has no src/api/startup_guards.py; skipping box .env pre-flight."
+    return 0
+  fi
+  python3 -E -s "${tmp}/startup_guards.py" --check-env-file "${env_file}" --production || rc=$?
+  rm -rf "${tmp}"
+  if [[ "${rc}" -ne 0 ]]; then
+    error "${env_file} would make the backend refuse to start; refusing to deploy (nothing was changed; old release keeps serving)."
     return 1
   fi
 }
@@ -1501,6 +1508,9 @@ main() {
   target_short="$(git rev-parse --short "${TARGET_REV}")"
   log "Resolved target revision: ${TARGET_REV} (${target_short})"
 
+  # Before the working tree moves: a refusal must leave the box untouched.
+  check_box_env_guards || exit 1
+
   if [[ "${current_rev}" != "${TARGET_REV}" ]]; then
     log "Checking out target revision."
     git checkout --force "${TARGET_REV}"
@@ -1512,9 +1522,6 @@ main() {
     log "Repository already at target revision."
   fi
 
-  # Release code is on disk; nothing has been swapped or restarted yet.  A
-  # refusal here leaves the old frontend and backend serving.
-  check_box_env_guards || exit 1
   prepare_python_runtime
   maybe_build_frontend
   ensure_systemd_service

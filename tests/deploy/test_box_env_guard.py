@@ -81,6 +81,21 @@ def test_server_uses_shared_rules_and_guard_precedes_swaps():
     text = (ROOT / "deploy/deploy.sh").read_text()
     body = text[text.index("\nmain() {") :]
     guard = body.index("check_box_env_guards")
-    for later in ("prepare_python_runtime", "deploy_frontend_atomic", "restart_service"):
+    for later in (
+        'git checkout --force "${TARGET_REV}"',
+        "prepare_python_runtime",
+        "deploy_frontend_atomic",
+        "restart_service",
+    ):
         assert guard < body.index(later), later
     assert len(re.findall(r"^\s*check_box_env_guards", body, re.M)) == 1
+
+
+def test_script_runs_by_path_not_module(tmp_path):
+    env = tmp_path / ".env"
+    script = ROOT / "src/api/startup_guards.py"
+    base = [sys.executable, "-E", "-s", str(script), "--check-env-file", str(env), "--production"]
+    env.write_text("JASON_LOGIN_PASSWORD=changeme\n")
+    assert subprocess.run(base, cwd=tmp_path, capture_output=True).returncode == 1
+    env.write_text("JASON_LOGIN_PASSWORD=real-pw-9x\n")
+    assert subprocess.run(base, cwd=tmp_path, capture_output=True).returncode == 0
