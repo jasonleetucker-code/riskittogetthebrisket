@@ -276,6 +276,12 @@ module.exports = defineConfig({
   projects: [
     {
       name: "desktop-1366",
+      // Phone-only assertions (touch-target sizing) are tagged and filtered
+      // OUT here, for the same reason the mobile projects filter
+      // @a11y-desktop-only: a test.skip() would count against
+      // stack-death-reporter's skip ceiling, which means "a layer stopped
+      // running" — these are deliberately not run on desktop.
+      grepInvert: /@mobile-only/,
       use: {
         browserName: "chromium",
         viewport: { width: 1366, height: 768 },
