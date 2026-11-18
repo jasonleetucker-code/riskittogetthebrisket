@@ -396,6 +396,13 @@ def public_status_payload(
         out["startupChecks"] = _project_startup_checks(
             out["startupChecks"], os.fspath(base_dir) if base_dir else None
         )
+    slo = out.get("freshness_slo")
+    if isinstance(slo, Mapping):
+        # Aggregate numbers are public; which private sources are stale is
+        # operator-only (served by the admin diagnostics route).
+        slo = {k: v for k, v in slo.items() if k != "privateSourceDetail"}
+        slo["privateSourceDetail"] = "withheld"
+        out["freshness_slo"] = slo
     return _finish(out, environ)
 
 

@@ -6857,6 +6857,11 @@ def _status_content(status_payload: dict | None = None) -> dict:
             "startup_payload_savings_gzip_bytes": max(0, full_gzip_bytes - startup_gzip_bytes),
         },
         "source_health": source_health,
+        # Aggregate board-freshness numbers an external monitor asserts on
+        # (scripts/check_production_slo.py).  Computed from the loaded contract
+        # without mutating it; the per-source private list is stripped for
+        # anonymous callers by ``public_diagnostics``.
+        "freshness_slo": _freshness_slo_block(),
         "backup_health": _backup_freshness(),
         "uptime": uptime_status,
         "has_data": latest_contract_data is not None,
@@ -6906,6 +6911,25 @@ def _status_content(status_payload: dict | None = None) -> dict:
         "nflDataProvider": _nfl_data_provider_status_safe(),
         "normalizationHealth": _normalization_health_safe(),
     }
+
+
+def _freshness_slo_block() -> dict:
+    """``freshness_slo`` for ``/api/status``; never raises (a diagnostic must
+    not take down the endpoint it reports on)."""
+    try:
+        from src.api import freshness_slo as _fs
+
+        try:
+            from src.api.data_contract import private_source_availability
+
+            private = private_source_availability()
+        except Exception as exc:  # noqa: BLE001
+            log.warning("private source availability unreadable: %s", exc)
+            private = None
+        return _fs.board_freshness_metrics(latest_contract_data, private_availability=private)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("freshness_slo block failed: %s", exc)
+        return {"schemaVersion": "freshness-slo.v1", "state": "unknown", "error": "unavailable"}
 
 
 def _feature_flag_snapshot_safe() -> dict:
