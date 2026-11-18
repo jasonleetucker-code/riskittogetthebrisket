@@ -27,7 +27,7 @@ import {
 import { withValuationMode } from "@/lib/valuation-mode";
 import { buildShareUrl } from "@/lib/trade-share";
 import { parseArbitrageQuery } from "@/lib/arbitrage-links";
-import { buildArbitrageRows, rosterCapacityLine } from "@/lib/market-arbitrage";
+import { buildArbitrageRows } from "@/lib/market-arbitrage";
 import {
   emptyRefinement,
   loadRefinement,
@@ -44,6 +44,9 @@ import {
   RefinementBar,
 } from "@/components/trade/RefinementControls";
 import DiscoveryControls from "@/components/trade/DiscoveryControls";
+import TradeToolErrorBanner from "@/components/arbitrage/TradeToolErrorBanner";
+import ForcedReleaseNote from "@/components/arbitrage/ForcedReleaseNote";
+import { failureFromError, tradeToolFailure } from "@/lib/trade-finder-errors";
 import {
   DEFAULT_TABLE_SORT,
   PLAYER_SCOPE_OPTIONS,
@@ -257,8 +260,12 @@ function TradeCard({ trade, myTeam, opponent, refine }) {
   const boardDelta = Number(trade.boardDelta || 0);
   const ktcDelta = Number(trade.ktcDelta || 0);
   const counterparty = trade.counterparty || (opponent && opponent !== "all" ? opponent : null);
-  const mine = rosterCapacityLine(trade.rosterCapacity);
-  const theirs = rosterCapacityLine(trade.counterpartyRosterCapacity);
+  // The counterparty's read is shown only when the backend sent one; YOUR
+  // roster's is always shown — a missing block reads "not checked", never
+  // silence (the same rule, lib/trade-finder-capacity, as every other
+  // generated-trade surface).
+  const theirs = trade.counterpartyRosterCapacity;
+  const theirTeam = counterparty || "Their team";
 
   const openInCalculator = useMemo(() => {
     // A pick travels as its canonical board row ("2027 Round 1"), the name
@@ -302,16 +309,20 @@ function TradeCard({ trade, myTeam, opponent, refine }) {
         ) : null}
       </div>
       <DiscoveryFacts trade={trade} />
-      {mine || theirs ? (
-        <ul className={styles.capacityList} aria-label="Roster consequences">
-          {mine ? <li>Your roster: {mine}</li> : null}
-          {theirs ? (
-            <li>
-              {counterparty ? `${counterparty}'s` : "Their"} roster: {theirs}
-            </li>
-          ) : null}
-        </ul>
-      ) : null}
+      <ul className={styles.capacityList} aria-label="Roster consequences">
+        <li>
+          <ForcedReleaseNote capacity={trade.rosterCapacity} label="Your roster" />
+        </li>
+        {theirs ? (
+          <li>
+            <ForcedReleaseNote
+              capacity={theirs}
+              team={theirTeam}
+              label={`${theirTeam}'s roster`}
+            />
+          </li>
+        ) : null}
+      </ul>
       <div className={styles.tradeBody}>
         <div className={styles.side}>
           <h4 className={styles.sideLabel}>You give</h4>
@@ -426,7 +437,8 @@ export default function ArbitragePage() {
   const [opponent, setOpponent] = useState("all");
   const [result, setResult] = useState(null);
   const [running, setRunning] = useState(false);
-  const [error, setError] = useState("");
+  // A classified failure ({message, code}) or null — never a bare code.
+  const [error, setError] = useState(null);
   // C3-CON-03 LOCK / EXCLUDE (+ the incoming-only "Skip target").  Kept per
   // (team, league, scan context) in localStorage until cleared — never in the
   // persistent trade-protection store.
@@ -493,7 +505,7 @@ export default function ArbitragePage() {
 
     const seq = ++scanSeq.current;
     setRunning(true);
-    setError("");
+    setError(null);
     try {
       const body = {
         myTeam: effectiveTeam,
@@ -526,14 +538,14 @@ export default function ArbitragePage() {
       const data = await res.json().catch(() => ({}));
       if (seq !== scanSeq.current) return;
       if (!res.ok) {
-        setError(data?.error || `Request failed (${res.status})`);
+        setError(tradeToolFailure(res.status, data, { tool: "Package Scan" }));
         setResult(null);
       } else {
         setResult(data);
       }
     } catch (err) {
       if (seq !== scanSeq.current) return;
-      setError(err?.message || "Request failed");
+      setError(failureFromError(err, { tool: "Package Scan" }));
       setResult(null);
     } finally {
       if (seq === scanSeq.current) setRunning(false);
@@ -586,7 +598,7 @@ export default function ArbitragePage() {
     // The refinement for the new (team, opponent) context is loaded from
     // storage by the effect above; only the stale result is cleared here.
     setResult(null);
-    setError("");
+    setError(null);
   }
 
   // A discovery change re-runs an existing Package Scan result (the other
@@ -761,7 +773,7 @@ export default function ArbitragePage() {
               />
             </Panel>
 
-            {error ? <Banner tone="negative">{error}</Banner> : null}
+            <TradeToolErrorBanner failure={error} />
 
             {result?.warnings?.map((w, i) => (
               <Banner key={i} tone="warning">

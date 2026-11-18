@@ -268,9 +268,15 @@ describe("/arbitrage package refinement", () => {
 
     await user.click(screen.getByRole("button", { name: "Find trade packages" }));
     const list = await screen.findByRole("list", { name: "Roster consequences" });
-    expect(list).toHaveTextContent("Your roster: must release 1: Bench Guy");
+    // Package Scan now shares the one capacity display rule
+    // (lib/trade-finder-capacity); the old `rosterCapacityLine` wording
+    // ("must release 1: Bench Guy", names without values) is retired.
     expect(list).toHaveTextContent(
-      "Other Team's roster: may need a release (taxi occupancy unknown)",
+      "Your roster: Forces 1 release to fit the 58-man limit — released value unknown (the release is not priced).",
+    );
+    expect(list).toHaveTextContent("Bench Guy — value unknown");
+    expect(list).toHaveTextContent(
+      "Other Team's roster: May require a release (taxi occupancy unknown).",
     );
   });
 
