@@ -407,7 +407,9 @@ async function scanRoute(page, testInfo, label, url) {
  *
  * Every family runs on desktop-1366. Scanning all 52 on both projects took
  * the E2E job's Playwright step from 10.7 to 32.6 min (34.7 of its 45-min
- * timeout), so the 2026-10-07 extension is desktop-only EXCEPT where the
+ * timeout; Task 10 later added 11 families — roughly +8-10 min across the
+ * two CI phone projects against the job's 60-min budget), so the
+ * 2026-10-07 extension is desktop-only EXCEPT where the
  * mobile layout is a different tree, not the same components reflowed:
  * the original ten (the high-use surfaces, mobile-scanned since the first
  * cut) plus `/more` (the mobile navigation page) and `/game-day` (its own
@@ -430,6 +432,21 @@ const MOBILE_ROUTES = new Set([
   // distinct mobile layouts
   "/more",
   "/game-day",
+  // Task 10 (audit-remediation 2026-11-18): the 390px scan covered ~12
+  // families and none of the draft / arbitrage / angle / edge / market /
+  // auction surfaces, which are phone-reachable tools with their own dense
+  // control layouts (the ds touch-target enlargement lands on all of them).
+  "/draft",
+  "/arbitrage",
+  "/angle",
+  "/edge",
+  "/market/sharp-people",
+  "/market/sharp-roster-percentage",
+  "/market/sharp-tracker",
+  "/market/trade-database",
+  "/auction",
+  "/auction/join",
+  "/auction/notifications",
 ]);
 
 // Desktop-only families carry this tag; the mobile projects filter it out
