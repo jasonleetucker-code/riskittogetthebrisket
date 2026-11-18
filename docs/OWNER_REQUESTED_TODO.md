@@ -15,6 +15,33 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
+## Added 2026-11-18 — Implement all 16 audit priorities
+
+Owner directive 2026-11-18 (chat, "MASTER DIRECTIVE — IMPLEMENT ALL 16 AUDIT PRIORITIES"), after the comprehensive
+audit of the same date (`origin/main` `de63c768`, production `71cc45b7`). All 16 are in scope; priority sets order
+only. Owner-only gates still bind (branch protection, credentials, backup destination, publication policy, Agent OS
+policy amendments, production runtime cutover). Live tracker: `docs/audits/AUDIT_IMPLEMENTATION_2026_11_18.md`.
+Authorized in `docs/EXECUTION_PLAN.md` (same date).
+
+| ID | Requirement | State |
+|---|---|---|
+| AUD-1 | Hermetic hard gate: no blocking test depends on rolling `exports/archive/` zips or refresh-rewritten inputs; guards against new ones; skip-budget headroom; apt retry | IN PROGRESS |
+| AUD-2 | Production freshness and deploy-lag monitoring with deduplicated, actionable alerts; code freshness and data freshness reported separately | IN PROGRESS |
+| AUD-3 | Data-only delivery path that reuses a byte-identical code tree's validation; shadow first; production activation needs an owner-approved Agent OS amendment | NOT STARTED |
+| AUD-4 | Owner admin pack: branch-protection ruleset, credential rotation procedure, off-box backup support, deploy-key review (owner executes the privileged steps) | NOT STARTED |
+| AUD-5 | 2026→2027 year-boundary hardening and a future-clock regression job | NOT STARTED |
+| AUD-6 | Integrate the five UI-fix PRs (#2223, #2224, #2226, #2227, #2228); UI copy must match `_SOURCE_OVERRIDES_DISABLED` | IN PROGRESS |
+| AUD-7 | Authenticated post-deploy smoke of 2-team and 3-team trade analysis (read-only) | NOT STARTED |
+| AUD-8 | Public-repo data exposure: inventory, options, preparatory code; no history rewrite, visibility change or purge without the owner | NOT STARTED |
+| AUD-9 | Trade-flow resilience: retry states, client timeouts, abort handling, API-safe service worker, error boundaries | NOT STARTED |
+| AUD-10 | Mobile ergonomics: ≥44 px coarse-pointer targets, 390 px accessibility coverage of the uncovered routes | NOT STARTED |
+| AUD-11 | Restore `signalsSf`; stale provisioned private sources become a visible degradation with alerts | NOT STARTED |
+| AUD-12 | Roster freshness: measure first; implement a light refresh only if the evidence justifies it | NOT STARTED |
+| AUD-13 | Security hardening: placeholder password, non-ASCII bearer 500, CSV formula injection, side-effecting health GET, production env guards, workflow permissions | NOT STARTED |
+| AUD-14 | Next.js patched release (≥16.4.5) | NOT STARTED |
+| AUD-15 | Permanent-red and vacuous-green checks made meaningful; obsolete workflows retired | NOT STARTED |
+| AUD-16 | Node 20 → 22 (CI now; production cutover owner-authorized) | NOT STARTED |
+
 ## Added 2026-11-17 — Trade Calculator: account for 3-team trades
 
 Owner request 2026-11-17 (chat, with two phone screenshots of `/trade` on a 3-team trade): "Fix this so that it

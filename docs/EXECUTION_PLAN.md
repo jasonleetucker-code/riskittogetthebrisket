@@ -1,5 +1,22 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## Implement all 16 audit priorities — owner, 2026-11-18
+
+**AUTHORIZED NOW.** Intake AUD-1 … AUD-16 (`docs/OWNER_REQUESTED_TODO.md`); live tracker
+`docs/audits/AUDIT_IMPLEMENTATION_2026_11_18.md`.
+
+- **Authorized to implement:** all 16 priorities, frontend included — hermetic CI, freshness / deploy-lag alerting,
+  a shadow-mode data-only delivery path, admin-pack preparation, year-boundary hardening, the five UI-fix PRs,
+  post-deploy trade smoke, data-exposure preparation, trade-flow resilience, mobile ergonomics, private-source
+  alerting, measured roster freshness, security hardening, the Next.js patch, CI-check repair and the Node 22 CI
+  migration.
+- **Not authorized without a further owner decision:** activating a deploy path that skips the full code gate
+  (changes Agent OS §3), applying the branch-protection ruleset, rotating credentials, choosing an off-box backup
+  destination, changing repository visibility or rewriting history, purging tracked data, the production Node cutover,
+  and any change to valuation methodology, source voting or flags beyond what the tasks name.
+- At most 4 concurrent editing workers, including the coordinator. Small focused PRs; merge only on green required
+  checks, independent review and an exact-tree release-candidate run.
+
 ## Unified engineering, mathematics and forecasting research directive — owner, 2026-11-08 (third of the day)
 
 **AUTHORIZED NOW, inside the same remediation program (no second roadmap).** Record:
