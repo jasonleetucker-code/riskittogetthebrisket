@@ -1,21 +1,34 @@
 /**
- * Critical journey: settings source-toggle round-trip.
+ * Critical journey: the settings Ranking Sources panel and the withdrawn
+ * custom source mix.
  *
- * The single-source-of-truth override path (see CLAUDE.md): toggling a
- * source on /settings must fire POST /api/rankings/overrides — there is
- * NO frontend ranking engine.  What the response must carry changed in
- * #875: custom source weighting is WITHDRAWN
- * (`_SOURCE_OVERRIDES_DISABLED` in src/api/data_contract.py), because a
+ * The single-source-of-truth override path (see CLAUDE.md): a custom source
+ * mix rides POST /api/rankings/overrides — there is NO frontend ranking
+ * engine.  Custom source weighting is WITHDRAWN (#875,
+ * `_SOURCE_OVERRIDES_DISABLED` in src/api/data_contract.py), because a
  * user-weighted board published under rankDerivedValue is a second
- * canonical valuation truth.  The round-trip is still asserted
- * end-to-end; the response must now carry the withdrawal contract — an
- * explicit warning, no custom mix reported active, the toggled source
- * still blended — and the rankings page must NOT show the custom-mix
- * badge.
+ * canonical valuation truth.
+ *
+ * Since PR #2224 /settings says so instead of pretending otherwise: the
+ * Ranking Sources panel states that custom mixes are switched off, its
+ * include controls are disabled (the registry default) and point at that
+ * statement, the weight inputs are gone, and the Status column is the
+ * backend's own `sourceVotingStatus` — not a browser-computed "Live"/"Idle"
+ * from per-row coverage.  Until then these tests waited for that
+ * browser-computed "Live" and clicked an operable include toggle; both
+ * asserted the defect the PR removed.
+ *
+ * A device can still carry a saved mix (the /rankings Sources popover
+ * writes one, and so did every pre-withdrawal /settings), and that mix
+ * still rides the override POST.  The round-trip is asserted end-to-end
+ * from such a saved mix: the response must carry the withdrawal contract —
+ * an explicit warning, no custom mix reported active, the switched-off
+ * source still blended — /settings must say the saved mix is not applied,
+ * and the rankings page must NOT show the custom-mix badge.
  *
  * Auth: test-only session fixture (skips when E2E_TEST_SECRET unset).
- * State: settings live in localStorage — each test gets a fresh
- * browser context, so toggles never leak between tests.
+ * State: settings live in localStorage — each test gets a fresh browser
+ * context, so a seeded mix never leaks between tests.
  */
 const { test, expect } = require("../helpers/auth-fixture");
 const {
@@ -26,10 +39,16 @@ const {
   pageUrl,
 } = require("../helpers/journey");
 
-test.describe("journey: settings source toggles", () => {
+// frontend/lib/trade-logic.js::SETTINGS_KEY — where useSettings keeps this
+// device's preferences, `siteWeights` (the custom source mix) among them.
+const SETTINGS_KEY = "next_settings_v2";
+// The panel's own statement (settings/page.jsx::CUSTOM_MIX_OFF_NOTE).
+const CUSTOM_MIX_OFF = "Custom source mixes are switched off";
+
+test.describe("journey: settings ranking sources", () => {
   test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
 
-  test("settings lists every registered ranking source with a toggle", async ({ authedPage: page }) => {
+  test("settings lists every registered ranking source, says custom mixes are off, and shows the backend's voting status", async ({ authedPage: page }) => {
     // Authoritative registry size from the backend.
     const regRes = await page.request.get("/api/rankings/sources");
     expect(regRes.status()).toBe(200);
@@ -39,6 +58,21 @@ test.describe("journey: settings source toggles", () => {
       ? sources.length
       : Object.keys(sources).length;
     expect(registeredCount).toBeGreaterThan(3);
+
+    // The backend's per-source voting report: the contract's
+    // `sourceVotingStatus` block (src/sources/voting_status.py), served here
+    // as `votingStatus` from the same loaded contract the page reads.  The
+    // Status column must show exactly these labels.
+    const weightingRes = await page.request.get("/api/sources/weighting");
+    expect(weightingRes.status(), "the source voting report must be served").toBe(200);
+    const votingSources = ((await weightingRes.json()).votingStatus?.sources || []).filter(
+      (e) => e && typeof e.key === "string" && e.key,
+    );
+    expect(
+      votingSources.length,
+      "the board must report per-source voting status",
+    ).toBeGreaterThan(3);
+    const backendLabels = votingSources.map((e) => [e.key, String(e.statusLabel || "").trim()]);
 
     await page.goto(pageUrl("/settings"), { waitUntil: "domcontentloaded" });
     await expect(page.locator("body")).toContainText(/Ranking Sources/i, { timeout: 30_000 });
@@ -54,33 +88,105 @@ test.describe("journey: settings source toggles", () => {
     const rows = section.locator(".settings-sources-table tbody > tr");
     await expect(rows).toHaveCount(registeredCount, { timeout: 30_000 });
 
-    // Every row offers the include-in-blend toggle, OR states why it cannot:
-    // a private source that does not vote on this host (Signals / DLF private
-    // boards when not provisioned) shows its vote state instead of a control,
-    // because a control would imply it moves the blend (settings/page.jsx,
-    // lib/source-vote-state.js).  The old ">= registered toggles" check passed
-    // only when it counted before the board loaded and hid those controls;
-    // measured 2026-11-12 offline: 27 toggles at first paint, 20 once settled.
-    // Settled state: a row reports "Live" only once the board's per-source
-    // coverage has loaded, which is also when non-voting rows swap their
-    // control for a vote state.  (The page polls, so it never goes idle.)
-    await expect(section).toContainText("Live", { timeout: 30_000 });
+    // The panel states why nothing in it can be changed, and a fresh device
+    // has no saved mix to warn about.
+    await expect(section.getByTestId("custom-mix-off-note")).toContainText(CUSTOM_MIX_OFF);
+    await expect(section.getByTestId("saved-source-mix")).toHaveCount(0);
+
+    // Settled state: the Status column shows the BACKEND's label for every
+    // source the voting report covers, and a source it does not cover says
+    // so (or states its private vote state) — never a browser-computed
+    // "Live"/"Idle", and never still "Loading…".  The old wait for "Live"
+    // passed on per-row coverage, which says a source has a value on a row,
+    // not that it voted.  Polled as one comparison: the page polls the
+    // board, so it never goes idle.
     const nonVotingLabel =
       /Shadow — not voting|Collected — not voting|Rolled back — not voting|Unavailable/;
-    // One DOM snapshot, so a re-render cannot land between two counts.
-    const snapshot = await rows.evaluateAll((trs) =>
-      trs.map((tr) => ({
-        toggles: tr.querySelectorAll('input.settings-src-toggle[aria-label^="Include "]').length,
-        text: tr.innerText.replace(/\s+/g, " ").trim(),
-      })),
+    await expect
+      .poll(
+        () =>
+          rows.evaluateAll(
+            (trs, [labels, nonVotingSrc]) => {
+              const byKey = new Map(labels);
+              const nonVoting = new RegExp(nonVotingSrc);
+              const mismatches = [];
+              for (const tr of trs) {
+                const key = (tr.getAttribute("data-testid") || "").replace(/^settings-src-row-/, "");
+                const cell = tr.querySelector(`[data-testid="settings-src-status-${key}"]`);
+                const status = (cell?.textContent || "").replace(/\s+/g, " ").trim();
+                if (byKey.has(key)) {
+                  if (status !== byKey.get(key)) {
+                    mismatches.push({ key, status, expected: byKey.get(key) });
+                  }
+                } else if (status !== "Not reported" && !nonVoting.test(status)) {
+                  mismatches.push({ key, status, expected: "Not reported, or a vote state" });
+                }
+              }
+              return mismatches;
+            },
+            [backendLabels, nonVotingLabel.source],
+          ),
+        {
+          message: "the Status column must show the backend's sourceVotingStatus label for every source",
+          timeout: 30_000,
+        },
+      )
+      .toEqual([]);
+
+    // Every row offers the include control, OR states why it cannot: a
+    // private source that does not vote on this host (Signals / DLF private
+    // boards when not provisioned) shows its vote state instead of a control
+    // (settings/page.jsx, lib/source-vote-state.js).  The include control is
+    // the registry DEFAULT and is NOT operable: disabled, its name says
+    // custom mixes are switched off, and it is described by the panel's
+    // statement.  No row carries an editable weight.  One DOM snapshot, so a
+    // re-render cannot land between two counts.
+    const snapshot = await rows.evaluateAll(
+      (trs, offText) =>
+        trs.map((tr) => {
+          const toggles = [
+            ...tr.querySelectorAll('input.settings-src-toggle[aria-label^="Include "]'),
+          ];
+          return {
+            key: (tr.getAttribute("data-testid") || "").replace(/^settings-src-row-/, ""),
+            toggles: toggles.length,
+            operable: toggles.filter((t) => !t.disabled).length,
+            explained: toggles.filter((t) => {
+              const described = (t.getAttribute("aria-describedby") || "")
+                .split(/\s+/)
+                .filter(Boolean)
+                .map((id) => document.getElementById(id)?.textContent || "")
+                .join(" ");
+              return (
+                /custom mixes are switched off/i.test(t.getAttribute("aria-label") || "") &&
+                described.includes(offText)
+              );
+            }).length,
+            weightInputs: tr.querySelectorAll('input[type="number"], input.weight-input').length,
+            text: tr.innerText.replace(/\s+/g, " ").trim(),
+          };
+        }),
+      CUSTOM_MIX_OFF,
     );
     expect(snapshot).toHaveLength(registeredCount);
     const unexplained = snapshot.filter((r) => r.toggles !== 1 && !nonVotingLabel.test(r.text));
-    expect(unexplained, "source rows with neither a toggle nor a vote state").toEqual([]);
+    expect(unexplained, "source rows with neither an include control nor a vote state").toEqual([]);
     expect(snapshot.filter((r) => r.toggles === 1).length).toBeGreaterThan(3);
+    expect(
+      snapshot.filter((r) => r.operable > 0).map((r) => r.key),
+      "no include control may be operable while custom source mixes are switched off",
+    ).toEqual([]);
+    expect(
+      snapshot.filter((r) => r.toggles !== r.explained).map((r) => r.key),
+      "every include control must say why it cannot be changed",
+    ).toEqual([]);
+    expect(
+      snapshot.filter((r) => r.weightInputs > 0).map((r) => r.key),
+      "no source weight may be editable while custom source mixes are switched off",
+    ).toEqual([]);
   });
 
-  test("toggling a source round-trips, and the withdrawn custom mix is ignored rather than applied", async ({ authedPage: page }) => {
+  test("a saved source mix round-trips, and the withdrawn custom mix is ignored rather than applied", async ({ authedPage: page }) => {
     // Each overrides POST rebuilds the full blend server-side on a
     // memo miss (CPU-seconds per call), and this journey triggers it
     // twice — once from /settings, once when /rankings rehydrates.
@@ -103,36 +209,44 @@ test.describe("journey: settings source toggles", () => {
       }
     });
 
-    // Registry lookup so the toggled control can be mapped back to its
-    // source KEY: the withdrawal contract below is asserted in key
-    // vocabulary (`rankingsOverride.enabledSources` carries registry
-    // keys, while the toggle's aria-label carries the display name).
+    // The withdrawal contract below is asserted in registry-KEY vocabulary
+    // (`rankingsOverride.enabledSources` carries registry keys).
     const regRes = await page.request.get("/api/rankings/sources");
     expect(regRes.status()).toBe(200);
     const registrySources = ((await regRes.json()).sources || []).filter(Boolean);
-
-    await page.goto(pageUrl("/settings"), { waitUntil: "domcontentloaded" });
-    const toggles = page.locator('input.settings-src-toggle[aria-label^="Include "]');
-    await expect(toggles.first()).toBeVisible({ timeout: 30_000 });
-
-    // Pick the first currently-enabled toggle and switch it off.
-    const enabledToggle = toggles.and(page.locator(":checked")).first();
-    await expect(enabledToggle).toBeVisible({ timeout: 15_000 });
-    const toggleLabel = (await enabledToggle.getAttribute("aria-label")) || "";
-    const toggledDisplayName = toggleLabel
-      .replace(/^Include /, "")
-      .replace(/ in blend$/, "");
     const disabledKey = registrySources.find(
-      (s) => s.displayName === toggledDisplayName,
+      (s) => typeof s.key === "string" && s.key,
     )?.key;
-    expect(
-      disabledKey,
-      `the toggle labelled ${JSON.stringify(toggleLabel)} must resolve to a registry source key`,
-    ).toBeTruthy();
+    expect(disabledKey, "the registry must name at least one source key").toBeTruthy();
 
-    // The round-trip contract: the click must fire POST
-    // /api/rankings/overrides and it must succeed.  60s budget: the
-    // POST only fires after useDynastyData's base-contract fetch
+    // A saved mix with one registered source switched off: the
+    // `siteWeights` shape the /rankings Sources popover (and every
+    // pre-withdrawal /settings toggle) writes.  /settings no longer offers an
+    // operable control that writes it, so the mix is put where a returning
+    // device carries it: this device's settings in localStorage.  Merged, so
+    // anything already stored survives; idempotent on every navigation.
+    await page.addInitScript(
+      ([storageKey, key]) => {
+        try {
+          const raw = window.localStorage.getItem(storageKey);
+          const parsed = raw ? JSON.parse(raw) : {};
+          const stored = parsed && typeof parsed === "object" ? parsed : {};
+          const weights =
+            stored.siteWeights && typeof stored.siteWeights === "object"
+              ? stored.siteWeights
+              : {};
+          stored.siteWeights = { ...weights, [key]: { include: false } };
+          window.localStorage.setItem(storageKey, JSON.stringify(stored));
+        } catch {
+          // Storage unavailable: the POST wait below times out and says so.
+        }
+      },
+      [SETTINGS_KEY, disabledKey],
+    );
+
+    // The round-trip contract: loading /settings with the saved mix must
+    // fire POST /api/rankings/overrides and it must succeed.  60s budget:
+    // the POST only fires after useDynastyData's base-contract fetch
     // (~5 MB) settles, which can take a while on a busy runner.
     const [overridesResponse] = await Promise.all([
       page.waitForResponse(
@@ -141,12 +255,23 @@ test.describe("journey: settings source toggles", () => {
           res.request().method() === "POST",
         { timeout: 60_000 },
       ),
-      enabledToggle.click(),
+      page.goto(pageUrl("/settings"), { waitUntil: "domcontentloaded" }),
     ]);
     expect(
       overridesResponse.status(),
-      "overrides endpoint should answer the toggle successfully",
+      "overrides endpoint should answer the saved mix successfully",
     ).toBe(200);
+
+    // /settings names the saved mix, says it is not applied, offers to clear
+    // it, and states that custom mixes are switched off.
+    await expect(page.getByTestId("saved-source-mix")).toContainText(
+      "It is not applied to any value",
+      { timeout: 30_000 },
+    );
+    await expect(
+      page.getByRole("button", { name: "Clear saved source mix" }),
+    ).toBeEnabled();
+    await expect(page.getByTestId("custom-mix-off-note")).toContainText(CUSTOM_MIX_OFF);
 
     // Read the delta by REPLAYING the captured body through the API
     // request context — deliberately NOT `overridesResponse.json()`.
@@ -162,7 +287,7 @@ test.describe("journey: settings source toggles", () => {
     // replay is served from the same slot the page's own POST
     // populated, with no dependence on the page draining anything.
     const postData = overridesResponse.request().postData();
-    expect(postData, "the toggle POST must carry a JSON body").toBeTruthy();
+    expect(postData, "the saved-mix POST must carry a JSON body").toBeTruthy();
     const overridesUrl = new URL(overridesResponse.url());
     const replay = await page.request.post(
       overridesUrl.pathname + overridesUrl.search,
@@ -191,7 +316,7 @@ test.describe("journey: settings source toggles", () => {
 
     // The withdrawal contract (#875, `_SOURCE_OVERRIDES_DISABLED` in
     // src/api/data_contract.py): user source weighting must not mint a
-    // second canonical board.  The endpoint accepts the toggle, but
+    // second canonical board.  The endpoint accepts the saved mix, but
     // 1) it says explicitly that the weighting was ignored,
     expect(
       delta.warnings || [],
@@ -207,7 +332,7 @@ test.describe("journey: settings source toggles", () => {
       rankingsOverride.isCustomized,
       "no custom mix may be reported as active",
     ).toBe(false);
-    // 3) and the toggled-off source stays in the blend.
+    // 3) and the switched-off source stays in the blend.
     expect(
       rankingsOverride.enabledSources || [],
       "the disabled source must still be blended — the override is ignored, not applied",

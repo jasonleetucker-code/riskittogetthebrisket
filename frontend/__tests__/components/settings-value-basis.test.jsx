@@ -81,7 +81,7 @@ describe("/settings Value basis (withdrawn lens)", () => {
     "shows a read-only market control that offers no other basis",
     () => {
       renderSettings();
-      const select = screen.getByRole("combobox", { name: "Valuation mode" });
+      const select = screen.getByRole("combobox", { name: "Value basis" });
       expect(select).toBeDisabled();
       expect(select.value).toBe("market");
       const options = Array.from(select.options).map((o) => o.textContent);
@@ -95,7 +95,7 @@ describe("/settings Value basis (withdrawn lens)", () => {
     () => {
       state.stored = "leagueAdjusted";
       renderSettings();
-      const select = screen.getByRole("combobox", { name: "Valuation mode" });
+      const select = screen.getByRole("combobox", { name: "Value basis" });
       expect(select.value).toBe("market");
       expect(select.selectedOptions[0].textContent).toBe("Market");
     },
