@@ -52,6 +52,9 @@ on:
         default: false
         type: boolean
 
+# curl against the public site only: no repo access, no checkout.
+permissions: {}
+
 concurrency:
   group: public-league-warmup
   cancel-in-progress: true
