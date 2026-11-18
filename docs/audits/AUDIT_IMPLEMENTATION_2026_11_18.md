@@ -389,6 +389,16 @@ Record (PR #2252 → `79c60f26`, train 4; hotfix #2256 → `6f87d9d0`):
   passed / 0 failed / 26 skipped (War Room desktop 45 s, mobile 21 s), trade smoke pass, security acceptance pass,
   failure classification `none`.
 
+- 18:2x UTC: #2259 merged (`7decca70`, RC 44364618189 on base `bb95f1e6` = main). Deploy 44368941410 failed in
+  hard-gate shard 2 before any production step (production stayed `bb95f1e6`): infrastructure, not a test. All 8
+  shards ran image `ubuntu-26.04` 20261103.629; on the failing runner `apt-get update` saw only
+  `packages.microsoft.com` (no `apt-mirrors.txt`, no Ubuntu archive), so `tesseract-ocr` was "Unable to locate" on all
+  4 attempts; the other 7 shards fetched the Ubuntu archive and passed. A broken runner instance: the in-job retry
+  cannot help because it stays on the same machine. One permitted re-run of the failed jobs dispatched.
+- 18:5x UTC: the re-run of deploy 44368941410 succeeded; production `build.commit` = `7decca70`. Signals probe
+  44377419713 on it: `reconnectNoticeAttempts` 0, `reconnectNoticeChannelAttempts` ntfy 0 / email 0 on the episode
+  open since the session failed (~400 h, daily sweep active, exit 0) — no notice channel configured on the box.
+
 ## Operational notes
 
 - 2026-11-18 ~11:40 UTC — CI runner saturation: ~10 concurrent PR CI runs (8 shards + E2E each) left Deploy Production
@@ -404,15 +414,6 @@ Record (PR #2252 → `79c60f26`, train 4; hotfix #2256 → `6f87d9d0`):
   failed once on #2238 (0.44 s vs 0.35 s bound) and passed on the single permitted re-run — an intermittent timing test
   under runner load; candidate for Task 15's follow-up list.
 
-- 18:2x UTC: #2259 merged (`7decca70`, RC 44364618189 on base `bb95f1e6` = main). Deploy 44368941410 failed in
-  hard-gate shard 2 before any production step (production stayed `bb95f1e6`): infrastructure, not a test. All 8
-  shards ran image `ubuntu-26.04` 20261103.629; on the failing runner `apt-get update` saw only
-  `packages.microsoft.com` (no `apt-mirrors.txt`, no Ubuntu archive), so `tesseract-ocr` was "Unable to locate" on all
-  4 attempts; the other 7 shards fetched the Ubuntu archive and passed. A broken runner instance: the in-job retry
-  cannot help because it stays on the same machine. One permitted re-run of the failed jobs dispatched.
-- 18:5x UTC: the re-run of deploy 44368941410 succeeded; production `build.commit` = `7decca70`. Signals probe
-  44377419713 on it: `reconnectNoticeAttempts` 0, `reconnectNoticeChannelAttempts` ntfy 0 / email 0 on the episode
-  open since the session failed (~400 h, daily sweep active, exit 0) — no notice channel configured on the box.
 
 ## Final report (2026-11-18)
 
