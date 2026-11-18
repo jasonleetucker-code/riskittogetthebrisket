@@ -179,7 +179,25 @@ function isNoPlayerDataRoute(pathname) {
 // unlisted page the private fetch is a guaranteed 401 for strangers and,
 // for a tab holding an expired session, a redirect to /login off a page
 // that must never require one.
-function privateDataEnabledFor(pathname) {
+//
+// A FOURTH reason, for the one route that is both: `/` is the marketing
+// landing for a signed-out visitor and the terminal for a signed-in one
+// (lib/public-routes.js lists it public).  Mounting the pipeline there
+// unconditionally made every anonymous landing view fire a guaranteed-401
+// `GET /api/dynasty-data` (and run the 401 handler on a public page).  So
+// on exactly these paths the pipeline waits for a CONFIRMED session.  The
+// cost is that a signed-in visit to `/` starts its contract download after
+// the auth probe (<= 5 s cap, normally one fast round trip) instead of in
+// parallel with it; `HomeClient` already holds a skeleton until the probe
+// answers, so nothing a signed-in user sees changes.  Every other route
+// keeps the eager fetch (the serialisation trade-off documented in
+// AppShell below).
+const AUTH_GATED_PLAYER_DATA_PATHS = ["/"];
+
+function privateDataEnabledFor(pathname, authenticated = true) {
+  if (AUTH_GATED_PLAYER_DATA_PATHS.includes(pathname) && authenticated !== true) {
+    return false;
+  }
   return (
     !isPublicOnlyRoute(pathname) &&
     !isNoPlayerDataRoute(pathname) &&
@@ -216,7 +234,7 @@ export default function AppShell({ children, authenticated = false, capabilities
   // That would serialize the contract fetch behind an auth round-trip on
   // EVERY page — trading a wasted fetch on /login for a slower first
   // paint everywhere.
-  const privateDataEnabled = privateDataEnabledFor(pathname);
+  const privateDataEnabled = privateDataEnabledFor(pathname, authenticated);
 
   return privateDataEnabled ? (
     <PrivateAppShell authenticated={authenticated} capabilities={capabilities} isAdmin={isAdmin}>

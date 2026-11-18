@@ -6857,6 +6857,11 @@ def _status_content(status_payload: dict | None = None) -> dict:
             "startup_payload_savings_gzip_bytes": max(0, full_gzip_bytes - startup_gzip_bytes),
         },
         "source_health": source_health,
+        # Aggregate board-freshness numbers an external monitor asserts on
+        # (scripts/check_production_slo.py).  Computed from the loaded contract
+        # without mutating it; the per-source private list is stripped for
+        # anonymous callers by ``public_diagnostics``.
+        "freshness_slo": _freshness_slo_block(),
         "backup_health": _backup_freshness(),
         "uptime": uptime_status,
         "has_data": latest_contract_data is not None,
@@ -6906,6 +6911,25 @@ def _status_content(status_payload: dict | None = None) -> dict:
         "nflDataProvider": _nfl_data_provider_status_safe(),
         "normalizationHealth": _normalization_health_safe(),
     }
+
+
+def _freshness_slo_block() -> dict:
+    """``freshness_slo`` for ``/api/status``; never raises (a diagnostic must
+    not take down the endpoint it reports on)."""
+    try:
+        from src.api import freshness_slo as _fs
+
+        try:
+            from src.api.data_contract import private_source_availability
+
+            private = private_source_availability()
+        except Exception as exc:  # noqa: BLE001
+            log.warning("private source availability unreadable: %s", exc)
+            private = None
+        return _fs.board_freshness_metrics(latest_contract_data, private_availability=private)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("freshness_slo block failed: %s", exc)
+        return {"schemaVersion": "freshness-slo.v1", "state": "unknown", "error": "unavailable"}
 
 
 def _feature_flag_snapshot_safe() -> dict:
@@ -20686,15 +20710,20 @@ async def post_trade_analyze(request: Request):
     # Decision receipt (TC-C): one line in the decision's own run log, the
     # AL-P5 arrangement Best Offers uses.  Best effort; never changes the
     # response beyond naming the run.
-    from src.trade.trade_decision_log import record_decision  # noqa: PLC0415
+    from src.trade.trade_decision_log import (  # noqa: PLC0415
+        is_smoke_request,
+        record_decision_unless_smoke,
+    )
 
+    smoke = is_smoke_request(request.headers, guest=not detail)
     with clock.stage("receipt"):
-        result["analysis"]["decisionRunId"] = record_decision(
+        result["analysis"]["decisionRunId"] = record_decision_unless_smoke(
             result["analysis"],
             league_key=league_key,
             team=(result.get("team") or {}).get("name")
             if isinstance(result.get("team"), dict)
             else None,
+            smoke=smoke,
         )
     result["analysisTiming"] = clock.to_dict(
         shared_stages=shared_stages if shared else None, detail=detail
@@ -21087,8 +21116,12 @@ async def post_trade_analyze_multi(request: Request):
     if shared:
         result = copy.deepcopy(result)
 
-    from src.trade.trade_decision_log import record_decision  # noqa: PLC0415
+    from src.trade.trade_decision_log import (  # noqa: PLC0415
+        is_smoke_request,
+        record_decision_unless_smoke,
+    )
 
+    smoke = is_smoke_request(request.headers, guest=not detail)
     response = _svc.multi_team_payload(
         result,
         snap=snap,
@@ -21100,8 +21133,11 @@ async def post_trade_analyze_multi(request: Request):
     decision_run_ids: dict[str, Any] = {}
     with clock.stage("receipt"):
         for t in response["teams"]:
-            run_id = record_decision(
-                t["analysis"], league_key=league_key, team=(t.get("team") or {}).get("name")
+            run_id = record_decision_unless_smoke(
+                t["analysis"],
+                league_key=league_key,
+                team=(t.get("team") or {}).get("name"),
+                smoke=smoke,
             )
             t["analysis"]["decisionRunId"] = run_id
             decision_run_ids[str(t["rosterId"])] = run_id

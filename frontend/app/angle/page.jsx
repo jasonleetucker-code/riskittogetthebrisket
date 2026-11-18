@@ -6,6 +6,7 @@ import { useTeam } from "@/components/useTeam";
 import {
   Badge,
   Banner,
+  FailureState,
   Button,
   DataTable,
   EmptyState,
@@ -29,6 +30,7 @@ import {
 } from "@/lib/trade-refinement";
 import { OutgoingRefinement, RefinementBar } from "@/components/trade/RefinementControls";
 import ForcedReleaseNote from "@/components/arbitrage/ForcedReleaseNote";
+import { failureForDisplay } from "@/lib/contract-failure";
 import TradeToolErrorBanner from "@/components/arbitrage/TradeToolErrorBanner";
 import { failureFromError, tradeToolFailure } from "@/lib/trade-finder-errors";
 import { angleNoResultDescription, angleResultsSubtitle } from "@/lib/trade-finder-angle";
@@ -170,7 +172,14 @@ function FixedSidePanel({ fixedSide, resultIsAcquire }) {
 // ── Page ──────────────────────────────────────────────────────────────
 
 export default function AnglePage() {
-  const { loading: dataLoading, error: dataError, rawData, rows } = useDynastyData();
+  const {
+    loading: dataLoading,
+    error: dataError,
+    failure: dataFailure,
+    retry: retryData,
+    rawData,
+    rows,
+  } = useDynastyData();
   const { selectedLeagueKey, selectedOwnerId: activeOwnerId } = useTeam();
 
   const teams = useMemo(() => {
@@ -516,9 +525,11 @@ export default function AnglePage() {
     return (
       <div className={`main-shell ${styles.page}`}>
         <PageHeader eyebrow="Trades" title="Package Builder" />
-        <Banner tone="negative" title="Failed to load data">
-          {String(dataError)}
-        </Banner>
+        <FailureState
+          failure={failureForDisplay(dataFailure, dataError)}
+          onRetry={retryData}
+          context="player pool"
+        />
       </div>
     );
   }

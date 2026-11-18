@@ -515,6 +515,37 @@ jobs:
           echo "browser_exit=$rc" >> "$GITHUB_OUTPUT"
           echo "Browser suite exit: $rc"
 
+      # Authenticated trade-analysis smoke (audit remediation Task 7, owner
+      # directive 2026-11-18).  Runs on BOTH triggers: the workflow_run bridge
+      # skips the API/Lane-4 suites, and no existing check ever called
+      # /api/trade/analyze or /api/trade/analyze-multi, so a board on which
+      # every asset of a 3-team trade read "withheld (stale)" (and a disabled
+      # multi-team War Room) reached the owner's phone first.  Same guest
+      # session cookie as every other step here; no extra secret, no extra
+      # permission.  It sends ``X-Chase-Smoke: 1``, honored by the server only
+      # for a guest-pass session, which skips the decision-receipt append -- the
+      # smoke writes nothing into the AL-P5 decision ledger, and neither route
+      # mutates a league, roster or trade.  Bounded: 120 s per request, ONE
+      # retry for network errors only (logged).  The verdict is consumed by the
+      # "Fail the job" step below.  Predicate and failure classes:
+      # scripts/smoke_trade_analysis.py.  Public artifact: roster ids, asset
+      # ids, statuses and counts only.
+      - name: Trade analysis smoke (2-team analyze + 3-team analyze-multi)
+        if: ${{ inputs.suite != 'baseline' }}
+        id: trade_smoke
+        shell: bash
+        env:
+          LEAGUE: ${{ inputs.league || 'dynasty_main' }}
+        run: |
+          set -Eeuo pipefail
+          rc=0
+          python3 scripts/smoke_trade_analysis.py \
+            --origin "$ORIGIN" --league "$LEAGUE" \
+            --cookie-file "$RUNNER_TEMP/session_cookie" \
+            --timeout 120 --out trade-smoke.json || rc=$?
+          echo "trade_smoke_exit=$rc" >> "$GITHUB_OUTPUT"
+          echo "Trade smoke exit: $rc (0 pass · 2 fail · 1 usage)"
+
       - name: Set up Node 22 for production baseline
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.suite == 'baseline' }}
         uses: actions/setup-node@v7
@@ -806,10 +837,11 @@ jobs:
           BROWSER_EXIT: ${{ steps.browser.outputs.browser_exit }}
           BASELINE_EXIT: ${{ steps.baseline.outputs.baseline_exit }}
           SECURITY_EXIT: ${{ steps.security.outputs.security_exit }}
+          TRADE_SMOKE_EXIT: ${{ steps.trade_smoke.outputs.trade_smoke_exit }}
           BASELINE_REQUESTED: ${{ github.event_name == 'workflow_dispatch' && inputs.suite == 'baseline' }}
         run: |
           set -Eeuo pipefail
-          echo "api=$API_EXIT lane4=$LANE4_EXIT browser=$BROWSER_EXIT security=$SECURITY_EXIT (0 pass · 2 fail · 3 proved nothing)"
+          echo "api=$API_EXIT lane4=$LANE4_EXIT browser=$BROWSER_EXIT trade_smoke=$TRADE_SMOKE_EXIT security=$SECURITY_EXIT (0 pass · 2 fail · 3 proved nothing)"
           # Security incident 2026-10-08 acceptance is binding on every run
           # that minted a pass: anything but an observed pass fails the job.
           if [ -n "$SECURITY_EXIT" ] && [ "$SECURITY_EXIT" != "0" ]; then
@@ -835,7 +867,7 @@ jobs:
             echo "::error::requested baseline failed or produced no verdict"
             exit 1
           fi
-          for code in "$API_EXIT" "$LANE4_EXIT" "$BROWSER_EXIT"; do
+          for code in "$API_EXIT" "$LANE4_EXIT" "$BROWSER_EXIT" "$TRADE_SMOKE_EXIT"; do
             case "$code" in
               1|2) echo "::error title=V1 authenticated::a suite reported exit $code"; exit "$code" ;;
             esac
@@ -862,6 +894,7 @@ jobs:
             security-acceptance.json
             v1-failure-classification.json
             lane4-remote.json
+            trade-smoke.json
             tests/e2e/prod-auth-results.json
           if-no-files-found: warn
           retention-days: 30

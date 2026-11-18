@@ -11,11 +11,20 @@ concurrency:
   group: health-check
   cancel-in-progress: true
 
+# Minimal by default; the jobs that file or close the rolling tracking issue
+# add ``issues: write`` for themselves.
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   health:
     name: Production Health Check
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
     # NO `if: ${{ vars.PROD_PUBLIC_URL != '' }}` here.  CI reliability
     # lane, 2026-08-20.  This is the workflow's ONLY job, and a job
     # skipped by a job-level `if` reports neutral — which the checks UI
@@ -472,3 +481,119 @@ jobs:
             gh issue close "$N" --reason completed --comment \
               "Production health check green again as of $(date -u +"%Y-%m-%dT%H:%M:%SZ"). Closing. Workflow run: ${RUN_URL}"
           done
+
+  slo:
+    # Code freshness (is validated main actually deployed?), pipeline health and
+    # data freshness (is the served board stale?).  Audit remediation
+    # 2026-11-18: production went 63 h and 31 h without a successful deploy and
+    # served a board with 190/200 top players freshness-low, with no alert.
+    # Every threshold lives in config/ops/production_slo.json.  A rule that
+    # could not be measured is UNKNOWN and fails the job too: "did not look"
+    # must never read as "healthy".
+    name: Production SLO (code + data freshness)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    steps:
+      - name: Check out main with full history
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install PyYAML
+        run: python -m pip install --quiet "pyyaml~=6.0"
+
+      - name: Check production SLOs
+        id: slo
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROD_PUBLIC_URL: ${{ vars.PROD_PUBLIC_URL }}
+        run: |
+          set -Eeuo pipefail
+          if [[ -z "${PROD_PUBLIC_URL}" ]]; then
+            echo "::error title=PROD_PUBLIC_URL not set::The SLO check cannot run without a target origin. Refusing rather than skipping."
+            exit 1
+          fi
+          rc=0
+          python scripts/check_production_slo.py --url "${PROD_PUBLIC_URL%/}" \
+            --history-days 7 --report-json slo_report.json | tee slo_report.txt || rc=$?
+          # Machine-readable result for the tracking-issue step (breach and
+          # unknown both leave a report; a crash before the report does not).
+          echo "rc=${rc}" >> "$GITHUB_OUTPUT"
+          if [[ "${rc}" == "1" ]]; then
+            echo "::error title=Production SLO breached::$(grep '^BREACHED:' slo_report.txt)"
+          elif [[ "${rc}" == "3" ]]; then
+            echo "::error title=Production SLO unmeasurable::$(grep '^UNKNOWN:' slo_report.txt). This is unknown, not healthy."
+          fi
+          exit "${rc}"
+
+      - name: Sync the rolling SLO tracking issue
+        # ONE issue, updated in place.  A comment is added only when the SET of
+        # breached conditions changes (issue #1727 accumulated 31 identical
+        # comments from a comment-per-run pattern; do not repeat it).  Identity
+        # is LABEL + exact TITLE, oldest wins, like the sibling tracker steps.
+        if: always() && steps.slo.outputs.rc != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RC: ${{ steps.slo.outputs.rc }}
+        run: |
+          set -Eeuo pipefail
+          TRACKER_TITLE="Production SLO alert"
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          gh label create production-health --color B60205 \
+            --description "Auto-opened when the scheduled production health check fails" \
+            2>/dev/null || true
+          if ! ROWS=$(gh issue list --state open --label production-health \
+                        --limit 1000 --json number,title,body); then
+            echo "::error title=Tracker lookup failed::gh issue list failed; the SLO tracker was NOT synced"
+            exit 1
+          fi
+          EXISTING=$(printf '%s' "$ROWS" \
+            | jq -r "[.[] | select(.title==\"${TRACKER_TITLE}\") | .number] | min // empty")
+
+          if [[ "${RC}" == "0" ]]; then
+            if [[ -n "$EXISTING" ]]; then
+              gh issue close "$EXISTING" --reason completed --comment \
+                "Production SLOs back within budget as of ${NOW}. Workflow run: ${RUN_URL}"
+            fi
+            exit 0
+          fi
+
+          if [[ -f slo_report.json ]]; then
+            SIG=$(jq -r '[.breached[], .unknown[]] | sort | join(",")' slo_report.json)
+          else
+            SIG="check_did_not_complete"   # the script died before writing its report
+          fi
+          REPORT=$(cat slo_report.txt 2>/dev/null || echo "no report was produced")
+          if [[ "${RC}" == "1" ]]; then
+            HEADLINE="BREACH: production is outside its freshness budget (config/ops/production_slo.json)."
+          else
+            HEADLINE="UNKNOWN-ONLY: no budget is known to be breached, but at least one rule could not be measured (unknown is not healthy)."
+          fi
+          BODY=$(printf '%s\n\n```\n%s\n```\n\nLast checked %s. Workflow run: %s\n\nThis issue is updated in place and closed automatically by the next green run. Per-source private detail: admin diagnostics.\n\n<!-- slo-signature: %s -->' \
+            "$HEADLINE" "$REPORT" "$NOW" "$RUN_URL" "$SIG")
+          if [[ -z "$EXISTING" ]]; then
+            gh issue create --title "$TRACKER_TITLE" --body "$BODY" --label production-health
+            exit 0
+          fi
+          OLD_SIG=$(printf '%s' "$ROWS" \
+            | jq -r ".[] | select(.number==${EXISTING}) | .body" \
+            | sed -n 's/.*slo-signature: \(.*\) -->.*/\1/p' | tail -n1)
+          gh api --method PATCH "repos/${GITHUB_REPOSITORY}/issues/${EXISTING}" \
+            -f body="$BODY" >/dev/null
+          if [[ "$OLD_SIG" != "$SIG" ]]; then
+            gh issue comment "$EXISTING" --body \
+              "Breached/unknown conditions changed at ${NOW}: \`${OLD_SIG:-none}\` -> \`${SIG}\`. ${RUN_URL}"
+          fi

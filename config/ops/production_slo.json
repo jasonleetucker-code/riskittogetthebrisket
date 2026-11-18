@@ -1,0 +1,30 @@
+{
+  "_comment": "Thresholds for scripts/check_production_slo.py (run by .github/workflows/health-check.yml). ONE owner for every number: the script contains no threshold literal. Chosen from a 14-day replay of real GitHub Actions history (see the PR that introduced this file; reproduce with `python scripts/check_production_slo.py --backtest-days 14`). Code freshness and data freshness are separate named results on purpose: a green board does not excuse an undeployed fix, and a fresh deploy does not excuse a stale board.",
+  "version": 1,
+  "repo": "jasonleetucker-code/riskittogetthebrisket",
+  "deployWorkflow": "deploy.yml",
+  "refreshWorkflow": "scheduled-refresh.yml",
+  "deployPathsIgnoreFile": ".github/workflows/deploy.yml",
+  "codeFreshness": {
+    "_comment": "Age of the OLDEST main commit that is not in the deployed SHA AND touches a path deploy.yml does not ignore (a docs-only/data-only commit starts no deploy by design; data reaches production via the refresh dispatch and is judged by dataFreshness below).",
+    "deployLagMaxHours": 12,
+    "deployFailures": {
+      "_comment": "Breach only when BOTH hold: consecutive failed Deploy Production runs >= maxConsecutiveFailures AND the last success is older than maxHoursSinceSuccessWithUndeployed (or absent), while deploy-relevant commits are undeployed. Failure streaks that recover within hours are normal operation.",
+      "maxConsecutiveFailures": 3,
+      "maxHoursSinceSuccessWithUndeployed": 12
+    }
+  },
+  "refreshPipeline": {
+    "_comment": "Normal gaps between successful scheduled-refresh runs are 8-12 h (docs/ops/SCRAPE_CADENCE_MEASUREMENT_2026-11-09.md); 21-day replay: median 7.1 h, max 11.6 h.",
+    "maxHoursSinceSuccess": 14
+  },
+  "dataFreshness": {
+    "maxTop200StaleShare": 0.1,
+    "maxPricedWithheldShare": 0.1,
+    "maxBoardAgeHours": 18,
+    "maxStalePrivateSources": 0
+  },
+  "history": {
+    "runsPerPage": 100
+  }
+}
