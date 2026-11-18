@@ -31,7 +31,7 @@ BLOCKED — OWNER ACTION · BLOCKED — EXTERNAL DEPENDENCY · VERIFIED NO LONGE
 | 8 | Public-repo data-exposure remediation | P2 | NOT STARTED | — | — | publication policy is an owner decision |
 | 9 | Trade-flow resilience (frontend) | P2 | NOT STARTED | — | — | — |
 | 10 | Mobile ergonomics and 390 px coverage | P2 | NOT STARTED | — | — | — |
-| 11 | Restore Signals; loud private-source failure | P2 | NOT STARTED | — | — | box journal access needed for root cause |
+| 11 | Restore Signals; loud private-source failure | P2 | PR OPEN (unit 1 of 2) | #2237 `claude/serene-shannon-7lsrm9-t11-signals` | — | diagnosis waits on #2237 merge; two orphaned deploy runs need a force-cancel |
 | 12 | Live roster refresh — measure first | P2 | NOT STARTED | — | — | — |
 | 13 | Security hardening batch | P2 | NOT STARTED | — | — | — |
 | 14 | Next.js 16.4.5+ (#2233) | P2 | NOT STARTED | — | — | — |
@@ -105,7 +105,15 @@ Record: not started.
 
 ### 11. Signals and private-source alerting — P2
 Problem: `signalsSf` stale ~16 days, votes withheld, no loud alert.
-Record: not started.
+Record:
+- 2026-11-18 10:12 UTC: dispatched the read-only `signals-health-probe.yml` (mode `health`); run 44283253164 refused
+  "a deploy.yml run is in progress or queued" with nothing running. Cause: two `deploy.yml` runs GitHub created but
+  never started — 32212914036 (queued since 2026-08-19, `workflow_dispatch` of `1d9a001c`) and 43096180672 (queued
+  since 2026-11-11, push of `44a0d573`). The ordinary cancel API answers 409 for both; force-cancel is an owner action.
+  Every on-box Signals run has been blocked the same way, which is why the stall could not be diagnosed.
+- Unit 1, #2237: `scripts/deploy_in_flight.py` — one guard for both on-box workflows; never-started runs older than
+  6 h are warned about instead of blocking; unreadable state fails closed. Tests: 78 passed, 1 skipped.
+- Next: after #2237 merges, run the health probe and fix the actual cause.
 
 ### 12. Roster freshness — P2 (measure first)
 Problem: `dynasty_main` rosters refresh only with the ~2 h scrape; the N-team engine needs rosters ≤ 6 h old. Whether
@@ -137,3 +145,6 @@ Record: not started.
 3. Task 8 — choose a publication policy for vendor CSVs and board exports.
 4. Task 11 — if Signals' session expired, re-authenticate on the box.
 5. Task 16 — authorize the production Node runtime cutover.
+6. Task 11/15 — force-cancel the two orphaned Deploy Production runs 32212914036 and 43096180672 in the Actions UI
+   (the API's ordinary cancel refuses them; the force-cancel call was not permitted from this session). The August run
+   would deploy a three-month-old SHA if GitHub ever started it.
