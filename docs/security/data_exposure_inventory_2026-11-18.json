@@ -1,0 +1,1819 @@
+{
+  "baseline": {
+    "exactPaths": 43,
+    "rotatingPrefixes": [
+      "data/raw/",
+      "data/raw_sources/",
+      "data/canonical/",
+      "data/ros/",
+      "data/playerctx/history/",
+      "exports/archive/",
+      "exports/latest/",
+      "exports/narratives/"
+    ]
+  },
+  "byCategory": {
+    "config": {
+      "bytes": 10387305,
+      "emails": 0,
+      "files": 258,
+      "leagueIds": 13,
+      "longNumeric": 82,
+      "nameFields": 90,
+      "ownerIds": 6
+    },
+    "derived_board": {
+      "bytes": 180027,
+      "emails": 0,
+      "files": 12,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0
+    },
+    "derived_board_with_league_identifiers": {
+      "bytes": 53662840,
+      "emails": 0,
+      "files": 169,
+      "leagueIds": 34908,
+      "longNumeric": 109228,
+      "nameFields": 0,
+      "ownerIds": 73448
+    },
+    "free_public_source": {
+      "bytes": 94184114,
+      "emails": 0,
+      "files": 1359,
+      "leagueIds": 0,
+      "longNumeric": 1,
+      "nameFields": 0,
+      "ownerIds": 0
+    },
+    "league_roster_data": {
+      "bytes": 1387657715,
+      "emails": 0,
+      "files": 6990,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0
+    },
+    "operational_state": {
+      "bytes": 10812145,
+      "emails": 0,
+      "files": 73,
+      "leagueIds": 0,
+      "longNumeric": 8,
+      "nameFields": 0,
+      "ownerIds": 0
+    },
+    "other": {
+      "bytes": 629927148,
+      "emails": 0,
+      "files": 317,
+      "leagueIds": 1067,
+      "longNumeric": 2190,
+      "nameFields": 0,
+      "ownerIds": 0
+    },
+    "paid_vendor_rankings": {
+      "bytes": 80545966,
+      "emails": 0,
+      "files": 3339,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0
+    },
+    "user_identifying_data": {
+      "bytes": 13514972,
+      "emails": 0,
+      "files": 37,
+      "leagueIds": 1601,
+      "longNumeric": 5423,
+      "nameFields": 0,
+      "ownerIds": 3652
+    }
+  },
+  "byPathGroup": {
+    "CSVs/": {
+      "bytes": 201775,
+      "emails": 0,
+      "files": 5,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/audit-identity-matches.yml",
+        ".github/workflows/draftsharks-diagnostic.yml",
+        ".github/workflows/e2e.yml",
+        ".github/workflows/health-check.yml",
+        ".github/workflows/scheduled-refresh.yml",
+        "Dynasty Scraper.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f CSVs/)"
+    },
+    "CSVs/site_raw/": {
+      "bytes": 506370,
+      "emails": 0,
+      "files": 30,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/audit-identity-matches.yml",
+        ".github/workflows/draftsharks-diagnostic.yml",
+        ".github/workflows/e2e.yml",
+        ".github/workflows/scheduled-refresh.yml",
+        "deploy/deploy.sh",
+        "deploy/diagnostics/dlf_fetch_inventory.sh"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f CSVs/); deploy/dlf_fetch_and_push.sh and deploy/idpshow_fetch_and_push.sh (box timers push DLF / IDP Show)"
+    },
+    "audit/": {
+      "bytes": 21582,
+      "emails": 0,
+      "files": 2,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/audit-dropped-sources.yml",
+        ".github/workflows/audit-identity-matches.yml",
+        ".github/workflows/audit-rank-form-drift.yml",
+        ".github/workflows/class-b-branch-pilot.yml",
+        ".github/workflows/consensus-edge-revalidate.yml",
+        ".github/workflows/crowd-faab-diagnostics.yml"
+      ],
+      "whyTracked": "hand-committed audit evidence"
+    },
+    "audit/baseline/": {
+      "bytes": 16153512,
+      "emails": 0,
+      "files": 8,
+      "leagueIds": 145,
+      "longNumeric": 450,
+      "nameFields": 0,
+      "ownerIds": 297,
+      "referencedBy": [
+        "tests/league_intel/test_calibration.py"
+      ],
+      "whyTracked": "hand-committed audit evidence"
+    },
+    "audit/snapshots/": {
+      "bytes": 18392,
+      "emails": 0,
+      "files": 1,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/audit-dropped-sources.yml",
+        ".github/workflows/audit-identity-matches.yml",
+        ".github/workflows/audit-rank-form-drift.yml",
+        ".github/workflows/class-b-branch-pilot.yml",
+        ".github/workflows/consensus-edge-revalidate.yml",
+        ".github/workflows/crowd-faab-diagnostics.yml"
+      ],
+      "whyTracked": "hand-committed audit evidence"
+    },
+    "config/": {
+      "bytes": 71282,
+      "emails": 0,
+      "files": 7,
+      "leagueIds": 0,
+      "longNumeric": 1,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/dependabot.yml",
+        ".github/workflows/c1a-closure-preflight.yml",
+        ".github/workflows/c1a-install-state-backup.yml",
+        ".github/workflows/class-b-model-branch.yml",
+        ".github/workflows/crowd-faab-diagnostics.yml",
+        ".github/workflows/deploy.yml"
+      ],
+      "whyTracked": "hand-edited configuration (reviewed PRs)"
+    },
+    "config/availability/": {
+      "bytes": 453,
+      "emails": 0,
+      "files": 1,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "src/ros/availability.py"
+      ],
+      "whyTracked": "hand-edited configuration (reviewed PRs)"
+    },
+    "config/bdvm/": {
+      "bytes": 15452,
+      "emails": 0,
+      "files": 3,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "scripts/idp_accuracy/build_manifest.py",
+        "scripts/idp_accuracy/scoring_parity_taxonomy.py",
+        "scripts/research/bdvm_saturation_study.py",
+        "src/bdvm/__init__.py",
+        "src/bdvm/events.py",
+        "src/bdvm/news_events.py"
+      ],
+      "whyTracked": "hand-edited configuration (reviewed PRs)"
+    },
+    "config/bestball/": {
+      "bytes": 1245,
+      "emails": 0,
+      "files": 1,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "scripts/idp_accuracy/build_manifest.py",
+        "src/bestball/__init__.py"
+      ],
+      "whyTracked": "hand-edited configuration (reviewed PRs)"
+    },
+    "config/bridges/": {
+      "bytes": 4275,
+      "emails": 0,
+      "files": 1,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "scripts/idp_accuracy/build_manifest.py",
+        "src/api/data_contract.py",
+        "src/bridges/registry.py",
+        "tests/idp_accuracy/test_bestball_archetypes.py"
+      ],
+      "whyTracked": "hand-edited configuration (reviewed PRs)"
+    },
+    "config/ci/": {
+      "bytes": 126837,
+      "emails": 0,
+      "files": 3,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/deploy.yml",
+        ".github/workflows/pr-validation.yml",
+        ".github/workflows/release-candidate.yml",
+        "scripts/check_pr_verification_receipt.py",
+        "scripts/ci_change_scope.py",
+        "scripts/ci_gate_classification.py"
+      ],
+      "whyTracked": "hand-edited configuration (reviewed PRs)"
+    },
+    "config/confidence/": {
+      "bytes": 4327,
+      "emails": 0,
+      "files": 1,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "src/api/data_contract.py",
+        "tests/api/test_confidence_gate_oracle.py"
+      ],
+      "whyTracked": "hand-edited configuration (reviewed PRs)"
+    },
+    "config/consensus_edge/": {
+      "bytes": 7478,
+      "emails": 0,
+      "files": 1,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "src/model_registry/model_lab.py",
+        "src/sharp/market.py",
+        "tests/consensus_edge/test_scoring.py",
+        "tests/model_registry/test_model_lab.py"
+      ],
+      "whyTracked": "hand-edited configuration (reviewed PRs)"
+    },
+    "config/dfs/": {
+      "bytes": 243276,
+      "emails": 0,
+      "files": 5,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "src/dfs/auto/approval.py",
+        "src/dfs/auto/live.py",
+        "src/dfs/rules.py",
+        "tests/dfs/test_contests.py"
+      ],
+      "whyTracked": "hand-edited configuration (reviewed PRs)"
+    },
+    "config/draft_valuation/": {
+      "bytes": 52077,
+      "emails": 0,
+      "files": 9,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "scripts/check_draft_valuation_independent.py",
+        "scripts/draft_valuation.py",
+        "scripts/draft_valuation_spine_replay.py",
+        "src/draft/rookie_auction/class_snapshot.py",
+        "src/draft/rookie_auction/ledger.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (create-only Batch D stores)"
+    },
+    "config/forecast_scorecard/": {
+      "bytes": 4874,
+      "emails": 0,
+      "files": 1,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "scripts/forecast_scorecard.py",
+        "src/api/ops_alerts.py",
+        "src/ros_calibration/scorecard.py"
+      ],
+      "whyTracked": "hand-edited configuration (reviewed PRs)"
+    },
+    "config/identity/": {
+      "bytes": 490,
+      "emails": 0,
+      "files": 1,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "src/identity/unified_mapper.py",
+        "src/playerctx/normalize.py"
+      ],
+      "whyTracked": "hand-edited configuration (reviewed PRs)"
+    },
+    "config/idp_accuracy/": {
+      "bytes": 19803,
+      "emails": 0,
+      "files": 1,
+      "leagueIds": 1,
+      "longNumeric": 3,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "scripts/idp_accuracy/scoring_sensitivity.py"
+      ],
+      "whyTracked": "hand-edited configuration (reviewed PRs)"
+    },
+    "config/league_intel/": {
+      "bytes": 7998,
+      "emails": 0,
+      "files": 2,
+      "leagueIds": 5,
+      "longNumeric": 12,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "scripts/audit_league_settings.py",
+        "scripts/team_points_calibration_eval.py",
+        "src/consensus_edge/scoring_fit.py",
+        "src/league_intel/__init__.py",
+        "src/league_intel/config.py",
+        "tests/league_intel/test_league_settings_fingerprint_audit.py"
+      ],
+      "whyTracked": "hand-edited configuration (reviewed PRs)"
+    },
+    "config/league_valuation/": {
+      "bytes": 9869,
+      "emails": 0,
+      "files": 2,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "scripts/idp_accuracy/build_manifest.py",
+        "src/league_valuation/contracts.py",
+        "src/league_valuation/replacement_shadow.py",
+        "tests/fixtures/league_valuation/expected_fair_value_board.json",
+        "tests/league_valuation/test_contracts_and_fixtures.py"
+      ],
+      "whyTracked": "hand-edited configuration (reviewed PRs)"
+    },
+    "config/leagues/": {
+      "bytes": 15944,
+      "emails": 0,
+      "files": 9,
+      "leagueIds": 6,
+      "longNumeric": 23,
+      "nameFields": 0,
+      "ownerIds": 4,
+      "referencedBy": [
+        ".github/workflows/crowd-faab-diagnostics.yml",
+        "Dynasty Scraper.py",
+        "scripts/audit_league_settings.py",
+        "scripts/bdvm_scoring_census.py",
+        "scripts/build_public_league_snapshot.py",
+        "scripts/fetch_league_scoring.py"
+      ],
+      "whyTracked": "hand-edited configuration (reviewed PRs)"
+    },
+    "config/model_registry/": {
+      "bytes": 8790107,
+      "emails": 0,
+      "files": 168,
+      "leagueIds": 0,
+      "longNumeric": 40,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/refit-hill-curves.yml",
+        "deploy/deploy.sh",
+        "scripts/auto_refit_hill_curves.py",
+        "scripts/check_feature_dictionary_lock.py",
+        "scripts/ci_change_scope.py",
+        "scripts/deploy_trigger_audit.py"
+      ],
+      "whyTracked": ".github/workflows/refit-hill-curves.yml"
+    },
+    "config/power/": {
+      "bytes": 2104,
+      "emails": 0,
+      "files": 1,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "scripts/publish_power_week_zero.py"
+      ],
+      "whyTracked": "hand-edited configuration (reviewed PRs)"
+    },
+    "config/projections/": {
+      "bytes": 36835,
+      "emails": 0,
+      "files": 1,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "scripts/capture_game_day_predictions.py",
+        "src/ros/projection_ensemble.py",
+        "src/ros/projection_observations.py",
+        "src/ros/projection_source_census.py"
+      ],
+      "whyTracked": "hand-edited configuration (reviewed PRs)"
+    },
+    "config/roster_construction/": {
+      "bytes": 1920,
+      "emails": 0,
+      "files": 1,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "scripts/roster_construction_parity_census.py"
+      ],
+      "whyTracked": "hand-edited configuration (reviewed PRs)"
+    },
+    "config/roster_intel/": {
+      "bytes": 1643,
+      "emails": 0,
+      "files": 1,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "scripts/challenge_core_multiplier.py",
+        "src/roster_intel/core.py",
+        "tests/roster_intel/test_core_multiplier_challenger.py"
+      ],
+      "whyTracked": "hand-edited configuration (reviewed PRs)"
+    },
+    "config/sharp/": {
+      "bytes": 736825,
+      "emails": 0,
+      "files": 6,
+      "leagueIds": 1,
+      "longNumeric": 3,
+      "nameFields": 90,
+      "ownerIds": 2,
+      "referencedBy": [
+        "deploy/install-ffpc-sharp-service.sh",
+        "deploy/install-systemd-service.sh",
+        "scripts/discover_sharp_graph.py",
+        "src/platforms/ffpc/adapter.py",
+        "src/sharp/discovery.py",
+        "src/sharp/score.py"
+      ],
+      "whyTracked": "hand-edited configuration (reviewed PRs)"
+    },
+    "config/sources/": {
+      "bytes": 139816,
+      "emails": 0,
+      "files": 7,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "scripts/audit/lineage_integrity_sweep.py",
+        "scripts/check_source_health.py",
+        "scripts/fetch_fantasycalc.py",
+        "scripts/fetch_fantasypros_idp.py",
+        "scripts/fetch_flock_fantasy_rookies.py"
+      ],
+      "whyTracked": "hand-edited configuration (reviewed PRs)"
+    },
+    "config/steward/": {
+      "bytes": 28966,
+      "emails": 0,
+      "files": 2,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "src/steward/__main__.py",
+        "tests/docs/test_site_steward_architecture.py",
+        "tests/steward/test_cli.py",
+        "tests/steward/test_continuity.py",
+        "tests/steward/test_controller.py",
+        "tests/steward/test_routing.py"
+      ],
+      "whyTracked": "hand-edited configuration (reviewed PRs)"
+    },
+    "config/tiers/": {
+      "bytes": 900,
+      "emails": 0,
+      "files": 1,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "scripts/refit_tier_thresholds.py",
+        "src/scoring/tiering.py"
+      ],
+      "whyTracked": "hand-edited configuration (reviewed PRs)"
+    },
+    "config/trade/": {
+      "bytes": 50270,
+      "emails": 0,
+      "files": 15,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "scripts/faab_backtest.py",
+        "scripts/forced_drop_fix_replay.py",
+        "scripts/idp_accuracy/backtest.py",
+        "scripts/idp_accuracy/build_manifest.py",
+        "scripts/measure_trade_analyze_multi.py",
+        "scripts/research/package_model_validation.py"
+      ],
+      "whyTracked": "hand-edited configuration (reviewed PRs)"
+    },
+    "config/waivers/": {
+      "bytes": 11011,
+      "emails": 0,
+      "files": 2,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "src/waivers/drop_assessment.py",
+        "src/waivers/streaming.py",
+        "tests/waivers/test_streaming_owner_scenarios.py"
+      ],
+      "whyTracked": "hand-edited configuration (reviewed PRs)"
+    },
+    "config/weights/": {
+      "bytes": 11582,
+      "emails": 0,
+      "files": 6,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "Dynasty Scraper.py",
+        "scripts/audit/fit_ktc_te_rank_shift.py",
+        "scripts/calibrate_pick_year_step.py",
+        "scripts/derive_source_row_floors.py",
+        "scripts/forced_drop_fix_replay.py",
+        "scripts/li5_replacement_replay.py"
+      ],
+      "whyTracked": "hand-edited configuration (reviewed PRs)"
+    },
+    "data/": {
+      "bytes": 3997352,
+      "emails": 0,
+      "files": 3,
+      "leagueIds": 1156,
+      "longNumeric": 2292,
+      "nameFields": 0,
+      "ownerIds": 199,
+      "referencedBy": [
+        ".github/workflows/audit-dropped-sources.yml",
+        ".github/workflows/audit-identity-matches.yml",
+        ".github/workflows/audit-rank-form-drift.yml",
+        ".github/workflows/c1a-closure-diagnostics.yml",
+        ".github/workflows/c1a-run-playerctx-push.yml",
+        ".github/workflows/crowd-faab-diagnostics.yml"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f for named subtrees)"
+    },
+    "data/comparison/": {
+      "bytes": 56258,
+      "emails": 0,
+      "files": 3,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/audit-dropped-sources.yml",
+        ".github/workflows/audit-identity-matches.yml",
+        ".github/workflows/audit-rank-form-drift.yml",
+        ".github/workflows/c1a-closure-diagnostics.yml",
+        ".github/workflows/c1a-run-playerctx-push.yml",
+        ".github/workflows/crowd-faab-diagnostics.yml"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f for named subtrees)"
+    },
+    "data/identity/": {
+      "bytes": 506545710,
+      "emails": 0,
+      "files": 178,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "Dynasty Scraper.py",
+        "deploy/backup/riskit-state-backup.sh",
+        "src/identity/capture_evidence.py",
+        "src/identity/vendor_ids.py",
+        "src/maintenance/retention.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f for named subtrees)"
+    },
+    "data/idp_fit_snapshots/": {
+      "bytes": 93250,
+      "emails": 0,
+      "files": 1,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/audit-dropped-sources.yml",
+        ".github/workflows/audit-identity-matches.yml",
+        ".github/workflows/audit-rank-form-drift.yml",
+        ".github/workflows/c1a-closure-diagnostics.yml",
+        ".github/workflows/c1a-run-playerctx-push.yml",
+        ".github/workflows/crowd-faab-diagnostics.yml"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f for named subtrees)"
+    },
+    "data/ops/": {
+      "bytes": 1505250,
+      "emails": 0,
+      "files": 7,
+      "leagueIds": 0,
+      "longNumeric": 7,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/verify-sharp-production.yml",
+        "scripts/low_value_asset_lineup_utility.py",
+        "scripts/sharp_smoke_record.py",
+        "scripts/verify_lane4_production.py",
+        "tests/deploy/test_sharp_smoke_commit_order.py",
+        "tests/deploy/test_sharp_smoke_unverifiable_is_loud.py"
+      ],
+      "whyTracked": ".github/workflows/verify-sharp-production.yml and one-off ops evidence"
+    },
+    "data/player_map/": {
+      "bytes": 214922,
+      "emails": 0,
+      "files": 3,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "scripts/export_player_map.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f for named subtrees)"
+    },
+    "data/playerctx/history": {
+      "bytes": 8370960,
+      "emails": 0,
+      "files": 24,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/c1a-run-playerctx-push.yml",
+        "deploy/backup/riskit-state-backup.sh",
+        "deploy/diagnostics/c1a_closure_inventory.sh",
+        "deploy/install-systemd-service.sh",
+        "deploy/playerctx_history_push.sh",
+        "scripts/refresh_playerctx.py"
+      ],
+      "whyTracked": ".github/workflows/c1a-run-playerctx-push.yml; deploy/playerctx_history_push.sh"
+    },
+    "data/public_league/": {
+      "bytes": 42000,
+      "emails": 0,
+      "files": 1,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "deploy/backup/riskit-state-backup.sh",
+        "scripts/build_public_league_snapshot.py",
+        "scripts/validate_va_v2.py",
+        "src/public_league/snapshot_store.py",
+        "src/roster_intel/engine.py",
+        "tests/api/test_audit_cw40_batch_s_open.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f for named subtrees)"
+    },
+    "data/raw/": {
+      "bytes": 1144,
+      "emails": 0,
+      "files": 1,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "src/diagnostics/scrape_telemetry.py",
+        "src/maintenance/retention.py",
+        "src/source_archive/__init__.py",
+        "tests/bdvm/test_request_path_is_local.py",
+        "tests/sources/test_source_archive_red.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/raw/); src/maintenance/retention prunes"
+    },
+    "data/raw/dlf_idp": {
+      "bytes": 4709640,
+      "emails": 0,
+      "files": 120,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "src/diagnostics/scrape_telemetry.py",
+        "src/maintenance/retention.py",
+        "src/source_archive/__init__.py",
+        "tests/bdvm/test_request_path_is_local.py",
+        "tests/sources/test_source_archive_red.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/raw/); src/maintenance/retention prunes"
+    },
+    "data/raw/dlf_ridp": {
+      "bytes": 848400,
+      "emails": 0,
+      "files": 120,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "src/diagnostics/scrape_telemetry.py",
+        "src/maintenance/retention.py",
+        "src/source_archive/__init__.py",
+        "tests/bdvm/test_request_path_is_local.py",
+        "tests/sources/test_source_archive_red.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/raw/); src/maintenance/retention prunes"
+    },
+    "data/raw/dlf_rsf": {
+      "bytes": 1841100,
+      "emails": 0,
+      "files": 120,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "src/diagnostics/scrape_telemetry.py",
+        "src/maintenance/retention.py",
+        "src/source_archive/__init__.py",
+        "tests/bdvm/test_request_path_is_local.py",
+        "tests/sources/test_source_archive_red.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/raw/); src/maintenance/retention prunes"
+    },
+    "data/raw/dlf_sf": {
+      "bytes": 7423440,
+      "emails": 0,
+      "files": 120,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "src/diagnostics/scrape_telemetry.py",
+        "src/maintenance/retention.py",
+        "src/source_archive/__init__.py",
+        "tests/bdvm/test_request_path_is_local.py",
+        "tests/sources/test_source_archive_red.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/raw/); src/maintenance/retention prunes"
+    },
+    "data/raw/draftsharks": {
+      "bytes": 12576420,
+      "emails": 0,
+      "files": 120,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "src/diagnostics/scrape_telemetry.py",
+        "src/maintenance/retention.py",
+        "src/source_archive/__init__.py",
+        "tests/bdvm/test_request_path_is_local.py",
+        "tests/sources/test_source_archive_red.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/raw/); src/maintenance/retention prunes"
+    },
+    "data/raw/draftsharks_idp": {
+      "bytes": 18375070,
+      "emails": 0,
+      "files": 120,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "src/diagnostics/scrape_telemetry.py",
+        "src/maintenance/retention.py",
+        "src/source_archive/__init__.py",
+        "tests/bdvm/test_request_path_is_local.py",
+        "tests/sources/test_source_archive_red.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/raw/); src/maintenance/retention prunes"
+    },
+    "data/raw/dynasty_daddy_sf": {
+      "bytes": 8529413,
+      "emails": 0,
+      "files": 120,
+      "leagueIds": 0,
+      "longNumeric": 1,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "src/diagnostics/scrape_telemetry.py",
+        "src/maintenance/retention.py",
+        "src/source_archive/__init__.py",
+        "tests/bdvm/test_request_path_is_local.py",
+        "tests/sources/test_source_archive_red.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/raw/); src/maintenance/retention prunes"
+    },
+    "data/raw/dynastydaddy": {
+      "bytes": 9344907,
+      "emails": 0,
+      "files": 120,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "src/diagnostics/scrape_telemetry.py",
+        "src/maintenance/retention.py",
+        "src/source_archive/__init__.py",
+        "tests/bdvm/test_request_path_is_local.py",
+        "tests/sources/test_source_archive_red.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/raw/); src/maintenance/retention prunes"
+    },
+    "data/raw/dynastynerds": {
+      "bytes": 4363209,
+      "emails": 0,
+      "files": 120,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "src/diagnostics/scrape_telemetry.py",
+        "src/maintenance/retention.py",
+        "src/source_archive/__init__.py",
+        "tests/bdvm/test_request_path_is_local.py",
+        "tests/sources/test_source_archive_red.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/raw/); src/maintenance/retention prunes"
+    },
+    "data/raw/fantasycalc": {
+      "bytes": 11882646,
+      "emails": 0,
+      "files": 120,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "src/diagnostics/scrape_telemetry.py",
+        "src/maintenance/retention.py",
+        "src/source_archive/__init__.py",
+        "tests/bdvm/test_request_path_is_local.py",
+        "tests/sources/test_source_archive_red.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/raw/); src/maintenance/retention prunes"
+    },
+    "data/raw/fantasypros": {
+      "bytes": 7866510,
+      "emails": 0,
+      "files": 120,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "src/diagnostics/scrape_telemetry.py",
+        "src/maintenance/retention.py",
+        "src/source_archive/__init__.py",
+        "tests/bdvm/test_request_path_is_local.py",
+        "tests/sources/test_source_archive_red.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/raw/); src/maintenance/retention prunes"
+    },
+    "data/raw/fantasypros_idp": {
+      "bytes": 1868490,
+      "emails": 0,
+      "files": 120,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "src/diagnostics/scrape_telemetry.py",
+        "src/maintenance/retention.py",
+        "src/source_archive/__init__.py",
+        "tests/bdvm/test_request_path_is_local.py",
+        "tests/sources/test_source_archive_red.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/raw/); src/maintenance/retention prunes"
+    },
+    "data/raw/fantasypros_sf": {
+      "bytes": 466170,
+      "emails": 0,
+      "files": 120,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "src/diagnostics/scrape_telemetry.py",
+        "src/maintenance/retention.py",
+        "src/source_archive/__init__.py",
+        "tests/bdvm/test_request_path_is_local.py",
+        "tests/sources/test_source_archive_red.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/raw/); src/maintenance/retention prunes"
+    },
+    "data/raw/flock": {
+      "bytes": 37710,
+      "emails": 0,
+      "files": 90,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "src/diagnostics/scrape_telemetry.py",
+        "src/maintenance/retention.py",
+        "src/source_archive/__init__.py",
+        "tests/bdvm/test_request_path_is_local.py",
+        "tests/sources/test_source_archive_red.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/raw/); src/maintenance/retention prunes"
+    },
+    "data/raw/flock_fantasy_sf": {
+      "bytes": 273134,
+      "emails": 0,
+      "files": 120,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "src/diagnostics/scrape_telemetry.py",
+        "src/maintenance/retention.py",
+        "src/source_archive/__init__.py",
+        "tests/bdvm/test_request_path_is_local.py",
+        "tests/sources/test_source_archive_red.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/raw/); src/maintenance/retention prunes"
+    },
+    "data/raw/footballguys_idp": {
+      "bytes": 9610600,
+      "emails": 0,
+      "files": 92,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "src/diagnostics/scrape_telemetry.py",
+        "src/maintenance/retention.py",
+        "src/source_archive/__init__.py",
+        "tests/bdvm/test_request_path_is_local.py",
+        "tests/sources/test_source_archive_red.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/raw/); src/maintenance/retention prunes"
+    },
+    "data/raw/footballguys_sf": {
+      "bytes": 11448604,
+      "emails": 0,
+      "files": 92,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "src/diagnostics/scrape_telemetry.py",
+        "src/maintenance/retention.py",
+        "src/source_archive/__init__.py",
+        "tests/bdvm/test_request_path_is_local.py",
+        "tests/sources/test_source_archive_red.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/raw/); src/maintenance/retention prunes"
+    },
+    "data/raw/idptradecalc": {
+      "bytes": 23439870,
+      "emails": 0,
+      "files": 120,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "src/diagnostics/scrape_telemetry.py",
+        "src/maintenance/retention.py",
+        "src/source_archive/__init__.py",
+        "tests/bdvm/test_request_path_is_local.py",
+        "tests/sources/test_source_archive_red.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/raw/); src/maintenance/retention prunes"
+    },
+    "data/raw/ktc": {
+      "bytes": 12509426,
+      "emails": 0,
+      "files": 120,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "src/diagnostics/scrape_telemetry.py",
+        "src/maintenance/retention.py",
+        "src/source_archive/__init__.py",
+        "tests/bdvm/test_request_path_is_local.py",
+        "tests/sources/test_source_archive_red.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/raw/); src/maintenance/retention prunes"
+    },
+    "data/raw/pff_idp": {
+      "bytes": 6325590,
+      "emails": 0,
+      "files": 120,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "src/diagnostics/scrape_telemetry.py",
+        "src/maintenance/retention.py",
+        "src/source_archive/__init__.py",
+        "tests/bdvm/test_request_path_is_local.py",
+        "tests/sources/test_source_archive_red.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/raw/); src/maintenance/retention prunes"
+    },
+    "data/raw/yahoo": {
+      "bytes": 12045597,
+      "emails": 0,
+      "files": 120,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "src/diagnostics/scrape_telemetry.py",
+        "src/maintenance/retention.py",
+        "src/source_archive/__init__.py",
+        "tests/bdvm/test_request_path_is_local.py",
+        "tests/sources/test_source_archive_red.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/raw/); src/maintenance/retention prunes"
+    },
+    "data/raw/yahoo_boone": {
+      "bytes": 5664464,
+      "emails": 0,
+      "files": 52,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "src/diagnostics/scrape_telemetry.py",
+        "src/maintenance/retention.py",
+        "src/source_archive/__init__.py",
+        "tests/bdvm/test_request_path_is_local.py",
+        "tests/sources/test_source_archive_red.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/raw/); src/maintenance/retention prunes"
+    },
+    "data/raw_sources/": {
+      "bytes": 104469772,
+      "emails": 0,
+      "files": 30,
+      "leagueIds": 0,
+      "longNumeric": 1,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "src/maintenance/retention.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml; src/maintenance/retention"
+    },
+    "data/ros/": {
+      "bytes": 2420,
+      "emails": 0,
+      "files": 2,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "deploy/backup/riskit-state-backup.sh",
+        "deploy/deploy.sh",
+        "deploy/install-systemd-service.sh",
+        "scripts/_scorecard_common.py",
+        "scripts/archive_ros_forecasts.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/ros/); team_strength unstaged by B8"
+    },
+    "data/ros/aggregate": {
+      "bytes": 1383720851,
+      "emails": 0,
+      "files": 1397,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "scripts/evaluate_playoff_ros_once.py",
+        "scripts/low_value_asset_value_dynamics.py",
+        "src/nfl_data/actuals_store.py",
+        "src/ros/__init__.py",
+        "src/ros/aggregate.py",
+        "src/ros/team_strength.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/ros/); team_strength unstaged by B8"
+    },
+    "data/ros/power_snapshots": {
+      "bytes": 196909,
+      "emails": 0,
+      "files": 21,
+      "leagueIds": 0,
+      "longNumeric": 352,
+      "nameFields": 0,
+      "ownerIds": 244,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "deploy/backup/riskit-state-backup.sh",
+        "deploy/deploy.sh",
+        "deploy/install-systemd-service.sh",
+        "scripts/_scorecard_common.py",
+        "scripts/archive_ros_forecasts.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/ros/); team_strength unstaged by B8"
+    },
+    "data/ros/runs": {
+      "bytes": 5146387,
+      "emails": 0,
+      "files": 7726,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "src/ros/__init__.py",
+        "src/ros/rank_basis.py",
+        "src/ros/scrape.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/ros/); team_strength unstaged by B8"
+    },
+    "data/ros/sims": {
+      "bytes": 54267,
+      "emails": 0,
+      "files": 8,
+      "leagueIds": 0,
+      "longNumeric": 44,
+      "nameFields": 0,
+      "ownerIds": 44,
+      "referencedBy": [
+        "deploy/deploy.sh",
+        "scripts/archive_ros_forecasts.py",
+        "scripts/audit_status.py",
+        "src/api/gameplan.py",
+        "src/ros/__init__.py",
+        "src/ros/forecast_archive.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/ros/); team_strength unstaged by B8"
+    },
+    "data/ros/sources": {
+      "bytes": 110091,
+      "emails": 0,
+      "files": 7,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "scripts/fetch_draftsharks_ros.py",
+        "src/ros/__init__.py",
+        "src/ros/scrape.py",
+        "tests/ros/test_row_confidence_semantics.py",
+        "tests/ros/test_scrape_failure_resilience.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/ros/); team_strength unstaged by B8"
+    },
+    "data/ros/team_strength": {
+      "bytes": 0,
+      "emails": 0,
+      "files": 1,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "scripts/replacement_census.py",
+        "scripts/verify_v1_onbox.py",
+        "src/api/gameplan.py",
+        "src/ros/__init__.py",
+        "src/ros/direction.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/ros/); team_strength unstaged by B8"
+    },
+    "data/scrape_state/": {
+      "bytes": 1235623,
+      "emails": 0,
+      "files": 67,
+      "leagueIds": 0,
+      "longNumeric": 1,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/retention-health.yml",
+        ".github/workflows/scheduled-refresh.yml",
+        ".github/workflows/verify-sharp-production.yml",
+        "Dynasty Scraper.py",
+        "deploy/backup/riskit-state-backup.sh",
+        "deploy/diagnostics/dlf_fetch_inventory.sh"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f data/scrape_state/ every run; deploy dispatch keys on commit subjects, CLAUDE.md W31-F001)"
+    },
+    "docs/master-site-audit/": {
+      "bytes": 2189540,
+      "emails": 0,
+      "files": 59,
+      "leagueIds": 5,
+      "longNumeric": 207,
+      "nameFields": 0,
+      "ownerIds": 3,
+      "referencedBy": [
+        ".github/workflows/class-b-branch-pilot.yml",
+        ".github/workflows/deploy.yml",
+        ".github/workflows/scoring-snapshot-diagnostics.yml",
+        "deploy/diagnostics/scoring_snapshot_inventory.sh",
+        "scripts/check_product_plan_governance.py",
+        "scripts/identity_parity.py"
+      ],
+      "whyTracked": "committed by hand (PR); not written by an automated pipeline"
+    },
+    "docs/research/": {
+      "bytes": 164459,
+      "emails": 0,
+      "files": 4,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/deploy.yml",
+        "scripts/bdvm_scoring_census.py",
+        "scripts/evaluate_bdvm_signal.py",
+        "scripts/evaluate_playoff_ros_once.py",
+        "server.py",
+        "src/api/feature_flags.py"
+      ],
+      "whyTracked": "committed by hand (PR); not written by an automated pipeline"
+    },
+    "docs/sources/": {
+      "bytes": 762128,
+      "emails": 0,
+      "files": 2,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/deploy.yml",
+        ".github/workflows/scheduled-refresh.yml",
+        ".github/workflows/signals-onbox-verification.yml",
+        "deploy/backup/riskit-state-backup.sh",
+        "deploy/idpshow_fetch_and_push.sh",
+        "deploy/install-systemd-service.sh"
+      ],
+      "whyTracked": "committed by hand (PR); not written by an automated pipeline"
+    },
+    "docs/valuation/": {
+      "bytes": 3515220,
+      "emails": 0,
+      "files": 6,
+      "leagueIds": 0,
+      "longNumeric": 10,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/deploy.yml",
+        ".github/workflows/signals-onbox-verification.yml",
+        "scripts/deploy_trigger_audit.py",
+        "scripts/evaluate_sparse_evidence.py",
+        "scripts/hill_alignment_audit.py",
+        "scripts/idp_accuracy/backtest.py"
+      ],
+      "whyTracked": "committed by hand (PR); not written by an automated pipeline"
+    },
+    "exports/": {
+      "bytes": 364714,
+      "emails": 0,
+      "files": 1,
+      "leagueIds": 188,
+      "longNumeric": 596,
+      "nameFields": 0,
+      "ownerIds": 398,
+      "referencedBy": [
+        ".github/workflows/audit-dropped-sources.yml",
+        ".github/workflows/audit-identity-matches.yml",
+        ".github/workflows/audit-rank-form-drift.yml",
+        ".github/workflows/deploy.yml",
+        ".github/workflows/e2e.yml",
+        ".github/workflows/pr-validation.yml"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f exports/); shipped to the box by deploy"
+    },
+    "exports/archive/": {
+      "bytes": 51415839,
+      "emails": 0,
+      "files": 158,
+      "leagueIds": 34532,
+      "longNumeric": 108020,
+      "nameFields": 0,
+      "ownerIds": 72636,
+      "referencedBy": [
+        "deploy/backup/riskit-state-backup.sh",
+        "deploy/deploy.sh",
+        "scripts/backfill_rank_history.py",
+        "scripts/backtest_percentile_reference_n.py",
+        "scripts/backtest_perfect_draft.py",
+        "scripts/build_temporal_ledger.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml; src/maintenance/retention; read by scripts/build_temporal_ledger.py, tests/archive_fixtures.py"
+    },
+    "exports/latest/": {
+      "bytes": 1886488,
+      "emails": 0,
+      "files": 6,
+      "leagueIds": 188,
+      "longNumeric": 596,
+      "nameFields": 0,
+      "ownerIds": 398,
+      "referencedBy": [
+        ".github/workflows/audit-dropped-sources.yml",
+        ".github/workflows/audit-identity-matches.yml",
+        ".github/workflows/audit-rank-form-drift.yml",
+        ".github/workflows/e2e.yml",
+        ".github/workflows/pr-validation.yml",
+        ".github/workflows/refit-hill-curves.yml"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f exports/); shipped to the box by deploy"
+    },
+    "exports/latest/site_raw": {
+      "bytes": 302818,
+      "emails": 0,
+      "files": 10,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/scheduled-refresh.yml",
+        "Dynasty Scraper.py",
+        "scripts/agent_session_start.sh",
+        "scripts/fetch_dynasty_daddy.py",
+        "scripts/fetch_dynasty_nerds.py",
+        "scripts/fetch_fantasycalc.py"
+      ],
+      "whyTracked": ".github/workflows/scheduled-refresh.yml (git add -f exports/); shipped to the box by deploy"
+    },
+    "exports/narratives/2025": {
+      "bytes": 10819,
+      "emails": 0,
+      "files": 2,
+      "leagueIds": 0,
+      "longNumeric": 4,
+      "nameFields": 0,
+      "ownerIds": 4,
+      "referencedBy": [
+        ".github/workflows/weekly-narratives.yml",
+        "scripts/generate_weekly_narratives.py",
+        "src/public_league/articles_api.py",
+        "src/public_league/matchup_narrative.py",
+        "tests/ros/test_forecast_archive.py"
+      ],
+      "whyTracked": ".github/workflows/weekly-narratives.yml"
+    },
+    "exports/narratives/2026": {
+      "bytes": 20554,
+      "emails": 0,
+      "files": 6,
+      "leagueIds": 0,
+      "longNumeric": 12,
+      "nameFields": 0,
+      "ownerIds": 12,
+      "referencedBy": [
+        ".github/workflows/weekly-narratives.yml",
+        "scripts/generate_weekly_narratives.py",
+        "src/public_league/articles_api.py",
+        "src/public_league/matchup_narrative.py",
+        "tests/ros/test_forecast_archive.py"
+      ],
+      "whyTracked": ".github/workflows/weekly-narratives.yml"
+    },
+    "reports/": {
+      "bytes": 14573,
+      "emails": 0,
+      "files": 12,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        ".github/workflows/c1a-closure-diagnostics.yml",
+        ".github/workflows/c1a-run-playerctx-push.yml",
+        ".github/workflows/consensus-edge-revalidate.yml",
+        ".github/workflows/crowd-faab-diagnostics.yml",
+        ".github/workflows/deploy.yml",
+        ".github/workflows/e2e.yml"
+      ],
+      "whyTracked": "hand-committed reports"
+    },
+    "tests/dfs/": {
+      "bytes": 16803,
+      "emails": 0,
+      "files": 3,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "src/dfs/optimizer.py",
+        "src/dfs/slate.py",
+        "tests/dfs/conftest.py"
+      ],
+      "whyTracked": "committed by hand (PR); not written by an automated pipeline"
+    },
+    "tests/fixtures/": {
+      "bytes": 5093810,
+      "emails": 0,
+      "files": 10,
+      "leagueIds": 1362,
+      "longNumeric": 4257,
+      "nameFields": 0,
+      "ownerIds": 2865,
+      "referencedBy": [
+        "scripts/bestball_marginal_report.py",
+        "scripts/check_draft_valuation_independent.py",
+        "scripts/draft_valuation_extract_workbook.py",
+        "scripts/draft_valuation_parity_report.py",
+        "scripts/golden_board.py",
+        "scripts/golden_surfaces.py"
+      ],
+      "whyTracked": "committed by hand (PR); not written by an automated pipeline"
+    },
+    "tests/nfl_data/": {
+      "bytes": 601601,
+      "emails": 0,
+      "files": 4,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "referencedBy": [
+        "scripts/measure_saf_defect.py",
+        "scripts/measure_season_card_symmetry.py",
+        "src/bdvm/scoring_census.py",
+        "src/nfl_data/depth_charts.py",
+        "src/nfl_data/injury_feed.py",
+        "src/nfl_data/pbp_weekly.py"
+      ],
+      "whyTracked": "committed by hand (PR); not written by an automated pipeline"
+    }
+  },
+  "byVendor": {
+    "(paid vendor members inside export zips)": {
+      "bytes": 44208438,
+      "emails": 0,
+      "files": 123,
+      "leagueIds": 26353,
+      "longNumeric": 82663,
+      "nameFields": 0,
+      "ownerIds": 55423,
+      "paid": true
+    },
+    "Draft Sharks": {
+      "bytes": 32545006,
+      "emails": 0,
+      "files": 1724,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "paid": true
+    },
+    "Dynasty Daddy": {
+      "bytes": 17938658,
+      "emails": 0,
+      "files": 244,
+      "leagueIds": 0,
+      "longNumeric": 1,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "paid": false
+    },
+    "Dynasty League Football": {
+      "bytes": 15719259,
+      "emails": 0,
+      "files": 501,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "paid": true
+    },
+    "Dynasty Nerds": {
+      "bytes": 4389580,
+      "emails": 0,
+      "files": 123,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "paid": true
+    },
+    "Fantasy Navigator": {
+      "bytes": 54311,
+      "emails": 0,
+      "files": 3,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "paid": false
+    },
+    "FantasyCalc": {
+      "bytes": 11947841,
+      "emails": 0,
+      "files": 123,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "paid": false
+    },
+    "FantasyPros": {
+      "bytes": 13193035,
+      "emails": 0,
+      "files": 4556,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "paid": false
+    },
+    "Flock Fantasy": {
+      "bytes": 407986,
+      "emails": 0,
+      "files": 219,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "paid": false
+    },
+    "Footballguys": {
+      "bytes": 21485387,
+      "emails": 0,
+      "files": 862,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "paid": true
+    },
+    "IDP Trade Calculator": {
+      "bytes": 23597525,
+      "emails": 0,
+      "files": 125,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "paid": false
+    },
+    "KeepTradeCut": {
+      "bytes": 13102131,
+      "emails": 0,
+      "files": 141,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "paid": false
+    },
+    "OTC Fantasy Football": {
+      "bytes": 67040,
+      "emails": 0,
+      "files": 3,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "paid": false
+    },
+    "PFF (via IDP tables)": {
+      "bytes": 6325590,
+      "emails": 0,
+      "files": 120,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "paid": true
+    },
+    "Play for Keeps": {
+      "bytes": 47887,
+      "emails": 0,
+      "files": 3,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "paid": false
+    },
+    "The IDP Show": {
+      "bytes": 81144,
+      "emails": 0,
+      "files": 9,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "paid": true
+    },
+    "Yahoo (Boone)": {
+      "bytes": 17734884,
+      "emails": 0,
+      "files": 175,
+      "leagueIds": 0,
+      "longNumeric": 0,
+      "nameFields": 0,
+      "ownerIds": 0,
+      "paid": false
+    }
+  },
+  "guardTriggerFilesByGroup": {
+    "CSVs/": 1,
+    "CSVs/site_raw/": 13,
+    "audit/baseline/": 2,
+    "config/leagues/": 2,
+    "config/sharp/": 1,
+    "data/": 1,
+    "data/raw/dlf_idp": 120,
+    "data/raw/dlf_ridp": 120,
+    "data/raw/dlf_rsf": 120,
+    "data/raw/dlf_sf": 120,
+    "data/raw/draftsharks": 120,
+    "data/raw/draftsharks_idp": 120,
+    "data/raw/dynastynerds": 120,
+    "data/raw/footballguys_idp": 92,
+    "data/raw/footballguys_sf": 92,
+    "data/raw/pff_idp": 120,
+    "data/ros/power_snapshots": 21,
+    "data/ros/runs": 2146,
+    "data/ros/sims": 4,
+    "data/ros/sources": 3,
+    "data/scrape_state/": 13,
+    "docs/master-site-audit/": 2,
+    "exports/": 1,
+    "exports/archive/": 158,
+    "exports/latest/": 2,
+    "exports/latest/site_raw": 4,
+    "exports/narratives/2025": 2,
+    "exports/narratives/2026": 6,
+    "tests/fixtures/": 7
+  },
+  "notes": [
+    "Counts only; no identifier or vendor value is emitted.",
+    "Vendor / paid classification is path-based and heuristic; owner to confirm.",
+    "nameFields counts person-name fields only (username/owner/manager names); player and NFL-team names are excluded.",
+    "longNumeric counts every 17-19 digit number and over-counts (timestamps, ids of any kind)."
+  ],
+  "schema": "tracked-data-exposure-report/v1",
+  "scope": [
+    "CSVs/",
+    "exports/",
+    "data/",
+    "config/",
+    "reports/",
+    "audit/",
+    "*.csv",
+    "*.jsonl",
+    "*.zip",
+    "*.sqlite",
+    "*.db",
+    "*.xlsx",
+    "*.parquet"
+  ],
+  "totals": {
+    "bytes": 2280872232,
+    "files": 12554
+  }
+}
