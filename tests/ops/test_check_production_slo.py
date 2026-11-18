@@ -287,13 +287,13 @@ def test_undeployed_relevant_times_against_a_real_repo(tmp_path, monkeypatch, ig
         ).stdout
 
     git("init", "-q", "-b", "main")
-    (tmp_path / "a.txt").write_text("1")
+    (tmp_path / "a.txt").write_text("1", encoding="utf-8")
     git("add", "."), git("commit", "-qm", "base")
     deployed = git("rev-parse", "HEAD").strip()
     (tmp_path / "data").mkdir()
-    (tmp_path / "data/x.json").write_text("{}")
+    (tmp_path / "data/x.json").write_text("{}", encoding="utf-8")
     git("add", "."), git("commit", "-qm", "data only")
-    (tmp_path / "src.py").write_text("x")
+    (tmp_path / "src.py").write_text("x", encoding="utf-8")
     git("add", "."), git("commit", "-qm", "code")
     monkeypatch.setattr(slo, "REPO_ROOT", tmp_path)
     times = slo.undeployed_relevant_times(deployed, "main", ignore)
