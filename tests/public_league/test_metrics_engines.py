@@ -57,7 +57,11 @@ class _BaseFixture(unittest.TestCase):
         class _FixtureClock(datetime):
             @classmethod
             def now(cls, tz=None):  # type: ignore[override]
-                return fixture_now.astimezone(tz) if tz is not None else fixture_now.replace(tzinfo=None)
+                return (
+                    fixture_now.astimezone(tz)
+                    if tz is not None
+                    else fixture_now.replace(tzinfo=None)
+                )
 
         patcher = mock.patch.object(draft_class_evidence, "datetime", _FixtureClock)
         patcher.start()
