@@ -207,6 +207,17 @@ def test_missing_freshness_block_is_unknown_never_healthy():
     assert slo.exit_code(list(results.values()), unknown_ok=True) == 0
 
 
+def test_absent_status_block_is_unknown_with_a_specific_reason():
+    for rule in (
+        slo.rule_top200_stale,
+        slo.rule_withheld,
+        slo.rule_board_age,
+        slo.rule_private_sources,
+    ):
+        r = rule(snap(freshness_slo=None), CFG)
+        assert r.status == slo.UNKNOWN and "status_block_absent" in r.detail
+
+
 def test_null_measurement_is_unknown_not_zero():
     r = slo.rule_top200_stale(
         snap(freshness_slo=healthy_slo(top200StaleShare=None, state="unknown")), CFG
@@ -366,5 +377,8 @@ def test_workflow_runs_the_script_with_minimal_permissions_and_no_comment_per_ru
     assert body.count("gh issue comment") == 1
     # No threshold literals in the workflow: they live in the config file.
     assert "maxHours" not in text
+    # Neutral title (an UNKNOWN-only run files it too) and an explicit headline.
+    assert 'TRACKER_TITLE="Production SLO alert"' in body
+    assert "BREACH:" in body and "UNKNOWN-ONLY:" in body
     # A green run closes the tracker; an unmeasurable run does not.
     assert 'if [[ "${RC}" == "0" ]]' in body and "gh issue close" in body

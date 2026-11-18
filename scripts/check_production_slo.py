@@ -239,7 +239,7 @@ def _share_rule(snap: Snapshot, key: str, limit: float, name: str, label: str) -
             UNKNOWN,
             None,
             limit,
-            "/api/status has no freshness_slo block (deployed build predates it)",
+            "status_block_absent: /api/status has no freshness_slo block (deployed build predates it)",
         )
     value = slo.get(key)
     if not isinstance(value, (int, float)) or isinstance(value, bool):
@@ -286,7 +286,14 @@ def rule_private_sources(snap: Snapshot, cfg: Mapping[str, Any]) -> Result:
         return Result(name, DATA, UNKNOWN, None, limit, "/api/status unreachable")
     slo = snap.freshness_slo
     if not isinstance(slo, Mapping):
-        return Result(name, DATA, UNKNOWN, None, limit, "/api/status has no freshness_slo block")
+        return Result(
+            name,
+            DATA,
+            UNKNOWN,
+            None,
+            limit,
+            "status_block_absent: /api/status has no freshness_slo block",
+        )
     stale, unknown = slo.get("privateSourcesStale"), slo.get("privateSourcesUnknown")
     if not isinstance(stale, int) or isinstance(stale, bool):
         return Result(name, DATA, UNKNOWN, None, limit, "private source staleness not measured")

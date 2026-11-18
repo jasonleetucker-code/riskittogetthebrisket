@@ -549,7 +549,7 @@ jobs:
           RC: ${{ steps.slo.outputs.rc }}
         run: |
           set -Eeuo pipefail
-          TRACKER_TITLE="Production SLO breach"
+          TRACKER_TITLE="Production SLO alert"
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           gh label create production-health --color B60205 \
@@ -577,8 +577,13 @@ jobs:
             SIG="check_did_not_complete"   # the script died before writing its report
           fi
           REPORT=$(cat slo_report.txt 2>/dev/null || echo "no report was produced")
+          if [[ "${RC}" == "1" ]]; then
+            HEADLINE="BREACH: production is outside its freshness budget (config/ops/production_slo.json)."
+          else
+            HEADLINE="UNKNOWN-ONLY: no budget is known to be breached, but at least one rule could not be measured (unknown is not healthy)."
+          fi
           BODY=$(printf '%s\n\n```\n%s\n```\n\nLast checked %s. Workflow run: %s\n\nThis issue is updated in place and closed automatically by the next green run. Per-source private detail: admin diagnostics.\n\n<!-- slo-signature: %s -->' \
-            "Production is outside its freshness budget (config/ops/production_slo.json)." "$REPORT" "$NOW" "$RUN_URL" "$SIG")
+            "$HEADLINE" "$REPORT" "$NOW" "$RUN_URL" "$SIG")
           if [[ -z "$EXISTING" ]]; then
             gh issue create --title "$TRACKER_TITLE" --body "$BODY" --label production-health
             exit 0

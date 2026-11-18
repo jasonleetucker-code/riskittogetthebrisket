@@ -46,6 +46,22 @@ def test_withheld_rule_matches_the_frontend_rule_exactly():
     body = js.split("export function withheldValueState(row) {", 1)[1].split("\n}\n", 1)[0]
     assert "quarantined === true" in body and '"quarantined"' in body
     assert re.search(r'freshness === "low"\)\s*return "stale"', body)
+    # Exactly the four returns the Python owner mirrors; a new JS condition
+    # adds a return and fails here until the Python rule is updated too.
+    assert re.findall(r"return ([^;]+);", body) == ["null", '"quarantined"', '"stale"', "null"]
+    cases = [
+        ({"quarantined": True}, "quarantined"),
+        ({"raw": {"quarantined": True}}, None),  # JS also reads row.raw; contract rows are flat
+        ({"quarantined": "yes"}, None),  # strict `=== true`
+        ({"confidenceAxes": {"freshness": "low"}}, "stale"),
+        ({"confidenceAxes": {"freshness": "medium"}}, None),
+        ({"confidenceAxes": {"freshness": "high"}}, None),
+        ({"confidenceAxes": {}}, None),
+        ({"quarantined": True, "confidenceAxes": {"freshness": "low"}}, "quarantined"),
+        ({}, None),
+    ]
+    for row, expected in cases:
+        assert fs.withheld_value_state(row) == expected, row
     assert fs.withheld_value_state(_row(1, quarantined=True)) == "quarantined"
     assert fs.withheld_value_state(_row(1, fresh="low")) == "stale"
     # quarantine wins over stale, as in the JS
