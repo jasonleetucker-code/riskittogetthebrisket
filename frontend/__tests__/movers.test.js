@@ -6,6 +6,7 @@ import {
   fmtDelta,
   WINDOW_OPTIONS,
 } from "@/lib/movers";
+import { computeWindowTrend, normalizePoints } from "@/lib/value-history";
 
 function row({
   name,
@@ -145,4 +146,73 @@ describe("fmtDelta", () => {
 
 it("WINDOW_OPTIONS exposes 1d/7d/30d", () => {
   expect(WINDOW_OPTIONS.map((w) => w.key)).toEqual(["1d", "7d", "30d"]);
+});
+
+// 2026-11-16 verified sweep: players who dropped OFF the board were listed as
+// movers with Value 0 and the stale delta from whenever their history ended.
+describe("computeMovers — players off the board are not movers", () => {
+  const iso = (offset) => {
+    const d = new Date(Date.UTC(2026, 10, 15));
+    d.setUTCDate(d.getUTCDate() - offset);
+    return d.toISOString().slice(0, 10);
+  };
+
+  it("excludes a row with no current board rank (1-day window)", () => {
+    const rows = [
+      row({ name: "Ranked", rankChange: 4 }),
+      { ...row({ name: "Gone", rankChange: 9 }), canonicalConsensusRank: null, rankDerivedValue: null },
+    ];
+    const out = computeMovers(rows, { windowDays: 1 });
+    expect(out.map((m) => m.name)).toEqual(["Ranked"]);
+  });
+
+  it("excludes an off-board row whose history stopped days ago (multi-day window)", () => {
+    const rows = [
+      row({ name: "OnBoard", rankHistory: [{ date: iso(5), rank: 60 }, { date: iso(0), rank: 55 }] }),
+      {
+        ...row({ name: "Dropped", rankHistory: [{ date: iso(12), rank: 400 }, { date: iso(10), rank: 300 }] }),
+        canonicalConsensusRank: null,
+        rankDerivedValue: null,
+      },
+    ];
+    const out = computeMovers(rows, { windowDays: 30 });
+    expect(out.map((m) => m.name)).toEqual(["OnBoard"]);
+    expect(out[0].delta).toBe(5);
+  });
+
+  it("anchors the window at the board's latest snapshot, so a history that stopped early is not a current move", () => {
+    const rows = [
+      row({ name: "Current", rankHistory: [{ date: iso(6), rank: 80 }, { date: iso(0), rank: 70 }] }),
+      // Still carries a rank stamp, but its history ends three days before the
+      // board's latest snapshot: its "now" is not now.
+      row({ name: "Stale", rankHistory: [{ date: iso(9), rank: 200 }, { date: iso(3), rank: 100 }] }),
+    ];
+    const out = computeMovers(rows, { windowDays: 7 });
+    expect(out.map((m) => m.name)).toEqual(["Current"]);
+  });
+
+  it("never reports a missing value as 0", () => {
+    const rows = [{ ...row({ name: "NoValue", rankChange: 3 }), rankDerivedValue: null }];
+    const [m] = computeMovers(rows, { windowDays: 1 });
+    expect(m.value).toBeNull();
+    expect(m.currentRank).toBe(50);
+  });
+});
+
+describe("computeWindowTrend — optional board as-of anchor", () => {
+  const pts = (pairs) => normalizePoints(pairs.map(([date, rank]) => ({ date, rank })));
+
+  it("is unchanged without an anchor (the player's own last point is now)", () => {
+    expect(computeWindowTrend(pts([["2026-11-01", 50], ["2026-11-05", 40]]), 7)).toBe(10);
+  });
+
+  it("returns null when the history ends a day or more before the anchor", () => {
+    const asOf = Date.parse("2026-11-15");
+    expect(computeWindowTrend(pts([["2026-11-01", 50], ["2026-11-05", 40]]), 30, { asOf })).toBeNull();
+  });
+
+  it("measures over the window ending at the anchor when the history is current", () => {
+    const asOf = Date.parse("2026-11-15");
+    expect(computeWindowTrend(pts([["2026-11-01", 90], ["2026-11-10", 60], ["2026-11-15", 50]]), 7, { asOf })).toBe(10);
+  });
 });

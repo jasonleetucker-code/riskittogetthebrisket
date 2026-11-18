@@ -37,20 +37,42 @@ export const DIRECTION_OPTIONS = Object.freeze([
  * Returns rows sorted by absolute delta DESC, with ties broken by
  * higher absolute value (so a top-50 player moving 5 spots ranks
  * above a top-300 player moving the same amount).
+ *
+ * A player OFF the board — no current backend rank — is not a mover: a
+ * rank change needs a rank now.  Such rows used to be listed with Value
+ * ``0`` (a missing value coerced to zero) and the stale delta from
+ * whenever their history ended.  They are excluded, and a multi-day
+ * trend is anchored at the board's latest snapshot so a history that
+ * stopped early cannot pass for a current move.
  */
 export function computeMovers(rows, { windowDays = 7, direction = "all", limit = 100 } = {}) {
   if (!Array.isArray(rows)) return [];
+  const multiDay = windowDays > 1;
+  const pointsByRow = new Map();
+  let boardAsOf = null;
+  if (multiDay) {
+    for (const r of rows) {
+      if (!r || typeof r !== "object") continue;
+      const points = normalizePoints(r.rankHistory);
+      pointsByRow.set(r, points);
+      const last = points[points.length - 1];
+      if (last && (boardAsOf == null || last.t > boardAsOf)) boardAsOf = last.t;
+    }
+  }
   const out = [];
   for (const r of rows) {
     if (!r || typeof r !== "object") continue;
+    const rank = Number(r.canonicalConsensusRank);
+    if (!Number.isFinite(rank) || rank <= 0) continue;
 
     let delta = null;
-    if (windowDays <= 1) {
+    if (!multiDay) {
       const rc = Number(r.rankChange);
-      delta = Number.isFinite(rc) ? rc : null;
+      delta = r.rankChange == null || !Number.isFinite(rc) ? null : rc;
     } else {
-      const points = normalizePoints(r.rankHistory);
-      const trend = computeWindowTrend(points, windowDays);
+      const trend = computeWindowTrend(pointsByRow.get(r) || [], windowDays, {
+        asOf: boardAsOf ?? undefined,
+      });
       delta = Number.isFinite(trend) ? trend : null;
     }
     if (delta == null || delta === 0) continue;
@@ -64,18 +86,28 @@ export function computeMovers(rows, { windowDays = 7, direction = "all", limit =
       family: familyOf(r.pos),
       teamAbbr: r.teamAbbr || r.team || "",
       sleeperId: r.sleeperId || null,
-      currentRank: Number(r.canonicalConsensusRank) || null,
+      currentRank: rank,
       delta,
       absDelta: Math.abs(delta),
-      value: Number(r.rankDerivedValue || r.values?.full || 0),
+      value: positiveOrNull(r.rankDerivedValue) ?? positiveOrNull(r.values?.full),
       rankHistory: r.rankHistory || null,
     });
   }
   out.sort((a, b) => {
     if (b.absDelta !== a.absDelta) return b.absDelta - a.absDelta;
-    return b.value - a.value;
+    // A missing value sorts last; it is never treated as a real 0.
+    const av = a.value ?? -Infinity;
+    const bv = b.value ?? -Infinity;
+    if (av === bv) return 0;
+    return bv > av ? 1 : -1;
   });
   return out.slice(0, limit);
+}
+
+function positiveOrNull(v) {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 export function filterByFamily(movers, family) {

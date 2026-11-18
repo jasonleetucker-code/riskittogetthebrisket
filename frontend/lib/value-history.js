@@ -85,11 +85,20 @@ export function normalizePoints(rawPoints) {
  * ``rank_N_days_ago - rank_now`` so a POSITIVE number means the
  * player rose on the consensus board (rank got smaller / better).
  * Returns null if the window has no coverage.
+ *
+ * ``asOf`` (optional, epoch ms) anchors "now" at the BOARD's latest
+ * snapshot rather than at this player's own last point.  A player whose
+ * history stops a day or more before ``asOf`` has no rank "now" — he fell
+ * off the board — so the trend is null rather than the stale delta from
+ * whenever his history ended.  Without ``asOf`` the player's own last
+ * point is "now" (the historical behaviour, kept for single-player views).
  */
-export function computeWindowTrend(points, windowDays) {
+export function computeWindowTrend(points, windowDays, { asOf } = {}) {
   if (!points || points.length === 0) return null;
   const latest = points[points.length - 1];
-  const cutoff = latest.t - windowDays * 86400_000;
+  const anchorT = Number.isFinite(asOf) ? asOf : latest.t;
+  if (anchorT - latest.t >= 86400_000) return null;
+  const cutoff = anchorT - windowDays * 86400_000;
   // Find the earliest point within the window (or the oldest overall).
   let baseline = null;
   for (const p of points) {

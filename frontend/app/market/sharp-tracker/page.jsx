@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Badge,
   Banner,
@@ -65,6 +65,23 @@ async function fetchFreshJson(path, { attempts = 3 } = {}) {
   throw lastError || new Error("Request failed");
 }
 
+/**
+ * One window's count for a row, or null when the payload holds no figure for
+ * that window.  Each market payload carries exactly ONE window
+ * (`windows[query.window]`); reading another window's key used to coerce the
+ * absent figure to 0, so every player read "0 buys / 0 sells" whenever the
+ * table still held the previous window's result.  Missing is never zero.
+ */
+function windowStat(row, windowKey, key) {
+  if (!windowKey) return null;
+  const value = row?.windows?.[windowKey]?.[key];
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+const showStat = (n) => (n == null ? "—" : n);
+
 // Same filter-row shape as /market/sharp-roster-percentage's `Dropdown` —
 // kept local rather than extracted, since it is two call sites total
 // across the two sharp pages and each has a slightly different label
@@ -109,6 +126,9 @@ export default function SharpTrackerPage() {
   const [market, setMarket] = useState(null);
   const [loading, setLoading] = useState(true);
   const [marketError, setMarketError] = useState(null);
+  // The window the last market error belongs to.  A failed refresh of the
+  // HELD window is not a failure of a newly selected one that is still loading.
+  const [marketErrorWindow, setMarketErrorWindow] = useState(null);
   const [cohortError, setCohortError] = useState(null);
   const [lastRefreshedAt, setLastRefreshedAt] = useState(null);
   const [refreshToken, setRefreshToken] = useState(0);
@@ -117,6 +137,9 @@ export default function SharpTrackerPage() {
   const [sort, setSort] = useState("strength");
   const [qualification, setQualification] = useState("all");
   const [expandedAssetId, setExpandedAssetId] = useState(null);
+  // Only the newest market request may land: switching 30d → 7d → 30d quickly
+  // must not let the slower 7d answer overwrite the 30d one.
+  const marketRequestRef = useRef(0);
 
   const loadCohort = useCallback(async () => {
     try {
@@ -129,6 +152,7 @@ export default function SharpTrackerPage() {
   }, []);
 
   const loadMarket = useCallback(async () => {
+    const requestId = ++marketRequestRef.current;
     setLoading(true);
     const params = new URLSearchParams({
       window: windowName,
@@ -140,13 +164,17 @@ export default function SharpTrackerPage() {
     });
     try {
       const payload = await fetchFreshJson(`/api/sharp/market?${params.toString()}`);
+      if (requestId !== marketRequestRef.current) return;
       setMarket(payload);
       setMarketError(null);
+      setMarketErrorWindow(null);
       setLastRefreshedAt(Date.now());
     } catch (error) {
+      if (requestId !== marketRequestRef.current) return;
       setMarketError(apiErrorMessage(error));
+      setMarketErrorWindow(windowName);
     } finally {
-      setLoading(false);
+      if (requestId === marketRequestRef.current) setLoading(false);
     }
   }, [qualification, sort, source, windowName]);
 
@@ -163,6 +191,11 @@ export default function SharpTrackerPage() {
   }, [loadMarket, refreshToken]);
 
   const cohortStats = cohort?.cohort || {};
+  // The window the rows actually describe — stamped by the server — which is
+  // not the selected window while a new one is loading (or failed to load).
+  const marketWindow = market?.query?.window || null;
+  const windowPending = Boolean(market) && marketWindow !== windowName;
+  const selectedWindowFailed = Boolean(marketError) && marketErrorWindow === windowName;
   const assets = (market?.assets || []).filter(
     (asset) =>
       asset?.assetType !== "pick" &&
@@ -219,23 +252,26 @@ export default function SharpTrackerPage() {
         header: "Buys",
         numeric: true,
         sortable: true,
-        accessor: (row) => row.windows?.[windowName]?.buys || 0,
+        accessor: (row) => windowStat(row, marketWindow, "buys"),
+        render: (row) => showStat(windowStat(row, marketWindow, "buys")),
       },
       {
         key: "sells",
         header: "Sells",
         numeric: true,
         sortable: true,
-        accessor: (row) => row.windows?.[windowName]?.sells || 0,
+        accessor: (row) => windowStat(row, marketWindow, "sells"),
+        render: (row) => showStat(windowStat(row, marketWindow, "sells")),
       },
       {
         key: "net",
         header: "Net",
         numeric: true,
         sortable: true,
-        accessor: (row) => row.windows?.[windowName]?.net || 0,
+        accessor: (row) => windowStat(row, marketWindow, "net"),
         render: (row) => {
-          const net = row.windows?.[windowName]?.net || 0;
+          const net = windowStat(row, marketWindow, "net");
+          if (net == null) return "—";
           return `${net > 0 ? "+" : ""}${net}`;
         },
       },
@@ -245,7 +281,8 @@ export default function SharpTrackerPage() {
         numeric: true,
         sortable: true,
         hideBelow: "md",
-        accessor: (row) => row.windows?.[windowName]?.volume || 0,
+        accessor: (row) => windowStat(row, marketWindow, "volume"),
+        render: (row) => showStat(windowStat(row, marketWindow, "volume")),
       },
       {
         key: "uniqueManagers",
@@ -253,7 +290,8 @@ export default function SharpTrackerPage() {
         numeric: true,
         sortable: true,
         hideBelow: "lg",
-        accessor: (row) => row.windows?.[windowName]?.uniqueManagers || 0,
+        accessor: (row) => windowStat(row, marketWindow, "uniqueManagers"),
+        render: (row) => showStat(windowStat(row, marketWindow, "uniqueManagers")),
       },
       {
         key: "uniqueLeagues",
@@ -261,7 +299,8 @@ export default function SharpTrackerPage() {
         numeric: true,
         sortable: true,
         hideBelow: "lg",
-        accessor: (row) => row.windows?.[windowName]?.uniqueLeagues || 0,
+        accessor: (row) => windowStat(row, marketWindow, "uniqueLeagues"),
+        render: (row) => showStat(windowStat(row, marketWindow, "uniqueLeagues")),
       },
       {
         key: "velocity",
@@ -299,7 +338,7 @@ export default function SharpTrackerPage() {
         render: (row) => (row.lastTs ? new Date(row.lastTs).toLocaleDateString() : "—"),
       },
     ],
-    [windowName],
+    [marketWindow],
   );
 
   return (
@@ -337,7 +376,11 @@ export default function SharpTrackerPage() {
             value={cohortStats.provisionalManagers ?? market?.cohort?.provisionalManagers ?? "—"}
             meta="public FFPC activity, not sharp-v2"
           />
-          <StatTile label="Assets" value={assets.length} meta={`activity in ${windowName}`} />
+          <StatTile
+            label="Assets"
+            value={market && !windowPending ? assets.length : "—"}
+            meta={windowPending ? `loading ${windowName}` : `activity in ${windowName}`}
+          />
         </div>
       </Panel>
 
@@ -389,7 +432,12 @@ export default function SharpTrackerPage() {
         </div>
       </Panel>
 
-      {marketError && market ? (
+      {selectedWindowFailed && market && windowPending ? (
+        <Banner tone="warning" title={`The ${windowName} window did not load`}>
+          {marketError}. The table below still shows the {marketWindow || "previous"} window, labelled as such, and the{" "}
+          {windowName} window is retrying automatically.
+        </Banner>
+      ) : selectedWindowFailed && market && !windowPending ? (
         <Banner tone="warning" title="Latest refresh failed">
           {marketError}. Showing the last successful result and retrying automatically.
         </Banner>
@@ -406,8 +454,17 @@ export default function SharpTrackerPage() {
         </Banner>
       ) : loading && !market ? (
         <LoadingState message="Loading unified Sharp market…" />
+      ) : windowPending && loading && !selectedWindowFailed ? (
+        <LoadingState message={`Loading the ${windowName} window…`} />
       ) : (
-        <Panel title="Market activity">
+        <Panel
+          title="Market activity"
+          subtitle={
+            windowPending
+              ? `Showing the ${marketWindow || "previous"} window — ${windowName} has not loaded`
+              : undefined
+          }
+        >
           <DataTable
             columns={columns}
             rows={assets}

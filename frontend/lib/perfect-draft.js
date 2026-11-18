@@ -1363,10 +1363,16 @@ export function realizedResults({
   cutLadder = [],
   openRosterSpots = 0,
   strategy = DEFAULT_STRATEGY,
+  teamIdx = null,
 } = {}) {
-  // `mine` is stamped per-row by computeDraftStats, so the team is already
-  // resolved here — `stats` itself carries no myTeamIdx.
-  const bought = (stats?.enrichedPlayers || []).filter((p) => p?.drafted && p?.mine);
+  // `mine` is stamped per-row by computeDraftStats, so the user's own team is
+  // already resolved here — `stats` itself carries no myTeamIdx.  When the
+  // panel optimizes ANOTHER team, `teamIdx` names it and the purchases are
+  // that team's own (the pick's `teamIdx`), never the user's.
+  const forTeam = Number.isInteger(teamIdx)
+    ? (p) => p?.drafted && p?.pick?.teamIdx === teamIdx
+    : (p) => p?.drafted && p?.mine;
+  const bought = (stats?.enrichedPlayers || []).filter(forTeam);
   const { rungsUsed } = applyDraftProgress({
     openRosterSpots,
     cutLadder,
