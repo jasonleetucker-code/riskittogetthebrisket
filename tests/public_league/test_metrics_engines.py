@@ -8,7 +8,10 @@ fixture (or a metric) will fail here — by design.
 from __future__ import annotations
 
 import unittest
+from datetime import datetime, timezone
+from unittest import mock
 
+from src.api import draft_class_evidence
 from src.public_league import (
     activity,
     archives,
@@ -41,6 +44,24 @@ class _BaseFixture(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.snapshot = build_test_snapshot()
+        # The fixture is a league in the 2025 season whose upcoming pick classes
+        # are 2026+.  The owned-pick window is anchored on the UTC calendar year
+        # (``league_draft_years_for``), so under the real clock the fixture's
+        # 2026 picks drop out of the inventory once the calendar reaches 2027.
+        # Pin the clock to the fixture's own offseason, derived from the
+        # fixture's season (not a literal), so the expectations below describe
+        # the fixture's world on any real date.
+        offseason_year = int(cls.snapshot.current_season.season) + 1
+        fixture_now = datetime(offseason_year, 1, 15, tzinfo=timezone.utc)
+
+        class _FixtureClock(datetime):
+            @classmethod
+            def now(cls, tz=None):  # type: ignore[override]
+                return fixture_now.astimezone(tz) if tz is not None else fixture_now.replace(tzinfo=None)
+
+        patcher = mock.patch.object(draft_class_evidence, "datetime", _FixtureClock)
+        patcher.start()
+        cls.addClassCleanup(patcher.stop)
 
 
 # ── History / Hall of Fame ─────────────────────────────────────────────────

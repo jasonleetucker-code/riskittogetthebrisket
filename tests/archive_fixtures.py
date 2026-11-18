@@ -38,6 +38,8 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterator
 
+from tests import fake_clock as _fake_clock
+
 REPO = Path(__file__).resolve().parents[1]
 ARCHIVE = REPO / "exports" / "archive"
 
@@ -291,7 +293,7 @@ class _FrozenClockMeta(type):
         return issubclass(sub, _REAL_DATE if cls is _FrozenDate else _REAL_DATETIME)
 
 
-class _FrozenDatetime(datetime, metaclass=_FrozenClockMeta):
+class _FrozenDatetime(_fake_clock.REAL_DATETIME, metaclass=_FrozenClockMeta):
     """``datetime`` whose ``now`` / ``utcnow`` / ``today`` answer the frozen instant."""
 
     frozen: datetime = datetime(2000, 1, 1, tzinfo=timezone.utc)
@@ -312,7 +314,7 @@ class _FrozenDatetime(datetime, metaclass=_FrozenClockMeta):
         return cls.now()
 
 
-class _FrozenDate(date, metaclass=_FrozenClockMeta):
+class _FrozenDate(_fake_clock.REAL_DATE, metaclass=_FrozenClockMeta):
     @classmethod
     def today(cls):  # type: ignore[override]
         return _FrozenDatetime.frozen.astimezone(timezone.utc).date()

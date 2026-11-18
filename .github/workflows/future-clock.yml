@@ -1,0 +1,105 @@
+name: Future Clock (year boundary)
+
+# ADVISORY.  Runs the clock-reading test files under a fake wall clock at the
+# 2026 -> 2027 boundary instants so a year-boundary defect is found BEFORE the
+# real rollover.  Not a required check, not part of PR Validation / Release
+# Candidate / Deploy, and it cannot affect production: read-only token, tests
+# only, no writes to data/, exports/ or anything deployed.
+# Harness: tests/fake_clock.py + scripts/run_future_clock_suites.sh.
+
+on:
+  workflow_dispatch:
+    inputs:
+      instant:
+        description: "Extra ISO-8601 UTC instant to test (optional), e.g. 2027-01-01T00:30:00Z"
+        required: false
+        type: string
+        default: ""
+  schedule:
+    - cron: "17 5 * * 1"
+
+concurrency:
+  group: future-clock
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  future-clock:
+    name: ${{ matrix.label }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: "2026-12-31T23:30Z"
+            instant: "2026-12-31T23:30:00Z"
+            tz: "UTC"
+          - label: "2027-01-01T00:30Z"
+            instant: "2027-01-01T00:30:00Z"
+            tz: "UTC"
+          - label: "2027-01-02T12:00Z"
+            instant: "2027-01-02T12:00:00Z"
+            tz: "UTC"
+          - label: "2027-01-01T03:00Z (LA still 2026-12-31)"
+            instant: "2027-01-01T03:00:00Z"
+            tz: "America/Los_Angeles"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements-dev.lock.txt
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m pip install --upgrade pip
+          python scripts/python_lock.py check
+          pip install --require-hashes -r requirements-dev.lock.txt
+
+      - name: Date-sensitive suites under the fake clock
+        shell: bash
+        env:
+          TZ: ${{ matrix.tz }}
+          FAKE_INSTANT: ${{ matrix.instant }}
+        run: bash scripts/run_future_clock_suites.sh "$FAKE_INSTANT"
+
+  custom-instant:
+    name: custom instant
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.instant != '' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements-dev.lock.txt
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m pip install --upgrade pip
+          python scripts/python_lock.py check
+          pip install --require-hashes -r requirements-dev.lock.txt
+
+      - name: Date-sensitive suites under the fake clock
+        shell: bash
+        env:
+          FAKE_INSTANT: ${{ inputs.instant }}
+        run: bash scripts/run_future_clock_suites.sh "$FAKE_INSTANT"
