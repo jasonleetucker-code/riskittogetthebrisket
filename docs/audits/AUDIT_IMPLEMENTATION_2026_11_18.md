@@ -26,15 +26,15 @@ BLOCKED — OWNER ACTION · BLOCKED — EXTERNAL DEPENDENCY · VERIFIED NO LONGE
 | 3 | Decouple data delivery from the full code gate | P1 | NOT STARTED | — | — | activation needs an owner policy amendment (Agent OS §3 L3 "no skip logic") |
 | 4 | Owner admin-action pack | P1 | NOT STARTED | — | — | ruleset apply, credential rotation, off-box backup destination, deploy-key review are owner-only |
 | 5 | Year-boundary hardening (2026→2027) | P1 | IN PROGRESS | `claude/serene-shannon-7lsrm9-t05-year-boundary` | — | — |
-| 6 | Land five UI-fix PRs #2223/#2224/#2226/#2227/#2228 | P1 | IN PROGRESS (reviewed MERGE ×5; train RC + E2E running) | train `claude/serene-shannon-7lsrm9-t06-ui-train` `a27c176c` | — | real-device iOS tap / VoiceOver check for #2223; `/rankings` source-popover copy (claimed by draft #2171) |
+| 6 | Land five UI-fix PRs #2223/#2224/#2226/#2227/#2228 | P1 | MERGED (deploy running) | #2227 `3945d0a2`, #2224 `0d8bca1f`, #2226 `42bd796c`, #2223 `9a4ad5ca`, #2228 `5f35bf8c` | pending | real-device iOS tap / VoiceOver check for #2223; `/rankings` source-popover copy (claimed by draft #2171) |
 | 7 | Post-deploy trade and War Room smoke | P1 | NOT STARTED | — | — | — |
 | 8 | Public-repo data-exposure remediation | P2 | NOT STARTED | — | — | publication policy is an owner decision |
-| 9 | Trade-flow resilience (frontend) | P2 | NOT STARTED | — | — | — |
+| 9 | Trade-flow resilience (frontend) | P2 | IN PROGRESS | `claude/serene-shannon-7lsrm9-t09-trade-resilience` | — | — |
 | 10 | Mobile ergonomics and 390 px coverage | P2 | NOT STARTED | — | — | — |
 | 11 | Restore Signals; loud private-source failure | P2 | PR OPEN (unit 1 of 2) | #2237 `claude/serene-shannon-7lsrm9-t11-signals` | — | diagnosis waits on #2237 merge; two orphaned deploy runs need a force-cancel |
 | 12 | Live roster refresh — measure first | P2 | NOT STARTED | — | — | — |
-| 13 | Security hardening batch | P2 | IN PROGRESS | `claude/serene-shannon-7lsrm9-t13-security` | — | — |
-| 14 | Next.js 16.4.5+ (#2233) | P2 | NOT STARTED | — | — | — |
+| 13 | Security hardening batch | P2 | PR OPEN | #2240 `bf45fec2` | — | in review: production-start safety of the new startup guards |
+| 14 | Next.js 16.4.5+ (#2233) | P2 | IN PROGRESS | `claude/serene-shannon-7lsrm9-t14-next` | — | supersedes dependabot #2233 |
 | 15 | Make permanent-red / vacuous-green checks meaningful | P3 | NOT STARTED | — | — | — |
 | 16 | Node 20 → 22 | P3 | NOT STARTED | — | — | production runtime cutover is box work |
 
@@ -127,7 +127,11 @@ Record:
   intended); `npx vitest run` 446 files / 5795 passed / 3 expected-fail; `npm run build` exit 0 (first attempt hit Next
   16.4.3's build-time advisory `SecurityFatalError`, which is Task 14's); bundle, public-privacy and advisor-bundle
   checks pass (tightest headroom `/trade` 0.9 KB, `/league` 1.0 KB).
-- Release Candidate run 44284022341 and E2E Safety Net run 44284026751 dispatched on the train.
+- Release Candidate run 44284022341: success. E2E Safety Net run 44284026751 ("Boot stack + run journeys"): success.
+- Merged 2026-11-18 ~10:50 UTC in train order, each pinned to the exact head validated in the train (train parents
+  checked equal to the PR heads): #2227 → `3945d0a2`, #2224 → `0d8bca1f`, #2226 → `42bd796c`, #2223 → `9a4ad5ca`,
+  #2228 → `5f35bf8c`. Deploy runs: 44289141366 (`3945d0a2`) then 44289183586 (`5f35bf8c`); the three in between were
+  superseded by the deploy concurrency group.
 - Not verified here (need a real device): iOS Safari tap-to-pick and VoiceOver on the waivers pickers (#2223 drops
   `onTouchStart`; a tap now picks through compatibility click); phone test-push; a live auction room (#2228).
 - Out of the train's scope: `/rankings` still has an operable "Sources in blend" popover saying "Unchecking a source
