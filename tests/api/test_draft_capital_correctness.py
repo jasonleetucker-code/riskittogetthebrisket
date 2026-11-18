@@ -38,6 +38,7 @@ import pytest
 
 from src.api import draft_class_evidence as dce
 from src.api import terminal, trade_simulator
+from src.draft.rookie_auction.published import resolve_published_allocation
 from src.identity import picks as pick_identity
 from src.identity.pick_lifecycle import evidence_from_sleeper
 
@@ -420,13 +421,25 @@ def test_workbook_season_without_proven_retirement_stays_on_the_anchor():
     (the lifecycle owner's rule), so the workbook season is not bumped by a
     local rule either."""
     out = _workbook_run(_retired_evidence(YEAR, []))
-    # Batch F: the YEAR class has no canonical curve on file (its spine needs
-    # three completed classes before it) and no stored allocation, so the
-    # board is refused for THAT year rather than published with the
-    # workbook's next-class (L2:L73) curve.  The season decision is what this
-    # test pins, and the refusal names it.
-    assert out.get("error") == "draft_dollars_unavailable", out
-    assert out["draftYear"] == YEAR
+    # The season decision is what this test pins, and it is unconditional:
+    # the board stays on the anchor class, never bumped to YEAR + 1 (a refusal
+    # names it as ``draftYear``, a published board as ``season``).
+    # What the board does for THAT class depends on whether the canonical
+    # allocation resolver holds a verified allocation for it (a repo seed under
+    # config/draft_valuation/published_allocations/).  Batch F: with none (its
+    # spine needs three completed classes before it, and nothing is stored) the
+    # board is refused for THAT year rather than published with the workbook's
+    # next-class (L2:L73) curve.  Ask the owner instead of hard-coding which
+    # calendar year has a seed: the answer flips at the 2026 -> 2027 rollover
+    # (seeds exist for 2027-2029), and a test that encodes today's year expires.
+    allocation = resolve_published_allocation("dynasty_main", YEAR, persist=False)
+    if allocation.final_whole_dollars is None:
+        assert out.get("error") == "draft_dollars_unavailable", out
+        assert out["draftYear"] == YEAR
+    else:
+        assert "error" not in out, out
+        assert out["season"] == out["upcomingDraftYear"] == YEAR
+        assert out["coveredPickYears"] == [YEAR]
 
 
 # ── Defect 3: a team is never debited for a pick it does not hold ────────

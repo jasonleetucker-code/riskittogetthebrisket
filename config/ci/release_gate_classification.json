@@ -518,6 +518,30 @@
     "fd-diagnostics.yml::inventory::Configure production SSH": {
       "category": "blocking"
     },
+    "future-clock.yml::custom-instant::Checkout": {
+      "category": "blocking"
+    },
+    "future-clock.yml::custom-instant::Date-sensitive suites under the fake clock": {
+      "category": "blocking"
+    },
+    "future-clock.yml::custom-instant::Install dependencies": {
+      "category": "blocking"
+    },
+    "future-clock.yml::custom-instant::Set up Python": {
+      "category": "blocking"
+    },
+    "future-clock.yml::future-clock::Checkout": {
+      "category": "blocking"
+    },
+    "future-clock.yml::future-clock::Date-sensitive suites under the fake clock": {
+      "category": "blocking"
+    },
+    "future-clock.yml::future-clock::Install dependencies": {
+      "category": "blocking"
+    },
+    "future-clock.yml::future-clock::Set up Python": {
+      "category": "blocking"
+    },
     "game-day-capture.yml::capture::Configure production SSH": {
       "category": "blocking"
     },
