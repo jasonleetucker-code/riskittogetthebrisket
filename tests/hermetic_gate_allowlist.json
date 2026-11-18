@@ -1,0 +1,638 @@
+{
+ "_comment": "Allowlist for tests/test_hermetic_gate_inputs.py. Only NEW violations fail: a file listed here may carry at most `maxHits` of each kind. Add an entry only with a reason; prefer making the test hermetic (pin its input under tests/fixtures) or marking it @pytest.mark.livedata.",
+ "files": {
+  "tests/api/test_audit_cw40_batch_s_open.py": {
+   "maxHits": {
+    "missing-data-skip": 3
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'shallow clone: audited SHAs not present'"
+  },
+  "tests/api/test_audit_cw40_batch_t1_closed.py": {
+   "maxHits": {
+    "missing-data-skip": 3
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived board available'; 'archived board carries no league rosters'; 'requesting team owns no priced picks on this archived board'"
+  },
+  "tests/api/test_audit_cw40_batch_t1_open.py": {
+   "maxHits": {
+    "missing-data-skip": 2
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived board'; 'archived board has no full 72-rookie class'"
+  },
+  "tests/api/test_audit_tep_override_regression.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived board available'"
+  },
+  "tests/api/test_canonical_ownership_protections.py": {
+   "maxHits": {
+    "missing-data-skip": 2
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no full-contract capture in this environment'"
+  },
+  "tests/api/test_canonical_value_invariance.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no full-contract capture in this environment'"
+  },
+  "tests/api/test_compact_view_byte_budget.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape to build a contract from'"
+  },
+  "tests/api/test_confidence_cured_rejection_guard.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape to build a contract from'"
+  },
+  "tests/api/test_confidence_naming.py": {
+   "maxHits": {
+    "missing-data-skip": 2
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape to build a contract from'; 'no complete archived scrape'"
+  },
+  "tests/api/test_confidence_rename_aliases.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape to build a contract from'"
+  },
+  "tests/api/test_derived_pick_evidence.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no derived pick rows on this archived board'"
+  },
+  "tests/api/test_derived_pick_quarantine.py": {
+   "maxHits": {
+    "missing-data-skip": 3
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape available'; 'the archived board does not carry  round 5'; 'no team holds its own round-5 and round-6 future picks on the archived'"
+  },
+  "tests/api/test_dlf_idp_hold_locked.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape available'"
+  },
+  "tests/api/test_dlf_offense_only_vote.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape available'"
+  },
+  "tests/api/test_dlf_values_hold_locked.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape available'"
+  },
+  "tests/api/test_draft_capital.py": {
+   "maxHits": {
+    "missing-data-skip": 11
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'Workbook unavailable'"
+  },
+  "tests/api/test_draft_capital_batch_f.py": {
+   "maxHits": {
+    "missing-data-skip": 2
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'draft_data.csv not in this checkout'"
+  },
+  "tests/api/test_draft_capital_correctness.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'Draft Data workbook unavailable'"
+  },
+  "tests/api/test_draft_capital_last_known_good.py": {
+   "maxHits": {
+    "missing-data-skip": 2
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'Draft Data workbook unavailable'"
+  },
+  "tests/api/test_draft_capital_vendor_comparison.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'canonical ladder unavailable in this environment'"
+  },
+  "tests/api/test_draft_contract_view_fields.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape to build a contract from'"
+  },
+  "tests/api/test_draftsharks_negative_values.py": {
+   "maxHits": {
+    "missing-data-skip": 2
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'CSV missing: '; 'DraftSharks IDP CSV missing'"
+  },
+  "tests/api/test_dynasty_nerds_integration.py": {
+   "maxHits": {
+    "missing-data-skip": 4
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'DN CSV missing'"
+  },
+  "tests/api/test_export_leg_is_raw_evidence.py": {
+   "maxHits": {
+    "missing-data-skip": 2
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no export directory in this environment'; 'no exported payload in this environment'"
+  },
+  "tests/api/test_freshness_v2_hold_locked.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape available'"
+  },
+  "tests/api/test_hill_alignment_audit.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape'"
+  },
+  "tests/api/test_idp_deep_tail_native_challenger.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape'"
+  },
+  "tests/api/test_idp_hampel_n3_challenger.py": {
+   "maxHits": {
+    "missing-data-skip": 2
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape'; 'no three-voter IDP row on this archive'"
+  },
+  "tests/api/test_idptc_cutoff_readiness.py": {
+   "maxHits": {
+    "missing-data-skip": 2
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape to build a contract from'; 'IDP Trade Calculator prices no pick on this archived board'"
+  },
+  "tests/api/test_joint_challenger_pipeline.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape'"
+  },
+  "tests/api/test_launch_readiness.py": {
+   "maxHits": {
+    "missing-data-skip": 17
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'No complete archived board'"
+  },
+  "tests/api/test_off_cap_player_value_completeness.py": {
+   "maxHits": {
+    "missing-data-skip": 2
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape available'; ' is not on the archived board'"
+  },
+  "tests/api/test_outlier_policy.py": {
+   "maxHits": {
+    "missing-data-skip": 2
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape'"
+  },
+  "tests/api/test_per_source_freshness.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no CSV sources present in this checkout'"
+  },
+  "tests/api/test_phase1c_signal_type_coupling.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape'"
+  },
+  "tests/api/test_pick_completeness_red.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'idpTradeCalc values absent'"
+  },
+  "tests/api/test_pick_refinement.py": {
+   "maxHits": {
+    "missing-data-skip": 4
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'No complete archived board'"
+  },
+  "tests/api/test_picks_end_to_end.py": {
+   "maxHits": {
+    "missing-data-skip": 5
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'No complete archived board'"
+  },
+  "tests/api/test_production_payload_ceiling.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape to build a contract from'"
+  },
+  "tests/api/test_provider_id_columns.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'dynastyNerdsSfTep CSV not present'"
+  },
+  "tests/api/test_public_league_privacy_boundary.py": {
+   "maxHits": {
+    "missing-data-skip": 3
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): ': snapshot unavailable in this environment'; ' unavailable in this environment'"
+  },
+  "tests/api/test_rank_space_hampel_per_vote_challenger.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape'"
+  },
+  "tests/api/test_single_authority.py": {
+   "maxHits": {
+    "missing-data-skip": 4
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'No complete archived board'"
+  },
+  "tests/api/test_single_curve_live.py": {
+   "maxHits": {
+    "missing-data-skip": 13
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'No complete archived board'; 'DS SF or IDP entries absent'"
+  },
+  "tests/api/test_source_authority_reasons.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape to build a contract from'"
+  },
+  "tests/api/test_source_independence_closeout.py": {
+   "maxHits": {
+    "missing-data-skip": 4
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape available'; 'no two-way player carries alt-family evidence on this archive'; 'D5 reaches values on this archive ( rows): see the evidence doc'"
+  },
+  "tests/api/test_source_monitoring.py": {
+   "maxHits": {
+    "missing-data-skip": 8
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'No complete archived board'"
+  },
+  "tests/api/test_source_participation.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape available'"
+  },
+  "tests/api/test_sparse_evidence_estimator.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape'"
+  },
+  "tests/api/test_sparse_evidence_shadow.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape'"
+  },
+  "tests/api/test_tracked_artifacts_privacy.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'W20 trade-deadline capture not present'"
+  },
+  "tests/api/test_trade_analyze_multi_cross_surface.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'archived board has fewer than four pick-holding teams'"
+  },
+  "tests/api/test_trade_simulator_pick_identity.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape'"
+  },
+  "tests/api/test_universal_freshness_schedule.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape to build a contract from'"
+  },
+  "tests/api/test_value_explain_v2.py": {
+   "maxHits": {
+    "missing-data-skip": 2
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape'; 'archive has no such row'"
+  },
+  "tests/api/test_value_replay.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape'"
+  },
+  "tests/audit/test_b1_2_reference_universe_evaluation.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'B1.1 measurement harness not present'"
+  },
+  "tests/bdvm/test_audit_w13_f003_regression.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'recorded W13 engine run absent'"
+  },
+  "tests/bridges/test_bridge_pipeline_parity.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete raw payload available'"
+  },
+  "tests/canonical/test_percentile_tail_policy.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'historical replay evidence not present'"
+  },
+  "tests/consensus_edge/test_snapshot.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived payload'"
+  },
+  "tests/deploy/test_performance_inventory.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'symlink capability unavailable'"
+  },
+  "tests/deploy/test_release_retention.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'symlink creation unavailable'"
+  },
+  "tests/deploy/test_signals_idp_family_rollback_wiring.py": {
+   "maxHits": {
+    "missing-data-skip": 4
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'bash unavailable'"
+  },
+  "tests/identity/test_audit_w06_f001_regression.py": {
+   "maxHits": {
+    "archive-literal": 2
+   },
+   "reason": "Names the source export only to RE-VERIFY the committed fixture when the zip is still present; absent is a pass, never a skip. The fixture (tests/fixtures/w06_f001_identity_rows.json) is the evidence."
+  },
+  "tests/identity/test_capture_evidence_pin.py": {
+   "maxHits": {
+    "archive-literal": 1
+   },
+   "reason": "Synthetic archive file names created under tmp_path (or asserted as plain strings) to exercise the code under test; nothing is read from the real exports/archive."
+  },
+  "tests/idp_accuracy/test_backtest.py": {
+   "maxHits": {
+    "archive-literal": 1,
+    "missing-data-skip": 7
+   },
+   "reason": "select_archive walks the real exports/archive; the asserted export is the newest of 2026-09-09, which retention keeps for 365 days. Follow-up: a hermetic archive dir. Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'shallow checkout without the prereg commit'; 'stage 1 has not run in this checkout'; 'the supplement has not run in this checkout'"
+  },
+  "tests/idp_accuracy/test_market_baseline.py": {
+   "maxHits": {
+    "missing-data-skip": 2
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'archive pruned'; 'revision not in this clone'"
+  },
+  "tests/league_intel/test_board_adjustment.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'baseline contract snapshot not present'"
+  },
+  "tests/league_intel/test_calibration.py": {
+   "maxHits": {
+    "missing-data-skip": 2
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'baseline snapshot not present'; 'baseline contract snapshot not present'"
+  },
+  "tests/league_intel/test_cross_market.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'baseline contract snapshot not present'"
+  },
+  "tests/league_intel/test_league_config_metamorphic.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape available'"
+  },
+  "tests/league_intel/test_sim.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'league pool fixture not present'"
+  },
+  "tests/league_intel/test_twin.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'league pool fixture not present'"
+  },
+  "tests/maintenance/test_retention.py": {
+   "maxHits": {
+    "archive-literal": 9
+   },
+   "reason": "Synthetic archive file names created under tmp_path (or asserted as plain strings) to exercise the code under test; nothing is read from the real exports/archive."
+  },
+  "tests/pool/test_builder.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'adamidp artifact not present'"
+  },
+  "tests/public_league/test_playoff_odds_no_fabricated_certainty.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'evidence artifact absent'"
+  },
+  "tests/robust_filter_shadow/test_shadow_ledger.py": {
+   "maxHits": {
+    "missing-data-skip": 2
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape'; 'no archive'"
+  },
+  "tests/ros/test_playoff_sim.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'league pool fixture not present'"
+  },
+  "tests/ros/test_tag_parity.py": {
+   "maxHits": {
+    "missing-data-skip": 2
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'frontend mirror not present in this checkout'; ' not present'"
+  },
+  "tests/ros/test_trade_deadline_unknown.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no ROS snapshot available in this checkout'"
+  },
+  "tests/roster_intel/test_before_side_reuse_real_board.py": {
+   "maxHits": {
+    "missing-data-skip": 3
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived board in exports/archive'; 'archived board carries no league rosters'"
+  },
+  "tests/roster_intel/test_metric_separation.py": {
+   "maxHits": {
+    "missing-data-skip": 2
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived payload available in this environment'"
+  },
+  "tests/roster_intel/test_verification_pack.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived payload available in this environment'"
+  },
+  "tests/scripts/test_backend_wheelhouse.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'symlink creation unavailable'"
+  },
+  "tests/scripts/test_backfill_rank_history.py": {
+   "maxHits": {
+    "archive-literal": 16
+   },
+   "reason": "Synthetic archive file names created under tmp_path (or asserted as plain strings) to exercise the code under test; nothing is read from the real exports/archive."
+  },
+  "tests/scripts/test_bdvm_saturation_study.py": {
+   "maxHits": {
+    "archive-literal": 2,
+    "missing-data-skip": 1
+   },
+   "reason": "Asserts the NAMES the study recorded; the bytes are read from tests/fixtures/bdvm_saturation_outcome_archives (hash-pinned), not exports/archive. Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'recorded W13 engine run absent'"
+  },
+  "tests/scripts/test_class_b_branch_pilot.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'symlink creation unavailable'"
+  },
+  "tests/scripts/test_tiered_validate.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'bash unavailable'"
+  },
+  "tests/scripts/test_u3_columns_vs_source_health.py": {
+   "maxHits": {
+    "archive-listing": 1
+   },
+   "reason": "Globs a tmp_path/exports/archive tree the test itself builds; never the real one."
+  },
+  "tests/scripts/test_w27_f001_idp_edge_benchmark.py": {
+   "maxHits": {
+    "archive-literal": 1
+   },
+   "reason": "Asserts the provenance string recorded in the committed fixture; the archive is never opened."
+  },
+  "tests/scripts/test_w27_f005_te_skew_research.py": {
+   "maxHits": {
+    "archive-literal": 1,
+    "missing-data-skip": 2
+   },
+   "reason": "Reads the newest export of 2026-11-06, which retention keeps for 365 days (until ~2027-11-06); its archive_revision needs the adding commit in git history. Follow-up: pin the bytes under tests/fixtures. Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'pinned archive absent'; \"pinned tree revision not in this clone's history\""
+  },
+  "tests/scripts/test_w30_f008_hill_denominator_research.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'revision  not in this (shallow) checkout'"
+  },
+  "tests/source_quality/test_source_quality.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape'"
+  },
+  "tests/sources/test_ktc_format_archive.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape available'"
+  },
+  "tests/sources/test_source_archive_red.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'C1-SRC-01 archive not implemented yet \u2014 this is the RED'"
+  },
+  "tests/sources/test_source_census.py": {
+   "maxHits": {
+    "missing-data-skip": 2
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape to build a census from'; 'no complete archived scrape'"
+  },
+  "tests/sources/test_universe_freshness.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape'"
+  },
+  "tests/trade/test_analyze_multi_team.py": {
+   "maxHits": {
+    "missing-data-skip": 2
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no recorded 3-team own-league trade in this archive'; 'two-way player not on exactly one roster in this archive'"
+  },
+  "tests/trade/test_faab_calibration.py": {
+   "maxHits": {
+    "missing-data-skip": 2
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived board available'; 'archived board has no valued rows'"
+  },
+  "tests/trade/test_forced_drop_box_mode.py": {
+   "maxHits": {
+    "archive-literal": 1
+   },
+   "reason": "A synthetic CLI argument string ('exports/archive/x.zip'); never opened."
+  },
+  "tests/trade/test_pick_reachability.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape available'"
+  },
+  "tests/trade/test_public_advisor_archive_parity.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape'"
+  },
+  "tests/trade/test_trade_discovery_live_board.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived scrape available'"
+  },
+  "tests/waivers/test_drop_assessment.py": {
+   "maxHits": {
+    "missing-data-skip": 1
+   },
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'no complete archived board'"
+  }
+ }
+}
