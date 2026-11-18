@@ -89,3 +89,20 @@ def test_workflow_gates_on_the_tripwire_state():
     assert "'accepted'" in fail["if"] and "'ok'" in fail["if"]
     # An accepted standing drift must never close the tracker carrying the decision.
     assert "state == 'ok'" in steps["Close the tracking issue when the drift audit is green"]["if"]
+
+
+def test_non_finite_excess_rmse_is_error_never_accepted():
+    for bad in (float("nan"), float("inf"), float("-inf")):
+        v = _verdict(96.5, 181.8)
+        v["scopes"]["offense"]["excessRmse"] = bad
+        state, reasons = tw.classify(v, ACCEPTED)
+        assert state == "error", (bad, state)
+        assert reasons and "not finite" in reasons[0]
+
+
+def test_nan_in_json_verdict_exits_nonzero(tmp_path):
+    v = tmp_path / "v.json"
+    # json.dumps writes the non-standard token NaN, which json.loads accepts.
+    v.write_text(json.dumps(_verdict(float("nan"), 181.8)), encoding="utf-8")
+    acc = ROOT / "config" / "ci" / "rank_form_drift_accepted.json"
+    assert tw.main(["--verdict", str(v), "--accepted", str(acc)]) == 1

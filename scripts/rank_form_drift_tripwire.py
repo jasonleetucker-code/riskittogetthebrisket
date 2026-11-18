@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 from pathlib import Path
@@ -33,24 +34,44 @@ DEFAULT_ACCEPTED = Path("config/ci/rank_form_drift_accepted.json")
 def classify(verdict: dict[str, Any], accepted: dict[str, Any]) -> tuple[str, list[str]]:
     """Return ``(state, reasons)``."""
     drifted = list(verdict.get("drifted") or [])
+    bad = [
+        k
+        for k, v in (verdict.get("scopes") or {}).items()
+        if isinstance(v, dict)
+        and isinstance(v.get("excessRmse"), (int, float))
+        and not math.isfinite(v["excessRmse"])
+    ]
+    if bad:
+        # A NaN/inf measurement is a broken verdict, whether or not it was flagged.
+        return "error", [f"{k}: excessRmse is not finite" for k in bad]
     if not drifted:
         return "ok", []
     margin = float(accepted.get("worseningMargin", 0.0))
     known = accepted.get("scopes") or {}
     scopes = verdict.get("scopes") or {}
     reasons: list[str] = []
+    errors: list[str] = []
+    if not math.isfinite(margin):
+        return "error", [f"worseningMargin is not finite ({margin!r})"]
     for scope in drifted:
         if scope not in known:
             reasons.append(f"{scope}: NEW drifted scope not in the accepted record")
             continue
         excess = (scopes.get(scope) or {}).get("excessRmse")
         base = float(known[scope]["acceptedExcessRmse"])
-        if excess is None:
+        if not math.isfinite(base):
+            errors.append(f"{scope}: acceptedExcessRmse is not finite ({base!r})")
+        elif excess is None:
             reasons.append(f"{scope}: drifted but excessRmse missing from verdict")
+        elif not math.isfinite(float(excess)):
+            # NaN compares False to everything: it must never read as "not worse".
+            errors.append(f"{scope}: excessRmse is not finite ({excess!r})")
         elif float(excess) > base + margin:
             reasons.append(
                 f"{scope}: excess RMSE {float(excess):.1f} > accepted {base:.1f} + margin {margin:.1f}"
             )
+    if errors:
+        return "error", errors + reasons
     return ("worse" if reasons else "accepted"), reasons
 
 
