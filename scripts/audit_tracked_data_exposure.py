@@ -152,40 +152,64 @@ def _zero() -> dict[str, int]:
     return dict.fromkeys(IDENT_KEYS, 0)
 
 
-def scan_file(rel: str) -> tuple[dict[str, int], list[str]]:
-    """Identifier counts plus names of paid-vendor members inside a zip."""
+def scan_file_status(rel: str) -> tuple[dict[str, int], list[str], list[str]]:
+    """Identifier counts, paid-vendor zip members, and reasons we could NOT scan.
+
+    The third list is empty when the whole file was examined.  It names a reason
+    only (never content): unreadable, corrupt zip, or over the size cap.
+    """
     path = REPO / rel
     counts = _zero()
     paid_members: list[str] = []
+    skipped: list[str] = []
     try:
-        if not path.is_file() or path.stat().st_size > MAX_SCAN_BYTES:
-            return counts, paid_members
         low = rel.lower()
-        if low.endswith(".zip"):
+        scannable = low.endswith(SCANNABLE_EXTS) or low.endswith(".zip")
+        if not path.is_file():
+            skipped.append("not a readable regular file")
+        elif scannable and path.stat().st_size > MAX_SCAN_BYTES:
+            skipped.append(f"larger than the {MAX_SCAN_BYTES}-byte scan cap")
+        elif low.endswith(".zip"):
             with zipfile.ZipFile(path) as zf:
                 for info in zf.infolist():
                     name = info.filename
                     if is_paid_vendor_data_path("data/" + name):
                         paid_members.append(name)
-                    if info.file_size > MAX_SCAN_BYTES or not name.lower().endswith(SCANNABLE_EXTS):
+                    if not name.lower().endswith(SCANNABLE_EXTS):
+                        continue
+                    if info.file_size > MAX_SCAN_BYTES:
+                        skipped.append("zip member larger than the scan cap")
                         continue
                     c = count_identifiers(_decode(zf.read(name)))
                     for k in IDENT_KEYS:
                         counts[k] += c[k]
         elif low.endswith(SCANNABLE_EXTS):
             counts = count_identifiers(_decode(path.read_bytes()))
-    except (OSError, zipfile.BadZipFile, RuntimeError):
-        pass
+    except (OSError, zipfile.BadZipFile, RuntimeError, EOFError, NotImplementedError) as exc:
+        skipped.append(f"unreadable ({type(exc).__name__})")
+    return counts, paid_members, skipped
+
+
+def scan_file(rel: str) -> tuple[dict[str, int], list[str]]:
+    """Identifier counts plus names of paid-vendor members inside a zip."""
+    counts, paid_members, _ = scan_file_status(rel)
     return counts, paid_members
 
 
-def guard_findings(rel: str) -> list[str]:
-    """Reasons a tracked file should not be NEW (empty = fine).  No values."""
+def guard_findings(rel: str, fail_closed: bool = False) -> list[str]:
+    """Reasons a tracked file should not be NEW (empty = fine).  No values.
+
+    ``fail_closed`` (PR diff mode): a file the scanner could not fully read or
+    skipped for size is itself a finding -- an unexamined file must not pass.
+    """
     reasons: list[str] = []
     vendor = is_paid_vendor_data_path(rel)
     if vendor:
         reasons.append(f"paid-vendor data path ({vendor})")
-    counts, paid_members = scan_file(rel)
+    counts, paid_members, skipped = scan_file_status(rel)
+    if fail_closed:
+        for why in dict.fromkeys(skipped):
+            reasons.append(f"could not be scanned ({why})")
     if counts["ownerIds"]:
         reasons.append(f"owner/user-id fields with id-like values (count={counts['ownerIds']})")
     if paid_members:
@@ -235,9 +259,22 @@ def build_baseline_lines(files: list[str]) -> list[str]:
 
 
 def changed_files(base_ref: str) -> list[str]:
-    """Files ADDED or MODIFIED vs the merge base with ``base_ref`` (PR diff)."""
+    """Files ADDED, MODIFIED, RENAMED or COPIED vs the merge base (PR diff).
+
+    ``--no-renames`` makes a renamed/copied file appear as an ADD at its new
+    path (so moving an offender under a new name cannot dodge the guard), and
+    ``AMRC`` keeps the rename/copy statuses if rename detection is ever on.
+    """
     out = subprocess.run(
-        ["git", "diff", "--name-only", "-z", "--diff-filter=AM", f"{base_ref}...HEAD"],
+        [
+            "git",
+            "diff",
+            "--name-only",
+            "-z",
+            "--no-renames",
+            "--diff-filter=AMRC",
+            f"{base_ref}...HEAD",
+        ],
         cwd=REPO,
         capture_output=True,
         text=True,
@@ -253,7 +290,7 @@ def check_changed_since(base_ref: str, baseline: Path | None = None) -> list[str
     for rel in changed_files(base_ref):
         if not in_scope(rel) or baselined(rel, exact, prefixes):
             continue
-        reasons = guard_findings(rel)
+        reasons = guard_findings(rel, fail_closed=True)
         if reasons:
             lines.append(f"{rel}: {'; '.join(reasons)}")
     return lines

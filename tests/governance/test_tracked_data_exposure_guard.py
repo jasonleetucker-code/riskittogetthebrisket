@@ -154,3 +154,84 @@ def test_changed_since_diff_mode(tmp_path, monkeypatch):
     assert any(f.startswith("data/teams.json") for f in found)
     assert any("Draft Sharks" in f for f in found)
     assert "123456789012345678" not in " ".join(found)
+
+
+# ── review fixes: renames/copies, fail-closed on unscannable files ──────────
+def test_diff_mode_catches_a_renamed_offender(tmp_path, monkeypatch):
+    repo = tmp_path / "r"
+    (repo / "data").mkdir(parents=True)
+    (repo / "data" / "old_teams.json").write_text("{" + OWNER_FIELD + "}", encoding="utf-8")
+    base = tmp_path / "baseline.txt"
+    base.write_text("path: data/old_teams.json\n", encoding="utf-8")
+    _git(repo.parent, "init", "-q", "-b", "main", str(repo))
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "base")
+    _git(repo, "checkout", "-q", "-b", "feature")
+    monkeypatch.setattr(guard, "REPO", repo)
+    _git(repo, "mv", "data/old_teams.json", "data/new_teams.json")
+    _git(repo, "commit", "-q", "-am", "rename")
+    assert guard.changed_files("main") == ["data/new_teams.json"]
+    found = guard.check_changed_since("main", base)
+    assert len(found) == 1 and found[0].startswith("data/new_teams.json")
+
+
+def test_diff_mode_copy_is_caught_too(tmp_path, monkeypatch):
+    repo = tmp_path / "r"
+    (repo / "data").mkdir(parents=True)
+    (repo / "data" / "old_teams.json").write_text("{" + OWNER_FIELD + "}", encoding="utf-8")
+    base = tmp_path / "baseline.txt"
+    base.write_text("path: data/old_teams.json\n", encoding="utf-8")
+    _git(repo.parent, "init", "-q", "-b", "main", str(repo))
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "base")
+    _git(repo, "checkout", "-q", "-b", "feature")
+    monkeypatch.setattr(guard, "REPO", repo)
+    (repo / "data" / "copy.json").write_text("{" + OWNER_FIELD + "}", encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "copy")
+    assert len(guard.check_changed_since("main", base)) == 1
+
+
+def test_unscannable_files_are_findings_in_diff_mode_only(tmp_path, monkeypatch):
+    monkeypatch.setattr(guard, "REPO", tmp_path)
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "bad.zip").write_bytes(b"this is not a zip")
+    (tmp_path / "data" / "big.json").write_text('{"a": 1}' * 50, encoding="utf-8")
+    (tmp_path / "data" / "ok.json").write_text('{"a": 1}', encoding="utf-8")
+    monkeypatch.setattr(guard, "MAX_SCAN_BYTES", 100)
+
+    corrupt = guard.guard_findings("data/bad.zip", fail_closed=True)
+    assert any("could not be scanned" in r and "BadZipFile" in r for r in corrupt)
+    big = guard.guard_findings("data/big.json", fail_closed=True)
+    assert any("could not be scanned" in r and "scan cap" in r for r in big)
+    assert guard.guard_findings("data/ok.json", fail_closed=True) == []
+    # report / baseline mode keeps the old behaviour (counts only, no finding)
+    assert guard.guard_findings("data/bad.zip") == []
+    assert guard.guard_findings("data/big.json") == []
+
+
+def test_oserror_on_read_is_a_finding_without_leaking_content(tmp_path, monkeypatch):
+    monkeypatch.setattr(guard, "REPO", tmp_path)
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "x.json").write_text("{" + OWNER_FIELD + "}", encoding="utf-8")
+
+    def boom(self):
+        raise PermissionError("secret path detail 123456789012345678")
+
+    monkeypatch.setattr(Path, "read_bytes", boom)
+    reasons = guard.guard_findings("data/x.json", fail_closed=True)
+    assert any("unreadable (PermissionError)" in r for r in reasons)
+    assert "123456789012345678" not in " ".join(reasons)
+
+
+def test_oversized_zip_member_is_a_finding(tmp_path, monkeypatch):
+    monkeypatch.setattr(guard, "REPO", tmp_path)
+    (tmp_path / "exports").mkdir()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("big.json", "x" * 5000)
+    (tmp_path / "exports" / "z.zip").write_bytes(buf.getvalue())
+    # cap below the member (5000) but above the compressed archive
+    monkeypatch.setattr(guard, "MAX_SCAN_BYTES", 1000)
+    reasons = guard.guard_findings("exports/z.zip", fail_closed=True)
+    assert any("zip member larger" in r for r in reasons)
