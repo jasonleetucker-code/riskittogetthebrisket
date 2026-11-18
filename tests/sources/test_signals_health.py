@@ -231,3 +231,67 @@ def test_the_cli_never_prints_an_exception_message(tmp_path, monkeypatch, capsys
     assert logs
     if os.name == "posix":  # POSIX permission bits; Windows reports 0o666 (ACLs)
         assert (logs[0].stat().st_mode & 0o777) == 0o600
+
+
+# -- redaction: a failing source must still be reportable --------------------
+
+
+def test_a_free_text_leaf_is_withheld_not_fatal():
+    sentence = "HTTP 401: token expired at 2026-11-02T07:20:00Z for user Synthetic Player"
+    report = {
+        "mode": "health",
+        "weighting": {"error": sentence},
+        "boards": {"signalsSf": {"boardState": "accepted", "lastOutcome": "fetch_failed: nope"}},
+    }
+    pub = H.public_projection(report)
+    assert pub["weighting"]["error"] == H.WITHHELD_TOKEN
+    assert pub["boards"]["signalsSf"]["lastOutcome"] == H.WITHHELD_TOKEN
+    assert pub["boards"]["signalsSf"]["boardState"] == "accepted"
+    assert pub["redacted"] == {"boards__signalsSf__lastOutcome": True, "weighting__error": True}
+    text = json.dumps(pub)
+    for raw in ("token expired", "2026-11", "Synthetic", "fetch_failed:"):
+        assert raw not in text
+    H.assert_public_safe(pub)
+
+
+def test_an_unsafe_key_is_dropped_and_counted():
+    report = {"served": {"absentByDesign": {"bad key/Synthetic": True, "signalsSf": False}}}
+    pub = H.public_projection(report)
+    assert pub["served"]["absentByDesign"] == {"signalsSf": False}
+    assert pub["redactedUnsafeKeys"] == 1
+    assert "Synthetic" not in json.dumps(pub)
+
+
+def test_a_safe_report_is_unchanged_and_carries_no_redacted_key():
+    report = {
+        "mode": "health",
+        "session": {"state": "healthy", "renewalObserved": True},
+        "memAvailableMb": 512,
+    }
+    pub = H.public_projection(report)
+    assert pub == report
+    assert not any(k.startswith("redacted") for k in pub)
+
+
+def test_systemd_hyphenated_results_are_identifiers():
+    assert H._identifier_or_none("exit-code") == "exit_code"
+    assert H._identifier_or_none("start-limit-hit") == "start_limit_hit"
+    assert H._identifier_or_none("") is None
+    assert H._identifier_or_none("a b c") is None
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("ReconnectRequired", "auth_expired"),
+        ("HTTP 403 forbidden", "auth_expired"),
+        ("TimeoutError", "timeout"),
+        ("URLError", "http_status"),
+        ("JSONDecodeError", "parse"),
+        ("FileNotFoundError", "missing_file"),
+        ("SomethingElse", "unclassified"),
+        (None, "unclassified"),
+    ],
+)
+def test_error_class_mapping(text, expected):
+    assert H.classify_error(text) == expected

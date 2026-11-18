@@ -144,6 +144,38 @@ def mem_available_mb(meminfo: Path = Path("/proc/meminfo")) -> int | None:
 # ── sections ─────────────────────────────────────────────────────────────
 
 
+def _identifier_or_none(value: Any) -> str | None:
+    """systemd ``Result`` values are hyphenated (``exit-code``, ``oom-kill``);
+    spell them as identifiers so the public guard accepts them unchanged."""
+    text = str(value or "").strip().lower().replace("-", "_")
+    return text if re.fullmatch(r"[a-z][a-z0-9_]{0,63}", text) else None
+
+
+#: Safe vocabulary for a probe-section failure.  The producer only ever
+#: records an exception CLASS NAME (``type(exc).__name__``); the free text of
+#: the exception is never stored.  Patterns are matched against that name (and
+#: tolerate a message, should a future producer record one).
+ERROR_CLASSES: tuple[tuple[str, str], ...] = (
+    (
+        "auth_expired",
+        r"reconnect|auth|token|access_?denied|credential|unauthori[sz]ed|forbidden|401|403",
+    ),
+    ("timeout", r"timeout|timed.?out"),
+    ("http_status", r"http|urlerror|connection|status|\b[45]\d\d\b"),
+    ("parse", r"json|decode|parse|valueerror|keyerror|typeerror|schema|csv"),
+    ("missing_file", r"filenotfound|notfound|no such file|isadirectory|oserror|permission"),
+)
+
+
+def classify_error(value: Any) -> str:
+    """Identifier token for a failure; ``unclassified`` when nothing matches."""
+    text = str(value or "").lower()
+    for token, pattern in ERROR_CLASSES:
+        if re.search(pattern, text):
+            return token
+    return "unclassified"
+
+
 def units_section(show: ShowFn) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for role, unit in UNITS.items():
@@ -158,7 +190,7 @@ def units_section(show: ShowFn) -> dict[str, Any]:
             "timerActive": timer.get("ActiveState") == "active",
             "serviceLoaded": svc.get("LoadState") == "loaded",
             "serviceRunning": svc.get("ActiveState") in ("active", "activating"),
-            "serviceLastResult": svc.get("Result") or None,
+            "serviceLastResult": _identifier_or_none(svc.get("Result")),
             "serviceLastExit": _int_or_none(svc.get("ExecMainStatus")),
             "_serviceLastStart": svc.get("ExecMainStartTimestamp") or None,
         }
@@ -179,7 +211,11 @@ def session_section(auth_store: Any | None) -> dict[str, Any]:
         store = auth_store if auth_store is not None else SA.SignalsStore.open()
         st = SA.status(store)
     except Exception as exc:  # noqa: BLE001 — report, never traceback
-        return {"state": "error", "error": type(exc).__name__}
+        return {
+            "state": "error",
+            "error": type(exc).__name__,
+            "errorClass": classify_error(type(exc).__name__),
+        }
     failure = st.get("lastFailure") or {}
     episode = st.get("episode") or {}
     return {
@@ -348,7 +384,7 @@ def weighting_section(state_dir: Path, *, now: datetime) -> dict[str, Any]:
         dicts = {k: w.to_dict() for k, w in weightings.items()}
         alerts = detect_content_alerts({"sources": dicts})
     except Exception as exc:  # noqa: BLE001 — report, never traceback
-        return {"error": type(exc).__name__}
+        return {"error": type(exc).__name__, "errorClass": classify_error(type(exc).__name__)}
     out: dict[str, Any] = {}
     for key, w in weightings.items():
         players = w.subsets.get("players")
@@ -446,6 +482,7 @@ PUBLIC_PATHS: tuple[str, ...] = (
     "session.episodeFailureClass",
     "session.reconnectNoticeDelivered",
     "session.error",
+    "session.errorClass",
     "collection.provisioned",
     "collection.lastRunOk",
     "collection.collectionRan",
@@ -470,6 +507,7 @@ PUBLIC_PATHS: tuple[str, ...] = (
     "boards.*.consecutiveFailures",
     "boards.*.lastOutcome",
     "weighting.error",
+    "weighting.errorClass",
     "weighting.*.measured",
     "weighting.*.health",
     "weighting.*.healthFactor",
@@ -537,10 +575,58 @@ def assert_public_safe(node: Any, path: str = "") -> None:
     raise PublicLeak(f"unsafe value at {path}")
 
 
+#: Fixed token that replaces any leaf the guard would refuse.
+WITHHELD_TOKEN = "withheld_unsafe_value"
+
+
+def _is_safe_leaf(node: Any) -> bool:
+    if node is None or isinstance(node, (bool, int, float)):
+        return True
+    return isinstance(node, str) and bool(_SAFE_STRING.match(node) or _HEX12.match(node))
+
+
+def _redact(node: Any, parts: list[str], redacted: dict[str, bool], counts: list[int]) -> Any:
+    """Return ``node`` with every unsafe leaf replaced and unsafe key dropped.
+
+    ``parts`` is the path so far (all safe keys); ``counts[0]`` counts unsafe
+    keys dropped, ``counts[1]`` unsafe leaves whose path could not be encoded.
+    The raw value is never retained."""
+    if isinstance(node, Mapping):
+        out: dict[str, Any] = {}
+        for k, v in node.items():
+            if not _SAFE_STRING.match(str(k)):
+                counts[0] += 1
+                continue
+            out[str(k)] = _redact(v, parts + [str(k)], redacted, counts)
+        return out
+    if _is_safe_leaf(node):
+        return node
+    token = "__".join(parts)
+    if token and _SAFE_STRING.match(token):
+        redacted[token] = True
+    else:
+        counts[1] += 1
+    return WITHHELD_TOKEN
+
+
 def public_projection(report: Mapping[str, Any]) -> dict[str, Any]:
+    """Allowlisted projection; unsafe values are WITHHELD, never printed.
+
+    A failing source is when free text appears, so one bad leaf must not
+    blind the whole report: it is replaced by ``WITHHELD_TOKEN`` and its path
+    recorded under ``redacted`` (``.`` encoded as ``__``)."""
     out: dict[str, Any] = {}
     for path in PUBLIC_PATHS:
         _project(report, path.split("."), out)
     out = _prune(out)
+    redacted: dict[str, bool] = {}
+    counts = [0, 0]
+    out = _redact(out, [], redacted, counts)
+    if redacted:
+        out["redacted"] = dict(sorted(redacted.items()))
+    if counts[0]:
+        out["redactedUnsafeKeys"] = counts[0]
+    if counts[1]:
+        out["redactedOther"] = counts[1]
     assert_public_safe(out)
     return out
