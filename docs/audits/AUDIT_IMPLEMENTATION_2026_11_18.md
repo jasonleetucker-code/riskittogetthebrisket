@@ -23,19 +23,19 @@ BLOCKED — OWNER ACTION · BLOCKED — EXTERNAL DEPENDENCY · VERIFIED NO LONGE
 |---|---|---|---|---|---|---|
 | 1 | Hermetic hard gate and skip-budget repair | P0 | DEPLOYED | #2239 → `cb5648ff` | production build `bd17e684`; deploy hard gates since have passed with the guard in place | follow-ups: two archive readers kept (their day's newest export) |
 | 2 | Freshness and deploy-lag SLO with alerts | P0 | VERIFIED COMPLETE | #2238 → `4a80cca8` | production build `bd17e684` (~14:06 UTC): `freshness_slo.state=measured`, top-200 stale 0/200, priced withheld 15/1016 (1.48 %), board age 0.01 h, private sources 4 provisioned / 4 stale | alerting verified 16:05 UTC: Scheduled Health Check run 44341452236 (dispatched) measured deploy lag 1.12 h, 1 consecutive deploy failure, top-200 stale 0.0, withheld 0.003, board age 0.26 h — all OK — and BREACHED `data_freshness.private_sources` 4/4 (names withheld), auto-opening issue #2258 "Production SLO alert". The breach is the Signals stall (Task 11) |
-| 3 | Decouple data delivery from the full code gate | P1 | MERGED (deploy pending) | #2251 → `ecd2bc91` | — | activation BLOCKED — OWNER DECISION; backtest: 9 of 23 data-only runs failed the full gate on data-coupled tests, so the fast path is not yet safe |
-| 4 | Owner admin-action pack | P1 | MERGED (deploy pending) | #2244 → `ca698b11` | — | ruleset apply, credential rotation, off-box backup destination, deploy-key review are owner-only |
-| 5 | Year-boundary hardening (2026→2027) | P1 | MERGED (deploy pending) | #2248 → `ae310e03` | — | owner: league vs board horizon divergence at New Year (2030 picks unpriced until the 2027 draft is proven) |
+| 3 | Decouple data delivery from the full code gate | P1 | DEPLOYED (shadow observer running in CI) | #2251 → `ecd2bc91` | production `eb604ee2`; shadow run 44339329955 classified train 4 CODE (correct) | activation BLOCKED — OWNER DECISION; backtest: 9 of 23 data-only runs failed the full gate on data-coupled tests, so the fast path is not yet safe |
+| 4 | Owner admin-action pack | P1 | DEPLOYED (tooling) — BLOCKED — OWNER ACTION | #2244 → `ca698b11` | production `eb604ee2` (scripts/runbook only; nothing applied) | ruleset apply, credential rotation, off-box backup destination, deploy-key review are owner-only |
+| 5 | Year-boundary hardening (2026→2027) | P1 | DEPLOYED | #2248 → `ae310e03` | production `eb604ee2`; no served value changed by design | owner: league vs board horizon divergence at New Year (2030 picks unpriced until the 2027 draft is proven) |
 | 6 | Land five UI-fix PRs #2223/#2224/#2226/#2227/#2228 | P1 | DEPLOYED (+ #2250 merged `58278641`) | #2227 `3945d0a2`, #2224 `0d8bca1f`, #2226 `42bd796c`, #2223 `9a4ad5ca`, #2228 `5f35bf8c`; follow-up #2250 | production `/api/status` build `5f35bf8c` (2026-11-18 ~12:20 UTC) | real-device iOS tap / VoiceOver check for #2223; post-deploy signed-in verification pending |
 | 7 | Post-deploy trade and War Room smoke | P1 | DEPLOYED — smoke VERIFIED on production | #2242 → `c59c0a52` | V1 run 44331428925 against production `f5e06111`: trade smoke exit 0 — `analyze_2team` HTTP 200 (2 priced rows), `analyze_multi_3team` HTTP 200 (6 priced rows, rosters current); security acceptance pass | the same run's browser suite failed once: desktop War Room spec timeout (125 s) on a backend restarted 6 min earlier by the train-4 rollback; the mobile War Room spec passed in 41 s on the same build. Re-test on the next V1 run |
-| 8 | Public-repo data-exposure remediation | P2 | MERGED (deploy pending) | #2249 → `522c0efc` | — | publication policy is an owner decision |
+| 8 | Public-repo data-exposure remediation | P2 | DEPLOYED (guard) — BLOCKED — OWNER DECISION | #2249 → `522c0efc` | production `eb604ee2`; growth guard active as a blocking PR step | publication policy is an owner decision |
 | 9 | Trade-flow resilience (frontend) | P2 | DEPLOYED | #2243 → `bd17e684` | production build `bd17e684` | service-worker update on real devices (iOS PWA) |
-| 10 | Mobile ergonomics and 390 px coverage | P2 | MERGED (deploy in progress) | #2245 → `eb604ee2` (train 5: RC 44330233614 + E2E 44330240357 green) | — | 4-team tray clearance and info-tip tap accuracy need a real device |
+| 10 | Mobile ergonomics and 390 px coverage | P2 | DEPLOYED | #2245 → `eb604ee2` (train 5: RC 44330233614 + E2E 44330240357 green) | production `eb604ee2` (16:47 UTC) | 4-team tray clearance and info-tip tap accuracy need a real device |
 | 11 | Restore Signals; loud private-source failure | P2 | IN PROGRESS (unit 1 merged) | #2237 → `3f647d16` | — | next: run the health probe once no deploy is in flight; two orphaned deploy runs still need a force-cancel |
-| 12 | Live roster refresh — measure first | P2 | MERGED (deploy pending) | #2246 → `6b0546a7` | — | owner may override (median post-trade misattribution 1.1 h) |
-| 13 | Security hardening batch | P2 | MERGED (deploy pending) | #2240 → `5f7e6080` | — | box `.env` is pre-checked against the target revision before the deploy moves anything |
+| 12 | Live roster refresh — measure first | P2 | VERIFIED NO LONGER NEEDED (measured; owner may override) | #2246 → `6b0546a7` | measurement doc only; no runtime change | owner may override (median post-trade misattribution 1.1 h) |
+| 13 | Security hardening batch | P2 | DEPLOYED | #2240 → `5f7e6080` | production `eb604ee2`; the box `.env` pre-flight ran and passed on deploys 44330192334 and 44345462077 | box `.env` is pre-checked against the target revision before the deploy moves anything |
 | 14 | Next.js 16.4.5+ (#2233) | P2 | DEPLOYED | #2241 → `0dc1c6cd` | production build `bd17e684` | dependabot #2233 superseded |
-| 15 | Make permanent-red / vacuous-green checks meaningful | P3 | MERGED (deploy pending) | #2247 → `123c08df`; #2253 → `83cc4061` (train 5) | — | 57 stale workflow registrations need an owner disable; #898 owner decision; E2E skip ceiling sits at exactly 70/70 on main |
+| 15 | Make permanent-red / vacuous-green checks meaningful | P3 | DEPLOYED | #2247 → `123c08df`; #2253 → `83cc4061` (train 5) | production `eb604ee2`; CI-only change | 57 stale workflow registrations need an owner disable; #898 owner decision; E2E skip ceiling sits at exactly 70/70 on main |
 | 16 | Node 20 → 22 | P3 | MERGED, then PARTIALLY REVERTED by hotfix #2256 (production lanes back on 20 until the box cutover) | #2252 → `79c60f26`; #2256 → `6f87d9d0` (RC 44340812140 green) | — | production runtime cutover BLOCKED — OWNER ACTION; engines `>=20 <23` until then |
 
 ## Baseline (2026-11-18, before any change)
@@ -358,6 +358,12 @@ Record (PR #2252 → `79c60f26`, train 4; hotfix #2256 → `6f87d9d0`):
   (`83cc4061`) and #2245 (`eb604ee2`). Main drift since train 5's validated base `79c60f26` was #2256 only (CI Node
   version; no shared files). Superseded deploy 44345387765 (`6f87d9d0`) cancelled at "Resolve Deploy Target", before
   any production step; deploy 44345462077 (`eb604ee2`) carries all three.
+
+- 16:47 UTC: Deploy Production 44345462077 succeeded; production `/api/status` `build.commit` = `eb604ee2`
+  (all of trains 1–5 plus hotfix #2256). `freshness_slo`: top-200 stale 0/200, priced withheld 3/1016, board scraped
+  16:46 UTC. The box `.env` pre-flight (Task 13) passed again. Task 3's shadow observer ran for real on the previous
+  deploy (run 44339329955): resolved target `79c60f26` / base `f5e06111` from the deploy logs and classified the delta
+  CODE (78 paths, 74 code) — correct, fail-closed; it is running again for this deploy.
 
 ## Operational notes
 
