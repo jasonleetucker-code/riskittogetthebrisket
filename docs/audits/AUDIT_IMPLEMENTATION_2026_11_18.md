@@ -23,19 +23,19 @@ BLOCKED — OWNER ACTION · BLOCKED — EXTERNAL DEPENDENCY · VERIFIED NO LONGE
 |---|---|---|---|---|---|---|
 | 1 | Hermetic hard gate and skip-budget repair | P0 | PR OPEN | #2239 `9f764920` | — | in independent review; must merge before ~2026-11-21 |
 | 2 | Freshness and deploy-lag SLO with alerts | P0 | PR OPEN | #2238 `e2bc2309` | — | in independent review; data rules report UNKNOWN until deployed |
-| 3 | Decouple data delivery from the full code gate | P1 | NOT STARTED | — | — | activation needs an owner policy amendment (Agent OS §3 L3 "no skip logic") |
-| 4 | Owner admin-action pack | P1 | IN PROGRESS (preparation) | `claude/serene-shannon-7lsrm9-t04-admin-pack` | — | ruleset apply, credential rotation, off-box backup destination, deploy-key review are owner-only |
-| 5 | Year-boundary hardening (2026→2027) | P1 | IN PROGRESS | `claude/serene-shannon-7lsrm9-t05-year-boundary` | — | — |
+| 3 | Decouple data delivery from the full code gate | P1 | IN PROGRESS (shadow mode) | `claude/serene-shannon-7lsrm9-t03-data-delivery` | — | activation needs an owner policy amendment (Agent OS §3 L3 "no skip logic") |
+| 4 | Owner admin-action pack | P1 | PR OPEN (preparation) | #2244 `0d697dea` | — | ruleset apply, credential rotation, off-box backup destination, deploy-key review are owner-only |
+| 5 | Year-boundary hardening (2026→2027) | P1 | PR OPEN | #2248 `8b47edef` | — | — |
 | 6 | Land five UI-fix PRs #2223/#2224/#2226/#2227/#2228 | P1 | MERGED (deploy running) | #2227 `3945d0a2`, #2224 `0d8bca1f`, #2226 `42bd796c`, #2223 `9a4ad5ca`, #2228 `5f35bf8c` | pending | real-device iOS tap / VoiceOver check for #2223; `/rankings` source-popover copy (claimed by draft #2171) |
 | 7 | Post-deploy trade and War Room smoke | P1 | PR OPEN | #2242 `1dfb1daf` | — | first real run happens on the next post-deploy verification |
-| 8 | Public-repo data-exposure remediation | P2 | NOT STARTED | — | — | publication policy is an owner decision |
-| 9 | Trade-flow resilience (frontend) | P2 | IN PROGRESS | `claude/serene-shannon-7lsrm9-t09-trade-resilience` | — | — |
-| 10 | Mobile ergonomics and 390 px coverage | P2 | IN PROGRESS | `claude/serene-shannon-7lsrm9-t10-mobile` | — | — |
+| 8 | Public-repo data-exposure remediation | P2 | PR OPEN (preparation + decision brief) | #2249 `1f054d32` | — | publication policy is an owner decision |
+| 9 | Trade-flow resilience (frontend) | P2 | PR OPEN | #2243 `1062e5ad` | — | reviewed: nothing blocking |
+| 10 | Mobile ergonomics and 390 px coverage | P2 | PR OPEN | #2245 `ab9edcbc` | — | e2e specs first run in CI; 4-team tray clearance needs a real device |
 | 11 | Restore Signals; loud private-source failure | P2 | PR OPEN (unit 1 of 2) | #2237 `claude/serene-shannon-7lsrm9-t11-signals` | — | diagnosis waits on #2237 merge; two orphaned deploy runs need a force-cancel |
-| 12 | Live roster refresh — measure first | P2 | NOT STARTED | — | — | — |
-| 13 | Security hardening batch | P2 | PR OPEN | #2240 `02e3a8f2` | — | review blocker fixed (box env pre-checked against the target revision before the checkout moves) |
+| 12 | Live roster refresh — measure first | P2 | PR OPEN (measurement: refresh not justified) | #2246 `bb9b1496` | — | owner may override (median post-trade misattribution 1.1 h) |
+| 13 | Security hardening batch | P2 | PR OPEN (CI fixes in progress) | #2240 `35a0f3f5` | — | backup-alert tests being re-pointed at the watchdog |
 | 14 | Next.js 16.4.5+ (#2233) | P2 | PR OPEN | #2241 `240a06c3` | — | supersedes dependabot #2233 |
-| 15 | Make permanent-red / vacuous-green checks meaningful | P3 | NOT STARTED | — | — | — |
+| 15 | Make permanent-red / vacuous-green checks meaningful | P3 | PR OPEN | #2247 `67f19166` | — | 57 stale workflow registrations need an owner disable; #898 owner decision |
 | 16 | Node 20 → 22 | P3 | NOT STARTED | — | — | production runtime cutover is box work |
 
 ## Baseline (2026-11-18, before any change)
@@ -183,7 +183,17 @@ Record:
 ### 12. Roster freshness — P2 (measure first)
 Problem: `dynasty_main` rosters refresh only with the ~2 h scrape; the N-team engine needs rosters ≤ 6 h old. Whether
 this causes real ownership refusals is unmeasured; no new polling without evidence.
-Record: not started.
+Record (PR #2246, docs only, `docs/ops/ROSTER_FRESHNESS_MEASUREMENT_2026-11-18.md`):
+- `dynasty_main` roster age at a random moment: p50 1.11 h, p95 2.04 h, max 2.14 h (four consecutive successful box
+  scrapes 04:27–10:38 UTC, gaps 2.006 / 2.094 / 2.088 h, ~0.08 h publish lag; 200k-draw simulation). Engine refusal
+  threshold 6 h → never stale in a healthy cycle. `dynasty_new`: request-driven overlay, 15 min TTL.
+- 84 completed `dynasty_main` trades 2026-08-13 → 11-17 (7 in the last 30 days): pre-trade ownership is served for a
+  mean 1.11 h after each; ≈1.1 % of wall-clock time has a pending trade.
+- A 10–15 min light refresh would add ≈0.3 Sleeper req/min (≈0.03 % of the ~1000/min guidance); the real cost is a
+  second writer of the contract `sleeper` block.
+- Decision: not justified now. Revisit triggers: a refusal counter showing a material rate, scrape cadence relaxed
+  beyond ~4 h, or owner reports of acting on stale post-trade ownership. Owner may override (the median exceeds the
+  task's 30–60 min bar).
 
 ### 13. Security hardening — P2
 Problem: placeholder password passes the startup guard; non-ASCII bearer token → 500; CSV formula injection;
@@ -218,6 +228,15 @@ Record: not started.
 ### 16. Node 22 — P3
 Problem: Node 20 (`engines >=20 <21`, every workflow) is past end of life; blocks jsdom/jest-dom/axe upgrades.
 Record: not started.
+
+## Operational notes
+
+- 2026-11-18 ~11:40 UTC — CI runner saturation: ~10 concurrent PR CI runs (8 shards + E2E each) left Deploy Production
+  and the train-2 Release Candidate queued. Nine queued PR Validation / E2E runs were cancelled (re-run later, two or
+  three at a time): #2244, #2245, #2246, #2247, #2248, #2250 (#2240 / #2249 get fresh runs on their next push).
+- `tests/api/test_run_scraper_nonblocking.py::test_event_loop_stays_responsive_during_each_fetch_main[scripts.fetch_fantasypros_idp]`
+  failed once on #2238 (0.44 s vs 0.35 s bound) and passed on the single permitted re-run — an intermittent timing test
+  under runner load; candidate for Task 15's follow-up list.
 
 ## Owner actions (consolidated, kept current)
 
