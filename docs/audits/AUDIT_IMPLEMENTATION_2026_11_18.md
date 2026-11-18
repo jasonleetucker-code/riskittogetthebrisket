@@ -404,6 +404,63 @@ Record (PR #2252 → `79c60f26`, train 4; hotfix #2256 → `6f87d9d0`):
   failed once on #2238 (0.44 s vs 0.35 s bound) and passed on the single permitted re-run — an intermittent timing test
   under runner load; candidate for Task 15's follow-up list.
 
+## Final report (2026-11-18)
+
+### Status counts
+
+| Status | Tasks | Count |
+|---|---|---|
+| VERIFIED COMPLETE | 1, 2, 5, 7, 14, 15 | 6 |
+| VERIFIED NO LONGER NEEDED (measured) | 12 | 1 |
+| DEPLOYED — automated production checks pass; a real-device or partial check outstanding | 6, 9, 10, 13 | 4 |
+| Engineering delivered; completion BLOCKED — OWNER ACTION / DECISION | 3 (activation), 4 (apply/rotate/backup), 8 (policy), 11 (Signals reconnect), 16 (runtime cutover) | 5 |
+| NOT STARTED / IN PROGRESS / PR OPEN | — | 0 |
+
+All 16 tasks have merged engineering work; 26 PRs merged (#2223, #2224, #2226, #2227, #2228, #2236–#2253, #2256,
+#2257, #2259). Production went `71cc45b7` (audit) → `5f35bf8c` → `bd17e684` → `eb604ee2` → `bb95f1e6`
+(→ `7decca70` deploying).
+
+### Before / after (measured; nothing estimated)
+
+| Measure | Before (audit, 2026-11-18 morning) | After | Source |
+|---|---|---|---|
+| Hard-gate skips vs budget | 7 of 7 (headroom 0) | 3 of 7 (headroom 4); 36,493 collected, 36,462 passed, 0 failed | deploy 44234235112 / 44351902994 |
+| Deploy outcomes | last 100 runs: 50 success, 38 failure, 11 cancelled | 2026-11-18: 8 success, 1 failure (Node 22 incident, fixed by #2256), 19 cancelled (superseded) | Actions API |
+| Production freshness visibility | none | `freshness_slo`: top-200 stale 0/200, priced withheld 3/1016, board age 0.26 h; deploy lag 1.12 h; private-source breach alerted (#2258) | `/api/status`, health-check 44341452236 |
+| Post-deploy trade coverage | none | 2-team analyze + 3-team analyze-multi HTTP 200 on every deploy | V1 44359806222 |
+| Authenticated browser suite | last completed run before the program: success (11-17) | 108 passed / 0 failed / 26 skipped on `bb95f1e6` | V1 44359806222 |
+| Year-boundary failures | 28–29 failing tests per boundary instant | 0 failed (3,152 passed at each of 4 instants) | Future Clock 44362581619 |
+| Next.js advisories | 16.4.3, GHSA-mfr8-8qww-v76h + GHSA-vc7v-qv4w-wrv8 | 16.4.5 in production | `bb95f1e6` lockfile |
+| Non-ASCII bearer on a protected route | HTTP 500 | HTTP 401 | production probe |
+| Rank-form drift check | red 10 of 10 weekly runs | green `accepted` tripwire (excess RMSE offense 93.4, IDP 180.0, margin 25) | run 44362587168 |
+| Sharp population check | green without measuring | measured job SKIPPED + named warning | run 44359806209 |
+| Signals diagnosis | probe blocked by orphaned deploys, then `{"error":"PublicLeak"}` | full report: session `reconnect_required`, 66 failures, notice never delivered | probe 44359886606 |
+| `signalsSf` age | 391.9 h | 400.2 h — NOT restored (owner reconnect) | probe 44359886606 |
+| Data-only deploy candidates | not measured | 23 of 138 classified deploys DATA_ONLY; 9 of those failed the full gate | Task 3 backtest |
+| Roster age at a random moment | not measured | p50 1.11 h, p95 2.04 h, max 2.14 h | Task 12 measurement |
+| Tracked-data exposure | not inventoried | 12,554 in-scope tracked files, 2.28 GB; growth now blocked | Task 8 inventory |
+
+### Remaining risks
+
+- `signalsSf` stays stale and its votes withheld until the owner reconnects; until then the SLO issue (#2258) stays
+  open by design.
+- Production runs Node 20 (past end of life); CI is split 20 (production lanes) / 22 (the rest) until the cutover.
+- `main` has no required status checks until the owner applies the ruleset; no off-box backup exists yet.
+- Orphaned Deploy Production run 32212914036 (queued since 2026-08-19) would deploy a three-month-old SHA if GitHub
+  ever started it; only the owner can force-cancel it.
+- Vendor CSVs and board exports remain public until the owner chooses a policy (growth is blocked).
+- Data refreshes still deploy through the full code gate (Task 3 is shadow-only), so they keep consuming ~115 runner
+  minutes each and remain exposed to data-coupled test failures; Task 1 removed the known ones.
+- The E2E Safety Net sits at its skip ceiling (70 of 70): any new deliberately skipped test fails it.
+- Not verified on real devices: iOS tap-to-pick / VoiceOver (#2223), PWA service-worker update (Task 9), 390 px tray
+  clearance and info-tip taps (Task 10), phone test-push and a live auction room (#2228).
+- The desktop War Room spec timed out once on a backend restarted 6 minutes earlier (it passed on the next run); a
+  cold backend can make the first authenticated run after a restart slow.
+- `tests/api/test_run_scraper_nonblocking.py` (event-loop timing bound) failed once under runner load and passed on
+  re-run.
+- 2027-01-01: the documented board-vs-league divergence on 2030 picks takes effect unless the owner decides
+  otherwise.
+
 ## Owner actions (consolidated, kept current — priority order)
 
 1. **Task 11 — reconnect Signals.** The owner session is `reconnect_required` (probe run 44359886606; `signalsSf`
