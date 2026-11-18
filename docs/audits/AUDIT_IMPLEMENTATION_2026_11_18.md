@@ -27,7 +27,7 @@ BLOCKED — OWNER ACTION · BLOCKED — EXTERNAL DEPENDENCY · VERIFIED NO LONGE
 | 4 | Owner admin-action pack | P1 | DEPLOYED (tooling) — BLOCKED — OWNER ACTION | #2244 → `ca698b11` | production `eb604ee2` (scripts/runbook only; nothing applied) | ruleset apply, credential rotation, off-box backup destination, deploy-key review are owner-only |
 | 5 | Year-boundary hardening (2026→2027) | P1 | DEPLOYED | #2248 → `ae310e03` | production `eb604ee2`; no served value changed by design | owner: league vs board horizon divergence at New Year (2030 picks unpriced until the 2027 draft is proven) |
 | 6 | Land five UI-fix PRs #2223/#2224/#2226/#2227/#2228 | P1 | DEPLOYED (+ #2250 merged `58278641`) | #2227 `3945d0a2`, #2224 `0d8bca1f`, #2226 `42bd796c`, #2223 `9a4ad5ca`, #2228 `5f35bf8c`; follow-up #2250 | production `/api/status` build `5f35bf8c` (2026-11-18 ~12:20 UTC) | real-device iOS tap / VoiceOver check for #2223; post-deploy signed-in verification pending |
-| 7 | Post-deploy trade and War Room smoke | P1 | DEPLOYED — smoke VERIFIED on production | #2242 → `c59c0a52` | V1 run 44331428925 against production `f5e06111`: trade smoke exit 0 — `analyze_2team` HTTP 200 (2 priced rows), `analyze_multi_3team` HTTP 200 (6 priced rows, rosters current); security acceptance pass | the same run's browser suite failed once: desktop War Room spec timeout (125 s) on a backend restarted 6 min earlier by the train-4 rollback; the mobile War Room spec passed in 41 s on the same build. Re-test on the next V1 run |
+| 7 | Post-deploy trade and War Room smoke | P1 | VERIFIED COMPLETE | #2242 → `c59c0a52` | V1 run 44359806222 against production `bb95f1e6` (success): trade smoke exit 0 — `analyze_2team` HTTP 200 (2 priced rows), `analyze_multi_3team` HTTP 200 (6 priced rows, rosters current); browser suite 108 passed / 0 failed / 26 skipped; War Room desktop 45 s, mobile 21 s; security acceptance pass | the one earlier desktop War Room timeout (run 44331428925, 125 s) ran 6 min after the train-4 rollback restarted the backend and did not recur |
 | 8 | Public-repo data-exposure remediation | P2 | DEPLOYED (guard) — BLOCKED — OWNER DECISION | #2249 → `522c0efc` | production `eb604ee2`; growth guard active as a blocking PR step | publication policy is an owner decision |
 | 9 | Trade-flow resilience (frontend) | P2 | DEPLOYED | #2243 → `bd17e684` | production build `bd17e684` | service-worker update on real devices (iOS PWA) |
 | 10 | Mobile ergonomics and 390 px coverage | P2 | DEPLOYED | #2245 → `eb604ee2` (train 5: RC 44330233614 + E2E 44330240357 green) | production `eb604ee2` (16:47 UTC) | 4-team tray clearance and info-tip tap accuracy need a real device |
@@ -384,6 +384,10 @@ Record (PR #2252 → `79c60f26`, train 4; hotfix #2256 → `6f87d9d0`):
   - Loud failure: the Task 2 SLO now alerts on this state (issue #2258, `data_freshness.private_sources` 4/4).
     Unit 3 (#2259) publishes the reconnect-notice attempt counts, which say whether the box has no notice channel
     configured (0 attempts) or a failing one.
+
+- 17:3x UTC: V1 authenticated verification 44359806222 of production `bb95f1e6`: SUCCESS — browser suite 108
+  passed / 0 failed / 26 skipped (War Room desktop 45 s, mobile 21 s), trade smoke pass, security acceptance pass,
+  failure classification `none`.
 
 ## Operational notes
 
