@@ -83,7 +83,7 @@ describe("public-league service-worker cache", () => {
     expect(fetch).toHaveBeenCalledOnce();
     expect(cache.match).not.toHaveBeenCalled();
     expect(cache.put).toHaveBeenCalledOnce();
-    expect(caches.open).toHaveBeenCalledWith("chaseupside-v10-public-league");
+    expect(caches.open).toHaveBeenCalledWith("chaseupside-v11-public-league");
   });
 
   it("uses the public-league cache only when the network is unavailable", async () => {

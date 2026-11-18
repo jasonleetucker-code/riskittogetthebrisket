@@ -196,6 +196,21 @@ export function classifyContractFailure(status, body) {
 }
 
 /**
+ * The contract request hit the client deadline (`BASE_CONTRACT_TIMEOUT_MS`
+ * in lib/dynasty-data.js).  Its own kind, not "offline": the network may be
+ * fine and the backend merely slow, and the useful instruction differs
+ * ("try again" rather than "check your connection").
+ */
+export function classifyContractTimeout() {
+  return {
+    kind: "timeout",
+    code: "client_timeout",
+    message: "The server took too long to answer.",
+    retryable: true,
+  };
+}
+
+/**
  * Classify a contract that ARRIVED. Returns null when it is fine.
  *
  * Kept beside the transport classifier because a caller has to ask both
@@ -242,4 +257,17 @@ export function shouldRedirectToLogin(failure, { hadAuthCache, pathname }) {
   const path = pathname || "";
   if (path === "/login" || path.startsWith("/login/")) return false;
   return true;
+}
+
+/**
+ * The failure a page should render for `useDynastyData()`'s `{error, failure}`
+ * pair.  `failure` is set alongside `error`, but a caller holding only an
+ * error string must not render nothing (FailureState returns null on a falsy
+ * failure) - so an unclassified error becomes an explicit, retryable generic
+ * one.  Shared by the trade tools so no page keeps its own fallback.
+ */
+export function failureForDisplay(failure, error) {
+  if (failure) return failure;
+  if (!error) return null;
+  return { kind: "error", code: "", message: String(error), retryable: true };
 }
