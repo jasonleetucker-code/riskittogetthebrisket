@@ -191,7 +191,7 @@ const ROUTES = [
   "/auction/notifications",
 ];
 
-test.describe("mobile 390px: primary touch controls are at least 44x44", () => {
+test.describe("mobile 390px: primary touch controls are at least 44x44 @mobile-only", () => {
   test.use({ viewport: MOBILE, isMobile: true, hasTouch: true });
 
   test("the probe flags known-bad geometry and exempts inline links (control)", async ({
