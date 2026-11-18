@@ -546,11 +546,11 @@ jobs:
           echo "trade_smoke_exit=$rc" >> "$GITHUB_OUTPUT"
           echo "Trade smoke exit: $rc (0 pass · 2 fail · 1 usage)"
 
-      - name: Set up Node 20 for production baseline
+      - name: Set up Node 22 for production baseline
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.suite == 'baseline' }}
         uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Collect authenticated route baseline
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.suite == 'baseline' }}

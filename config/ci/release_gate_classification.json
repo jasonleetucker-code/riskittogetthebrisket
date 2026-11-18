@@ -515,7 +515,7 @@
     "e2e.yml::e2e::Upload server logs on failure": {
       "category": "blocking"
     },
-    "e2e.yml::e2e::Use Node 20": {
+    "e2e.yml::e2e::Use Node 22": {
       "category": "blocking"
     },
     "e2e.yml::e2e::Wait for stack readiness": {
@@ -857,7 +857,7 @@
     "prod-e2e-smoke.yml::smoke::Upload the Playwright report on failure": {
       "category": "blocking"
     },
-    "prod-e2e-smoke.yml::smoke::Use Node 20": {
+    "prod-e2e-smoke.yml::smoke::Use Node 22": {
       "category": "blocking"
     },
     "prod-heap-report.yml::heap-report::Checkout": {
@@ -1409,7 +1409,7 @@
     "weekly-narratives.yml::narratives::Upload exported package (export mode only)": {
       "category": "blocking"
     },
-    "v1-authenticated-verification.yml::v1-authenticated::Set up Node 20 for production baseline": {
+    "v1-authenticated-verification.yml::v1-authenticated::Set up Node 22 for production baseline": {
       "category": "blocking"
     },
     "v1-authenticated-verification.yml::v1-authenticated::Collect authenticated route baseline": {
