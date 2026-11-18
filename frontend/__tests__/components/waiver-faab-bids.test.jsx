@@ -3,18 +3,21 @@
 // contract rows, and contract rows carry values, not bids — so without
 // this fetch the "Best add/drop moves" FAAB column is "—" on every row.
 //
-// The contract pinned here is SILENT VANISH, copied from the BDVM
-// Fund-gap column on /rankings: a 503, a 401, a malformed body or a
-// dead network leaves ``faabIndex`` null and ``error`` untouched.  The
+// The contract pinned here: a 503, a 401, a malformed body or a dead
+// network leaves ``faabIndex`` null and ``error`` untouched.  The
 // add/drop tables work fine without a bid, so an optional column that
-// failed to load must never raise the page's error banner.
+// failed to load must never raise the page's error banner.  It is NOT
+// silent, though (2026-11-16 sweep, defect 4): ``bidFeed`` says
+// "loading" while the request is in flight and "failed" once it failed —
+// never after an abort — and ``retryBids`` re-issues it.  The page-level
+// rendering of those states is pinned in waivers-bid-feed-retry.test.jsx.
 //
 // Also pinned: the request carries the active leagueKey and the
 // selected team's faabRemaining, and no request fires at all before a
 // team is chosen.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 const mockUseApp = vi.fn();
 const mockUseLeague = vi.fn();
@@ -33,14 +36,21 @@ vi.mock("@/components/useRosterIntelligence", () => ({
 import { useWaiverAnalysis } from "@/components/useWaiverAnalysis";
 import { waiverBidForRow } from "@/lib/waiver-faab";
 
+// Every bidFeed value this Probe ever rendered, in order — so a test can
+// assert a state was NEVER shown, not just that it is gone now.
+const feedHistory = [];
+
 function Probe() {
-  const { faabIndex, error } = useWaiverAnalysis({});
+  const { faabIndex, error, bidFeed, retryBids } = useWaiverAnalysis({});
   const bid = waiverBidForRow(faabIndex, { name: "Emeka Egbuka", pos: "WR" });
+  feedHistory.push(bidFeed);
   return (
     <div>
       <span data-testid="index">{faabIndex ? "present" : "null"}</span>
       <span data-testid="bid">{bid ? String(bid.reasonable) : "—"}</span>
       <span data-testid="error">{error ? String(error) : "none"}</span>
+      <span data-testid="feed">{bidFeed === null ? "null" : String(bidFeed)}</span>
+      <button type="button" onClick={retryBids}>retry</button>
     </div>
   );
 }
@@ -104,6 +114,7 @@ beforeEach(() => {
   mockUseApp.mockReset();
   mockUseLeague.mockReset();
   mockUseTeam.mockReset();
+  feedHistory.length = 0;
 });
 
 afterEach(() => {
@@ -119,6 +130,9 @@ describe("useWaiverAnalysis FAAB bid fetch", () => {
     await waitFor(() => expect(screen.getByTestId("index")).toHaveTextContent("present"));
     expect(screen.getByTestId("bid")).toHaveTextContent("8");
     expect(screen.getByTestId("error")).toHaveTextContent("none");
+    // Settled with a usable board: no stated cause, the index answers.
+    expect(screen.getByTestId("feed")).toHaveTextContent("null");
+    expect(feedHistory).not.toContain("failed");
   });
 
   it("sends leagueKey and the team's faabRemaining in the POST body", async () => {
@@ -177,7 +191,10 @@ describe("useWaiverAnalysis FAAB bid fetch", () => {
   });
 
   // Every failure below is the SAME observable outcome: no index, no
-  // error. That sameness is the point — the column just isn't there.
+  // page error — and a STATED failure (``bidFeed: "failed"``), so the
+  // page can say the bids failed and offer a Retry instead of a blank.
+  // (A 2xx body carrying ``error`` is malformed: the endpoint states
+  // every error with a non-2xx status.)
   it.each([
     ["503 data not ready", async () => jsonResponse({ error: "Live contract not loaded yet." }, 503)],
     ["401 signed out", async () => jsonResponse({ error: "unauthorized" }, 401)],
@@ -186,16 +203,95 @@ describe("useWaiverAnalysis FAAB bid fetch", () => {
     ["200 with a non-object body", async () => jsonResponse("nope")],
     ["network failure", async () => { throw new TypeError("connect ECONNREFUSED"); }],
     ["malformed JSON", async () => ({ ok: true, status: 200, json: async () => { throw new SyntaxError("bad json"); } })],
-  ])("vanishes silently on %s", async (_label, impl) => {
+  ])("states 'failed' (no index, no page error) on %s", async (_label, impl) => {
     setContexts();
     vi.stubGlobal("fetch", vi.fn(impl));
 
     render(<Probe />);
-    await waitFor(() => expect(screen.getByTestId("bid")).toHaveTextContent("—"));
+    // In flight first, then the settled failure.
+    expect(feedHistory[0]).toBe("loading");
+    await waitFor(() => expect(screen.getByTestId("feed")).toHaveTextContent("failed"));
+    expect(screen.getByTestId("bid")).toHaveTextContent("—");
     expect(screen.getByTestId("index")).toHaveTextContent("null");
     // The page's error banner is driven by ``error`` — a failed bid
     // fetch must never light it.
     expect(screen.getByTestId("error")).toHaveTextContent("none");
+  });
+
+  it("an abort is never 'failed': the superseding request reads 'loading', then its answer", async () => {
+    // Team A's request honours its abort signal; team B's resolves on demand.
+    const resolvers = [];
+    const fetchMock = vi.fn((_url, init) => new Promise((resolve, reject) => {
+      init.signal.addEventListener("abort", () => {
+        reject(new DOMException("The operation was aborted.", "AbortError"));
+      });
+      resolvers.push(resolve);
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    setContexts({ team: { name: "A", ownerId: "owner-a", players: [], faabRemaining: 63 } });
+
+    const { rerender } = render(<Probe />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId("feed")).toHaveTextContent("loading");
+
+    mockUseTeam.mockReturnValue({
+      selectedTeam: { name: "B", ownerId: "owner-b", players: [], faabRemaining: 40 },
+      leagueMismatch: false,
+      availableTeams: [],
+    });
+    rerender(<Probe />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    // A's request was aborted; B's is in flight.
+    expect(fetchMock.mock.calls[0][1].signal.aborted).toBe(true);
+    expect(screen.getByTestId("feed")).toHaveTextContent("loading");
+
+    await act(async () => resolvers[1](jsonResponse(OK_PAYLOAD)));
+    await waitFor(() => expect(screen.getByTestId("index")).toHaveTextContent("present"));
+    expect(screen.getByTestId("feed")).toHaveTextContent("null");
+    expect(feedHistory).not.toContain("failed");
+  });
+
+  it("an unmount abort settles nothing (no state update after unmount)", async () => {
+    const fetchMock = vi.fn((_url, init) => new Promise((_resolve, reject) => {
+      init.signal.addEventListener("abort", () => {
+        reject(new DOMException("The operation was aborted.", "AbortError"));
+      });
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    setContexts();
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { unmount } = render(<Probe />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    unmount();
+    await act(async () => {});
+    expect(fetchMock.mock.calls[0][1].signal.aborted).toBe(true);
+    expect(feedHistory).not.toContain("failed");
+    errorSpy.mockRestore();
+  });
+
+  it("retryBids re-issues the request for the same identity and clears a stale failure", async () => {
+    let calls = 0;
+    const resolvers = [];
+    const fetchMock = vi.fn(() => {
+      calls += 1;
+      if (calls === 1) return Promise.resolve(jsonResponse({ error: "failed" }, 500));
+      return new Promise((resolve) => resolvers.push(resolve));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    setContexts();
+
+    render(<Probe />);
+    await waitFor(() => expect(screen.getByTestId("feed")).toHaveTextContent("failed"));
+
+    fireEvent.click(screen.getByRole("button", { name: "retry" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(fetchMock.mock.calls[1][1].body).toBe(fetchMock.mock.calls[0][1].body);
+    expect(screen.getByTestId("feed")).toHaveTextContent("loading");
+
+    await act(async () => resolvers[0](jsonResponse(OK_PAYLOAD)));
+    await waitFor(() => expect(screen.getByTestId("feed")).toHaveTextContent("null"));
+    expect(screen.getByTestId("bid")).toHaveTextContent("8");
   });
 
   it("does not fire before a team is selected", async () => {
