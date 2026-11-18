@@ -65,7 +65,7 @@ export const VALUE_EXPLAINERS = {
     detail: [
       "It blends every registered dynasty source that covers the player. Value-based markets (KTC Crowd, KTC Trades, IDP Trade Calculator) vote with their own values rescaled to 9,999; ranking sources are converted from rank to value through the Hill curve so the two kinds are comparable.",
       "The votes are combined with a count-aware weighted mean-median, so a single outlying source moves it little. A player (not a pick) backed by only one evidence family keeps 30% of the blended value — the single-source haircut.",
-      "If you change source weights, the same backend pipeline recomputes the board with your weights; the Custom mix badge on Rankings says when that is active.",
+      "Custom source mixes are switched off: the board always blends every registered source, and a stored include/weight mix is ignored.",
     ],
     owner: "src/api/data_contract.py — _compute_unified_rankings",
   },
