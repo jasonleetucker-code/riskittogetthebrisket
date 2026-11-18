@@ -36,7 +36,7 @@ def test_opt_in_baseline_does_not_change_legacy_suites():
     assert "options: [api, browser, all, baseline]" in text
     assert text.count("inputs.suite != 'browser' && inputs.suite != 'baseline'") == 2
     assert "(inputs.suite != 'api' && inputs.suite != 'baseline')" in text
-    assert "node-version: '20'" in text
+    assert "node-version: '22'" in text
     assert "--auth production-cookie --runs 5 --viewport both" in text
     assert "options: [core, league-game-day]" in text
     assert "core) routes=/rankings,/trade ;;" in text
@@ -78,7 +78,7 @@ def test_new_workflow_steps_are_blocking():
                     return result
         return None
 
-    for step in ("Set up Node 20 for production baseline", "Collect authenticated route baseline"):
+    for step in ("Set up Node 22 for production baseline", "Collect authenticated route baseline"):
         key = "v1-authenticated-verification.yml::v1-authenticated::" + step
         assert find(data, key) == {"category": "blocking"}
 
