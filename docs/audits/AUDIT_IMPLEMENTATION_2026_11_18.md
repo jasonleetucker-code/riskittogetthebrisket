@@ -269,7 +269,7 @@ Record: not started.
 - Signals probe (Task 11): the deploy-in-flight guard now passes ("no deploy in flight (2 orphaned run(s)
   ignored)"); the probe ran on the box (run 44339687295) but its fail-closed public projection withheld the whole
   report (`{"error": "PublicLeak"}`) because a free-text leaf (likely the source's error text) is not public-safe.
-  Fix in progress: redact unsafe leaves individually and publish an error class instead.
+  Fix: PR #2257 (unsafe leaves replaced by `withheld_unsafe_value`, path recorded under `redacted`; `errorClass` vocabulary; systemd `Result` normalised, e.g. `exit-code` -> `exit_code`, the most likely tripped leaf). Takes effect after merge + deploy; then re-run the probe to diagnose `signalsSf`.
 
 ## Operational notes
 
