@@ -62,7 +62,17 @@ Findings (2026-11-19):
   - 43096180672 is a `push` run (no inputs possible); its target `44a0d573` is an ancestor of the production commit,
     so its own guard refuses with "move production BACKWARDS".
   - Both read the same box file the current guard reads (`LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE`).
-- Remaining hygiene (optional owner action): delete the two run records from the Actions UI; the API offers no cancel.
+- **Correction from independent review (2026-11-19):** the old guards skip the ancestry check when the SSH read of
+  the box baseline FAILS. `… || true` leaves `LAST_DEPLOYED` empty, which reads as "no baseline". So a zombie that
+  GitHub started during an SSH blip could still ship its old commit. #2266 closes that for future runs (a failed
+  read refuses), but it cannot bind an already-queued run.
+- **Neutralization (2026-11-19 ~10:30 UTC):** `DELETE /actions/runs/{id}`.
+  - 32212914036 (August, `1d9a001c`): **deleted**; the run now answers 404.
+  - 43096180672 (November push of `44a0d573`): **403 "Could not delete the workflow run"**; it is still `queued`
+    with zero jobs.
+  - Residual risk for that one needs both events at once: GitHub starting an 8-day-old zero-job run, and the SSH
+    read failing at that moment. Otherwise its own guard refuses it as backwards.
+  - Owner action: delete or cancel it from the Actions UI, or ask GitHub support to purge it.
 
 ### 2. Signals and production alert delivery
 
