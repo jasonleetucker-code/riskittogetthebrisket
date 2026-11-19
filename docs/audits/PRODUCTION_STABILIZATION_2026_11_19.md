@@ -233,6 +233,30 @@ an 8-line change in `league_draft_years`. Measured effects:
 
 ## Integration log
 
+**Train S12 (2026-11-19).** Eight PRs, validated as one tree, then merged in order with `expectedHeadSha`.
+
+- Release candidate 44511704167 on `trainS12@512f473a`, built from `origin/main@3c07f519` plus every PR head. HEAD-FREEZE: 0 class-A, 0 class-B and 0 class-C commits outstanding — "the validated tree IS the tree that will merge". Result: 11 of 11 jobs green (build/plan, static/contract/frontend, hard gate 8/8, verdict).
+- Merged 11:30 UTC, in this order:
+
+  | PR | Unit | Merge commit |
+  |---|---|---|
+  | #2264 | STAB-4 off-box backups | `5cdb4565` |
+  | #2263 | STAB-5 credentials | `13738971` |
+  | #2262 | STAB-7 data governance | `9bbba4ae` |
+  | #2267 | STAB-2 alert routing | `54cf594d` |
+  | #2266 | STAB-1 deploy guard | `c0e41a15` |
+  | #2268 | STAB-10 apt | `0ca4b1c0` |
+  | #2269 | STAB-10 cold start | `c1c60f6b` |
+  | #2272 | STAB-10/12 bot-deploy observation | `ecc3464e` |
+
+- `git diff 512f473a ecc3464e` is empty: `main` equals the validated tree.
+- The per-PR `Validate PR` runs for #2266, #2267, #2269 and #2272 were cancelled while queued, to free runners for the release candidate, which tests the stricter exact merged tree. Each PR carries a comment saying so.
+  - #2267's earlier real failure (`tests/test_explicit_text_encoding.py`: a `write_text` without `encoding=`) was fixed in `4bf3cbe9` before the train was rebuilt.
+- Deploys:
+  - The seven intermediate push deploys were superseded by the group.
+  - The first (`5cdb4565`, #2264 alone) had already started its pre-deploy gate. My request to cancel it was refused by the session's permission policy, so it runs and the final deploy follows it.
+  - `5cdb4565` is a fast-forward ancestor of `ecc3464e`, so this costs one extra restart and nothing else.
+
 ## Owner actions (consolidated, priority order)
 
 Each item says what to do, why, the risk, what is prepared, how I verify, and the rollback. Items 1–4 are the
