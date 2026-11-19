@@ -17,10 +17,14 @@ name: Data Delivery Shadow
 #     and a separate workflow in that group can EVICT a queued deploy
 #     (tests/deploy/test_production_deploy_concurrency.py, measured 2026-09-24).
 #     This one has its own per-deploy-run group.
-#   * `workflow_run` on Deploy Production sees EVERY deploy run however it was
-#     started: a push, scheduled-refresh.yml's explicit dispatch after a data
-#     commit, or a manual dispatch.  A push trigger would miss the dispatches,
-#     which are most of the data-triggered deploys.
+#   * `workflow_run` on Deploy Production covers deploy runs a HUMAN started
+#     (a push, a manual dispatch) -- but NOT scheduled-refresh.yml's dispatch
+#     after a data commit: GitHub creates no workflow_run run for a run
+#     started by GITHUB_TOKEN (triggering actor github-actions[bot]), and
+#     those are most of the data-triggered deploys.  Those deploy runs
+#     therefore dispatch this workflow themselves (deploy.yml job
+#     `dispatch-data-delivery-shadow`, STAB-10), through `workflow_dispatch`
+#     with `deploy_run_id`, so every deploy run is still observed once.
 #   * It runs after the deploy run completes because the agreement metric needs
 #     the full gate's verdict; the fast path's own cost is measured directly
 #     (gate seconds and this job's wall clock), so nothing is lost by not

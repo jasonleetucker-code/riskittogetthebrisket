@@ -431,6 +431,12 @@
     "deploy.yml::deploy::Verify live frontend matches the tested artifact": {
       "category": "blocking"
     },
+    "deploy.yml::dispatch-data-delivery-shadow::Dispatch Data Delivery Shadow for this deploy run": {
+      "category": "advisory"
+    },
+    "deploy.yml::dispatch-v1-verification::Dispatch V1 authenticated verification for this deploy": {
+      "category": "advisory"
+    },
     "dlf-diagnostics.yml::inventory::Checkout": {
       "category": "blocking"
     },
@@ -1296,6 +1302,9 @@
       "category": "blocking"
     },
     "v1-authenticated-verification.yml::v1-authenticated::Browser verification suite (prod-auth Playwright specs)": {
+      "category": "blocking"
+    },
+    "v1-authenticated-verification.yml::wait-for-deploy::Wait for the deploy run to complete (read-only API)": {
       "category": "blocking"
     },
     "v1-authenticated-verification.yml::v1-authenticated::Checkout": {
