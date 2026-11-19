@@ -263,7 +263,12 @@ Delivered: #2262, merged (docs, a read-only script and a PR-time guard; no data 
     - fall back to the network only on a cache miss.
 
     That turns an upstream outage into a non-event for warm caches, without skipping the OCR tests.
-- **Cold-start verification:** #2269 (readiness probe; worst case 360 s, inside the 480 s cap).
+- **Cold-start verification:** #2269 (readiness probe; worst case 360 s, inside the 480 s cap). **Verified live:**
+  - V1 verification 44527678669 (after the S12 deploy, on the restarted backend) logged "trade routes ready after
+    32.2s (1 probe(s); first probe: /api/data 4.1s (HTTP 200), analyze 28.1s (HTTP 200))", readiness exit 0.
+  - Then: browser suite 108 passed / 26 skipped, trade smoke exit 0, security acceptance exit 0.
+  - The run states its own limit: production had moved on to the data deploy `fe9ec6fd` (which descends from
+    `ecc3464e`) before it ran.
 - **Post-deploy observation of bot deploys:** #2272. Deploy Production now dispatches the shadow observer and the
   authenticated verification for bot-started deploys. GitHub never fires `workflow_run` for them (see §12).
 
