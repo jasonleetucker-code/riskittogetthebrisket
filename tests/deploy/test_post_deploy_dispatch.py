@@ -50,6 +50,20 @@ def test_dispatch_jobs_are_bot_only_minimal_and_cannot_fail_the_deploy(deploy, j
     assert "${{ inputs." not in step["run"] and "${{ needs." not in step["run"]
 
 
+@pytest.mark.parametrize("job", ["dispatch-data-delivery-shadow", "dispatch-v1-verification"])
+def test_a_hung_dispatch_cannot_turn_the_deploy_red(deploy, job):
+    spec = deploy["jobs"][job]
+    (step,) = spec["steps"]
+    # A step's continue-on-error covers the step failing, its own
+    # timeout-minutes included -- but not the JOB's timeout.  So the step cap
+    # must fire first, leaving the runner set-up room inside the job cap...
+    assert isinstance(step.get("timeout-minutes"), int), "a hung gh call needs a step cap"
+    assert step["continue-on-error"] is True
+    assert step["timeout-minutes"] + 2 <= spec["timeout-minutes"]
+    # ...and should the job cap fire anyway, the job must not fail the run.
+    assert spec.get("continue-on-error") is True
+
+
 def test_shadow_is_dispatched_after_every_gate_and_beside_the_deploy(deploy):
     spec = deploy["jobs"]["dispatch-data-delivery-shadow"]
     assert set(spec["needs"]) == {

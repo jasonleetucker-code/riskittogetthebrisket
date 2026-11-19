@@ -1554,6 +1554,10 @@ jobs:
   # shipped deploy red after the fact -- a red run would also drop this deploy
   # from every "last successful deploy" reader (the shadow's own base lookup
   # among them).  Each job's token may dispatch workflows and nothing else.
+  # A HUNG `gh` call is covered too: a step's continue-on-error covers its own
+  # timeout-minutes (3) but not the job's (5), so the step cap fires first,
+  # and each job is itself continue-on-error should the job cap fire anyway
+  # (pinned by tests/deploy/test_post_deploy_dispatch.py).
   #
   # The shadow judges the PRE-deploy gates, so it is dispatched as soon as they
   # finish (success or failure, never on cancel), beside the deploy job rather
@@ -1567,11 +1571,13 @@ jobs:
     needs: [resolve, validate, test-plan, hard-gate, hard-gate-complete]
     if: ${{ !cancelled() && github.triggering_actor == 'github-actions[bot]' }}
     timeout-minutes: 5
+    continue-on-error: true
     permissions:
       actions: write
     steps:
       - name: Dispatch Data Delivery Shadow for this deploy run
         continue-on-error: true
+        timeout-minutes: 3
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -1594,11 +1600,13 @@ jobs:
     # (and the gates it needs) succeeded, for a deploy of main.
     if: ${{ github.triggering_actor == 'github-actions[bot]' && github.ref == 'refs/heads/main' }}
     timeout-minutes: 5
+    continue-on-error: true
     permissions:
       actions: write
     steps:
       - name: Dispatch V1 authenticated verification for this deploy
         continue-on-error: true
+        timeout-minutes: 3
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}

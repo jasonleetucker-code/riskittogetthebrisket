@@ -518,6 +518,34 @@ def test_timing_counts_pre_deploy_runner_minutes_only():
     assert timing["preDeployWallMinutes"] == 10.0
 
 
+def test_timing_ignores_the_post_deploy_dispatch_jobs():
+    # On a human-started run both dispatch jobs are SKIPPED, and a skipped
+    # job is stamped when it is evaluated: the V1 one only after the deploy
+    # job finishes.  On a bot-started run they run.  Either way they are not
+    # gates and must not stretch the pre-deploy wall clock or runner minutes.
+    late = {"startedAt": "2026-11-18T10:44:00Z", "completedAt": "2026-11-18T10:45:00Z"}
+    jobs = [
+        *PASSING,
+        {**_brief("Dispatch data delivery shadow (bot-started deploys)", "success"), **late},
+        {**_brief("Dispatch V1 verification (bot-started deploys)", "skipped"), **late},
+    ]
+    run = _inputs(jobs)["observedRun"]
+    assert shadow.full_timing(run, jobs) == shadow.full_timing(run, PASSING)
+    assert shadow.full_timing(run, jobs)["preDeployWallMinutes"] == 10.0
+
+
+def test_every_deploy_job_is_classified_for_timing():
+    # A new deploy.yml job must be named as a pre-deploy gate or as post-deploy
+    # work, or it would silently enter (or leave) the timing.
+    gates = (shadow.RESOLVE_JOB, shadow.VALIDATE_JOB, shadow.PLAN_JOB, shadow.COMPLETE_JOB)
+    for key, job in _load(DEPLOY)["jobs"].items():
+        name = str(job.get("name") or key)
+        is_gate = name in gates or name.startswith(shadow.SHARD_PREFIX)
+        is_post = name == shadow.DEPLOY_JOB or name.startswith(shadow.POST_DEPLOY_JOB_PREFIXES)
+        assert is_gate != is_post, f"deploy.yml job {key!r} ({name!r}) is unclassified"
+        assert shadow.is_pre_deploy_job(name) is is_gate, name
+
+
 def _verdict(outcome: str, created: str, runner: float = 120.0, shadow_min: float = 4.0) -> dict:
     return {
         "schema": shadow.SCHEMA,

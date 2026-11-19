@@ -255,7 +255,9 @@ Why a separate workflow and not a job in `deploy.yml`:
 - `deploy.yml` is the strict L3 file.
 - A workflow in the `production-deploy` group can evict a queued deploy
   (`tests/deploy/test_production_deploy_concurrency.py`); the shadow has its own per-run group.
-- `workflow_run` sees every deploy run, including scheduled-refresh's dispatches, which a push trigger would miss.
+- `workflow_run` sees human-started deploy runs only: GitHub creates no `workflow_run` run for a run started by
+  `GITHUB_TOKEN`, which is how scheduled-refresh dispatches its data deploys. Those deploy runs dispatch the shadow
+  themselves (`deploy.yml` job `dispatch-data-delivery-shadow`, STAB-10), so every deploy run is still observed.
 - The agreement metric needs the full verdict, so the shadow runs after completion instead of polling a runner for an
   hour.
 
