@@ -183,7 +183,17 @@ an 8-line change in `league_draft_years`. Measured effects:
 - Fix routed to worker A as unit A4: the deploy workflow dispatches both workflows (dispatch events from
   `GITHUB_TOKEN` do start runs) only for bot-started deploys, so human deploys are not double-run.
 - Backfill now: the three missed data deploys were dispatched to the observer manually (`deploy_run_id` input,
-  read-only).
+  read-only). Results (2026-11-19 ~09:45 UTC):
+
+  | Deploy run | Base → target | Classification | Full gate | Fast path would ship | Outcome | Full gate runner-min / wall | Shadow wall |
+  |---|---|---|---|---|---|---|---|
+  | 44411720980 | `9ec8e076` → `6535a836` | DATA_ONLY (code tree identical, 96 data paths) | pass | yes | AGREE_SHIP | 123.8 / 19.4 min | 6.0 min |
+  | 44315967974 | `bd17e684` → `3922bc9f` | DATA_ONLY (85 data paths) | pass | yes | AGREE_SHIP | 143.4 / 49.8 min | 9.1 min |
+  | 44455009771 | `6535a836` → `93c6813c` | CODE (3 `config/model_registry/` paths) | pass | — (code delta) | — | — | — |
+
+  Live DATA_ONLY comparisons: **2** (0 disagreements). A retrospective backfill of the 43 non-cancelled bot data
+  deploys since 2026-11-05 (16 success, 27 failure) is running throttled (4 at a time). These are real evaluations
+  of real past deploys, labelled RETROSPECTIVE; whether they count toward the activation bar is an owner call.
 
 ## Integration log
 
