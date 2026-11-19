@@ -217,3 +217,68 @@ an 8-line change in `league_draft_years`. Measured effects:
 ## Integration log
 
 ## Owner actions (consolidated, priority order)
+
+Each item says what to do, why, the risk, what is prepared, how I verify, and the rollback. Items 1–4 are the
+immediate-safety set.
+
+1. **Turn on alerts (STAB-2), after the alert-routing PR #2267 deploys.**
+   - Do: follow `docs/ops/OWNER_ALERT_CHANNEL_SETUP_2026-11-19.md` steps 1–4:
+     - install the ntfy app and choose an unguessable topic;
+     - add `NOTIFY_WEBHOOK_URL` to the box `.env` and restart `dynasty`;
+     - add two `systemctl edit` drop-ins;
+     - add the repo secret.
+   - Why: today no production alert reaches you. 0 reconnect-notice sends in ~400 h, and SMTP 465 is firewalled.
+   - Risk: low. Alert text passes through ntfy.sh, and the topic name is a secret.
+   - Verify: I run the probe (`alertRouting.*` true), then `notify-test` (5 TEST pushes) and the health-check
+     `owner_push_test` (1 push). You confirm 6 arrived.
+   - Rollback: remove the line and the drop-ins, delete the secret.
+2. **Reconnect Signals (STAB-2).**
+   - Do: on the box, `python scripts/signals_connect.py reconnect`; it emails you one code. Then provision again
+     (`docs/sources/SIGNALS_ACCOUNT_CONNECTION.md`).
+   - Why: `signalsSf` is ~400 h stale and its votes are withheld.
+   - Verify: I re-run the probe (session healthy, `lastOutcome` ok), watch the next collection, the source
+     freshness and the contract `sourceVotingStatus`, and confirm SLO issue #2258 closes.
+   - Rollback: none needed; a reconnect only replaces an expired session.
+3. **Apply branch protection (STAB-3).**
+   - Do: `GH_TOKEN=<admin token> bash deploy/github/apply-branch-protection.sh` (the dry run is already reviewed
+     above).
+   - Why: `main` has no required checks today.
+   - Risk: reviewed. Every automated pusher keeps its bypass (deploy key, GitHub Actions); people merge only through
+     green PRs; admin keeps a PR-only bypass.
+   - Verify: I read the live ruleset, check that PR #2231 (red) shows `blocked`, and watch the next refresh commit land.
+   - Rollback: re-run the script with the saved previous payload (runbook §1).
+4. **Remove the last zombie deploy run (STAB-1).**
+   - Do: Actions → Deploy Production → run 43096180672 → Cancel or Delete. The API refuses both. If the UI also
+     refuses, ask GitHub support to purge it.
+   - Why: it carries a guard that fails open on an SSH-read failure.
+5. **Install Node 22 on the box (STAB-6).**
+   - Do: `docs/ops/NODE22_CUTOVER_2026-11-18.md` §"Cutover window 2026-11-19" steps 1–2, then tell me
+     "Node 22 installed". I merge the HOLD PR #2271 at once.
+   - Why: Node 20 is past end of life.
+   - Risk: deploys in the minutes between the install and the merge are refused at staging (no production change).
+   - Verify: `node22_box_check.sh --require 22.12`, the first 22-staged deploy, and post-deploy verification.
+   - Rollback: in the doc (downgrade the package and revert the PR together).
+6. **Rotate `JASON_LOGIN_PASSWORD` (STAB-5).**
+   - Do: follow `docs/ops/CREDENTIAL_INVENTORY_2026-11-19.md` (from #2263): generate the password on your machine,
+     set it in `.env`, restart.
+   - Verify: `scripts/check_login_status.py` prints only the HTTP status. The old password must fail.
+   - Rollback: the `.env` backup.
+   - Also in the same doc: run the secret-name comparison; approve deleting the unused `DLF_*`,
+     `IDPSHOW_SESSION_JSON` and `ANTHROPIC_API_KEY` if unused; decide `claude.yml` permissions and `production`
+     environment reviewers.
+7. **Off-box backups (STAB-4).**
+   - Do: approve Backblaze B2 with `rclone crypt`, a bucket-scoped no-delete key and Object Lock (estimate about
+     $0.10/month at ~15 GB). Create the account, bucket and key per `docs/ops/BACKUP_OFFBOX_DESIGN_2026-11-19.md`
+     §8, keep the crypt password offline, and run the first restore drill.
+   - Why: every backup generation is on the production disk.
+8. **Data-exposure policy (STAB-7).** Sign the five-point decision in
+   `docs/security/DATA_EXPOSURE_POLICY_RECOMMENDATION_2026-11-19.md` §9: stay public; move paid-vendor and owner-id
+   files to a private data repo; no history rewrite.
+9. **2030 pick policy (STAB-11).** Approve or decline capping the league pick window at Sleeper's issuance rule
+   (§11 above; prototype branch `claude/serene-shannon-7lsrm9-s11-league-pick-window`).
+10. **Physical-device checks (STAB-9).** Work through `docs/qa/REAL_DEVICE_CHECKLIST_2026-11-19.md` (from #2270) on
+    an iPhone.
+11. **Sharp smoke token (STAB-10).** Provision the `SHARP_SMOKE_TOKEN` repo secret (#1727); decide #898
+    (rank-form drift: re-pin the constants or retire the reconstruction path).
+12. **Data-only deploy activation (STAB-12), later.** Decide whether retrospective comparisons count toward the
+    ≥30 / ≥14-day bar, then approve or decline the Agent OS §3 amendment once the bar is met.
