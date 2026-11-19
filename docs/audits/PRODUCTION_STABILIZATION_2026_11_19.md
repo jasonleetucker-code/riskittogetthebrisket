@@ -171,7 +171,20 @@ Findings (2026-11-19):
     it has not measured anything"). It never claims a pass.
   - Measuring it needs `SHARP_SMOKE_TOKEN`. That is a production credential (a repository secret plus the same value
     in the box `.env`), so it is owner action 11.
-- **Ubuntu runner apt failures:** #2268 (`scripts/ci/install_apt_packages.sh`: retry plus a mirror fallback).
+- **Ubuntu runner apt failures:** #2268 (`scripts/ci/install_apt_packages.sh`).
+  - What it fixes: a runner with no Ubuntu archive source (the 44368941410 class). It restores the runner's own
+    codename archive, and keeps a bounded retry for transient network errors.
+  - What it cannot fix: a real Ubuntu archive outage. Measured 2026-11-19 ~12:00–12:17 UTC, `security.ubuntu.com`
+    answered 503 and the EC2 mirror stalled:
+    - deploy 44515440979 shard 3 failed closed after 4 attempts;
+    - the E2E jobs spent 8–24 min on `playwright install --with-deps` against the same slow mirror. #2270's first run
+      hit the 60-minute job cap; normal is ~34 min on main.
+  - Residual risk, recommended follow-up (not done here; it changes the CI install path):
+    - cache the hard gate's `tesseract-ocr` `.deb` set, and the WebKit dependency set, with `actions/cache`, keyed by
+      runner image and codename;
+    - fall back to the network only on a cache miss.
+
+    That turns an upstream outage into a non-event for warm caches, without skipping the OCR tests.
 - **Cold-start verification:** #2269 (readiness probe; worst case 360 s, inside the 480 s cap).
 - **Post-deploy observation of bot deploys:** #2272. Deploy Production now dispatches the shadow observer and the
   authenticated verification for bot-started deploys. GitHub never fires `workflow_run` for them (see §12).
@@ -326,6 +339,14 @@ test has since been pinned:
   - The seven intermediate push deploys were superseded by the group.
   - The first (`5cdb4565`, #2264 alone) had already started its pre-deploy gate. My request to cancel it was refused by the session's permission policy, so it runs and the final deploy follows it.
   - `5cdb4565` is a fast-forward ancestor of `ecc3464e`, so this costs one extra restart and nothing else.
+  - **Deploy 44515369178 (`5cdb4565`):** succeeded at 11:57 UTC; production `build.commit` = `5cdb4565`.
+  - **Deploy 44515440979 (`ecc3464e`), attempt 1:** failed before the box was touched. Hard-gate shard 3/8 could not
+    install `tesseract-ocr`:
+    - `security.ubuntu.com` answered **503 Service Unavailable**, and the us-east-2 EC2 mirror stalled.
+    - The new apt wrapper (#2268) retried 4 times over ~15 min, then failed closed with a named `::error`. That is
+      the intended behaviour: nothing was skipped.
+    - The other 7 shards passed. `Deploy To Production` was skipped, so production stayed on `5cdb4565`.
+  - Attempt 2: the failed jobs were re-run once (the only re-run allowed).
 
 ## Owner actions (consolidated, priority order)
 
