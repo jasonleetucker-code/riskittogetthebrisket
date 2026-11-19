@@ -75,7 +75,9 @@ def _run(tmp_path, url: str | None, curl_exit: int) -> subprocess.CompletedProce
     bindir = tmp_path / "bin"
     bindir.mkdir()
     log = tmp_path / "curl.log"
-    (bindir / "curl").write_text(f'#!/usr/bin/env bash\necho "$@" >> {log}\nexit {curl_exit}\n')
+    (bindir / "curl").write_text(
+        f'#!/usr/bin/env bash\necho "$@" >> {log}\nexit {curl_exit}\n', encoding="utf-8"
+    )
     (bindir / "curl").chmod(0o755)
     env = {"PATH": f"{bindir}:{os.environ['PATH']}"}
     if url is not None:
