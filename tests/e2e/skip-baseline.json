@@ -15,6 +15,27 @@
       "projects": ["desktop-1366", "mobile-chromium", "mobile-390"],
       "category": "unsupported-environment",
       "reason": "Same host capability as the sibling real-OCR test: skips when the server reports OCR unavailable."
+    },
+    {
+      "file": "mobile-device-flows.spec.js",
+      "title": "waivers add/drop pickers on a phone @mobile-only > a SCROLL gesture that starts on an option does not pick it (the #2223 regression)",
+      "projects": ["mobile-390", "mobile-430"],
+      "category": "unsupported-environment",
+      "reason": "WebKit has no CDP; when the engine also lacks a constructible Touch the swipe cannot be synthesized, so the test SKIPS (never passes silently). Chromium (mobile-chromium) always exercises it via CDP. The physical-iPhone check is in docs/qa/REAL_DEVICE_CHECKLIST_2026-11-19.md."
+    },
+    {
+      "file": "mobile-device-flows.spec.js",
+      "title": "service worker update path @mobile-only > a new worker takes control, the page reloads once, and caches from older versions are evicted",
+      "projects": ["mobile-390", "mobile-430"],
+      "category": "unsupported-environment",
+      "reason": "Skips only on an engine that exposes no navigator.serviceWorker on http://127.0.0.1; mobile-chromium always exercises it. The installed-PWA update on a real iPhone is in docs/qa/REAL_DEVICE_CHECKLIST_2026-11-19.md."
+    },
+    {
+      "file": "mobile-device-flows.spec.js",
+      "title": "service worker update path @mobile-only > with the worker in control: private API responses are never at rest, and an offline API call is a network failure, not HTML",
+      "projects": ["mobile-390", "mobile-430"],
+      "category": "unsupported-environment",
+      "reason": "Skips only on an engine that exposes no navigator.serviceWorker on http://127.0.0.1; mobile-chromium always exercises it. The installed-PWA update on a real iPhone is in docs/qa/REAL_DEVICE_CHECKLIST_2026-11-19.md."
     }
   ]
 }

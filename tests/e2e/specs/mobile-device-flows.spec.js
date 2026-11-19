@@ -102,11 +102,9 @@ test.describe("waivers add/drop pickers on a phone @mobile-only", () => {
     } else {
       const canSynthesize = await page.evaluate(() => typeof Touch === "function" && typeof TouchEvent === "function");
       if (!canSynthesize) {
-        test.info().annotations.push({
-          type: "not-exercised",
-          description: "this engine has neither CDP nor a constructible Touch; the swipe could not be synthesized",
-        });
-        return;
+        // Recorded as a SKIP (listed in tests/e2e/skip-baseline.json as
+        // unsupported-environment), never a silent pass.
+        test.skip(true, "this engine has neither CDP nor a constructible Touch; the swipe could not be synthesized");
       }
       await page.evaluate(
         ([px, py]) => {
@@ -202,11 +200,9 @@ test.describe("service worker update path @mobile-only", () => {
   }) => {
     await page.goto(pageUrl("/login"), { waitUntil: "domcontentloaded" });
     if (!(await page.evaluate(() => "serviceWorker" in navigator))) {
-      test.info().annotations.push({
-        type: "not-exercised",
-        description: "this engine exposes no navigator.serviceWorker on http://127.0.0.1",
-      });
-      return;
+      // Recorded as a SKIP (listed in tests/e2e/skip-baseline.json as
+      // unsupported-environment), never a silent pass.
+      test.skip(true, "this engine exposes no navigator.serviceWorker on http://127.0.0.1");
     }
     await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
     // Reload so the page is SW-controlled (the registrar only wires its
@@ -281,11 +277,9 @@ test.describe("service worker update path @mobile-only", () => {
   }) => {
     await page.goto(pageUrl("/rankings"), { waitUntil: "domcontentloaded" });
     if (!(await page.evaluate(() => "serviceWorker" in navigator))) {
-      test.info().annotations.push({
-        type: "not-exercised",
-        description: "this engine exposes no navigator.serviceWorker on http://127.0.0.1",
-      });
-      return;
+      // Recorded as a SKIP (listed in tests/e2e/skip-baseline.json as
+      // unsupported-environment), never a silent pass.
+      test.skip(true, "this engine exposes no navigator.serviceWorker on http://127.0.0.1");
     }
     await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
     await page.reload({ waitUntil: "domcontentloaded" });
