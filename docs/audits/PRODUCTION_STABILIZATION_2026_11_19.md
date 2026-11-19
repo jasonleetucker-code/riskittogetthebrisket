@@ -600,3 +600,17 @@ immediate-safety set.
     drift).
 12. **Data-only deploy activation (STAB-12), later.** Decide whether retrospective comparisons count toward the
     ≥30 / ≥14-day bar, then approve or decline the Agent OS §3 amendment once the bar is met.
+
+**Engineering follow-ups found during closeout (need an authorization line in `docs/EXECUTION_PLAN.md`; not started).**
+- **DLF rookie boards** (`dlfRookieSf`, `dlfRookieIdp`):
+  - 0 rows parsed since 2026-11-17 22:27 UTC; the page now serves `Rank, Avg, Pos, Name, Team, Age, Comments (…)`
+    tables.
+  - Previous CSVs are kept and the staleness is reported honestly, so no wrong value is served.
+  - The repair is a source-ingestion change, and it may change which rookie class feeds the rookie ladder. It needs
+    its own unit with full pipeline verification.
+- **apt package cache for CI:**
+  - cache the hard gate's `tesseract-ocr` `.deb` set and the WebKit dependency set (`actions/cache`, keyed by image
+    and codename);
+  - reason: the 2026-11-19 ~12:00 UTC Ubuntu archive 503 blocked one deploy attempt and stretched E2E jobs to the
+    60-minute cap.
+- **DLF `dlfSf` native Value column unavailable** (coverage 0/287). This existed before; rank-only writes continue.
