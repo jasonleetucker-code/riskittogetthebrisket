@@ -80,6 +80,29 @@ Baseline from the previous program: `signalsSf` `auth_unavailable` x66, last suc
 `reconnect_required`; 0 reconnect-notice sends recorded on any channel; SMTP to `smtp.gmail.com:465` firewalled on
 the VPS.
 
+Delivered: #2267, merged in train S12 and **deployed** (`ecc3464e`, 12:50 UTC).
+- **One owner-alert path** (`src/utils/owner_alerts.py`): the owner's ntfy webhook (`NOTIFY_WEBHOOK_URL`) first, e-mail
+  as the fallback; never raises; never mails the stand-in recipient. It covers:
+  - `server.send_alert`: backup and uptime watchdogs, scrape failures, low disk;
+  - the ops-alert sweep;
+  - per-source staleness alerts;
+  - the Signals reconnect notice.
+
+  An undelivered alert sets no cooldown, so it is retried. Both sweeps now run off the event loop.
+- **Verification surfaces (booleans only, never a URL):**
+  - `POST /api/test-alert` (admin) reports per-channel delivery: 400 `no_alert_channel_configured`, 502 when nothing
+    delivered.
+  - The Signals probe reports `alertRouting.{envFileReadable, ntfyConfigured, emailConfigured,
+    uptimeProbeNtfyConfigured, renewalNtfyConfigured}`.
+  - `signals-health-probe.yml` mode `notify-test` sends one labelled TEST push per alert class (5 classes).
+  - `health-check.yml` pushes on a new incident, a changed breach set and recovery, plus an `owner_push_test` dispatch.
+- **Not yet verified, by design: actual receipt.**
+  - No channel exists until the owner creates the ntfy topic and sets it (setup doc
+    `docs/ops/OWNER_ALERT_CHANNEL_SETUP_2026-11-19.md`; owner action 1).
+  - Signals stays `reconnect_required` until the owner reconnects (owner action 2).
+  - I run the probe, `notify-test` and `owner_push_test` afterwards; the owner confirms 6 pushes arrived. An HTTP 200
+    from ntfy is reported as "sent", never as "received".
+
 ### 3. Branch protection
 
 Dry run (2026-11-19, `bash deploy/github/apply-branch-protection.sh --dry-run`, read-only token): would `PUT`
@@ -112,7 +135,41 @@ apply script (see Owner actions). Verification after apply, done by me:
 
 ### 4. Off-box backups and disaster recovery
 
+Delivered: #2264, merged and deployed (`ecc3464e`). Nothing was provisioned, contacted or paid for.
+- **Design and recommendation:** `docs/ops/BACKUP_OFFBOX_DESIGN_2026-11-19.md`.
+  - Today every backup generation sits on the box's one disk: 14-day retention, ~470 MB per generation (estimate).
+  - Compared: B2, R2, S3/Glacier and a second host.
+  - Recommendation: **Backblaze B2 through an `rclone crypt` remote**, with a write-only application key and Object
+    Lock. About $0.10/month at ~15 GB, at the list price read 2026-11-19.
+  - §5 is an isolated restore test; §8 has the exact owner approval sentence and setup steps.
+- **Monitoring gap fixed:**
+  - A verified copy now records `last_mirror` (destination kind only, written only on success).
+  - `backup_health.alert_rows` raises `offbox_copy` when a recorded copy goes stale.
+  - An unverifiable marker is never reported as "recovered" (review fix).
+  - Never configured stays silent (opt-in).
+- **Not done (owner-gated):** choosing and paying for the provider, creating keys, installing the root-owned copy
+  script and timer, and the first real off-box restore test (owner action 4).
+- The existing on-box `Retention backup + restore proof` workflow keeps running after each deploy.
+
 ### 5. Credential rotation and deploy-key hardening
+
+Delivered: #2263, merged (docs plus a standalone script; no runtime change). No value was read or printed; nothing was
+rotated, revoked or changed.
+- **`docs/ops/CREDENTIAL_INVENTORY_2026-11-19.md`:**
+  - 14 secret names and 14 variable names referenced by 54 workflows, all scoped at step level.
+  - Ten least-privilege findings. The main ones:
+    - one sudo-capable SSH key with shell reach from 27 workflows;
+    - a replayable session cookie stored as a secret;
+    - an unused key;
+    - the default `GITHUB_TOKEN` permission is unverified.
+  - What this token cannot read is listed for the owner rather than guessed: secret/variable lists, the
+    `production` environment, deploy keys, collaborators, webhooks.
+- **`scripts/check_login_status.py`:** tests one credential against `/api/auth/login`.
+  - The password comes from a hidden prompt; the output is only `login HTTP <status>`.
+  - It refuses plain http and lookalike hosts (review fix).
+- **`JASON_LOGIN_PASSWORD` rotation procedure** (§5): the old value works, then set the new one, the new one works,
+  the old one is refused (401), with an ordered rollback. Replacement access is confirmed before anything is revoked.
+- **Owner actions 5 and 6:** the rotation, the deploy-key split and the read-only `GITHUB_TOKEN` default.
 
 ### 6. Node 22 production migration
 
@@ -143,6 +200,19 @@ Findings (2026-11-19):
   (same files).
 
 ### 7. Public-repository data exposure
+
+Delivered: #2262, merged (docs, a read-only script and a PR-time guard; no data moved).
+- **Recommendation** (`docs/security/DATA_EXPOSURE_POLICY_RECOMMENDATION_2026-11-19.md`):
+  - Keep the code repository public. Going private is an estimated $450–700/month in billed Actions minutes, at an
+    unverified rate.
+  - Move paid-vendor boards, FantasyPros raw files and owner-id-bearing archives out of the public tree, in stages.
+- **Dry run** (`scripts/report_data_policy_migration.py`, read-only): 8,074 of 18,958 tracked files (157.6 MB) would
+  move, with 0 protected files touched.
+- **Guard gap closed:** a paid-vendor file in a NEW directory under a rotating baselined prefix now fails the PR check.
+- **Two traps documented:**
+  - Removing files from the current tree does not remove them from public history. No history was rewritten.
+  - `git rm --cached` would not keep the box's copies, because `deploy.sh` uses `reset --hard`.
+- **Owner decision 7:** visibility, vendor policy and history handling. Stages 2+ are separate PRs after it.
 
 ### 8. Browser-test skip accounting
 
