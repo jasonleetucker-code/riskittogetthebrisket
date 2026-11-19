@@ -283,12 +283,55 @@ def changed_files(base_ref: str) -> list[str]:
     return sorted(p for p in out.split("\0") if p)
 
 
+def _merge_base(base_ref: str) -> str:
+    proc = subprocess.run(
+        ["git", "merge-base", base_ref, "HEAD"], cwd=REPO, capture_output=True, text=True
+    )
+    return proc.stdout.strip() if proc.returncode == 0 and proc.stdout.strip() else base_ref
+
+
+def _dir_has_files_at(ref: str, rel_dir: str) -> bool:
+    """True when ``rel_dir`` holds at least one tracked entry at ``ref``."""
+    out = subprocess.run(
+        ["git", "ls-tree", "--name-only", "-z", ref, rel_dir.rstrip("/") + "/"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+    ).stdout
+    return bool(out.strip("\0"))
+
+
 def check_changed_since(base_ref: str, baseline: Path | None = None) -> list[str]:
-    """Offender lines for changed in-scope files not covered by the baseline."""
+    """Offender lines for changed in-scope files not covered by the baseline.
+
+    Two rules.  (1) A changed file that is not baselined and publishes owner ids
+    or paid-vendor data.  (2) The known gap of the rotating prefixes: a paid-vendor
+    file under a baselined PREFIX is normally acknowledged (the refresh republishes
+    dated files there), but one in a directory that did not exist at the merge base
+    is a NEW vendor feed being published, not a refresh, and fails.  Rule 2 needs no
+    list of vendors: the directory's absence at the base is the evidence.  Refresh
+    pushes go straight to ``main`` and never run this check.
+    """
     exact, prefixes = load_baseline(baseline or BASELINE_PATH)
     lines = []
+    base: str | None = None
+    seen_dirs: dict[str, bool] = {}
     for rel in changed_files(base_ref):
-        if not in_scope(rel) or baselined(rel, exact, prefixes):
+        if not in_scope(rel):
+            continue
+        if baselined(rel, exact, prefixes):
+            vendor = None if rel in exact else is_paid_vendor_data_path(rel)
+            if vendor:
+                parent = rel.rsplit("/", 1)[0] if "/" in rel else ""
+                if base is None:
+                    base = _merge_base(base_ref)
+                if parent not in seen_dirs:
+                    seen_dirs[parent] = _dir_has_files_at(base, parent)
+                if not seen_dirs[parent]:
+                    lines.append(
+                        f"{rel}: paid-vendor data in a NEW directory under a baselined "
+                        f"prefix ({vendor}); the directory did not exist at the merge base"
+                    )
             continue
         reasons = guard_findings(rel, fail_closed=True)
         if reasons:
