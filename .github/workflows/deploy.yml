@@ -93,10 +93,15 @@ on:
         required: false
         type: string
       allow_non_fast_forward:
-        description: "Deploy even if it moves production BACKWARDS or sideways (intentional rollback). Normally leave false."
+        description: "Deploy even if it moves production BACKWARDS or sideways (intentional rollback). Normally leave false. Requires expected_live_sha."
         required: false
         default: false
         type: boolean
+      expected_live_sha:
+        description: "Rollback compare-and-swap: the full 40-hex commit production runs NOW (GET /api/status -> build.commit). Required when allow_non_fast_forward=true; the run refuses if production has moved since."
+        required: false
+        default: ""
+        type: string
       serial_hard_gate:
         description: "Run the unit-test hard gate on ONE runner (the pre-2026-11-07 serial gate: no shard manifests, no skip budget) instead of shards. For a rollback whose tree no longer fits the current skip budget. Normally leave false."
         required: false
@@ -732,6 +737,12 @@ jobs:
     needs: [resolve, validate, hard-gate-complete]
     timeout-minutes: 25
     environment: production
+    # contents: checkout.  actions: the deploy guard reads this run's own
+    # created_at (read-only) for its stale-queue refusal.  Nothing in this job
+    # writes through the GitHub token.
+    permissions:
+      contents: read
+      actions: read
     env:
       # The one resolved target; every step below consumes it.
       DEPLOY_TARGET_SHA: ${{ needs.resolve.outputs.sha }}
@@ -946,9 +957,26 @@ jobs:
       # about to deploy must be a descendant of what is already in
       # production.  Observed 2026-07-26, when three merges in nine
       # minutes cancelled the middle deploy (run 30217214959).
+      #
+      # STAB-1 (2026-11-19) added two refusals to the same decision, which
+      # now lives in scripts/deploy_ancestry_guard.py (run from THIS workflow
+      # commit, unit-tested in tests/deploy/test_deploy_ancestry_guard.py):
+      #   * rollback compare-and-swap -- allow_non_fast_forward=true is
+      #     honoured only on a workflow_dispatch whose expected_live_sha
+      #     equals the commit the box records as live NOW, so a rollback
+      #     requested against an older production state cannot fire later;
+      #   * stale-queue refusal -- a FIRST attempt that reaches this guard
+      #     more than 6 h after the run was created is refused (two runs sat
+      #     queued for months).  A re-run (run_attempt > 1) is exempt.
+      # It sits before every production mutation and fails CLOSED on any
+      # input it cannot read (run creation time, the box's baseline).
       - name: Guard against skipping or reversing a deploy
         env:
           ALLOW_NON_FF: ${{ inputs.allow_non_fast_forward }}
+          EXPECTED_LIVE_SHA: ${{ inputs.expected_live_sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          GH_TOKEN: ${{ github.token }}
           LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE: ${{ vars.PROD_LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE || '/home/dynasty/.deploy-state/trade-calculator.last_successful_deploy_commit' }}
         shell: bash
         run: |
@@ -957,10 +985,22 @@ jobs:
           SSH_PORT="${DEPLOY_PORT_RESOLVED}"
           TARGET="${DEPLOY_USER_RESOLVED}@${DEPLOY_HOST_RESOLVED}"
 
-          # Read the last sha that actually reached production.  A missing
-          # or unreadable file is not an error — first deploy, or a fresh
-          # host — it just means there is no baseline to compare against.
-          LAST_DEPLOYED="$(
+          # Read the last sha that actually reached production.  The remote
+          # side names the file's state explicitly, so the helper can tell
+          # them apart (scripts/deploy_ancestry_guard.py::baseline_state):
+          #   "absent"            -- no file: first deploy or a fresh host;
+          #                          no baseline, the ancestry check is skipped.
+          #   "present:<contents>" -- the file exists; <contents> is
+          #                          whitespace-stripped and may be EMPTY.  An
+          #                          empty or non-SHA file is REFUSED: it is
+          #                          what an interrupted write leaves, not a
+          #                          first deploy.
+          # A FAILED read (SSH error, unreadable file, any other output) is
+          # reported as failed and refused too -- never "no baseline", or a
+          # transient SSH error would wave a backwards deploy through.
+          LIVE_READ=failed
+          LAST_DEPLOYED=""
+          if REMOTE_BASELINE="$(
             ssh \
               -i "${DEPLOY_KEY_FILE}" \
               -o BatchMode=yes \
@@ -969,9 +1009,13 @@ jobs:
               -o ConnectTimeout=15 \
               -p "${SSH_PORT}" \
               "${TARGET}" \
-              "cat '${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}' 2>/dev/null | tr -d '[:space:]'" \
-            || true
-          )"
+              "if [ -e '${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}' ]; then printf 'present:' && tr -d '[:space:]' < '${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}'; else printf 'absent'; fi"
+          )"; then
+            case "${REMOTE_BASELINE}" in
+              absent) LIVE_READ=absent ;;
+              present:*) LIVE_READ=present; LAST_DEPLOYED="${REMOTE_BASELINE#present:}" ;;
+            esac
+          fi
 
           # Resolved once by the resolve job; never re-resolved here.
           TARGET_SHA="${DEPLOY_TARGET_SHA:-}"
@@ -979,58 +1023,38 @@ jobs:
             echo "::error title=No resolved deploy target::needs.resolve.outputs.sha is missing or not a full SHA."
             exit 1
           fi
-          echo "Deploying:      ${TARGET_SHA}"
-          echo "In production:  ${LAST_DEPLOYED:-<none recorded>}"
           # Exported before any early exit below, for the post-deploy build check.
           echo "DEPLOY_TARGET_SHA=${TARGET_SHA}" >> "$GITHUB_ENV"
 
-          if [[ -z "${LAST_DEPLOYED}" ]]; then
-            echo "::notice title=No deploy baseline::No last-successful-deploy commit recorded; skipping the ancestry check. This is expected on a first deploy."
-            exit 0
-          fi
-
-          if ! git cat-file -e "${LAST_DEPLOYED}^{commit}" 2>/dev/null; then
-            echo "::warning title=Baseline commit not found::The recorded production commit ${LAST_DEPLOYED} is not in this repository — history may have been rewritten. Cannot verify the deploy moves forward."
-            if [[ "${ALLOW_NON_FF}" == "true" ]]; then
-              echo "allow_non_fast_forward=true — proceeding anyway."
-              exit 0
+          # This run's creation time, for the stale-queue refusal.  Read-only
+          # (actions: read).  Bounded retry -- 3 attempts, each capped at 30 s,
+          # 3 s then 6 s apart -- so one API blip does not refuse a good
+          # deploy.  Still unreadable after that, it reaches the helper as
+          # empty and the helper fails closed on a first attempt.
+          RUN_CREATED_AT=""
+          for API_ATTEMPT in 1 2 3; do
+            RUN_CREATED_AT="$(timeout 30 gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" --jq '.created_at' 2>/dev/null || true)"
+            if [[ -n "${RUN_CREATED_AT}" ]]; then
+              break
             fi
-            echo "::error title=Cannot verify deploy safety::Re-run with allow_non_fast_forward=true if this is intentional."
-            exit 1
-          fi
+            if (( API_ATTEMPT < 3 )); then
+              echo "::warning title=Run API read failed::Could not read this run's created_at (attempt ${API_ATTEMPT}/3); retrying."
+              sleep $(( API_ATTEMPT * 3 ))
+            fi
+          done
 
-          if [[ "${LAST_DEPLOYED}" == "${TARGET_SHA}" ]]; then
-            echo "::notice title=Redeploy::Already at this commit; redeploying the same tree."
+          if python3 scripts/deploy_ancestry_guard.py \
+            --target "${TARGET_SHA}" \
+            --live "${LAST_DEPLOYED}" \
+            --live-read "${LIVE_READ}" \
+            --live-file "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}" \
+            --event "${EVENT_NAME}" \
+            --run-attempt "${RUN_ATTEMPT}" \
+            --run-created-at "${RUN_CREATED_AT}" \
+            --allow-non-fast-forward "${ALLOW_NON_FF:-false}" \
+            --expected-live-sha "${EXPECTED_LIVE_SHA:-}"; then
             exit 0
           fi
-
-          if git merge-base --is-ancestor "${LAST_DEPLOYED}" "${TARGET_SHA}"; then
-            AHEAD="$(git rev-list --count "${LAST_DEPLOYED}..${TARGET_SHA}")"
-            echo "::notice title=Fast-forward deploy::Moving production forward by ${AHEAD} commit(s)."
-            # Name them, so a cancelled middle deploy is visibly carried
-            # rather than merely assumed to be.
-            git log --oneline --no-decorate "${LAST_DEPLOYED}..${TARGET_SHA}" | sed 's/^/  shipping: /'
-            exit 0
-          fi
-
-          # Not a fast-forward.  Either we are going backwards (deploying
-          # an ancestor of what is live) or the histories diverged.
-          if git merge-base --is-ancestor "${TARGET_SHA}" "${LAST_DEPLOYED}"; then
-            BEHIND="$(git rev-list --count "${TARGET_SHA}..${LAST_DEPLOYED}")"
-            REASON="this would move production BACKWARDS by ${BEHIND} commit(s), un-shipping code that is already live"
-          else
-            REASON="the deploy ref and the live commit have DIVERGED (neither is an ancestor of the other) — likely a force-push or an unrelated ref"
-          fi
-
-          echo "Commits that would be lost from production:"
-          git log --oneline --no-decorate "${TARGET_SHA}..${LAST_DEPLOYED}" | sed 's/^/  dropping: /'
-
-          if [[ "${ALLOW_NON_FF}" == "true" ]]; then
-            echo "::warning title=Non-fast-forward deploy::${REASON}. Proceeding because allow_non_fast_forward=true."
-            exit 0
-          fi
-
-          echo "::error title=Deploy would skip or reverse shipped code::${REASON}. If this is an intentional rollback, re-run via workflow_dispatch with allow_non_fast_forward=true."
           exit 1
 
       - name: Assert post-deploy verification will actually run
