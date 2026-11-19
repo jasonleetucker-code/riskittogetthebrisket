@@ -8,6 +8,9 @@ August repro or the CW-07 label:
   an UNTRUSTED peer must not mint new identities;
 * W22-F003  login has no throttle -- repeated wrong passwords with rotating spoofed headers get a
   429 + ``Retry-After`` before any credential comparison;
+* W24-F004  the visual specs skipped their WHOLE describe on ``SKIP_VISUAL_REGRESSION=1`` -- repaired by
+  #2265 (STAB-8, 2026-11-19): the env var now skips only the pixel comparison, so the structural
+  assertions run in CI;
 * W03-F010  ``POST /api/rankings/overrides`` rewrites the shared rank snapshot -- the snapshot and
   its write path are deleted; ``_stamp_rank_changes`` writes nothing.
 
@@ -131,3 +134,22 @@ def test_w03_f010_no_executable_reference_to_the_retired_snapshot_file():
             if "ranks_last.json" in line and not line.lstrip().startswith(("#", '"', "'")):
                 offenders.append(f"{path.relative_to(REPO)}:{n}: {line.strip()[:80]}")
     assert offenders == [], offenders
+
+
+# --------------------------------------------------------------------------- W24-F004
+def _visual_spec_skips_whole_describe(rel: str) -> bool:
+    import re as _re
+
+    src = (REPO / "tests" / "e2e" / "specs" / rel).read_text(encoding="utf-8")
+    return bool(
+        _re.search(r"test\.describe\([^\n]*\n\s*test\.skip\(\s*!!process\.env\.SKIP_VISUAL", src)
+    )
+
+
+@pytest.mark.parametrize(
+    "spec", ["chart-visual-regression.spec.js", "public-league-visual.spec.js"]
+)
+def test_w24_f004_visual_specs_no_longer_skip_their_whole_describe(spec):
+    """``SKIP_VISUAL_REGRESSION=1`` may skip only the pixel comparison; the structural
+    assertions before it must execute in CI."""
+    assert not _visual_spec_skips_whole_describe(spec)
