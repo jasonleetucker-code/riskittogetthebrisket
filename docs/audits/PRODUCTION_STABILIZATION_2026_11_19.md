@@ -507,6 +507,30 @@ test has since been pinned:
   - **Deploy-in-flight guard, live:** the next on-box workflow (Signals probe 44527831611) refused while a data deploy
     (44524056203) was queued. It reported the zombie 43096180672 as "never started; ignored as not in flight".
 
+**Train S3 (2026-11-19).** #2265 (STAB-8) and #2270 (STAB-9).
+- **WebKit fixes during integration:** the E2E safety net exposed WebKit-only failures in #2270's new specs. They were
+  fixed by `0ddd70fe`, `6eeede2e`, `f7e43ed7` and `f1b89083` (§9).
+- **A runner-timing flake on #2270's PR Validation:** shard 7/8, `test_run_scraper_nonblocking`, 0.38 s against a
+  0.35 s bound. It passed on its single allowed re-run (44533702443). The PR carries a comment explaining it.
+- **HEAD-FREEZE refused twice, correctly:**
+  - first on a box Sharp-smoke record (`data/ops/…`);
+  - then on a Hill Autopilot `config/model_registry/` refresh that landed mid-run.
+
+  Each time the base was merged in once and validation re-ran.
+- **Final release candidate 44546804155** on `trainS3@b56acf8f` (base `origin/main@70a77135`; 0 class-A/B/C
+  outstanding): 11 of 11 jobs green.
+- **Merged 15:03 UTC** with `expectedHeadSha`:
+
+  | PR | Merge commit |
+  |---|---|
+  | #2265 | `c1085009` |
+  | #2270 | `58424f58` |
+
+  `git diff b56acf8f 58424f58` is empty.
+- These are test and CI-only changes, so the app is unchanged; the push deploys run as usual.
+- Its release candidate's advisory source-health step was red on the DLF rookie boards (§10), not on anything in the
+  train.
+
 ## Owner actions (consolidated, priority order)
 
 Each item says what to do, why, the risk, what is prepared, how I verify, and the rollback. Items 1–4 are the
