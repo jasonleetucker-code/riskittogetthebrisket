@@ -96,6 +96,14 @@ Delivered: #2267, merged in train S12 and **deployed** (`ecc3464e`, 12:50 UTC).
     uptimeProbeNtfyConfigured, renewalNtfyConfigured}`.
   - `signals-health-probe.yml` mode `notify-test` sends one labelled TEST push per alert class (5 classes).
   - `health-check.yml` pushes on a new incident, a changed breach set and recovery, plus an `owner_push_test` dispatch.
+- **Live on the box.** Probe 44532781512 (mode `health`, after the deploy) returned:
+  - `alertRouting`: `envFileReadable: true`, `ntfyConfigured: false`, `emailConfigured: false`,
+    `renewalNtfyConfigured: false`, `uptimeProbeNtfyConfigured: null`, `sweepTimerActive: true`.
+  - Signals session: `reconnect_required`, episode open, `reconnectNoticeAttempts: 0`.
+  - So the routing code is deployed and no owner channel exists yet. The `null` means `riskit-uptime.service` is not
+    installed on the box at all: the on-box 5-minute uptime probe was never installed (`deploy/apply_hardening.sh`
+    is owner-run). The setup doc's step 3 was corrected to say so. Outside-in uptime remains covered by
+    `health-check.yml`.
 - **Not yet verified, by design: actual receipt.**
   - No channel exists until the owner creates the ntfy topic and sets it (setup doc
     `docs/ops/OWNER_ALERT_CHANNEL_SETUP_2026-11-19.md`; owner action 1).

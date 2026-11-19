@@ -38,13 +38,22 @@ Never paste it in chat, an issue or a commit.
    sudo -u dynasty bash -lc 'cd /home/dynasty/trade-calculator && cp -p .env .env.bak.$(date +%Y%m%d) && printf "\nNOTIFY_WEBHOOK_URL=%s\n" "https://ntfy.sh/<topic>" >> .env'
    sudo systemctl restart dynasty
    ```
-3. **Box — the two units that push from their own environment.**
-   - Run `sudo systemctl edit riskit-uptime.service`, then `sudo systemctl edit dynasty-signals-auth-renew.service`.
-   - In each, add:
+3. **Box — the units that push from their own environment.**
+   - Run `sudo systemctl edit dynasty-signals-auth-renew.service` and add:
      ```
      [Service]
      Environment="NOTIFY_WEBHOOK_URL=https://ntfy.sh/<topic>"
      ```
+   - **The on-box uptime probe is not installed today.** The probe run on 2026-11-19 (44532781512, after this change
+     deployed) reported `uptimeProbeNtfyConfigured: null`: systemd does not have `riskit-uptime.service` loaded.
+     Outside-in uptime is still covered by `health-check.yml` (step 4). If you want the 5-minute on-box probe too,
+     first install it:
+     ```bash
+     cd /home/dynasty/trade-calculator
+     sudo cp deploy/monitoring/riskit-uptime.service deploy/monitoring/riskit-uptime.timer /etc/systemd/system/
+     sudo systemctl daemon-reload && sudo systemctl enable --now riskit-uptime.timer
+     ```
+     Then run `sudo systemctl edit riskit-uptime.service` with the same two lines.
    - Then run `sudo systemctl daemon-reload`.
 4. **GitHub.** Go to repo Settings → Secrets and variables → Actions → New repository secret. Name it
    `NOTIFY_WEBHOOK_URL`, with the same URL as the value.
@@ -54,7 +63,7 @@ Never paste it in chat, an issue or a commit.
 
 | Check | How | Expected |
 |---|---|---|
-| Box configuration | `signals-health-probe.yml` mode `health` | `alertRouting.ntfyConfigured`, `uptimeProbeNtfyConfigured` and `renewalNtfyConfigured` all `true` |
+| Box configuration | `signals-health-probe.yml` mode `health` | `alertRouting.ntfyConfigured` and `renewalNtfyConfigured` `true`; `uptimeProbeNtfyConfigured` `true` only if you installed the uptime probe (otherwise `null`) |
 | Box → phone, every class | `signals-health-probe.yml` mode `notify-test` | 5 TEST pushes arrive: Signals reconnect, source freshness, deploy lag, backup, health. You confirm 5 |
 | GitHub → phone | `health-check.yml` dispatch with `owner_push_test: true` | 1 TEST push arrives. You confirm 1 |
 | A REAL alert | the next daily alert sweep (`dynasty-signal-alerts`) | The real "Signals reconnect required" notice arrives, because the episode has been open since the session failed. The probe then shows `reconnectNoticeDelivered: true` |
