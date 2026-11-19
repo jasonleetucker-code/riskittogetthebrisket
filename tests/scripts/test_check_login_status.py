@@ -5,6 +5,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
@@ -72,6 +74,61 @@ def test_refuses_plain_http_and_missing_inputs(capsys):
         login=lambda *a: 200,
     )
     assert rc == 2
+
+
+def _guarded(url, monkeypatch):
+    calls = []
+    monkeypatch.setattr(cls.urllib.request, "urlopen", lambda *a, **k: calls.append(a))
+    rc = cls.main(
+        ["--url", url, "--expect", "ok"],
+        env={"CHECK_LOGIN_PASSWORD": SECRET, "JASON_LOGIN_USERNAME": "owner"},
+    )
+    return rc, calls
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://localhost.evil.com",
+        "http://127.0.0.1.evil.com",
+        "http://localhost@evil.com",
+        "https://owner:pw@example.invalid",
+        "http://user:pw@localhost:8000",
+        "ftp://localhost",
+    ],
+)
+def test_foreign_or_userinfo_urls_refused_and_nothing_sent(url, monkeypatch, capsys):
+    rc, calls = _guarded(url, monkeypatch)
+    out = capsys.readouterr()
+    assert rc == 2 and calls == []
+    assert SECRET not in out.out + out.err
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://[::1]:8000",
+        "https://example.invalid",
+    ],
+)
+def test_loopback_http_and_https_allowed(url):
+    assert cls.url_is_safe(url)
+
+
+def test_midflight_network_error_exits_2_without_leaking_secret(capsys):
+    def boom(url, user, pw):
+        raise cls.urllib.error.URLError(f"connection reset {pw}")
+
+    rc = cls.main(
+        ["--url", "https://example.invalid", "--expect", "ok"],
+        env={"CHECK_LOGIN_PASSWORD": SECRET, "JASON_LOGIN_USERNAME": "owner"},
+        login=boom,
+    )
+    out = capsys.readouterr()
+    assert rc == 2
+    assert SECRET not in out.out + out.err
 
 
 def test_password_has_no_command_line_flag():

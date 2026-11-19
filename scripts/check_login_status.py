@@ -32,10 +32,27 @@ import json
 import os
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Callable
 
 EXPECT_STATUS = {"ok": 200, "refused": 401}
+_LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
+def url_is_safe(url: str) -> bool:
+    """https anywhere, or http only to an exact loopback host; never userinfo."""
+    try:
+        parts = urllib.parse.urlsplit(url)
+        host = parts.hostname
+        parts.port  # noqa: B018 (raises ValueError on a malformed port)
+    except ValueError:
+        return False
+    if not host or parts.username is not None or parts.password is not None or "@" in parts.netloc:
+        return False
+    if parts.scheme == "https":
+        return True
+    return parts.scheme == "http" and host in _LOOPBACK_HOSTS
 
 
 def attempt_login(url: str, username: str, password: str, timeout: float = 15.0) -> int:
@@ -68,7 +85,7 @@ def main(
     ap.add_argument("--expect", choices=sorted(EXPECT_STATUS), required=True)
     ap.add_argument("--label", default="credential")
     args = ap.parse_args(argv)
-    if not args.url.startswith(("https://", "http://127.0.0.1", "http://localhost")):
+    if not url_is_safe(args.url):
         print("refusing: --url must be https (or loopback http)", file=sys.stderr)
         return 2
     if not args.username:
