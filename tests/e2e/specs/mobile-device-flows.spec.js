@@ -236,6 +236,63 @@ async function waitForActiveWorker(page, timeoutMs = 30_000) {
 }
 
 test.describe("service worker update path @mobile-only", () => {
+  test("with the worker in control: private API responses are never at rest, and an offline API call is a network failure, not HTML", async ({
+    authedPage: page,
+    context,
+  }) => {
+    await page.goto(pageUrl("/rankings"), { waitUntil: "domcontentloaded" });
+    if (!(await page.evaluate(() => "serviceWorker" in navigator))) {
+      // Recorded as a SKIP (listed in tests/e2e/skip-baseline.json as
+      // unsupported-environment), never a silent pass.
+      test.skip(true, "this engine exposes no navigator.serviceWorker on http://127.0.0.1");
+    }
+    await waitForActiveWorker(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect
+      .poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)), { timeout: 30_000 })
+      .toBe(true);
+    // The signed-in board makes private API reads through the worker.
+    await expect(page.locator("body")).toContainText(/\w/, { timeout: 30_000 });
+    await page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => {});
+    const apiCalls = await page.evaluate(() =>
+      performance
+        .getEntriesByType("resource")
+        .map((e) => new URL(e.name).pathname)
+        .filter((p) => p.startsWith("/api/")),
+    );
+    expect(apiCalls.length, "the page made API reads while the worker controlled it").toBeGreaterThan(0);
+
+    const stored = await page.evaluate(async () => {
+      const out = [];
+      for (const key of await caches.keys()) {
+        const cache = await caches.open(key);
+        for (const req of await cache.keys()) out.push(new URL(req.url).pathname);
+      }
+      return out;
+    });
+    const atRest = stored.filter(
+      (p) =>
+        (p.startsWith("/api/") && !p.startsWith("/api/public/league")) ||
+        p.startsWith("/api/public/league/trade-advisor"),
+    );
+    expect(atRest, "no private (or no-store) API response is held in CacheStorage").toEqual([]);
+
+    // Offline: an API read must fail as a network error.  The pre-v11 worker
+    // answered it with the homepage HTML, which the client then tried to parse.
+    await context.setOffline(true);
+    const offline = await page.evaluate(async () => {
+      try {
+        const res = await fetch("/api/status", { cache: "no-store" });
+        return { threw: false, type: res.headers.get("content-type") || "", text: (await res.text()).slice(0, 200) };
+      } catch (err) {
+        return { threw: true, type: "", text: String(err) };
+      }
+    });
+    await context.setOffline(false);
+    const looksLikeHtml = /<!doctype html|<html/i.test(offline.text) || /text\/html/i.test(offline.type);
+    expect(looksLikeHtml, `offline API read answered ${JSON.stringify(offline)}`).toBe(false);
+  });
+
   test("a new worker takes control, the page reloads once, and caches from older versions are evicted", async ({
     page,
   }) => {
@@ -310,74 +367,32 @@ test.describe("service worker update path @mobile-only", () => {
       )
       .toBe(true);
     await expect(page.locator("body")).toBeVisible();
-    // Leave nothing behind for the next test in this browser.  The simulated
-    // "/sw.js?deploy=2" registration is a test artifact; on mobile-390 the
-    // test that ran right after it in the same WebKit instance never saw a
-    // worker activate (run 44519478798), while every run in a fresh browser
-    // passed.  Production never registers a second script URL.
+    // Hand the next test a NORMAL worker.  Under Playwright, WebKit shares
+    // service-worker registrations across browser contexts of one browser, so
+    // whatever this test leaves is inherited: the simulated "/sw.js?deploy=2"
+    // left in place, or an unregistered (empty) registration, made the next
+    // SW test on mobile-390 wait forever (E2E 44519478798 and 44533702571,
+    // diagnostics: one registration at "/", no installing/waiting/active
+    // worker), while a fresh browser always passed.  Every other test leaves
+    // an active "/sw.js", so restore exactly that.  Production never registers
+    // a second script URL.
     await page
-      .evaluate(async () => {
-        const regs = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(regs.map((r) => r.unregister()));
-      })
+      .evaluate(() => navigator.serviceWorker.register("/sw.js", { scope: "/" }).then(() => true))
       .catch(() => {});
-  });
-
-  test("with the worker in control: private API responses are never at rest, and an offline API call is a network failure, not HTML", async ({
-    authedPage: page,
-    context,
-  }) => {
-    await page.goto(pageUrl("/rankings"), { waitUntil: "domcontentloaded" });
-    if (!(await page.evaluate(() => "serviceWorker" in navigator))) {
-      // Recorded as a SKIP (listed in tests/e2e/skip-baseline.json as
-      // unsupported-environment), never a silent pass.
-      test.skip(true, "this engine exposes no navigator.serviceWorker on http://127.0.0.1");
+    // Best effort, recorded either way: this restores shared browser state
+    // for later tests; it is not part of what this test proves.
+    let restored = null;
+    for (let i = 0; i < 30 && restored !== "/sw.js"; i += 1) {
+      restored = await page
+        .evaluate(async () => {
+          const reg = await navigator.serviceWorker.getRegistration("/");
+          const url = reg && reg.active ? new URL(reg.active.scriptURL) : null;
+          return url ? `${url.pathname}${url.search}` : null;
+        })
+        .catch(() => null);
+      if (restored !== "/sw.js") await page.waitForTimeout(1000);
     }
-    await waitForActiveWorker(page);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await expect
-      .poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)), { timeout: 30_000 })
-      .toBe(true);
-    // The signed-in board makes private API reads through the worker.
-    await expect(page.locator("body")).toContainText(/\w/, { timeout: 30_000 });
-    await page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => {});
-    const apiCalls = await page.evaluate(() =>
-      performance
-        .getEntriesByType("resource")
-        .map((e) => new URL(e.name).pathname)
-        .filter((p) => p.startsWith("/api/")),
-    );
-    expect(apiCalls.length, "the page made API reads while the worker controlled it").toBeGreaterThan(0);
-
-    const stored = await page.evaluate(async () => {
-      const out = [];
-      for (const key of await caches.keys()) {
-        const cache = await caches.open(key);
-        for (const req of await cache.keys()) out.push(new URL(req.url).pathname);
-      }
-      return out;
-    });
-    const atRest = stored.filter(
-      (p) =>
-        (p.startsWith("/api/") && !p.startsWith("/api/public/league")) ||
-        p.startsWith("/api/public/league/trade-advisor"),
-    );
-    expect(atRest, "no private (or no-store) API response is held in CacheStorage").toEqual([]);
-
-    // Offline: an API read must fail as a network error.  The pre-v11 worker
-    // answered it with the homepage HTML, which the client then tried to parse.
-    await context.setOffline(true);
-    const offline = await page.evaluate(async () => {
-      try {
-        const res = await fetch("/api/status", { cache: "no-store" });
-        return { threw: false, type: res.headers.get("content-type") || "", text: (await res.text()).slice(0, 200) };
-      } catch (err) {
-        return { threw: true, type: "", text: String(err) };
-      }
-    });
-    await context.setOffline(false);
-    const looksLikeHtml = /<!doctype html|<html/i.test(offline.text) || /text\/html/i.test(offline.type);
-    expect(looksLikeHtml, `offline API read answered ${JSON.stringify(offline)}`).toBe(false);
+    test.info().annotations.push({ type: "sw-restored", description: String(restored) });
   });
 });
 
