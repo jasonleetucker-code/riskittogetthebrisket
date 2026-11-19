@@ -346,7 +346,15 @@ test has since been pinned:
     - The new apt wrapper (#2268) retried 4 times over ~15 min, then failed closed with a named `::error`. That is
       the intended behaviour: nothing was skipped.
     - The other 7 shards passed. `Deploy To Production` was skipped, so production stayed on `5cdb4565`.
-  - Attempt 2: the failed jobs were re-run once (the only re-run allowed).
+  - Attempt 2: the failed jobs were re-run once (the only re-run allowed). **Succeeded.**
+    - Shard 3/8 passed. `Deploy To Production` ran 12:41–12:50 UTC.
+    - Production `/api/status` `build.commit` = **`ecc3464e`** (train S12 live).
+  - **New ancestry guard, first live run (#2266), deploy log:**
+    - "Deploying: `ecc3464e…`; In production: `5cdb4565…` (state file: ok)".
+    - "run_attempt=2: the stale-queue check is exempt (a re-run is an explicit human action)".
+    - "Moving production forward by 23 commit(s)".
+  - **Deploy-in-flight guard, live:** the next on-box workflow (Signals probe 44527831611) refused while a data deploy
+    (44524056203) was queued. It reported the zombie 43096180672 as "never started; ignored as not in flight".
 
 ## Owner actions (consolidated, priority order)
 
