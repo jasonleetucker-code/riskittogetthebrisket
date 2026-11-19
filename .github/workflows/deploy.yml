@@ -1537,3 +1537,85 @@ jobs:
           }
           echo "Verified live frontend artifact: ${LIVE_ARTIFACT_ID}"
 
+
+  # ── Post-deploy workflows for deploys started by GITHUB_TOKEN (STAB-10) ──
+  # data-delivery-shadow.yml and v1-authenticated-verification.yml run on
+  # `workflow_run` of this workflow, and GitHub creates NO workflow_run run for
+  # a run started by GITHUB_TOKEN.  scheduled-refresh.yml's data deploys are
+  # exactly that (`gh workflow run deploy.yml`, triggering actor
+  # github-actions[bot]): measured 2026-11-19, runs 44315967974, 44411720980
+  # and 44455009771 got neither follow-up, while push deploys got both.  So a
+  # bot-started run dispatches them itself (a workflow_dispatch made with
+  # GITHUB_TOKEN does start a run).  A human-started run is skipped here: it
+  # already gets workflow_run, and dispatching too would run both twice.
+  #
+  # Neither job can change this run's verdict: each step is continue-on-error,
+  # so a failed dispatch is a loud ::error on the run but never turns a
+  # shipped deploy red after the fact -- a red run would also drop this deploy
+  # from every "last successful deploy" reader (the shadow's own base lookup
+  # among them).  Each job's token may dispatch workflows and nothing else.
+  #
+  # The shadow judges the PRE-deploy gates, so it is dispatched as soon as they
+  # finish (success or failure, never on cancel), beside the deploy job rather
+  # than after it: its gate wall-clock then ends within seconds of the last
+  # gate, not after the box deploy.  V1 verifies a SUCCESSFUL main deploy, so it
+  # is dispatched after the deploy job succeeds, naming this run and the commit
+  # it shipped; its own wait-for-deploy job holds it until this run completes.
+  dispatch-data-delivery-shadow:
+    name: Dispatch data delivery shadow (bot-started deploys)
+    runs-on: ubuntu-latest
+    needs: [resolve, validate, test-plan, hard-gate, hard-gate-complete]
+    if: ${{ !cancelled() && github.triggering_actor == 'github-actions[bot]' }}
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Dispatch Data Delivery Shadow for this deploy run
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          DEPLOY_RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if gh workflow run data-delivery-shadow.yml --ref main -f deploy_run_id="${DEPLOY_RUN_ID}"; then
+            echo "Dispatched Data Delivery Shadow for deploy run ${DEPLOY_RUN_ID}."
+          else
+            echo "::error title=Post-deploy dispatch failed::Data Delivery Shadow was NOT dispatched for deploy run ${DEPLOY_RUN_ID}; this bot-started deploy gets no shadow verdict. Dispatch it by hand with deploy_run_id=${DEPLOY_RUN_ID}."
+            exit 1
+          fi
+
+  dispatch-v1-verification:
+    name: Dispatch V1 verification (bot-started deploys)
+    runs-on: ubuntu-latest
+    needs: [resolve, deploy]
+    # No status function, so success() is implied: only after the deploy job
+    # (and the gates it needs) succeeded, for a deploy of main.
+    if: ${{ github.triggering_actor == 'github-actions[bot]' && github.ref == 'refs/heads/main' }}
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Dispatch V1 authenticated verification for this deploy
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          DEPLOY_RUN_ID: ${{ github.run_id }}
+          DEPLOY_SHA: ${{ needs.resolve.outputs.sha }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "${DEPLOY_SHA}" =~ ^[0-9a-f]{40}$ ]] || { echo "::error title=Post-deploy dispatch failed::the resolved deploy target is not a full SHA; V1 verification NOT dispatched."; exit 1; }
+          # suite=browser runs exactly the workflow_run set (browser specs +
+          # trade smoke; the API/Lane-4 halves stay manual-only).
+          if gh workflow run v1-authenticated-verification.yml --ref main \
+              -f suite=browser \
+              -f deploy_run_id="${DEPLOY_RUN_ID}" \
+              -f deploy_sha="${DEPLOY_SHA}"; then
+            echo "Dispatched V1 verification for deploy run ${DEPLOY_RUN_ID} @ ${DEPLOY_SHA}."
+          else
+            echo "::error title=Post-deploy dispatch failed::V1 authenticated verification was NOT dispatched for deploy run ${DEPLOY_RUN_ID}; this deploy is unverified. Dispatch it by hand with suite=browser, deploy_run_id=${DEPLOY_RUN_ID}, deploy_sha=${DEPLOY_SHA}."
+            exit 1
+          fi

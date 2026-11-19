@@ -96,8 +96,16 @@ def test_the_shadow_never_queues_in_the_production_deploy_group():
 
 
 def test_deploy_yml_has_no_hook_into_the_shadow():
-    """The strict L3 file is untouched: nothing in it calls the shadow tooling."""
-    text = DEPLOY.read_text(encoding="utf-8")
+    """The strict L3 file runs none of the shadow tooling.
+
+    One reference is allowed (STAB-10): a run started by GITHUB_TOKEN gets no
+    ``workflow_run``, so deploy.yml's bot-only ``dispatch-data-delivery-shadow``
+    job DISPATCHES this workflow for its own run id -- fire-and-forget, with
+    ``continue-on-error``, so it can change nothing about the deploy.
+    """
+    doc = _load(DEPLOY)
+    dispatch = doc["jobs"].pop("dispatch-data-delivery-shadow")
+    text = yaml.safe_dump(doc)
     for name in (
         "classify_deploy_delta",
         "data_delivery_gate",
@@ -105,6 +113,12 @@ def test_deploy_yml_has_no_hook_into_the_shadow():
         "data-delivery",
     ):
         assert name not in text
+    (step,) = dispatch["steps"]
+    assert step["continue-on-error"] is True
+    assert "gh workflow run data-delivery-shadow.yml" in step["run"]
+    assert "github-actions[bot]" in dispatch["if"]
+    for name in ("classify_deploy_delta", "data_delivery_gate", "data_delivery_shadow"):
+        assert name not in step["run"]
 
 
 def test_only_the_gate_step_may_fail_without_failing_the_shadow():
