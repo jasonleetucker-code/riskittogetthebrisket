@@ -90,7 +90,9 @@ both `build.commit` and `build.release.frontend_artifact_id` with CI outputs.
 The deploy workflow classifies the exact target before checkout. Normal push
 deploys require the full artifact contract. A manual `workflow_dispatch` for a
 historical target lacking that contract can use the legacy rebuild path only
-with `allow_non_fast_forward=true`. That path still validates the target and
+with `allow_non_fast_forward=true` (which, since STAB-1, also requires
+`expected_live_sha` to equal the commit production runs at guard time — see
+`docs/runbooks/domain-cutover-chaseupside.md` §12b). That path still validates the target and
 checks the served commit and frontend assets, but it cannot claim exact Python
 locks or a tested frontend artifact for a commit that predates them.
 
