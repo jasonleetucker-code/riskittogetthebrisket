@@ -209,6 +209,32 @@ test.describe("waivers add/drop pickers on a phone @mobile-only", () => {
 
 const SW_VERSION_RE = /chaseupside-v(\d+)/;
 
+// Bounded wait for an active worker.  ``navigator.serviceWorker.ready`` never
+// settles when nothing activates, which burned the whole 150 s test budget on
+// mobile-390 (E2E run 44519478798) and left no evidence.  This fails in 30 s
+// with the registration states instead.
+async function waitForActiveWorker(page, timeoutMs = 30_000) {
+  const state = await page.evaluate(async (ms) => {
+    const outcome = await Promise.race([
+      navigator.serviceWorker.ready.then(() => "ready"),
+      new Promise((resolve) => setTimeout(() => resolve("timeout"), ms)),
+    ]);
+    const regs = await navigator.serviceWorker.getRegistrations();
+    return {
+      outcome,
+      controlled: Boolean(navigator.serviceWorker.controller),
+      registrations: regs.map((r) => ({
+        scope: r.scope,
+        script: (r.active || r.waiting || r.installing || {}).scriptURL || null,
+        installing: r.installing ? r.installing.state : null,
+        waiting: r.waiting ? r.waiting.state : null,
+        active: r.active ? r.active.state : null,
+      })),
+    };
+  }, timeoutMs);
+  expect(state.outcome, `no service worker became active: ${JSON.stringify(state)}`).toBe("ready");
+}
+
 test.describe("service worker update path @mobile-only", () => {
   test("a new worker takes control, the page reloads once, and caches from older versions are evicted", async ({
     page,
@@ -219,7 +245,7 @@ test.describe("service worker update path @mobile-only", () => {
       // unsupported-environment), never a silent pass.
       test.skip(true, "this engine exposes no navigator.serviceWorker on http://127.0.0.1");
     }
-    await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
+    await waitForActiveWorker(page);
     // Reload so the page is SW-controlled (the registrar only wires its
     // controllerchange reload for an already-controlled page).
     await page.reload({ waitUntil: "domcontentloaded" });
@@ -284,6 +310,17 @@ test.describe("service worker update path @mobile-only", () => {
       )
       .toBe(true);
     await expect(page.locator("body")).toBeVisible();
+    // Leave nothing behind for the next test in this browser.  The simulated
+    // "/sw.js?deploy=2" registration is a test artifact; on mobile-390 the
+    // test that ran right after it in the same WebKit instance never saw a
+    // worker activate (run 44519478798), while every run in a fresh browser
+    // passed.  Production never registers a second script URL.
+    await page
+      .evaluate(async () => {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+      })
+      .catch(() => {});
   });
 
   test("with the worker in control: private API responses are never at rest, and an offline API call is a network failure, not HTML", async ({
@@ -296,7 +333,7 @@ test.describe("service worker update path @mobile-only", () => {
       // unsupported-environment), never a silent pass.
       test.skip(true, "this engine exposes no navigator.serviceWorker on http://127.0.0.1");
     }
-    await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
+    await waitForActiveWorker(page);
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect
       .poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)), { timeout: 30_000 })
