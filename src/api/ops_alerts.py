@@ -310,6 +310,27 @@ def _check_backup_coverage(block: dict[str, Any] | None) -> list[OpsAlert]:
                     ),
                 )
             )
+        elif row.get("kind") == "offbox_copy":
+            age = row.get("ageHours")
+            alerts.append(
+                OpsAlert(
+                    severity="warning",
+                    category="backup_offbox_copy",
+                    title=(
+                        f"Off-box backup copy is stale ({age:.0f} h old)"
+                        if isinstance(age, (int, float))
+                        else "Off-box backup copy time is unreadable (clock skew)"
+                    ),
+                    detail=(
+                        "The last VERIFIED off-box copy of the state backup is older than "
+                        "the nightly schedule allows, so the only surviving copy of the "
+                        "ledgers may be on this host's disk.  Read why with: sudo journalctl "
+                        "-u riskit-offbox-copy.service -n 80 --no-pager (and "
+                        "/var/log/riskit-offbox-backup.log), then re-run "
+                        "`offbox_backup.py copy`.  See docs/ops/BACKUP_OFFBOX_DESIGN_2026-11-19.md."
+                    ),
+                )
+            )
         elif row.get("kind") == "restore_proof":
             result = row.get("result")
             alerts.append(

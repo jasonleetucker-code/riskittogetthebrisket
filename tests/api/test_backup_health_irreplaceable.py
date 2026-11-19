@@ -569,3 +569,24 @@ def test_unlistable_generations_make_an_absent_source_unverifiable_not_absent_by
     assert status["analyst_ledger"] == "unverifiable"
     assert "absent_by_design" not in status.values()
     assert ledgers["coverage"] == "unverifiable"
+
+
+def test_stale_recorded_offbox_copy_alerts_but_an_unconfigured_one_does_not(tmp_path):
+    _make_generation(tmp_path / "state")
+    assert bh.alert_rows(_detail(tmp_path))["rows"] == []  # never configured: opt-in, no alert
+    marker = tmp_path / "state" / "last_mirror"
+    marker.write_text("schema=1\nmirrored_at=2026-10-26T06:00:00Z\n", encoding="utf-8")
+    block = bh.alert_rows(_detail(tmp_path))
+    rows = [r for r in block["rows"] if r["kind"] == "offbox_copy"]
+    assert rows and rows[0]["state"] == "stale"  # NOW is far past that stamp
+    alerts = ops_alerts._check_backup_coverage(block)
+    assert any(a.category == "backup_offbox_copy" for a in alerts)
+
+
+def test_fresh_recorded_offbox_copy_raises_nothing(tmp_path):
+    _make_generation(tmp_path / "state")
+    fresh = datetime.fromtimestamp(NOW - 3600, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    (tmp_path / "state" / "last_mirror").write_text(
+        f"schema=1\nmirrored_at={fresh}\n", encoding="utf-8"
+    )
+    assert bh.alert_rows(_detail(tmp_path))["rows"] == []

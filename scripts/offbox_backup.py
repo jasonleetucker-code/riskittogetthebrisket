@@ -177,6 +177,25 @@ class CommandTarget(Target):
             return Path(self.spec)
         return None
 
+    def encryption_evidence(self) -> str:
+        """What this tool can OBSERVE about encryption at rest, never a claim.
+
+        ``rclone_crypt_remote`` only when ``rclone config dump`` says the remote is
+        type ``crypt``.  The dump is parsed in memory for that one field and never
+        printed (it holds obscured credentials).  Everything else, rsync included,
+        is ``not_verified``: the owner's acknowledgement remains the only evidence.
+        """
+        if self.kind != "rclone":
+            return "not_verified"
+        name = self.spec.split(":", 1)[0]
+        try:
+            proc = self._run(["rclone", "config", "dump"])
+            remotes = json.loads(proc.stdout or "{}") if proc.returncode == 0 else {}
+            kind = remotes.get(name, {}).get("type") if isinstance(remotes, dict) else None
+        except (ValueError, AttributeError, OSError):
+            return "not_verified"
+        return "rclone_crypt_remote" if kind == "crypt" else "not_verified"
+
     def _remote(self, *parts: str) -> str:
         return "/".join([self.spec, *parts])
 
@@ -428,6 +447,43 @@ def copy_newest(
     }
 
 
+MIRROR_MARKER = "last_mirror"
+
+
+def record_copy_marker(
+    gen: Path, result: dict[str, Any], *, generations: int, now: datetime | None = None
+) -> str:
+    """Record a VERIFIED copy in ``<backup root>/last_mirror`` so backup health sees it.
+
+    ``src/api/backup_health.py::_offbox_mirror`` reads ``mirrored_at`` from this
+    file and reports its age, which the operator alert turns into a stale-copy
+    notice.  Written only AFTER the read-back proved the copy, never on failure, so
+    a failing target makes the age grow instead of resetting it.  The destination is
+    never recorded (it can carry a host or a bucket): only its kind.  ``dest`` is
+    deliberately not an rsync spec, so the nightly writer's ``--delete`` continuity
+    check (which compares ``dest``) cannot mistake this for its own mirror and
+    stays additive.  Best effort: a root this process cannot write is reported, not
+    fatal, because the copy itself already succeeded.  Returns "ok" or a reason.
+    """
+    root = gen.parent.parent
+    when = (now or datetime.now(timezone.utc)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    kind = str(result.get("target", "")).split(":", 1)[0] or "unknown"
+    body = (
+        "schema=1\n"
+        f"dest=offbox_copy:{kind}\n"
+        f"generations={generations}\n"
+        f"generation={result.get('generation', '')}\n"
+        f"mirrored_at={when}\n"
+    )
+    try:
+        tmp = root / f".{MIRROR_MARKER}.tmp"
+        tmp.write_text(body, encoding="utf-8")
+        os.replace(tmp, root / MIRROR_MARKER)
+    except OSError as exc:
+        return f"not recorded ({type(exc).__name__})"
+    return "ok"
+
+
 # ── drill ───────────────────────────────────────────────────────────────────
 def assert_scratch_is_safe(scratch: Path, extra_protected: Sequence[str] = ()) -> None:
     resolved = scratch.resolve()
@@ -527,6 +583,10 @@ def main(argv: list[str] | None = None, env: dict[str, str] | None = None) -> in
                 full_verify=args.full,
                 roots=args.root or list(DEFAULT_ROOTS),
             )
+            probe = getattr(target, "encryption_evidence", None)
+            result["encryption_evidence"] = probe() if probe else "not_verified"
+            count = len([d for d in gen.parent.iterdir() if _DATED.match(d.name)])
+            result["health_marker"] = record_copy_marker(gen, result, generations=count)
         else:
             result = run_drill(
                 target,

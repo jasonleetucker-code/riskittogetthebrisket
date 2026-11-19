@@ -1360,6 +1360,11 @@ def build_backup_health(
 #: restore" (or the run died).  ``stale`` / ``unknown`` are reported in the
 #: block but are not an alert: a quiet week or a never-run proof is not a
 #: restore failure.
+#: A RECORDED off-box copy (``last_mirror``, written only after a verified copy) older
+#: than this raises an operator alert: the nightly copy runs once a day, so two days
+#: means at least one missed run.  An off-box copy that was never configured
+#: (``none_recorded``) raises nothing: it is opt-in and absence is not a failure.
+OFFBOX_COPY_STALE_AFTER_HOURS = 48.0
 PROOF_ALERT_RESULTS = frozenset({"failed", "could_not_run", "interrupted"})
 #: Results that say nothing about the LAST proof yet (no result, a bad file, a
 #: wrong clock, or a run still in flight): not checked, never "recovered".
@@ -1391,6 +1396,13 @@ def alert_rows(detail: dict[str, Any]) -> dict[str, Any]:
                         "writerClass": row.get("writerClass"),
                     }
                 )
+    mirror = (state or {}).get("offboxMirror")
+    if isinstance(mirror, dict) and mirror.get("state") == "recorded":
+        age = mirror.get("ageHours")
+        if isinstance(age, (int, float)) and age > OFFBOX_COPY_STALE_AFTER_HOURS:
+            rows.append({"kind": "offbox_copy", "state": "stale", "ageHours": age})
+    elif isinstance(mirror, dict) and mirror.get("state") == "clock_skew":
+        rows.append({"kind": "offbox_copy", "state": "clock_skew", "ageHours": None})
     proof_checked = result is not None and result not in PROOF_UNCHECKED_RESULTS
     if result in PROOF_ALERT_RESULTS:
         rows.append(
