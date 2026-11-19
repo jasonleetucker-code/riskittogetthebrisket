@@ -202,8 +202,11 @@ def test_release_candidate_runs_the_hard_gate_only_in_the_sharded_matrix():
     assert upload.get("if") == "${{ always() && needs.plan.outputs.mode == 'sharded' }}"
     # Real-OCR tests run instead of skipping, as in PR Validation and Deploy:
     # all three gates share one skip budget.
+    # The install goes through the one CI apt installer (STAB-10,
+    # tests/deploy/test_install_apt_packages.py).
     assert any(
-        "install -y" in (s.get("run") or "") and "tesseract-ocr" in s["run"] for s in _steps(gate)
+        "scripts/ci/install_apt_packages.sh tesseract-ocr" in (s.get("run") or "")
+        for s in _steps(gate)
     )
 
 
