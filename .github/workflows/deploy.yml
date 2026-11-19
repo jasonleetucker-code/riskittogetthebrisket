@@ -985,14 +985,22 @@ jobs:
           SSH_PORT="${DEPLOY_PORT_RESOLVED}"
           TARGET="${DEPLOY_USER_RESOLVED}@${DEPLOY_HOST_RESOLVED}"
 
-          # Read the last sha that actually reached production.  An ABSENT
-          # file is not an error -- first deploy, or a fresh host -- it just
-          # means there is no baseline (empty output, success).  A FAILED read
-          # (SSH error, unreadable file) is different and must not pass as
-          # "no baseline", or a transient SSH error would wave a backwards
-          # deploy through.
-          LIVE_READ=ok
-          if ! LAST_DEPLOYED="$(
+          # Read the last sha that actually reached production.  The remote
+          # side names the file's state explicitly, so the helper can tell
+          # them apart (scripts/deploy_ancestry_guard.py::baseline_state):
+          #   "absent"            -- no file: first deploy or a fresh host;
+          #                          no baseline, the ancestry check is skipped.
+          #   "present:<contents>" -- the file exists; <contents> is
+          #                          whitespace-stripped and may be EMPTY.  An
+          #                          empty or non-SHA file is REFUSED: it is
+          #                          what an interrupted write leaves, not a
+          #                          first deploy.
+          # A FAILED read (SSH error, unreadable file, any other output) is
+          # reported as failed and refused too -- never "no baseline", or a
+          # transient SSH error would wave a backwards deploy through.
+          LIVE_READ=failed
+          LAST_DEPLOYED=""
+          if REMOTE_BASELINE="$(
             ssh \
               -i "${DEPLOY_KEY_FILE}" \
               -o BatchMode=yes \
@@ -1001,10 +1009,12 @@ jobs:
               -o ConnectTimeout=15 \
               -p "${SSH_PORT}" \
               "${TARGET}" \
-              "if [ -e '${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}' ]; then tr -d '[:space:]' < '${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}'; fi"
+              "if [ -e '${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}' ]; then printf 'present:' && tr -d '[:space:]' < '${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}'; else printf 'absent'; fi"
           )"; then
-            LIVE_READ=failed
-            LAST_DEPLOYED=""
+            case "${REMOTE_BASELINE}" in
+              absent) LIVE_READ=absent ;;
+              present:*) LIVE_READ=present; LAST_DEPLOYED="${REMOTE_BASELINE#present:}" ;;
+            esac
           fi
 
           # Resolved once by the resolve job; never re-resolved here.
@@ -1017,14 +1027,27 @@ jobs:
           echo "DEPLOY_TARGET_SHA=${TARGET_SHA}" >> "$GITHUB_ENV"
 
           # This run's creation time, for the stale-queue refusal.  Read-only
-          # (actions: read).  An unreadable value reaches the helper as empty
-          # and it fails closed on a first attempt.
-          RUN_CREATED_AT="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" --jq '.created_at' 2>/dev/null || true)"
+          # (actions: read).  Bounded retry -- 3 attempts, each capped at 30 s,
+          # 3 s then 6 s apart -- so one API blip does not refuse a good
+          # deploy.  Still unreadable after that, it reaches the helper as
+          # empty and the helper fails closed on a first attempt.
+          RUN_CREATED_AT=""
+          for API_ATTEMPT in 1 2 3; do
+            RUN_CREATED_AT="$(timeout 30 gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" --jq '.created_at' 2>/dev/null || true)"
+            if [[ -n "${RUN_CREATED_AT}" ]]; then
+              break
+            fi
+            if (( API_ATTEMPT < 3 )); then
+              echo "::warning title=Run API read failed::Could not read this run's created_at (attempt ${API_ATTEMPT}/3); retrying."
+              sleep $(( API_ATTEMPT * 3 ))
+            fi
+          done
 
           if python3 scripts/deploy_ancestry_guard.py \
             --target "${TARGET_SHA}" \
             --live "${LAST_DEPLOYED}" \
             --live-read "${LIVE_READ}" \
+            --live-file "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}" \
             --event "${EVENT_NAME}" \
             --run-attempt "${RUN_ATTEMPT}" \
             --run-created-at "${RUN_CREATED_AT}" \

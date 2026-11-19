@@ -643,11 +643,17 @@ wanted. Other refusals the same guard applies:
   was created (a run that sat queued that long is not the deploy anyone
   intended). Start a fresh dispatch; re-running the same run is also accepted,
   because a re-run is an explicit human action.
-* An unreadable run creation time or production baseline (it fails closed;
-  re-run the job).
-* A box with no recorded baseline accepts a plain deploy (first deploy) but
-  not a rollback flag — there is nothing for the compare-and-swap to match;
-  dispatch without the flag.
+* An unreadable run creation time (read with 3 bounded attempts) or
+  production baseline (it fails closed; re-run the job).
+* A state file that **exists but is empty** (or whitespace only, or not a full
+  40-hex SHA). That is what an interrupted write leaves, not a first deploy:
+  write the live commit (`/api/status` → `build.commit`) into
+  `~/.deploy-state/trade-calculator.last_successful_deploy_commit` on the box
+  and re-run, or delete the file only if the host has never completed a
+  deploy.
+* A box with **no state file at all** accepts a plain deploy (first deploy)
+  but not a rollback flag — there is nothing for the compare-and-swap to
+  match; dispatch without the flag.
 
 Since 2026-10-01 the workflow resolves `deploy_ref` once to a full commit SHA
 (branch name, tag name or full SHA; abbreviated SHAs and expressions such as

@@ -35,6 +35,20 @@ Three questions, asked in this order:
 3. **Does the deploy move production forward?**  Same commit or a descendant
    passes; going backwards or sideways is refused unless (2) authorised it.
    No recorded baseline (a first deploy) passes, as it always has.
+
+The box's state file is read in one of five states (``baseline_state``), and
+only two of them let a deploy proceed without a verified baseline question:
+
+* ``absent``    -- the file does not exist: a first deploy or a fresh host.
+                   Passes, as before.
+* ``ok``        -- the file holds a full 40-hex commit: (2) and (3) apply.
+* ``empty``     -- the file EXISTS but holds nothing (or only whitespace).
+                   That is what an interrupted ``printf > file`` leaves, not a
+                   first deploy: refused, or any target would ship.
+* ``malformed`` -- the file holds something that is not a full commit SHA.
+                   Refused.
+* ``failed``    -- the read itself failed (SSH error, unreadable file,
+                   unrecognised output).  Refused.
 """
 
 from __future__ import annotations
@@ -75,11 +89,14 @@ class GuardInputs:
     expected_live_sha: str
     now: datetime
     max_queue_age: timedelta = MAX_QUEUE_AGE
-    #: False when the SSH read of the box's deploy-state file FAILED (as
-    #: opposed to the file being absent).  An unread baseline is not "no
-    #: baseline": treating it as one would wave a backwards deploy through on
-    #: a transient SSH error.
-    live_read_ok: bool = True
+    #: What the remote read of the box's deploy-state file reported:
+    #: ``absent`` (no such file), ``present`` (the file exists; ``live`` is its
+    #: whitespace-stripped contents, possibly empty) or ``failed``.  The
+    #: default is the fail-closed one: an empty ``live`` the caller did not
+    #: declare absent is an EMPTY file, never "no baseline".
+    live_read: str = "present"
+    #: The state file's path on the box, for messages only.
+    live_file: str = ""
 
 
 @dataclass
@@ -120,6 +137,26 @@ def _is_ancestor(repo: Path, older: str, newer: str) -> bool:
 def _log(repo: Path, rng: str, prefix: str) -> list[str]:
     out = _git(repo, "log", "--oneline", "--no-decorate", rng).stdout
     return [f"  {prefix}: {line}" for line in out.splitlines() if line.strip()]
+
+
+#: ``--live-read`` values, as the workflow's remote read reports them.
+LIVE_READS = ("absent", "present", "failed")
+
+
+def baseline_state(live_read: str, live: str) -> str:
+    """Name the box's state-file state: absent / empty / malformed / ok / failed.
+
+    Only ``absent`` means "no baseline".  A read that contradicts itself (an
+    ``absent`` file with contents) or an unknown read value is ``failed``.
+    """
+    contents = live.strip().lower()
+    if live_read == "absent":
+        return "failed" if contents else "absent"
+    if live_read != "present":
+        return "failed"
+    if not contents:
+        return "empty"
+    return "ok" if _SHA.fullmatch(contents) else "malformed"
 
 
 def _parse_flag(raw: str) -> bool | None:
@@ -265,21 +302,32 @@ def decide(inputs: GuardInputs, repo: Path) -> Verdict:
         return verdict.refuse(
             "No resolved deploy target", f"deploy target {inputs.target!r} is not a full SHA."
         )
+    state = baseline_state(inputs.live_read, inputs.live)
+    state_file = inputs.live_file.strip() or "the last-successful-deploy commit file"
     verdict.say(f"Deploying:      {target}")
-    verdict.say(f"In production:  {live or '<none recorded>'}")
+    verdict.say(f"In production:  {live or '<none recorded>'} (state file: {state})")
 
     if not _check_queue_age(inputs, verdict):
         return verdict
-    if not inputs.live_read_ok:
+    if state == "failed":
         return verdict.refuse(
             "Cannot read the production baseline",
-            "the SSH read of the box's last-successful-deploy commit file failed, so whether this deploy "
-            "moves production forward cannot be checked; failing closed. Re-run the job.",
+            f"the SSH read of {state_file} failed or returned output that is not a recognised file state, "
+            "so whether this deploy moves production forward cannot be checked; failing closed. Re-run the job.",
         )
-    if live and not _SHA.fullmatch(live):
+    if state == "empty":
+        return verdict.refuse(
+            "Empty deploy baseline",
+            f"{state_file} exists on the box but is empty (or whitespace only), so the commit production is "
+            "running is unknown. An empty state file is not a first deploy (that is an ABSENT file): it is what "
+            "an interrupted write leaves, and reading it as 'no baseline' would let any target ship. Failing "
+            f"closed. Write the live commit into the file on the box ({_LIVE_SHA_HELP}), or delete the file only "
+            "if this host has never completed a deploy.",
+        )
+    if state == "malformed":
         return verdict.refuse(
             "Unreadable deploy baseline",
-            f"the box records {live!r} as its last-successful-deploy commit, which is not a full SHA, so no "
+            f"{state_file} records {live!r} as the last-successful-deploy commit, which is not a full SHA, so no "
             "deploy direction (and no rollback compare-and-swap) can be verified. Repair the state file on the "
             "box, or roll back there with deploy/rollback.sh.",
         )
@@ -356,13 +404,17 @@ def main(argv: list[str] | None = None) -> int:
         "--target", required=True, help="the resolved full commit SHA being deployed"
     )
     parser.add_argument(
-        "--live", default="", help="the box's last-successful-deploy commit ('' when none)"
+        "--live", default="", help="the box's state-file contents, whitespace-stripped"
     )
     parser.add_argument(
         "--live-read",
-        choices=("ok", "failed"),
-        default="ok",
-        help="whether the SSH read of the deploy-state file succeeded (an absent file is ok + empty --live)",
+        choices=LIVE_READS,
+        default="present",
+        help="what the remote read reported: the file is absent, present (--live is its contents, "
+        "possibly empty), or the read failed.  Only 'absent' means no baseline.",
+    )
+    parser.add_argument(
+        "--live-file", default="", help="the state file's path on the box (messages only)"
     )
     parser.add_argument("--event", required=True, help="github.event_name")
     parser.add_argument("--run-attempt", required=True, help="github.run_attempt")
@@ -392,7 +444,8 @@ def main(argv: list[str] | None = None) -> int:
             expected_live_sha=args.expected_live_sha,
             now=now,
             max_queue_age=timedelta(hours=args.max_queue_age_hours),
-            live_read_ok=args.live_read == "ok",
+            live_read=args.live_read,
+            live_file=args.live_file,
         ),
         args.repo,
     )
