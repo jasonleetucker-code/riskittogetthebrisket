@@ -385,6 +385,12 @@
    },
    "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'bash unavailable'"
   },
+  "tests/governance/test_report_data_policy_migration.py": {
+   "maxHits": {
+    "archive-literal": 3
+   },
+   "reason": "Synthetic path strings passed to the pure path classifier in scripts/report_data_policy_migration.py (STAB-7); no archive file is opened or listed -- the classifier decides by path prefix, so the test must name an exports/archive/ path."
+  },
   "tests/identity/test_audit_w06_f001_regression.py": {
    "maxHits": {
     "archive-literal": 2
@@ -578,7 +584,7 @@
    "maxHits": {
     "missing-data-skip": 1
    },
-   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'C1-SRC-01 archive not implemented yet \u2014 this is the RED'"
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'C1-SRC-01 archive not implemented yet — this is the RED'"
   },
   "tests/sources/test_source_census.py": {
    "maxHits": {
