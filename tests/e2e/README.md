@@ -105,6 +105,18 @@ E2E_BASE_URL=http://127.0.0.1:8000 npm run e2e
 webkit `mobile-390` / `mobile-430` projects, which need
 `npx playwright install webkit`, and enforces pixel snapshots).
 
+**Skips are accounted per test, not counted.**  Project-only gating is a title
+tag — `@desktop-only`, `@mobile-only`, `@a11y-desktop-only` — filtered by each
+project's `grepInvert` in `playwright.config.js`, so a test that is not meant
+for a project does not exist there.  It is never a `test.skip()`.  Every other
+skip must be listed in `tests/e2e/skip-baseline.json` (spec file, test title,
+projects, category, reason).  `stack-death-reporter.js` (via
+`skip-accounting.js`) fails the run on a skip that is not listed — naming the
+test — and on a listed entry that no longer skips, so the list only shrinks
+(`unsupported-environment` entries are host-dependent and only reported).
+`E2E_MAX_SKIPPED` survives as a coarse sanity bound (default 20).  Unit tests:
+`node --test tests/e2e/skip-accounting.test.js`.
+
 **WebKit (iPhone) coverage.** `mobile-390` (iPhone 13) and `mobile-430`
 (iPhone 14 Pro Max) are real WebKit.  The E2E Safety Net workflow installs
 WebKit and runs `mobile-390` after the Chromium projects, in the same job and
@@ -112,8 +124,9 @@ stack.  Locally: `npx playwright install webkit` (on a bare Linux box also
 `npx playwright install-deps webkit`), then
 `npx playwright test -c tests/e2e/playwright.config.js --project=mobile-390 --ignore-snapshots`.
 Measured 2026-10-28 on both phones: 145 passed / 55 skipped / 0 failed
-(skips are the desktop-only journeys, the visual-regression specs under
-`SKIP_VISUAL_REGRESSION=1`, and the real-OCR specs).  Page-error guards must
+(that was before skip accounting below: the skips were desktop-only journeys,
+the visual-regression specs under `SKIP_VISUAL_REGRESSION=1`, and the real-OCR
+specs; now only the real-OCR specs skip).  Page-error guards must
 use `isNavigationAbortedFetch` (helpers/journey.js): WebKit reports a fetch
 that a navigation cancelled as an uncaught "Fetch API cannot load ... due to
 access control checks" TypeError, which Chromium does not.
@@ -129,7 +142,7 @@ access control checks" TypeError, which Chromium does not.
 | `ALLOW_DEFAULT_LOGIN_DEV=1` | **Server-side, mandatory.**  `server.py` raises at import without `JASON_LOGIN_PASSWORD`; the resulting boot failure looks like a data problem downstream.  Set automatically for the backend the config boots |
 | `E2E_FRONTEND_CMD` | Override the frontend `webServer` command (default: production build + start) |
 | `E2E_CHROMIUM_PATH` | Launch a pre-installed Chromium binary instead of the revision-pinned download (sandboxes / air-gapped runners) |
-| `SKIP_VISUAL_REGRESSION=1` | Skip the two visual-regression specs entirely |
+| `SKIP_VISUAL_REGRESSION=1` | Omit only the pixel comparison (`expectPixelBaseline`) in the two visual-regression specs; their structural assertions still run |
 | `E2E_ADVISOR_E2E=1` | Register the Brisket Trade Advisor flows that need a stack SERVING the advisor (`league-trade-advisor.spec.js` beyond "landing", all of `advisor-e2e-keyboard-a11y.spec.js`).  Unset, they are not registered at all — never skipped — because no CI stack can serve the advisor: its launch gate needs owner-reserved inputs.  Set, a stack that does not serve the advisor FAILS them.  Serve it only from a throwaway local process (flag on, gate opened in-process), never a committed config change |
 
 ## Spec inventory

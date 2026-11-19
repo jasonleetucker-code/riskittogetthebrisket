@@ -24,7 +24,6 @@
  * possible at all.
  */
 const { test, expect } = require("../helpers/auth-fixture");
-const { desktopOnly } = require("../helpers/journey");
 
 /**
  * `sourceRankMeta` is compared SEPARATELY, and that is not a loophole.
@@ -124,8 +123,7 @@ async function fetchView(page, view) {
   return { body, rows, byKey: new Map(rows.map((r) => [rowKey(r), r])) };
 }
 
-test.describe("api: mobile/desktop view parity", () => {
-  test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
+test.describe("api: mobile/desktop view parity @desktop-only", () => {
 
   test("compact and array serve the same players", async ({
     authedPage: page,

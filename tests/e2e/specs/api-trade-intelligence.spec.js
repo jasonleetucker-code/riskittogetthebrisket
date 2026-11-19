@@ -15,10 +15,9 @@
  * that would need editing when the snapshot refreshes.
  */
 const { test, expect } = require("../helpers/auth-fixture");
-const { desktopOnly, contractFixture } = require("../helpers/journey");
+const { contractFixture } = require("../helpers/journey");
 
-test.describe("api: draft capital valuation", () => {
-  test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
+test.describe("api: draft capital valuation @desktop-only", () => {
 
   test("GET /api/draft-capital prices a complete, internally consistent pick board", async ({
     authedPage: page,
@@ -89,8 +88,7 @@ test.describe("api: draft capital valuation", () => {
   });
 });
 
-test.describe("api: roster-aware trade suggestions", () => {
-  test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
+test.describe("api: roster-aware trade suggestions @desktop-only", () => {
 
   test("POST /api/trade/suggestions builds real trades and honours the top-150 board gate", async ({
     authedPage: page,

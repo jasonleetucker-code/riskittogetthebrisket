@@ -52,7 +52,6 @@ const { test, expect } = require("../helpers/auth-fixture");
 const {
   pageUrl,
   awaitStreamSettled,
-  isMobileProject,
 } = require("../helpers/journey");
 
 const MOBILE = { width: 390, height: 844 };
@@ -215,8 +214,8 @@ test.describe("mobile 390px: primary touch controls are at least 44x44 @mobile-o
   });
 
   for (const route of ROUTES) {
+    // Phone-only via the describe's @mobile-only tag (grepInvert on desktop-1366).
     test(`${route} — design-system controls are >= 44px`, async ({ authedPage }, testInfo) => {
-      test.skip(!isMobileProject(testInfo), "touch-target sizing is a phone-project assertion");
       await authedPage.setViewportSize(MOBILE);
       await authedPage.goto(pageUrl(route), { waitUntil: "domcontentloaded" });
       await awaitStreamSettled(authedPage);

@@ -1,0 +1,20 @@
+{
+  "_comment": "Reviewed baseline of DELIBERATE skips in the Playwright suite (STAB-8, owner 2026-11-19). Read by tests/e2e/skip-accounting.js from stack-death-reporter.js: a skip NOT listed here fails the run, naming the test; an entry that no longer skips fails as stale (except unsupported-environment, which is host-dependent). Project-only gating is NOT listed here: tag the describe @desktop-only / @mobile-only / @a11y-desktop-only and let the project's grepInvert in playwright.config.js filter it, so it is never counted as a skip. `title` is the describe/test path joined by ' > ' (empty describes omitted), `projects` are Playwright project names. Categories: unsupported-environment | data-dependent | missing-fixture | temporary-exclusion.",
+  "version": 1,
+  "entries": [
+    {
+      "file": "trade-screenshot-import.spec.js",
+      "title": "real OCR: a committed screenshot lands on the right sides",
+      "projects": ["desktop-1366", "mobile-chromium", "mobile-390"],
+      "category": "unsupported-environment",
+      "reason": "Needs the server's Tesseract OCR (/api/trade/import-screenshot/status enabled && available). e2e.yml installs neither tesseract nor its language data, so CI skips; a developer host with Tesseract runs it. Installing Tesseract on the runner would convert this to a real test."
+    },
+    {
+      "file": "trade-screenshot-import.spec.js",
+      "title": "real OCR: an uncropped full-page screenshot imports exactly the trade",
+      "projects": ["desktop-1366", "mobile-chromium", "mobile-390"],
+      "category": "unsupported-environment",
+      "reason": "Same host capability as the sibling real-OCR test: skips when the server reports OCR unavailable."
+    }
+  ]
+}

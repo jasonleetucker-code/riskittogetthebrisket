@@ -716,5 +716,59 @@ class TestProdAuthSpecsImportEveryHelperTheyUse(unittest.TestCase):
         )
 
 
+class TestProjectGatingIsATagNotASkip(unittest.TestCase):
+    """STAB-8: project-only gating must not be counted as a skip.
+
+    ``desktopOnly`` / ``mobileOnly`` used to call ``test.skip()``, so every
+    desktop journey spent one unit of the suite's skip budget per phone
+    project (66 of the 70 skips on main).  Gating is now a title tag
+    (``@desktop-only`` / ``@mobile-only`` / ``@a11y-desktop-only``) filtered by
+    each project's ``grepInvert`` in ``playwright.config.js``, and every other
+    skip is accounted per test against ``tests/e2e/skip-baseline.json``.
+    """
+
+    def _specs(self):
+        return sorted(p for p in (E2E_DIR / "specs").glob("*.spec.js"))
+
+    def test_no_spec_skips_on_the_project_name(self):
+        offenders = []
+        for path in self._specs():
+            src = path.read_text(encoding="utf-8")
+            for m in re.finditer(r"test\.skip\(([^)]*)\)", src, re.S):
+                if re.search(r"project\.name|isMobileProject|desktopOnly|mobileOnly", m.group(1)):
+                    offenders.append(f"{path.name}: test.skip({m.group(1).strip()[:80]}")
+            if re.search(r"\b(desktopOnly|mobileOnly)\s*\(", src):
+                offenders.append(f"{path.name} calls desktopOnly()/mobileOnly()")
+        self.assertEqual(
+            offenders,
+            [],
+            "Project-only gating must be a @desktop-only / @mobile-only title "
+            "tag filtered by grepInvert in playwright.config.js, never a "
+            "test.skip().\n" + "\n".join(offenders),
+        )
+
+    def test_journey_helper_no_longer_defines_skipping_gates(self):
+        src = JOURNEY_HELPER.read_text(encoding="utf-8")
+        self.assertIsNone(re.search(r"function\s+(desktopOnly|mobileOnly)\b", src))
+
+    def test_every_phone_project_filters_the_shared_tags(self):
+        cfg = (E2E_DIR / "playwright.config.js").read_text(encoding="utf-8")
+        self.assertIn("const PHONE_GREP_INVERT = /@a11y-desktop-only|@desktop-only/;", cfg)
+        self.assertEqual(len(re.findall(r"grepInvert: PHONE_GREP_INVERT,", cfg)), 3)
+        self.assertEqual(len(re.findall(r"grepInvert: /@mobile-only/,", cfg)), 1)
+
+    def test_tags_are_actually_used(self):
+        used = "\n".join(p.read_text(encoding="utf-8") for p in self._specs())
+        for tag in ("@desktop-only", "@mobile-only"):
+            self.assertIn(tag, used, f"{tag} is filtered by the config but no spec carries it")
+
+    def test_reporter_enforces_the_baseline_and_ci_runs_its_unit_test(self):
+        reporter = (E2E_DIR / "stack-death-reporter.js").read_text(encoding="utf-8")
+        self.assertIn('require("./skip-accounting.js")', reporter)
+        self.assertIn("_accountSkips()", reporter)
+        wf = (REPO_ROOT / ".github" / "workflows" / "e2e.yml").read_text(encoding="utf-8")
+        self.assertIn("tests/e2e/skip-accounting.test.js", wf)
+
+
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
