@@ -169,6 +169,11 @@ needs the public half, so save it from step 1 first. Deletion cannot be undone w
 
 **Why:** a literal value once sat in public history. `server.py` requires the value from the environment.
 
+**Full procedure, 2026-11-19 (STAB-5):** `docs/ops/CREDENTIAL_INVENTORY_2026-11-19.md` section 5 wraps the steps below
+with the replacement-access precondition, a no-reveal login test of the new AND the old value
+(`scripts/check_login_status.py`, prints only an HTTP status) and the ordered rollback. The inventory also lists every
+secret the workflows reference, with least-privilege findings.
+
 **Which secrets this covers.** `JASON_LOGIN_PASSWORD` is the only login secret this runbook names. The other
 box-side tokens (`SIGNAL_ALERT_CRON_TOKEN`, `INTEL_REFRESH_TOKEN`, `SHARP_SMOKE_TOKEN`) are bearer tokens; rotate them
 the same way, plus the matching GitHub Actions secret, only if you believe they leaked.
