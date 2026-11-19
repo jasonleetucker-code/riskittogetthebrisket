@@ -15,6 +15,29 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
+## Added 2026-11-19 — Production stabilization, operational hardening and final closeout
+
+Owner directive 2026-11-19 (chat, "PRODUCTION STABILIZATION, OPERATIONAL HARDENING & FINAL CLOSEOUT"), following the
+2026-11-18 audit implementation (`docs/audits/AUDIT_IMPLEMENTATION_2026_11_18.md`). Execution, not another audit.
+Owner-only gates still bind: credentials, backup destination and spend, repository visibility / history, branch
+protection application, security-policy decisions, the production runtime cutover and any deploy-path activation.
+Live tracker: `docs/audits/PRODUCTION_STABILIZATION_2026_11_19.md`. Authorized in `docs/EXECUTION_PLAN.md` (same date).
+
+| ID | Requirement | State |
+|---|---|---|
+| STAB-1 | Obsolete queued deploy runs (32212914036, 43096180672) cannot replace production; permanent stale-deploy safeguard with an explicit, authorized rollback path and regression tests | IN PROGRESS |
+| STAB-2 | Restore `signalsSf` (owner reconnect) and real production alert delivery (ntfy via `NOTIFY_WEBHOOK_URL`), verified by receipt, with dedup and recovery | IN PROGRESS |
+| STAB-3 | Apply and verify the `main` branch-protection ruleset (dry-run first); live configuration must match | IN PROGRESS |
+| STAB-4 | Off-box backups with an approved destination, retention, failure alerts and an isolated restore test | IN PROGRESS |
+| STAB-5 | Rotate `JASON_LOGIN_PASSWORD` safely; deploy-key and machine-credential inventory with least privilege | IN PROGRESS |
+| STAB-6 | Coordinated Node 22 production migration (runtime + all four lanes together) with a tested rollback | IN PROGRESS |
+| STAB-7 | Public-repository data exposure: a specific recommended policy plus non-destructive preparatory changes | IN PROGRESS |
+| STAB-8 | Browser-suite skip accounting that separates expected exclusions from new regressions; no raised allowance | IN PROGRESS |
+| STAB-9 | Real-device and mobile verification (waiver pickers, VoiceOver, PWA update, 4-team 390 px, auction room, recovery) | IN PROGRESS |
+| STAB-10 | CI housekeeping: Sharp token, stale workflow registrations, #898 drift decision, runner apt resilience, cold-start verification | IN PROGRESS |
+| STAB-11 | 2027 draft-pick policy: explicit, consistent, deterministic tests | IN PROGRESS |
+| STAB-12 | Data-only deploy shadow evidence (≥30 comparisons, ≥14 days), safety assessment, activation and rollback procedure, recommendation | IN PROGRESS |
+
 ## Added 2026-11-18 — Implement all 16 audit priorities
 
 Owner directive 2026-11-18 (chat, "MASTER DIRECTIVE — IMPLEMENT ALL 16 AUDIT PRIORITIES"), after the comprehensive
@@ -25,22 +48,22 @@ Authorized in `docs/EXECUTION_PLAN.md` (same date).
 
 | ID | Requirement | State |
 |---|---|---|
-| AUD-1 | Hermetic hard gate: no blocking test depends on rolling `exports/archive/` zips or refresh-rewritten inputs; guards against new ones; skip-budget headroom; apt retry | IN PROGRESS |
-| AUD-2 | Production freshness and deploy-lag monitoring with deduplicated, actionable alerts; code freshness and data freshness reported separately | IN PROGRESS |
-| AUD-3 | Data-only delivery path that reuses a byte-identical code tree's validation; shadow first; production activation needs an owner-approved Agent OS amendment | NOT STARTED |
-| AUD-4 | Owner admin pack: branch-protection ruleset, credential rotation procedure, off-box backup support, deploy-key review (owner executes the privileged steps) | NOT STARTED |
-| AUD-5 | 2026→2027 year-boundary hardening and a future-clock regression job | NOT STARTED |
-| AUD-6 | Integrate the five UI-fix PRs (#2223, #2224, #2226, #2227, #2228); UI copy must match `_SOURCE_OVERRIDES_DISABLED` | IN PROGRESS |
-| AUD-7 | Authenticated post-deploy smoke of 2-team and 3-team trade analysis (read-only) | NOT STARTED |
-| AUD-8 | Public-repo data exposure: inventory, options, preparatory code; no history rewrite, visibility change or purge without the owner | NOT STARTED |
-| AUD-9 | Trade-flow resilience: retry states, client timeouts, abort handling, API-safe service worker, error boundaries | NOT STARTED |
-| AUD-10 | Mobile ergonomics: ≥44 px coarse-pointer targets, 390 px accessibility coverage of the uncovered routes | NOT STARTED |
-| AUD-11 | Restore `signalsSf`; stale provisioned private sources become a visible degradation with alerts | NOT STARTED |
-| AUD-12 | Roster freshness: measure first; implement a light refresh only if the evidence justifies it | NOT STARTED |
-| AUD-13 | Security hardening: placeholder password, non-ASCII bearer 500, CSV formula injection, side-effecting health GET, production env guards, workflow permissions | NOT STARTED |
-| AUD-14 | Next.js patched release (≥16.4.5) | NOT STARTED |
-| AUD-15 | Permanent-red and vacuous-green checks made meaningful; obsolete workflows retired | NOT STARTED |
-| AUD-16 | Node 20 → 22 (CI now; production cutover owner-authorized) | NOT STARTED |
+| AUD-1 | Hermetic hard gate: no blocking test depends on rolling `exports/archive/` zips or refresh-rewritten inputs; guards against new ones; skip-budget headroom; apt retry | DONE — verified (#2239) |
+| AUD-2 | Production freshness and deploy-lag monitoring with deduplicated, actionable alerts; code freshness and data freshness reported separately | DONE — verified (#2238) |
+| AUD-3 | Data-only delivery path that reuses a byte-identical code tree's validation; shadow first; production activation needs an owner-approved Agent OS amendment | DONE (shadow) — activation owner-gated (STAB-12) |
+| AUD-4 | Owner admin pack: branch-protection ruleset, credential rotation procedure, off-box backup support, deploy-key review (owner executes the privileged steps) | DONE (prepared) — owner actions carried into STAB-3/4/5 |
+| AUD-5 | 2026→2027 year-boundary hardening and a future-clock regression job | DONE — verified (#2248); policy decision carried into STAB-11 |
+| AUD-6 | Integrate the five UI-fix PRs (#2223, #2224, #2226, #2227, #2228); UI copy must match `_SOURCE_OVERRIDES_DISABLED` | DONE — deployed; real-device checks carried into STAB-9 |
+| AUD-7 | Authenticated post-deploy smoke of 2-team and 3-team trade analysis (read-only) | DONE — verified (#2242) |
+| AUD-8 | Public-repo data exposure: inventory, options, preparatory code; no history rewrite, visibility change or purge without the owner | DONE (guard) — policy carried into STAB-7 |
+| AUD-9 | Trade-flow resilience: retry states, client timeouts, abort handling, API-safe service worker, error boundaries | DONE — deployed; device check carried into STAB-9 |
+| AUD-10 | Mobile ergonomics: ≥44 px coarse-pointer targets, 390 px accessibility coverage of the uncovered routes | DONE — deployed; device check carried into STAB-9 |
+| AUD-11 | Restore `signalsSf`; stale provisioned private sources become a visible degradation with alerts | DIAGNOSED — owner reconnect carried into STAB-2 |
+| AUD-12 | Roster freshness: measure first; implement a light refresh only if the evidence justifies it | DONE — measured, not needed (#2246) |
+| AUD-13 | Security hardening: placeholder password, non-ASCII bearer 500, CSV formula injection, side-effecting health GET, production env guards, workflow permissions | DONE — deployed (#2240) |
+| AUD-14 | Next.js patched release (≥16.4.5) | DONE — verified (#2241) |
+| AUD-15 | Permanent-red and vacuous-green checks made meaningful; obsolete workflows retired | DONE — verified (#2247); housekeeping carried into STAB-10 |
+| AUD-16 | Node 20 → 22 (CI now; production cutover owner-authorized) | PARTIAL — runtime cutover carried into STAB-6 |
 
 ## Added 2026-11-17 — Trade Calculator: account for 3-team trades
 
