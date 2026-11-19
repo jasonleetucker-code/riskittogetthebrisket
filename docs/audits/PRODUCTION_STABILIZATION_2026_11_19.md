@@ -25,18 +25,18 @@ PREPARED — OWNER DECISION · BLOCKED — EXTERNAL / TIME. Set only from eviden
 
 | # | Workstream | Status | PR / commit | CI | Production evidence | Remaining blocker |
 |---|---|---|---|---|---|---|
-| 1 | Obsolete deploys / stale-deploy safeguard | IN PROGRESS | — | — | — | — |
-| 2 | Signals + alert delivery | IN PROGRESS | — | — | — | owner reconnect; notification destination |
-| 3 | Branch protection | IN PROGRESS | — | — | — | owner approval to apply |
-| 4 | Off-box backups | IN PROGRESS | — | — | — | owner destination choice |
-| 5 | Credentials and deploy keys | IN PROGRESS | — | — | — | owner rotation |
-| 6 | Node 22 production | IN PROGRESS | — | — | — | owner cutover approval |
-| 7 | Public-repo data exposure | IN PROGRESS | — | — | — | owner policy decision |
-| 8 | Browser-test skip accounting | IN PROGRESS | — | — | — | — |
-| 9 | Real-device and mobile verification | IN PROGRESS | — | — | — | physical device (owner) |
-| 10 | CI housekeeping and observability | IN PROGRESS | — | — | — | — |
-| 11 | 2027 draft-pick policy | IN PROGRESS | — | — | — | owner decision |
-| 12 | Data-only deploy shadow evidence | IN PROGRESS | — | — | — | elapsed time (≥14 days) |
+| 1 | Obsolete deploys / stale-deploy safeguard | **DEPLOYED, guard VERIFIED live** | #2266 → `c0e41a15`; 32212914036 deleted (404) | RC 44511704167 green | Deploy 44515440979 guard log ("state file: ok", "forward by 23 commits"); the in-flight guard refused probe 44527831611 during a queued deploy | Run 43096180672: the API answers 403 to both cancel and delete → owner UI action 4 |
+| 2 | Signals + alert delivery | **DEPLOYED; PREPARED — OWNER ACTION** | #2267 → `54cf594d` | RC green | Probe 44532781512: `alertRouting` live, no channel configured, Signals `reconnect_required`, 0 notices | Owner: ntfy topic + secret (1), Signals reconnect (2); then I verify receipt with the owner |
+| 3 | Branch protection | **PREPARED — OWNER ACTION** | `deploy/github/apply-branch-protection.sh` (dry run reviewed) | — | Live ruleset 19976839 has no required checks | Admin token (3) |
+| 4 | Off-box backups | **DEPLOYED (monitoring); PREPARED — OWNER DECISION** | #2264 → `5cdb4565` | RC green | `offbox_copy` health row live (silent until configured); on-box restore proof 44527678745 green | Provider / spend / keys / first off-box restore (7) |
+| 5 | Credentials and deploy keys | **MERGED; PREPARED — OWNER ACTION** | #2263 → `13738971` | RC green | n/a (docs + script) | Rotation, key split, token defaults (6) |
+| 6 | Node 22 production | **PREPARED — OWNER ACTION** | #2271 HOLD (`610198d4`) | PR Validation green | Box runs Node 20 (system install) | Install Node ≥22.12 on the box (5) |
+| 7 | Public-repo data exposure | **MERGED; PREPARED — OWNER DECISION** | #2262 → `9bbba4ae` | RC green | PR-time guard gap closed | Policy decision (8) |
+| 8 | Browser-test skip accounting | see §8 | #2265 | PR Validation + E2E green | n/a (CI) | — |
+| 9 | Real-device / mobile verification | see §9 | #2270 + `docs/qa/REAL_DEVICE_CHECKLIST_2026-11-19.md` | see §9 | WebKit iPhone-profile emulation only, never a physical device | Physical iPhone checklist (10) |
+| 10 | CI housekeeping | **DEPLOYED / VERIFIED** (owner token pending) | 57 workflows disabled; #2268, #2269, #2272 | RC green | Cold-start readiness verified (V1 44527678669: 32.2 s); apt wrapper failed closed during the 12:00 UTC Ubuntu 503 | `SHARP_SMOKE_TOKEN` (11); apt `.deb` cache (follow-up) |
+| 11 | 2027 draft-pick (2030) policy | **PREPARED — OWNER DECISION** | prototype `d5b8161d` (no PR) | targeted tests listed | No value change either way | Decision (9) |
+| 12 | Data-only deploy shadow evidence | **BLOCKED — EXTERNAL / TIME** | observer automation #2272 | — | 16 compared over 10.3 days; `activationEvidenceMet: false`; recommendation: do not activate | Elapsed time (≈2026-11-30, or ≈2026-12-10 with the strict count) |
 
 ## Per-workstream record
 
@@ -449,11 +449,12 @@ test has since been pinned:
 Each item says what to do, why, the risk, what is prepared, how I verify, and the rollback. Items 1–4 are the
 immediate-safety set.
 
-1. **Turn on alerts (STAB-2), after the alert-routing PR #2267 deploys.**
+1. **Turn on alerts (STAB-2). #2267 is live since 12:50 UTC (`ecc3464e`).**
    - Do: follow `docs/ops/OWNER_ALERT_CHANNEL_SETUP_2026-11-19.md` steps 1–4:
      - install the ntfy app and choose an unguessable topic;
      - add `NOTIFY_WEBHOOK_URL` to the box `.env` and restart `dynasty`;
-     - add two `systemctl edit` drop-ins;
+     - add the `systemctl edit` drop-in for the Signals renewal unit; the on-box uptime probe is not installed
+       (optional install in step 3);
      - add the repo secret.
    - Why: today no production alert reaches you. 0 reconnect-notice sends in ~400 h, and SMTP 465 is firewalled.
    - Risk: low. Alert text passes through ntfy.sh, and the topic name is a secret.
