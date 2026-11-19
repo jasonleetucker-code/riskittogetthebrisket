@@ -614,6 +614,9 @@
     "health-check.yml::health::Resolve production URL": {
       "category": "blocking"
     },
+    "health-check.yml::health::Send a test owner push (manual dispatch only)": {
+      "category": "blocking"
+    },
     "health-check.yml::slo::Check out main with full history": {
       "category": "blocking"
     },

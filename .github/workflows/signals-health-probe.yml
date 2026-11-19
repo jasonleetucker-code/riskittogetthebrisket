@@ -37,13 +37,14 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: health = on-box collection health; native-bundle = Tier 0 off-box; native-probe = full probe on the host
+        description: health = on-box collection health; native-bundle = Tier 0 off-box; native-probe = full probe on the host; notify-test = one TEST owner push per alert class from the box
         type: choice
         required: true
         options:
           - health
           - native-bundle
           - native-probe
+          - notify-test
       allow_league_footprint:
         description: native-probe only - run Tier 1c (league-list read; requires owner decision 6)
         type: boolean
@@ -88,7 +89,7 @@ jobs:
 
   onbox:
     name: Signals on-box health / native probe
-    if: ${{ inputs.mode == 'health' || inputs.mode == 'native-probe' }}
+    if: ${{ inputs.mode == 'health' || inputs.mode == 'native-probe' || inputs.mode == 'notify-test' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
@@ -143,7 +144,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           case "$MODE" in
-            health|native-probe) ;;
+            health|native-probe|notify-test) ;;
             *) echo "::error::invalid mode"; exit 1 ;;
           esac
           if [[ "$LEAGUE" == "true" && "$MODE" != "native-probe" ]]; then
@@ -167,6 +168,11 @@ jobs:
           cd "$APP_DIR"
           if [[ "$MODE" == "health" ]]; then
             SCRIPT=$APP_DIR/scripts/verify_signals_health.py
+            ARGS=(--app-dir "$APP_DIR")
+          elif [[ "$MODE" == "notify-test" ]]; then
+            # One labelled TEST push per alert class via the box .env webhook
+            # (STAB-2). Prints booleans only; receipt is confirmed by the owner.
+            SCRIPT=$APP_DIR/scripts/send_owner_test_alert.py
             ARGS=(--app-dir "$APP_DIR")
           else
             SCRIPT=$APP_DIR/scripts/probe_signals_native.py

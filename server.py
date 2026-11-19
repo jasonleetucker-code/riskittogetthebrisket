@@ -381,7 +381,10 @@ def send_alert(subject: str, body: str):
     """
     global _alert_in_flight
 
-    if not ALERT_ENABLED or not ALERT_FROM or not ALERT_PASSWORD:
+    # Owner push (ntfy, NOTIFY_WEBHOOK_URL) first, e-mail as fallback -- the one
+    # routing every server alert uses (src/utils/owner_alerts.py, STAB-2).  Only
+    # when NEITHER channel is configured is there nothing to do.
+    if not _email_alerts_configured() and not _owner_push_configured():
         return
 
     now = time.time()
@@ -406,11 +409,32 @@ def send_alert(subject: str, body: str):
         log.error(f"Failed to start alert delivery: {e}")
 
 
+def _email_alerts_configured() -> bool:
+    return bool(ALERT_ENABLED and ALERT_FROM and ALERT_PASSWORD)
+
+
+def _owner_push_configured() -> bool:
+    from src.utils import owner_notify as _owner_notify
+
+    return _owner_notify.webhook_url() is not None
+
+
 def _deliver_alert(subject: str, body: str, attempted_at: float) -> None:
-    """The SMTP half of :func:`send_alert`.  Runs on the ``alert-smtp`` thread."""
+    """Delivery half of :func:`send_alert` (push first, then SMTP).  Runs on the
+    ``alert-smtp`` thread, so neither channel can block the event loop."""
     global _last_alert_time, _alert_in_flight
 
     try:
+        from src.utils import owner_notify as _owner_notify
+
+        if _owner_notify.send(f"[Dynasty Server] {subject}", body):
+            with _alert_lock:
+                _last_alert_time = attempted_at
+            log.info(f"Alert pushed to the owner channel: {subject}")
+            return
+        if not _email_alerts_configured():
+            log.error(f"Alert NOT delivered (push failed, e-mail not configured): {subject}")
+            return
         msg = MIMEMultipart()
         msg["From"] = ALERT_FROM
         msg["To"] = ALERT_TO
@@ -18742,22 +18766,30 @@ async def trigger_scrape(request: Request, background_tasks: BackgroundTasks):
 
 @app.post("/api/test-alert")
 async def test_alert(request: Request):
-    """Send a test alert email to verify configuration."""
-    # W22-F007: sends an outbound email — operator-grade, so it gates
+    """Send one test alert on every configured owner channel and report, per
+    channel, whether it was delivered (STAB-2).  ``None`` = not configured.
+
+    Booleans only -- no address or webhook URL is returned.  Delivery is
+    synchronous here (an operator is waiting for the answer) and bounded by each
+    channel's own timeout (ntfy 5 s, SMTP 15 s per port)."""
+    # W22-F007: sends outbound messages — operator-grade, so it gates
     # on the admin allowlist, not on session presence.
     session_or_err = _require_admin_session(request)
     if isinstance(session_or_err, JSONResponse):
         return session_or_err
-    if not ALERT_ENABLED:
+    result = await run_in_threadpool(_owner_alert_test)
+    if not any(result["configured"].values()):
         return JSONResponse(
             status_code=400,
-            content={"error": "Alerts not enabled. Set environment variable ALERT_ENABLED=true"},
+            content={
+                "error": "no_alert_channel_configured",
+                **result,
+                "hint": "Set NOTIFY_WEBHOOK_URL (ntfy) and/or ALERT_ENABLED, ALERT_TO, ALERT_FROM, "
+                "ALERT_PASSWORD in the box .env, then restart the service.",
+            },
         )
-    try:
-        send_alert("Test Alert", "If you're reading this, email alerts are working!")
-        return JSONResponse(content={"message": f"Test alert sent to {ALERT_TO}"})
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"error": f"Failed: {str(e)}"})
+    ok = any(bool(v) for v in result["delivered"].values())
+    return JSONResponse(status_code=200 if ok else 502, content=result)
 
 
 # ── AUTH + ENTRY GATE ROUTES ────────────────────────────────────────────
@@ -21264,6 +21296,41 @@ async def get_trade_analyze_status(request: Request, requestId: str = ""):
     return JSONResponse(content=snap, headers={"Cache-Control": "no-store"})
 
 
+def _owner_alert_recipient() -> str | None:
+    """``to_email`` for the alert sweeps: ``ALERT_TO``, the owner-push stand-in,
+    or ``None`` when no channel is configured (src/utils/owner_alerts.py)."""
+    from src.utils import owner_alerts as _owner_alerts
+
+    return _owner_alerts.recipient(ALERT_TO)
+
+
+def _deliver_owner_alert(to: str, subject: str, body: str) -> bool:
+    """Owner push (ntfy) first, e-mail fallback -- the sweeps' delivery callable."""
+    from src.utils import owner_alerts as _owner_alerts
+
+    return _owner_alerts.deliver(to, subject, body, email=_deliver_email_smtp)
+
+
+def _owner_alert_test() -> dict:
+    """Send one test message on EVERY configured channel (operator check).
+
+    Booleans only: no address or webhook URL leaves the process."""
+    from src.utils import owner_alerts as _owner_alerts
+
+    email = _deliver_email_smtp if (_email_alerts_configured() and ALERT_TO) else None
+    configured = {"ntfy": _owner_push_configured(), "email": email is not None}
+    if not any(configured.values()):
+        return {"configured": configured, "delivered": {"ntfy": None, "email": None}}
+    delivered = _owner_alerts.deliver_each(
+        ALERT_TO or None,
+        "Risk It test alert",
+        "Test message from the production server (POST /api/test-alert). "
+        "If you can read this, owner alerts reach you.",
+        email=email,
+    )
+    return {"configured": configured, "delivered": delivered}
+
+
 def _deliver_email_smtp(to: str, subject: str, body: str) -> bool:
     """SMTP delivery bound to the existing ALERT_* env vars.
 
@@ -22318,7 +22385,9 @@ async def run_signal_alerts(request: Request):
         # Board age, not process age (audit F-19).  This one fed the ALERTER,
         # so the wrong number here did not merely mislead a dashboard.
         data_age_hours = _board_age_hours()
-        ops_summary = _ops.check_and_alert(
+        # Delivery is network I/O (ntfy push, SMTP fallback): run the whole
+        # sweep off the event loop so a slow channel cannot stall requests.
+        ops_kwargs = dict(
             status_payload=status_payload,
             circuit_snapshots=_cb.snapshot_all(),
             contract_health=contract_health,
@@ -22330,9 +22399,10 @@ async def run_signal_alerts(request: Request):
             backup_coverage=await run_in_threadpool(_backup_coverage_alert_rows),
             failed_units=await run_in_threadpool(_failed_systemd_units),
             forecast_degradation=await run_in_threadpool(_forecast_degradation_health),
-            delivery=_deliver_email_smtp if ALERT_TO else None,
-            to_email=ALERT_TO or None,
+            delivery=_deliver_owner_alert if _owner_alert_recipient() else None,
+            to_email=_owner_alert_recipient(),
         )
+        ops_summary = await run_in_threadpool(lambda: _ops.check_and_alert(**ops_kwargs))
         result["opsAlerts"] = ops_summary
     except Exception as exc:  # noqa: BLE001
         log.warning("ops_alerts check failed: %s", exc)
@@ -22349,11 +22419,16 @@ async def run_signal_alerts(request: Request):
 
         source_health = _build_source_health_snapshot(latest_data or latest_contract_data)
         if source_health:
-            stale_summary = _sha.check_and_alert(
-                source_health,
-                source_weighting=(latest_contract_data or {}).get("sourceWeighting"),
-                delivery=_deliver_email_smtp if ALERT_TO else None,
-                to_email=ALERT_TO or None,
+            stale_weighting = (latest_contract_data or {}).get("sourceWeighting")
+            stale_delivery = _deliver_owner_alert if _owner_alert_recipient() else None
+            stale_to = _owner_alert_recipient()
+            stale_summary = await run_in_threadpool(
+                lambda: _sha.check_and_alert(
+                    source_health,
+                    source_weighting=stale_weighting,
+                    delivery=stale_delivery,
+                    to_email=stale_to,
+                )
             )
             result["sourceStalenessAlerts"] = stale_summary
     except Exception as exc:  # noqa: BLE001

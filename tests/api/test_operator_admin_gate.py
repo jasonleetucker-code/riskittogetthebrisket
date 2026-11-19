@@ -119,6 +119,16 @@ def _stub_alert_environment(monkeypatch, sent):
     monkeypatch.setattr(server, "ALERT_TO", "ops@example.invalid")
     monkeypatch.setattr(server, "send_alert", lambda subject, body: sent.append((subject, body)))
 
+    # The endpoint sends on every configured channel (STAB-2); stub the sender.
+    def _fake_test():
+        sent.append(("Risk It test alert", ""))
+        return {
+            "configured": {"ntfy": True, "email": False},
+            "delivered": {"ntfy": True, "email": None},
+        }
+
+    monkeypatch.setattr(server, "_owner_alert_test", _fake_test)
+
 
 def test_test_alert_no_session_is_401():
     with TestClient(server.app, raise_server_exceptions=True) as c:
@@ -210,3 +220,46 @@ def test_intel_refresh_bearer_cron_path_is_unchanged(monkeypatch):
         )
     assert res.status_code == 202, res.text
     assert len(calls) == 1
+
+
+def test_test_alert_reports_per_channel_booleans_and_no_address(monkeypatch):
+    sent: list[tuple[str, str]] = []
+    _stub_alert_environment(monkeypatch, sent)
+    _authed_admin(monkeypatch)
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = c.post("/api/test-alert")
+    body = res.json()
+    assert res.status_code == 200
+    assert body == {
+        "configured": {"ntfy": True, "email": False},
+        "delivered": {"ntfy": True, "email": None},
+    }
+    assert "example.invalid" not in res.text
+
+
+def test_test_alert_with_no_channel_is_400_and_names_what_to_set(monkeypatch):
+    _authed_admin(monkeypatch)
+    monkeypatch.setattr(server, "ALERT_ENABLED", False)
+    monkeypatch.delenv("NOTIFY_WEBHOOK_URL", raising=False)
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = c.post("/api/test-alert")
+    assert res.status_code == 400
+    body = res.json()
+    assert body["error"] == "no_alert_channel_configured"
+    assert body["configured"] == {"ntfy": False, "email": False}
+    assert "NOTIFY_WEBHOOK_URL" in body["hint"]
+
+
+def test_test_alert_undelivered_is_502(monkeypatch):
+    _authed_admin(monkeypatch)
+    monkeypatch.setattr(
+        server,
+        "_owner_alert_test",
+        lambda: {
+            "configured": {"ntfy": True, "email": False},
+            "delivered": {"ntfy": False, "email": None},
+        },
+    )
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = c.post("/api/test-alert")
+    assert res.status_code == 502

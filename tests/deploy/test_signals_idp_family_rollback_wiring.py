@@ -194,6 +194,13 @@ def test_probe_workflow_runs_deployed_scripts_from_main_only():
     # the deployed copy runs; no runner copy is uploaded to the host
     assert "$APP_DIR/scripts/verify_signals_health.py" in text
     assert "$APP_DIR/scripts/probe_signals_native.py" in text
+    # STAB-2 notify-test: the deployed sender, same main-only on-box job.
+    assert "$APP_DIR/scripts/send_owner_test_alert.py" in text
     assert "cat >" not in text
-    assert set(_inputs(doc)["mode"]["options"]) == {"health", "native-bundle", "native-probe"}
+    assert set(_inputs(doc)["mode"]["options"]) == {
+        "health",
+        "native-bundle",
+        "native-probe",
+        "notify-test",
+    }
     assert _inputs(doc)["allow_league_footprint"]["default"] is False
