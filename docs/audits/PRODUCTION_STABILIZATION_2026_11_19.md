@@ -227,9 +227,79 @@ an 8-line change in `league_draft_years`. Measured effects:
   | 44315967974 | `bd17e684` → `3922bc9f` | DATA_ONLY (85 data paths) | pass | yes | AGREE_SHIP | 143.4 / 49.8 min | 9.1 min |
   | 44455009771 | `6535a836` → `93c6813c` | CODE (3 `config/model_registry/` paths) | pass | — (code delta) | — | — | — |
 
-  Live DATA_ONLY comparisons: **2** (0 disagreements). A retrospective backfill of the 43 non-cancelled bot data
-  deploys since 2026-11-05 (16 success, 27 failure) is running throttled (4 at a time). These are real evaluations
-  of real past deploys, labelled RETROSPECTIVE; whether they count toward the activation bar is an owner call.
+**Full evidence (2026-11-19 ~11:50 UTC).** Method:
+- The observer was dispatched against every non-cancelled Deploy Production run since 2026-11-05: 40 retrospective
+  runs, 4 at a time, plus the 3 above. The observer is read-only and decides nothing.
+- All `data-delivery-shadow` artifacts were downloaded and folded with the repository's own
+  `python scripts/data_delivery_shadow.py aggregate`.
+- All comparisons ran under one rule set (`rulesDigest` `aa32d06b…`). Raw receipts: `shadow_art/` in the session
+  scratchpad. The aggregate output is quoted below.
+
+| Measure | Value |
+|---|---|
+| Distinct deploys evaluated | 49 (2026-11-05 → 2026-11-19) |
+| Classification | 35 CODE · 15 DATA_ONLY |
+| DATA_ONLY outcomes | 9 `AGREE_SHIP` · 6 `UNSAFE_DISAGREEMENT` · 0 conservative · 0 `FAST_PATH_NOT_RUN` |
+| Compared window | 10.3 days (2026-11-08 → 2026-11-18) |
+| Runner time the fast path would have saved | 1,071.7 runner-min over the 9 agreed ships (median 118.9 per delivery; shadow job 5–9 min wall) |
+| `activationEvidenceMet` | **false** (≥30 compared: no; ≥14 days: no; zero unsafe: no; zero not-run: yes; one rule set: yes) |
+
+Every `UNSAFE_DISAGREEMENT` was triaged. In each case the full gate refused a data-only delivery because of a
+hard-gate test that read the live board or the newest archive, or in one case the CI process's own memory. Each
+test has since been pinned:
+
+| Deploy | Date | Failing hard-gate test | Cause | Fixed by |
+|---|---|---|---|---|
+| 42496066177 | 11-08 | `test_w30_f008_hill_denominator_research::test_c0_rebuild_structure_on_the_pinned_archive` | read today's CSVs | #2172, `1be5e247` |
+| 42821399496 | 11-10 | `test_audit_cw40_batch_m1_regression::test_w02_f003_no_idp_row_is_snapped…` | live board: 1 IDP row fell within ±1 of an anchor multiple | #2208/#2209 (pinned audit board) |
+| 43075102338 | 11-11 | `test_idp_hampel_n3_challenger::test_on_changes_the_drop_decision…` | needed 3-voter IDP rows on the live board | #2208 |
+| 43333485414 | 11-13 | `test_chase_upside_mcp_tools::test_roster…picks…` and `test_heap_report::test_heap_loop_releases…` | newest board's team 0 had traded every pick; CI process RSS > 1 GiB | #2199 |
+| 43741547744 | 11-15 | `test_hill_alignment_audit::test_identity_csv_override…` | identity CSVs copied from today's tree | #2213 |
+| 43935057527 | 11-16 | `test_bdvm_saturation_study::test_outcome_evaluation_numbers…` | newest outcome archive | `c9a3d02f` (2026-11-17 14:30 UTC) |
+
+- None of the six showed a defect in the delivered data. The contract FULL lane, runtime import and tracked-data
+  privacy (the fast path's blocking gates) passed on every one.
+- Since the last fix (`c9a3d02f`) there have been 3 DATA_ONLY comparisons, all `AGREE_SHIP`, with no disagreement.
+
+**Safety assessment.**
+1. Agreement is now expected **by construction**:
+   - Since #2208/#2209/#2213/`c9a3d02f`, no blocking hard-gate test reads a data root; the hermetic-input guard
+     enforces this.
+   - On a DATA_ONLY delivery the code tree is byte-identical to a base that already passed, so the full gate can only
+     disagree if hermeticity breaks.
+   - Further comparisons therefore mainly prove that hermeticity holds in practice and that the classifier is right.
+     They are not independent evidence that a given data delivery is good.
+   - Data content is guarded by the same checks on both paths: the contract FULL lane, the box-side
+     `verify-deploy.sh`, the post-deploy smoke and the live health check.
+2. Two advisory gates carry no signal today. `source_health` and `livedata_tests` failed on all 15 DATA_ONLY
+   deliveries: the stale private Signals sources, plus the live-data lane. An advisory gate that is always red cannot
+   warn, so activation should wait until both are normally green, or are made specific.
+3. The DATA_ONLY population is smaller than the data-deploy population:
+   - 28 of the 43 bot data deploys classified CODE.
+   - 15 of those 28 did so only because of `config/model_registry/` (Hill Autopilot run records riding with the data
+     refresh).
+   - That is correct, because a scope-masters change alters production values. It caps the saving until the
+     deferred record-only-registry rule (design §7) is decided.
+4. `classify_deploy_delta.py` saw no inputs that would have needed a guess: 0 classifier input errors and 0 diverged
+   bases in 49 runs.
+
+**Activation and rollback procedure.**
+- Owner-gated and NOT built: `docs/ops/DATA_ONLY_DELIVERY_DESIGN_2026-11-18.md` §8 (phase C1, the
+  `DATA_DELIVERY_FAST_PATH` variable, box-side re-classification, separate receipts) and §9 (the exact Agent OS
+  amendment text).
+- Rollback: unset `DATA_DELIVERY_FAST_PATH`, and the next deploy takes the full gate. A data rollback is
+  non-fast-forward, which is always CODE, so it always takes the full gate.
+
+**Recommendation: do NOT activate yet.**
+- Evidence is 15 of 30 compared deliveries over 10.3 of 14 days, and 6 historical unsafe disagreements (all triaged
+  and fixed).
+- Observation is now automatic: #2272 dispatches the observer after every bot data deploy.
+- At about 1.4 DATA_ONLY deliveries per day, 30 compared over ≥14 days is reachable:
+  - **around 2026-11-30** if the 15 retrospective comparisons count;
+  - **around 2026-12-10** if only comparisons after `c9a3d02f` count.
+
+  I recommend the stricter rule, because only those comparisons reflect today's hermetic gate.
+- Revisit then, together with point 2 above. No variable has been set, and nothing deploys differently.
 
 ## Integration log
 
