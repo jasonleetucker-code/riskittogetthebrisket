@@ -22,7 +22,7 @@ CW-07 is recorded MERGED in `build_inventory.py`. Verified rather than trusted: 
 | W03-F010 | CLOSED_VERIFIED | `data_contract.py:7804-7885` read-only; snapshot + `write_snapshot` deleted | closed.py + `tests/history/test_temporal_red.py:93` | none | n/a |
 | W24-F001 | OPEN | no union skip census, no executed/skip floor gate (`pr-validation.yml:339,359`); 443 sites now vs naive count | open.py (characterization + strict xfail) | union census script + floor gate | routine (CI) |
 | W24-F002 | OPEN | `test_real_rosters.py:59,64,87`: `nfl_players_full.json` untracked; 22 skipped | open.py (strict xfail) | commit trimmed fixture / archive-derived dump | routine |
-| W24-F004 | OPEN | `e2e.yml:387,409` sets `SKIP_VISUAL_REGRESSION=1`; both specs skip whole describe | open.py (strict xfail) | drop env, skip only `toHaveScreenshot` | routine (CI) |
+| W24-F004 | REPAIRED 2026-11-19 (#2265) | the env var now skips only `toHaveScreenshot`; structural assertions run | closed.py | — | — |
 | W25-F010 | PARTIAL | verdict verified; finder fix `a62af217` not an ancestor of audited `9c5d972f`; header cross-refs absent | open.py (chronology pass + header xfail) | add header pointers | routine (docs) |
 | W26-F004 | CLOSED_VERIFIED | `bdvm_api.py:150-199` loads snapshot / `cache_only=True`, never fetches | `tests/bdvm/test_request_path_is_local.py`, `test_http_route_no_fetch.py` (35 pass) | none | n/a |
 | W20-F006 | PARTIAL / REQUIRES_OWNER_DECISION | `scoreTeamTiers` gone; three classifiers remain reachable | open.py (characterization + strict xfail) | owner picks the canonical classifier | owner |
@@ -129,7 +129,7 @@ all three inputs are tracked.
 **Smallest repair.** Commit a trimmed eligibility/age extract (the fixture needs only `fantasy_positions` and `age`
 for rostered players) or build it from a tracked archive, then drop `livedata` from the pure-logic parts. Routine.
 
-## W24-F004 (E2E visual skip swallows structural assertions) - OPEN
+## W24-F004 (E2E visual skip swallows structural assertions) - REPAIRED 2026-11-19 (#2265, STAB-8)
 
 **Live path.** `e2e.yml:387` and `:409` set `SKIP_VISUAL_REGRESSION: "1"`; both specs start with
 `test.describe(... test.skip(!!process.env.SKIP_VISUAL_REGRESSION ...))`, skipping every test including those the
