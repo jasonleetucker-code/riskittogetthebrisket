@@ -972,6 +972,11 @@ def check_and_alert(
     # or no backup pass at all) is UNKNOWN, not recovered.
     if not (backup_coverage or {}).get("ledgersChecked"):
         active_categories |= {c for c in state if str(c).startswith("backup_ledger:")}
+    if not (backup_coverage or {}).get("ledgersChecked") or not (backup_coverage or {}).get(
+        "offboxChecked"
+    ):
+        # Same for the off-box mirror: an unreadable root or a corrupt marker.
+        active_categories |= {c for c in state if str(c) == "backup_offbox_copy"}
     if not (backup_coverage or {}).get("proofChecked"):
         active_categories |= {c for c in state if str(c) == "backup_restore_proof"}
 

@@ -114,6 +114,15 @@ Constraint: **the box has no working notification channel yet and SMTP is firewa
    nothing, because the copy is opt-in. The state is visible now with `python -m src.api.backup_health` on the box
    (`offboxMirror`). It is deliberately **not** added to the anonymous `/api/status` block, which withholds coverage detail by
    design.
+   **Shared marker, and an operator action when you stop mirroring.** `<backup root>/last_mirror` is ALSO written by the
+   existing nightly rsync mirror (`deploy/backup/riskit-state-backup.sh`, the `MIRROR_MARKER="${BACKUP_ROOT%/}/last_mirror"`
+   block, which re-baselines it after each successful rsync when `OFFBOX_RSYNC_DEST` is set). Removing `OFFBOX_RSYNC_DEST`
+   (or disabling the rclone copy) later therefore leaves a stale marker behind, and `backup_offbox_copy` keeps firing
+   until the operator deletes it: **when you deliberately stop off-box mirroring, delete `<backup root>/last_mirror`
+   (`sudo rm <backup root>/last_mirror`; the root is the one `python -m src.api.backup_health` reports).** Deleting it returns the state to
+   `none_recorded` (no alert) and the next sweep sends one recovery notice. A marker that is corrupt or unreadable is
+   `unverifiable`: the alert, if already firing, stays active and no recovery notice is sent (`offboxChecked` false in
+   `alert_rows`), as for the ledger and proof alerts.
 2. **Immediate failure push (optional, in the template).** `riskit-offbox-copy.service.example` now ends with an
    `ExecStopPost` that POSTs to `NOTIFY_WEBHOOK_URL` when the unit did not succeed. Put `NOTIFY_WEBHOOK_URL` (a private ntfy
    topic; treat the URL as a secret) in `/etc/riskit/offbox.env`. This is the existing owner push channel, so it works

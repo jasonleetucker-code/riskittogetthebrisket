@@ -1416,6 +1416,10 @@ def alert_rows(detail: dict[str, Any]) -> dict[str, Any]:
     return {
         "rows": rows,
         "ledgersChecked": isinstance(stores, list),
+        # The mirror marker could be judged: a readable root whose marker is
+        # absent, parseable or skewed.  An unreadable root or a corrupt /
+        # unreadable marker is UNKNOWN, never "recovered".
+        "offboxChecked": isinstance(mirror, dict) and mirror.get("state") != "unverifiable",
         "proofChecked": proof_checked,
     }
 
