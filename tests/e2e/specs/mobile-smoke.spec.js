@@ -9,7 +9,7 @@
  *   - player popup opens and closes
  *   - bottom navigation is visible and actually navigates
  *
- * Runs on every phone project (see ``mobileOnly`` in helpers/journey.js):
+ * Runs on every phone project (the ``@mobile-only`` title tag, filtered OUT of desktop-1366 by playwright.config.js):
  * mobile-chromium (chromium with a 390x844 viewport) in the E2E Safety Net,
  * and the WebKit iPhone device projects mobile-390 / mobile-430 wherever
  * they are selected explicitly.  It used to skip on the WebKit projects, so
@@ -20,7 +20,6 @@
 const { test, expect } = require("../helpers/auth-fixture");
 const {
   SEL,
-  mobileOnly,
   gotoRankingsBoard,
   boardRowCount,
   attachConsoleGuards,
@@ -29,8 +28,7 @@ const {
   titleFor,
 } = require("../helpers/journey");
 
-test.describe("mobile smoke (390x844)", () => {
-  test.beforeEach(async ({}, testInfo) => mobileOnly(test, testInfo));
+test.describe("mobile smoke (390x844) @mobile-only", () => {
 
   test("rankings board renders rows on a phone viewport", async ({ authedPage: page }) => {
     const guard = attachConsoleGuards(page);

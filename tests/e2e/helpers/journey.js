@@ -239,33 +239,30 @@ function pageUrl(path) {
 }
 
 /**
- * Gate a spec to desktop chromium.  Mobile coverage lives in
- * mobile-smoke.spec.js; running the desktop journeys against every
- * viewport project would multiply runtime without adding signal.
+ * Project gating is done with TITLE TAGS, never test.skip().
+ *
+ * `@desktop-only` / `@mobile-only` / `@a11y-desktop-only` in a describe
+ * title are filtered by each project's `grepInvert` in playwright.config.js,
+ * so a test that is deliberately not run on a project does not exist there
+ * -- it is not counted as "skipped".  `desktopOnly(test, testInfo)` and
+ * `mobileOnly(test, testInfo)` used to live here and called test.skip();
+ * every call spent one unit of the suite's skip budget per project it was
+ * not meant to run on, which is how the budget filled with non-signal.
+ * tests/e2e/test_e2e_harness_guards.py fails if they come back.
  */
-function desktopOnly(test, testInfo) {
-  test.skip(
-    isMobileProject(testInfo),
-    "desktop journey — mobile coverage lives in mobile-smoke.spec.js",
-  );
-}
 
 /**
- * Gate a spec to the phone projects: mobile-chromium (CI's chromium phone
- * viewport) and the WebKit iPhone device projects mobile-390 / mobile-430.
- *
- * It used to name mobile-chromium alone, "so a missing webkit install can't
- * fail the suite".  That reasoning does not need the skip: a WebKit project
- * only runs when someone selects it with --project, and selecting it already
- * requires the install.  The skip meant the phone-viewport smoke (rankings
- * board, player popup, bottom navigation, the windowed board) never ran on
- * the engine iPhones actually use.
+ * Pixel comparison that honours SKIP_VISUAL_REGRESSION=1 WITHOUT skipping
+ * the test.  CI sets that variable (no pixel baselines are committed) and
+ * used to turn every visual spec into a test.skip(), which both spent the
+ * skip budget and meant the structural assertions leading up to the
+ * screenshot (the chart/section rendered, with data) never ran there.  Now
+ * only the pixel comparison is omitted; everything before it still gates.
  */
-function mobileOnly(test, testInfo) {
-  test.skip(
-    !isMobileProject(testInfo),
-    "mobile smoke runs on the phone projects (mobile-chromium, mobile-390, mobile-430)",
-  );
+async function expectPixelBaseline(locator, name, options) {
+  if (process.env.SKIP_VISUAL_REGRESSION) return;
+  const { expect } = require("@playwright/test");
+  await expect(locator).toHaveScreenshot(name, options);
 }
 
 /**
@@ -805,6 +802,7 @@ async function baselineUsefulState(page, path, timeout) {
 }
 
 module.exports = {
+  expectPixelBaseline,
   BASELINE_READINESS_PROTOCOL,
   routeUsefulSnapshot,
   baselineUsefulState,
@@ -814,8 +812,6 @@ module.exports = {
   titleFor,
   isMobileProject,
   pageUrl,
-  desktopOnly,
-  mobileOnly,
   gotoRankingsBoard,
   boardRowCount,
   boardPlayerNames,

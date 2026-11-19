@@ -21,7 +21,7 @@
 // dev server running, mirroring the chart suite.
 // ─────────────────────────────────────────────────────────────────────
 const { test, expect } = require("@playwright/test");
-const { pageUrl } = require("../helpers/journey");
+const { pageUrl, expectPixelBaseline } = require("../helpers/journey");
 
 const SCREENSHOT_OPTIONS = {
   maxDiffPixelRatio: 0.005,
@@ -75,7 +75,10 @@ async function _openLeagueTab(page, tabLabel, expectContent) {
   await page.goto(pageUrl("/league"));
   await _waitForLeagueLoaded(page);
 
-  const btn = page.getByRole("button", { name: tabLabel, exact: true });
+  // Desktop only (@desktop-only): each ds/Tabs control is a <button role="tab">.
+  // This said role "button" and so never matched -- invisible for as long as
+  // SKIP_VISUAL_REGRESSION=1 turned the whole suite into skips in CI.
+  const btn = page.getByRole("tab", { name: tabLabel, exact: true });
   await expect(
     btn.first(),
     `the "${tabLabel}" sub-tab must exist on /league — a renamed or ` +
@@ -117,11 +120,9 @@ async function _openLeagueTab(page, tabLabel, expectContent) {
     .toBe(true);
 }
 
-test.describe("public /league visual regression", () => {
-  test.skip(
-    !!process.env.SKIP_VISUAL_REGRESSION,
-    "Set SKIP_VISUAL_REGRESSION=1 to skip this suite locally",
-  );
+test.describe("public /league visual regression @desktop-only", () => {
+  // SKIP_VISUAL_REGRESSION=1 skips only the pixel comparison
+  // (expectPixelBaseline); the structural assertions in every test run.
 
   // Run on a single fixed viewport — the snapshot baseline is for
   // that exact size.  Matches the chart suite's convention.
@@ -133,12 +134,8 @@ test.describe("public /league visual regression", () => {
   // 1366x900 frame, so running under the mobile projects would just
   // duplicate the desktop capture (against a separate, never-created
   // per-project baseline).  Desktop project only.
-  test.beforeEach(async ({}, testInfo) => {
-    test.skip(
-      testInfo.project.name !== "desktop-1366",
-      "fixed-viewport visual suite runs on the desktop project only",
-    );
-  });
+  // Enforced by the @desktop-only title tag (filtered OUT of every phone
+  // project by playwright.config.js grepInvert), not by a test.skip().
 
   // ── Structural assertions (the part that runs every night) ───────
   // No pixel baselines are committed and `npm run e2e` passes
@@ -163,7 +160,7 @@ test.describe("public /league visual regression", () => {
       })
       .toBeGreaterThan(0);
 
-    await expect(page.locator("section").first()).toHaveScreenshot(
+    await expectPixelBaseline(page.locator("section").first(),
       "league-records.png",
       SCREENSHOT_OPTIONS,
     );
@@ -178,7 +175,7 @@ test.describe("public /league visual regression", () => {
       "Streaks",
       /Longest streaks|Current streak by manager|No Streaks|Streaks/i,
     );
-    await expect(page.locator("section").first()).toHaveScreenshot(
+    await expectPixelBaseline(page.locator("section").first(),
       "league-streaks.png",
       SCREENSHOT_OPTIONS,
     );
@@ -194,7 +191,7 @@ test.describe("public /league visual regression", () => {
         timeout: READINESS_TIMEOUT_MS,
       })
       .toBeGreaterThan(600);
-    await expect(page.locator("section").first()).toHaveScreenshot(
+    await expectPixelBaseline(page.locator("section").first(),
       "league-awards.png",
       SCREENSHOT_OPTIONS,
     );
@@ -205,7 +202,7 @@ test.describe("public /league visual regression", () => {
     // reports why it could not load them.  Both are real states; a
     // blank tab is not.
     await _openLeagueTab(page, "Recaps", /recap|article|No .*available/i);
-    await expect(page.locator("section").first()).toHaveScreenshot(
+    await expectPixelBaseline(page.locator("section").first(),
       "league-recaps.png",
       SCREENSHOT_OPTIONS,
     );
