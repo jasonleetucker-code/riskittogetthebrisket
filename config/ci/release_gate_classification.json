@@ -515,7 +515,7 @@
     "e2e.yml::e2e::Upload server logs on failure": {
       "category": "blocking"
     },
-    "e2e.yml::e2e::Use Node 20": {
+    "e2e.yml::e2e::Use Node 22": {
       "category": "blocking"
     },
     "e2e.yml::e2e::Wait for stack readiness": {

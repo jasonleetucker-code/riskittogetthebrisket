@@ -26,7 +26,7 @@ DEPLOY = WORKFLOWS / "deploy.yml"
 PRODUCTION_RUNTIME_LANES = ("deploy.yml", "release-candidate.yml", "pr-validation.yml", "e2e.yml")
 
 #: The production box's Node major.  Change ONLY together with the box cutover.
-PRODUCTION_NODE_MAJOR = "20"
+PRODUCTION_NODE_MAJOR = "22"
 
 
 def _node_versions(workflow: dict) -> list[str]:

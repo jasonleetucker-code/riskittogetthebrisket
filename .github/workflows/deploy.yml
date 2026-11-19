@@ -407,10 +407,11 @@ jobs:
           # artifact built on a different major ("release Node major version
           # differs from production").  2026-11-18: #2252 moved this to 22
           # while the box still ran 20, and the next deploy (79c60f26) failed
-          # at staging and auto-rolled back.  Raise it to 22 in the SAME
-          # change window as the box cutover (docs/ops/NODE22_CUTOVER_2026-11-18.md);
+          # at staging and auto-rolled back.  Raised to 22 in the SAME change
+          # window as the box cutover (STAB-6, docs/ops/NODE22_CUTOVER_2026-11-18.md
+          # §"Cutover window 2026-11-19"); merged only after the box runs >=22.12.
           # tests/deploy/test_deploy_node_matches_production.py pins it.
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
       - name: Frontend bundle-size gate

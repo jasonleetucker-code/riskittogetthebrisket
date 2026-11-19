@@ -56,3 +56,42 @@ The cutover is therefore one change window, in this order:
    `>=22 <23`; merge it right after step 1 so the next deploy builds and stages on 22.
 3. Verify the release manifest records v22 and `/` and `/trade` respond.
 Rollback: reinstall Node 20 on the box and revert that PR (both together).
+
+## Cutover window 2026-11-19 (STAB-6) — exact sequence
+
+Prepared PR: branch `claude/serene-shannon-7lsrm9-s06-node22-cutover`. It moves the four production-runtime lanes
+(deploy, release candidate, PR validation, E2E) to 22, sets `PRODUCTION_NODE_MAJOR = "22"`, and raises `engines.node`
+to `>=22.12 <23`. Optional rolldown native bindings in the lockfile require 22.12+. Its own CI validates the build and
+the tests on Node 22. **Merge it only in step 3 below.**
+
+Facts:
+- The box runs Node 20 from a system install. The frontend unit runs `/usr/bin/npm`. Proof: the deploy log line
+  "Frontend systemd unit ExecStart binary resolved to: /usr/bin/npm", and the staging refusal of the Node-22
+  artifact in run 44330192334.
+
+1. **Pre-check (owner, on the box, read-only):** `bash /home/dynasty/trade-calculator/deploy/node22_box_check.sh`.
+   Keep the output: it records the current `nodejs` package version for rollback.
+2. **Install Node 22 (owner, root).** Use the NodeSource 22.x repository (the same mechanism a `/usr/bin/node`
+   system install normally comes from), following NodeSource's current instructions for the box's Ubuntu release:
+   ```bash
+   curl -fsSL https://deb.nodesource.com/setup_22.x -o /tmp/nodesource_setup_22.sh   # read it before running
+   sudo bash /tmp/nodesource_setup_22.sh
+   sudo apt-get install -y nodejs
+   bash /home/dynasty/trade-calculator/deploy/node22_box_check.sh --require 22.12
+   ```
+   The running services keep serving: Next.js and the backend are not restarted by this. If the box's Node came from
+   somewhere other than NodeSource (the pre-check shows the apt source), tell me before step 2.
+3. **Merge the prepared PR immediately** (I do this when you say "Node 22 installed"). Any deploy between steps 2 and
+   3 is refused at staging: no production change, the site keeps serving. That is why the window should be minutes.
+4. **The next deploy builds and stages on 22.** I then verify:
+   - the deploy log shows the artifact accepted at staging;
+   - `/api/status` `build.commit` is the merge;
+   - `/` and `/trade` respond;
+   - the post-deploy authenticated verification passes.
+
+Rollback (both halves together):
+1. On the box: `sudo apt-get install -y --allow-downgrades nodejs=<version recorded in step 1>`, after pointing the
+   NodeSource list back at `node_20.x` (`/etc/apt/sources.list.d/nodesource.list`) and running `apt-get update`.
+2. Revert the merged PR, so CI builds on 20 again.
+3. Redeploy (normal deploy, or `deploy/rollback.sh <previous release>`).
+4. Re-run `node22_box_check.sh`.
