@@ -271,6 +271,21 @@ Delivered: #2262, merged (docs, a read-only script and a PR-time guard; no data 
     `ecc3464e`) before it ran.
 - **Post-deploy observation of bot deploys:** #2272. Deploy Production now dispatches the shadow observer and the
   authenticated verification for bot-started deploys. GitHub never fires `workflow_run` for them (see §12).
+  - **Verified live:** bot-started deploy 44539332909 ran both jobs ("Dispatch data delivery shadow", "Dispatch V1
+    verification": success).
+  - Their runs exist: shadow 44542590933 (`workflow_dispatch`, `AGREE_SHIP`) and V1 verification 44544288909.
+- **New finding: two DLF rookie boards stopped updating on 2026-11-17 22:27 UTC.** This is a source defect, not CI
+  noise.
+  - Every scheduled refresh since 03:50 UTC is red on "Last successful fetch_dlf.py run was 29h/39h ago". The
+    aggregate `dlf_last_success` stamp requires all four rank boards.
+  - Read-only DLF diagnostics 44540581185 (box journal plus a dry run):
+    - `dlfSf`, `dlfIdp` and `dlfValuesSfTep` write on every 2-hourly run;
+    - `dlfRookieSf` and `dlfRookieIdp` log "no rows extracted … parsed 0 rows";
+    - the rookie pages now serve tables headed `Rank, Avg, Pos, Name, Team, Age, Comments (…)`.
+  - The previous CSVs are kept, never zeroed, and the per-board stamps report the age honestly.
+  - Repairing the parser changes source ingestion and possibly which rookie class feeds the rookie ladder. That is
+    outside this closeout and needs its own unit with full pipeline verification. Recorded as a remaining risk.
+  - Separately, `dlfSf`'s native Value column is unavailable (coverage 0/287); rank-only writes continue.
 
 ### 11. 2027 draft-pick policy
 
@@ -359,7 +374,10 @@ test has since been pinned:
   - **+1 live (13:05 UTC):** the first data deploy after S12, 44524056203 (`ecc3464e` → `fe9ec6fd`, a `push`
     deploy, observed automatically via `workflow_run`), was DATA_ONLY / `AGREE_SHIP`.
   - Its full gate took 122.3 runner-min / 42.6 min wall; the shadow job took 7.4 min.
-  - Totals: **16 compared** (10 `AGREE_SHIP`, 6 historical `UNSAFE_DISAGREEMENT`), 4 of them clean since
+  - **+1 live (14:46 UTC):** bot-started data deploy 44539332909 (`fe9ec6fd` → `d099ed88`) was DATA_ONLY /
+    `AGREE_SHIP`. It was observed by shadow run 44542590933, which `deploy.yml` itself dispatched (#2272); before
+    #2272, bot deploys were never observed.
+  - Totals: **17 compared** (11 `AGREE_SHIP`, 6 historical `UNSAFE_DISAGREEMENT`), 5 of them clean since
     `c9a3d02f`.
 
 **Safety assessment.**
