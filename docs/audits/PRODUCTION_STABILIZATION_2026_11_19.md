@@ -356,6 +356,11 @@ test has since been pinned:
 - None of the six showed a defect in the delivered data. The contract FULL lane, runtime import and tracked-data
   privacy (the fast path's blocking gates) passed on every one.
 - Since the last fix (`c9a3d02f`) there have been 3 DATA_ONLY comparisons, all `AGREE_SHIP`, with no disagreement.
+  - **+1 live (13:05 UTC):** the first data deploy after S12, 44524056203 (`ecc3464e` → `fe9ec6fd`, a `push`
+    deploy, observed automatically via `workflow_run`), was DATA_ONLY / `AGREE_SHIP`.
+  - Its full gate took 122.3 runner-min / 42.6 min wall; the shadow job took 7.4 min.
+  - Totals: **16 compared** (10 `AGREE_SHIP`, 6 historical `UNSAFE_DISAGREEMENT`), 4 of them clean since
+    `c9a3d02f`.
 
 **Safety assessment.**
 1. Agreement is now expected **by construction**:
