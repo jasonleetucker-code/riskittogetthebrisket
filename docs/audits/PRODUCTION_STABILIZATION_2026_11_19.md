@@ -224,7 +224,52 @@ Delivered: #2262, merged (docs, a read-only script and a PR-time guard; no data 
 
 ### 8. Browser-test skip accounting
 
+Delivered: #2265. The skip allowance was **not** raised. The bare `MAX_EXPECTED_SKIPPED = 70` ceiling (main sat at
+exactly 70 of 70) is replaced by per-test accounting against a reviewed baseline.
+- **Skips measured on green main run 44339828945:**
+
+  | | Total | Project gating | Visual (`SKIP_VISUAL_REGRESSION=1`) | Unsupported environment (no Tesseract) |
+  |---|---|---|---|---|
+  | Before | 120 | 103 | 11 | 6 |
+  | After | 6 | 0 | 0 | 6 |
+
+- **How the gating changed:**
+  - Project gating is now a title tag filtered by `grepInvert`, so a test that is not meant for a project does not
+    exist there. It is never `test.skip()`.
+  - `SKIP_VISUAL_REGRESSION` omits only the pixel comparison, so the structural assertions run in CI.
+- **The accounting:** `tests/e2e/skip-baseline.json` lists file, title, projects, category and reason. A skip not in
+  it fails the run, by name. An entry that stops skipping is reported as stale.
+- **Coverage gained:** a real defect the old skips hid was fixed. `public-league-visual.spec.js` looked for the
+  /league sub-tabs by `role=button`; they are `role=tab`.
+- **W24-F004** (visual specs skipping their whole describe) moved from the open audit pins to the closed ones.
+- **CI:** PR Validation and E2E green on `38936ee7` (E2E 44502707132).
+
 ### 9. Real-device and mobile verification
+
+Delivered: #2270, which adds `tests/e2e/specs/mobile-device-flows.spec.js` (12 tests per phone project, no skips) and
+`docs/qa/REAL_DEVICE_CHECKLIST_2026-11-19.md`. **Nothing here claims a physical iPhone was tested.**
+- **The emulation is not an iPhone:**
+  - `mobile-chromium` is Chromium with a phone viewport.
+  - `mobile-390` is Playwright WebKit with the iPhone 13 profile.
+  - Neither has real touch hardware, iOS Safari chrome, VoiceOver, the home-screen PWA container or the iOS
+    service-worker lifecycle. The checklist covers those, in 7 items, with a report format.
+- **Automated now:**
+  - waiver-picker tap / swipe-does-not-pick / keyboard;
+  - an accessible-name proxy (stated as NOT VoiceOver);
+  - service-worker takeover, cache eviction, no private API at rest, and offline API ≠ HTML;
+  - 4-team bar vs FAB vs tab bar geometry, including the worst-case verdict and 125 % font;
+  - the `/auction/[roomId]` gate screen;
+  - dropped and hung requests → classified failure → Try again.
+- **WebKit hardening, during integration:**
+  - `0ddd70fe`: WebKit forbids `new Touch()`, so the swipe now uses plain touch events and runs on WebKit instead of
+    throwing (one skip-baseline entry removed, none added).
+  - `6eeede2e` / `f1b89083`: under Playwright, WebKit shares service-worker registrations across contexts.
+    Diagnostics showed an empty registration inherited from the update test. The SW tests are reordered, the
+    update test restores the canonical worker, and the wait is bounded with diagnostics.
+  - `f7e43ed7`: only the exact "ResizeObserver loop …" notice is ignored in the multi-team War Room error check. The
+    viewport resizes for element screenshots.
+- **CI:** final head `f1b89083`: PR Validation 44540282275 green; E2E 44540281909 green with **no flaky retries**
+  (473 + 210 passed).
 
 ### 10. CI housekeeping and observability
 
