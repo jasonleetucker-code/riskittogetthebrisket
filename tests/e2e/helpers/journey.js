@@ -586,6 +586,26 @@ async function awaitStreamSettled(page, { timeout = 30_000 } = {}) {
  * definition cross-origin and still reports).  Any other uncaught error --
  * including every other fetch failure -- still fails the test.
  */
+/**
+ * The browser's ResizeObserver loop notice, and nothing else.
+ *
+ * Per the ResizeObserver spec, when observations made during delivery cannot
+ * all be delivered in the same frame the browser reports "ResizeObserver loop
+ * completed with undelivered notifications" (older engines: "ResizeObserver
+ * loop limit exceeded") as an error event and delivers the rest next frame.
+ * Nothing is lost and no app code threw.  On mobile-390 (WebKit) it surfaced in
+ * trade-multi-team.spec.js:317 in 2 of 3 runs on 2026-11-19 (E2E 44503671613,
+ * 44526869803) and never on chromium; that test takes element screenshots of a
+ * War Room taller than the 390-px viewport, which makes Playwright resize the
+ * viewport and fires the DataTable observers.  Matched EXACTLY (anchored), so
+ * any other error -- including one that merely mentions ResizeObserver -- is
+ * still collected.
+ */
+function isResizeObserverLoopNotice(err) {
+  const text = String((err && err.message) || "").trim();
+  return /^ResizeObserver loop (?:completed with undelivered notifications|limit exceeded)\.?$/.test(text);
+}
+
 function isNavigationAbortedFetch(err, page) {
   // Playwright splits WebKit's exception text at its FIRST colon
   // (playwright-core splitErrorMessage: name = text before ":", message = text
@@ -821,4 +841,5 @@ module.exports = {
   attachConsoleGuards,
   awaitStreamSettled,
   isNavigationAbortedFetch,
+  isResizeObserverLoopNotice,
 };
