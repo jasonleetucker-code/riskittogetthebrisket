@@ -457,6 +457,11 @@ jobs:
       # long warm-up took (a slow first probe is a ::warning, never hidden).
       # Not ready inside the budget is exit 2: the suites still run for
       # evidence and the verdict step below FAILS the job on it.
+      # The wait must end on its own before the 8 min step cap (a killed step
+      # skips every later suite): each probe request makes ONE 60 s attempt,
+      # so the worst case is 240 s budget + one probe started at its end
+      # (2 x 60 s) = 6 min, pinned under the cap with >= 60 s margin by
+      # tests/deploy/test_v1_heavy_route_readiness.py.
       - name: Wait for warm trade routes (bounded, authenticated)
         if: ${{ inputs.suite != 'baseline' }}
         id: heavy_ready
@@ -471,7 +476,7 @@ jobs:
             --origin "$ORIGIN" --league "$LEAGUE" \
             --cookie-file "$RUNNER_TEMP/session_cookie" \
             --budget-seconds 240 --ready-seconds 30 --interval-seconds 15 \
-            --request-timeout 120 || rc=$?
+            --request-timeout 60 || rc=$?
           echo "heavy_ready_exit=$rc" >> "$GITHUB_OUTPUT"
           echo "Trade-route readiness exit: $rc (0 ready · 2 not ready in bound · 1 usage)"
 
