@@ -39,7 +39,13 @@
 const fs = require("fs");
 const path = require("path");
 const { test, expect } = require("../helpers/auth-fixture");
-const { pageUrl, awaitStreamSettled, contractFixture, isNavigationAbortedFetch } = require("../helpers/journey");
+const {
+  pageUrl,
+  awaitStreamSettled,
+  contractFixture,
+  isNavigationAbortedFetch,
+  isResizeObserverLoopNotice,
+} = require("../helpers/journey");
 const AxeBuilder = require("@axe-core/playwright").default;
 const { closeTradeSheet, openTradeSearch } = require("../helpers/trade-builder");
 const { TRADE_DATA_VIEW, boardRow, isTradeableRow } = require("../helpers/trade-board");
@@ -319,7 +325,7 @@ test("multi-team War Room: 3-team trade, every team's own result, perspective sw
 }, testInfo) => {
   const errors = [];
   page.on("pageerror", (e) => {
-    if (!isNavigationAbortedFetch(e, page)) errors.push(e.message);
+    if (!isNavigationAbortedFetch(e, page) && !isResizeObserverLoopNotice(e)) errors.push(e.message);
   });
   const analyses = [];
   await page.route(
@@ -508,7 +514,7 @@ test("multi-team War Room: a quarantined asset is withheld on the preliminary me
 }, testInfo) => {
   const errors = [];
   page.on("pageerror", (e) => {
-    if (!isNavigationAbortedFetch(e, page)) errors.push(e.message);
+    if (!isNavigationAbortedFetch(e, page) && !isResizeObserverLoopNotice(e)) errors.push(e.message);
   });
   const sender = FIXTURE.teams[1];
   const leg = sender.gives.find((g) => g.kind === "player" && g.toRosterId !== FIXTURE.teams[0].rosterId);

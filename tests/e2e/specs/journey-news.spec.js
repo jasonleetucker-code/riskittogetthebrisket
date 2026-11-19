@@ -12,10 +12,9 @@
  * Auth: test-only session fixture (skips when E2E_TEST_SECRET unset).
  */
 const { test, expect } = require("../helpers/auth-fixture");
-const { desktopOnly, attachConsoleGuards, pageUrl } = require("../helpers/journey");
+const { attachConsoleGuards, pageUrl } = require("../helpers/journey");
 
-test.describe("journey: /news tab", () => {
-  test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
+test.describe("journey: /news tab @desktop-only", () => {
 
   test("/news renders", async ({ authedPage: page }) => {
     // The route must exist.  Checked before navigating so a 404 is

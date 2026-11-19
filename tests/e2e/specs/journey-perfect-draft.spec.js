@@ -25,7 +25,6 @@ const {
   SEL,
   attachConsoleGuards,
   contractFixture,
-  desktopOnly,
   expectNoBadValueTokens,
   pageUrl,
 } = require("../helpers/journey");
@@ -89,8 +88,7 @@ async function seedWorkspace(page, teamNames, { myRemaining = 400 } = {}) {
   );
 }
 
-test.describe("journey: perfect draft", () => {
-  test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
+test.describe("journey: perfect draft @desktop-only", () => {
 
   test("recommends a buyable combination of real rookies", async ({ authedPage: page }) => {
     // Lazy chunk + roster-context round trip (4 MB contract, lineup solver,

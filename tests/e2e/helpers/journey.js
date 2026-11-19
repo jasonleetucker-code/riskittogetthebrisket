@@ -239,33 +239,30 @@ function pageUrl(path) {
 }
 
 /**
- * Gate a spec to desktop chromium.  Mobile coverage lives in
- * mobile-smoke.spec.js; running the desktop journeys against every
- * viewport project would multiply runtime without adding signal.
+ * Project gating is done with TITLE TAGS, never test.skip().
+ *
+ * `@desktop-only` / `@mobile-only` / `@a11y-desktop-only` in a describe
+ * title are filtered by each project's `grepInvert` in playwright.config.js,
+ * so a test that is deliberately not run on a project does not exist there
+ * -- it is not counted as "skipped".  `desktopOnly(test, testInfo)` and
+ * `mobileOnly(test, testInfo)` used to live here and called test.skip();
+ * every call spent one unit of the suite's skip budget per project it was
+ * not meant to run on, which is how the budget filled with non-signal.
+ * tests/e2e/test_e2e_harness_guards.py fails if they come back.
  */
-function desktopOnly(test, testInfo) {
-  test.skip(
-    isMobileProject(testInfo),
-    "desktop journey — mobile coverage lives in mobile-smoke.spec.js",
-  );
-}
 
 /**
- * Gate a spec to the phone projects: mobile-chromium (CI's chromium phone
- * viewport) and the WebKit iPhone device projects mobile-390 / mobile-430.
- *
- * It used to name mobile-chromium alone, "so a missing webkit install can't
- * fail the suite".  That reasoning does not need the skip: a WebKit project
- * only runs when someone selects it with --project, and selecting it already
- * requires the install.  The skip meant the phone-viewport smoke (rankings
- * board, player popup, bottom navigation, the windowed board) never ran on
- * the engine iPhones actually use.
+ * Pixel comparison that honours SKIP_VISUAL_REGRESSION=1 WITHOUT skipping
+ * the test.  CI sets that variable (no pixel baselines are committed) and
+ * used to turn every visual spec into a test.skip(), which both spent the
+ * skip budget and meant the structural assertions leading up to the
+ * screenshot (the chart/section rendered, with data) never ran there.  Now
+ * only the pixel comparison is omitted; everything before it still gates.
  */
-function mobileOnly(test, testInfo) {
-  test.skip(
-    !isMobileProject(testInfo),
-    "mobile smoke runs on the phone projects (mobile-chromium, mobile-390, mobile-430)",
-  );
+async function expectPixelBaseline(locator, name, options) {
+  if (process.env.SKIP_VISUAL_REGRESSION) return;
+  const { expect } = require("@playwright/test");
+  await expect(locator).toHaveScreenshot(name, options);
 }
 
 /**
@@ -589,6 +586,26 @@ async function awaitStreamSettled(page, { timeout = 30_000 } = {}) {
  * definition cross-origin and still reports).  Any other uncaught error --
  * including every other fetch failure -- still fails the test.
  */
+/**
+ * The browser's ResizeObserver loop notice, and nothing else.
+ *
+ * Per the ResizeObserver spec, when observations made during delivery cannot
+ * all be delivered in the same frame the browser reports "ResizeObserver loop
+ * completed with undelivered notifications" (older engines: "ResizeObserver
+ * loop limit exceeded") as an error event and delivers the rest next frame.
+ * Nothing is lost and no app code threw.  On mobile-390 (WebKit) it surfaced in
+ * trade-multi-team.spec.js:317 in 2 of 3 runs on 2026-11-19 (E2E 44503671613,
+ * 44526869803) and never on chromium; that test takes element screenshots of a
+ * War Room taller than the 390-px viewport, which makes Playwright resize the
+ * viewport and fires the DataTable observers.  Matched EXACTLY (anchored), so
+ * any other error -- including one that merely mentions ResizeObserver -- is
+ * still collected.
+ */
+function isResizeObserverLoopNotice(err) {
+  const text = String((err && err.message) || "").trim();
+  return /^ResizeObserver loop (?:completed with undelivered notifications|limit exceeded)\.?$/.test(text);
+}
+
 function isNavigationAbortedFetch(err, page) {
   // Playwright splits WebKit's exception text at its FIRST colon
   // (playwright-core splitErrorMessage: name = text before ":", message = text
@@ -805,6 +822,7 @@ async function baselineUsefulState(page, path, timeout) {
 }
 
 module.exports = {
+  expectPixelBaseline,
   BASELINE_READINESS_PROTOCOL,
   routeUsefulSnapshot,
   baselineUsefulState,
@@ -814,8 +832,6 @@ module.exports = {
   titleFor,
   isMobileProject,
   pageUrl,
-  desktopOnly,
-  mobileOnly,
   gotoRankingsBoard,
   boardRowCount,
   boardPlayerNames,
@@ -825,4 +841,5 @@ module.exports = {
   attachConsoleGuards,
   awaitStreamSettled,
   isNavigationAbortedFetch,
+  isResizeObserverLoopNotice,
 };

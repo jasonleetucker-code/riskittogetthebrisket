@@ -15,7 +15,6 @@
 const { test, expect } = require("../helpers/auth-fixture");
 const {
   SEL,
-  desktopOnly,
   gotoRankingsBoard,
   boardPlayerNames,
   boardRowCount,
@@ -23,8 +22,7 @@ const {
   attachConsoleGuards,
 } = require("../helpers/journey");
 
-test.describe("journey: rankings board", () => {
-  test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
+test.describe("journey: rankings board @desktop-only", () => {
 
   test("board loads with real rows and clean values", async ({ authedPage: page }) => {
     const guard = attachConsoleGuards(page);

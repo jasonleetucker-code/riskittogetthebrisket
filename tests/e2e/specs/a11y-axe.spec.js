@@ -513,8 +513,8 @@ test("a11y coverage: every page route family under frontend/app is scanned", () 
   // families would run there with no mobile allowances, or vice versa).
   const config = fs.readFileSync(path.resolve(__dirname, "../playwright.config.js"), "utf8");
   expect(
-    (config.match(/grepInvert: \/@a11y-desktop-only\//g) || []).length,
-    "every mobile project must grepInvert the desktop-only tag",
+    (config.match(/grepInvert: PHONE_GREP_INVERT,/g) || []).length,
+    "every mobile project must grepInvert the desktop-only tags (PHONE_GREP_INVERT)",
   ).toBe(3);
   const dead = Object.keys(BASELINE).filter((key) => {
     const [route, viewport] = key.split("|");
