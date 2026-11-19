@@ -18,13 +18,6 @@
     },
     {
       "file": "mobile-device-flows.spec.js",
-      "title": "waivers add/drop pickers on a phone @mobile-only > a SCROLL gesture that starts on an option does not pick it (the #2223 regression)",
-      "projects": ["mobile-390", "mobile-430"],
-      "category": "unsupported-environment",
-      "reason": "WebKit has no CDP; when the engine also lacks a constructible Touch the swipe cannot be synthesized, so the test SKIPS (never passes silently). Chromium (mobile-chromium) always exercises it via CDP. The physical-iPhone check is in docs/qa/REAL_DEVICE_CHECKLIST_2026-11-19.md."
-    },
-    {
-      "file": "mobile-device-flows.spec.js",
       "title": "service worker update path @mobile-only > a new worker takes control, the page reloads once, and caches from older versions are evicted",
       "projects": ["mobile-390", "mobile-430"],
       "category": "unsupported-environment",

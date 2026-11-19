@@ -86,12 +86,20 @@ test.describe("waivers add/drop pickers on a phone @mobile-only", () => {
     });
     const target = await listbox.getByRole("option").first().boundingBox();
     expect(target).not.toBeNull();
-    // Chromium-only CDP gesture: a real touch drag (touchstart, touchmove,
-    // touchend), not a tap.  WebKit has no CDP, so there the same drag is
-    // dispatched as touch events from the page (see below).
+    // Chromium: a real CDP touch drag (touchstart, touchmove, touchend), not
+    // a tap.  WebKit has no CDP, so there the same sequence is dispatched from
+    // the page.  WebKit exposes ``Touch`` but forbids ``new Touch()`` ("Illegal
+    // constructor", measured on the mobile-390 project), so the page tries real
+    // Touch objects first and otherwise dispatches plain touchstart / touchmove
+    // / touchend events.  That still exercises the #2223 regression path:
+    // React's onTouchStart is wired to the native "touchstart" event whatever
+    // its class, and the defect was a pick on touchstart with no click.
+    // Synthetic events never synthesize a click, so nothing here can pick by
+    // accident.
     const cdp = await page.context().newCDPSession(page).catch(() => null);
     const x = Math.round(target.x + target.width / 2);
     const y = Math.round(target.y + target.height / 2);
+    let method = "cdp-scroll-gesture";
     if (cdp) {
       await cdp.send("Input.synthesizeScrollGesture", {
         x,
@@ -100,29 +108,36 @@ test.describe("waivers add/drop pickers on a phone @mobile-only", () => {
         gestureSourceType: "touch",
       });
     } else {
-      const canSynthesize = await page.evaluate(() => typeof Touch === "function" && typeof TouchEvent === "function");
-      if (!canSynthesize) {
-        // Recorded as a SKIP (listed in tests/e2e/skip-baseline.json as
-        // unsupported-environment), never a silent pass.
-        test.skip(true, "this engine has neither CDP nor a constructible Touch; the swipe could not be synthesized");
-      }
-      await page.evaluate(
+      method = await page.evaluate(
         ([px, py]) => {
           const el = document.elementFromPoint(px, py);
-          const mk = (type, dy) =>
-            new TouchEvent(type, {
-              bubbles: true,
-              cancelable: true,
-              touches: type === "touchend" ? [] : [new Touch({ identifier: 1, target: el, clientX: px, clientY: py + dy })],
-              changedTouches: [new Touch({ identifier: 1, target: el, clientX: px, clientY: py + dy })],
-            });
-          el.dispatchEvent(mk("touchstart", 0));
-          el.dispatchEvent(mk("touchmove", -40));
-          el.dispatchEvent(mk("touchend", -80));
+          const steps = [
+            ["touchstart", 0],
+            ["touchmove", -40],
+            ["touchend", -80],
+          ];
+          try {
+            const touch = (dy) => new Touch({ identifier: 1, target: el, clientX: px, clientY: py + dy });
+            const events = steps.map(
+              ([type, dy]) =>
+                new TouchEvent(type, {
+                  bubbles: true,
+                  cancelable: true,
+                  touches: type === "touchend" ? [] : [touch(dy)],
+                  changedTouches: [touch(dy)],
+                }),
+            );
+            events.forEach((e) => el.dispatchEvent(e));
+            return "touch-objects";
+          } catch {
+            steps.forEach(([type]) => el.dispatchEvent(new Event(type, { bubbles: true, cancelable: true })));
+            return "plain-touch-events";
+          }
         },
         [x, y],
       );
     }
+    test.info().annotations.push({ type: "swipe-synthesis", description: method });
     expect(await page.evaluate(() => window.__touchStarts), "the swipe began on an option").toContain(true);
     await expect(listbox, "scrolling must not choose a candidate").toBeVisible();
     await expect(calc.locator("[data-picker-clear]")).toHaveCount(0);
