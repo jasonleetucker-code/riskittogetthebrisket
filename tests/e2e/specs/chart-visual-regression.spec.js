@@ -33,7 +33,7 @@
 // ─────────────────────────────────────────────────────────────────────
 
 const { test, expect } = require("../helpers/auth-fixture");
-const { pageUrl, desktopOnly } = require("../helpers/journey");
+const { pageUrl, expectPixelBaseline } = require("../helpers/journey");
 
 const SCREENSHOT_OPTIONS = {
   maxDiffPixelRatio: 0.002,
@@ -169,17 +169,14 @@ async function _openMethodology(page) {
     .toBe(true);
 }
 
-test.describe("Chart visual regression", () => {
-  test.skip(
-    !!process.env.SKIP_VISUAL_REGRESSION,
-    "Set SKIP_VISUAL_REGRESSION=1 to skip this suite locally",
-  );
+test.describe("Chart visual regression @desktop-only", () => {
+  // SKIP_VISUAL_REGRESSION=1 skips only the pixel comparison
+  // (expectPixelBaseline); the structural assertions in every test run.
 
   // Pixel baselines are captured at one fixed viewport (the desktop
   // project's) — running the same screenshots at 390px would need a
   // second baseline set for no extra signal.  Mobile chart layout is
   // covered by mobile-smoke.spec.js at the page level.
-  test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
 
   test("Hill curve (methodology panel)", async ({ authedPage: page }) => {
     await page.goto(pageUrl("/rankings"));
@@ -189,7 +186,7 @@ test.describe("Chart visual regression", () => {
       CHART_SELECTORS.hillCurve,
       "Hill curve",
     );
-    await expect(el).toHaveScreenshot("hill-curve.png", SCREENSHOT_OPTIONS);
+    await expectPixelBaseline(el, "hill-curve.png", SCREENSHOT_OPTIONS);
   });
 
   test("Tier-gap waterfall", async ({ authedPage: page }) => {
@@ -200,7 +197,7 @@ test.describe("Chart visual regression", () => {
       CHART_SELECTORS.tierGap,
       "Tier-gap waterfall",
     );
-    await expect(el).toHaveScreenshot("tier-gap.png", SCREENSHOT_OPTIONS);
+    await expectPixelBaseline(el, "tier-gap.png", SCREENSHOT_OPTIONS);
   });
 
   test("Confidence vs value scatter", async ({ authedPage: page }) => {
@@ -210,7 +207,7 @@ test.describe("Chart visual regression", () => {
       CHART_SELECTORS.confidenceScatter,
       "Confidence scatter",
     );
-    await expect(el).toHaveScreenshot("confidence-scatter.png", SCREENSHOT_OPTIONS);
+    await expectPixelBaseline(el, "confidence-scatter.png", SCREENSHOT_OPTIONS);
   });
 
   test("Matchup margin histogram (league/weekly)", async ({ page }) => {
@@ -220,7 +217,7 @@ test.describe("Chart visual regression", () => {
       CHART_SELECTORS.matchupMargin,
       "Matchup margin chart",
     );
-    await expect(el).toHaveScreenshot("matchup-margin.png", SCREENSHOT_OPTIONS);
+    await expectPixelBaseline(el, "matchup-margin.png", SCREENSHOT_OPTIONS);
   });
 
   test("Trade flow Sankey (league/activity)", async ({ page }) => {
@@ -230,7 +227,7 @@ test.describe("Chart visual regression", () => {
       CHART_SELECTORS.tradeFlow,
       "Trade flow Sankey",
     );
-    await expect(el).toHaveScreenshot("trade-flow.png", SCREENSHOT_OPTIONS);
+    await expectPixelBaseline(el, "trade-flow.png", SCREENSHOT_OPTIONS);
   });
 
   test("Activity heatmap (league/activity)", async ({ page }) => {
@@ -240,7 +237,7 @@ test.describe("Chart visual regression", () => {
       CHART_SELECTORS.activityHeatmap,
       "Activity heatmap",
     );
-    await expect(el).toHaveScreenshot("activity-heatmap.png", SCREENSHOT_OPTIONS);
+    await expectPixelBaseline(el, "activity-heatmap.png", SCREENSHOT_OPTIONS);
   });
 
   test("Franchise trajectory (league/franchise)", async ({ page }) => {
@@ -250,7 +247,7 @@ test.describe("Chart visual regression", () => {
       CHART_SELECTORS.franchiseTraj,
       "Franchise trajectory",
     );
-    await expect(el).toHaveScreenshot("franchise-trajectory.png", SCREENSHOT_OPTIONS);
+    await expectPixelBaseline(el, "franchise-trajectory.png", SCREENSHOT_OPTIONS);
   });
 });
 
@@ -263,9 +260,8 @@ test.describe("Chart visual regression", () => {
 // missing axes, zero data points, empty SVGs.  The same waited
 // readiness gate applies — no silent-skip on slow loads.
 
-test.describe("Chart structural smoke tests", () => {
+test.describe("Chart structural smoke tests @desktop-only", () => {
   // Desktop project only — same rationale as the visual block above.
-  test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
 
   test("Hill curve has axis + at least one path", async ({ authedPage: page }) => {
     await page.goto(pageUrl("/rankings"));

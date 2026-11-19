@@ -111,6 +111,18 @@ const backendEnv = {
   PLAYWRIGHT_BROWSERS_PATH: noScrapeBrowsersDir,
 };
 
+// Project gating is expressed as TITLE TAGS filtered here, never as
+// test.skip() inside a spec (see helpers/journey.js and STAB-8 in
+// docs/OWNER_REQUESTED_TODO.md): a deliberately-not-run test must not exist
+// on that project, instead of being counted as "skipped".
+//   @desktop-only       -- not run on any phone project
+//   @a11y-desktop-only  -- axe route families scanned on desktop only
+//   @mobile-only        -- not run on desktop-1366 (see that project)
+// Every phone project must use this one constant; the guard test
+// tests/e2e/test_e2e_harness_guards.py and a11y-axe.spec.js read the config
+// and fail if one of them drifts.
+const PHONE_GREP_INVERT = /@a11y-desktop-only|@desktop-only/;
+
 module.exports = defineConfig({
   testDir: "./specs",
   // specs/prod-auth/ is the production-auth verification suite. It runs
@@ -276,11 +288,12 @@ module.exports = defineConfig({
   projects: [
     {
       name: "desktop-1366",
-      // Phone-only assertions (touch-target sizing) are tagged and filtered
-      // OUT here, for the same reason the mobile projects filter
-      // @a11y-desktop-only: a test.skip() would count against
-      // stack-death-reporter's skip ceiling, which means "a layer stopped
-      // running" — these are deliberately not run on desktop.
+      // Phone-only tests (@mobile-only: touch-target sizing, mobile smoke,
+      // the phone windowing check) are tagged and filtered OUT here, for the
+      // same reason the phone projects filter PHONE_GREP_INVERT: a
+      // test.skip() would be counted as lost coverage by the per-test skip
+      // accounting (skip-accounting.js) — these are deliberately not run on
+      // desktop, so they do not exist here.
       grepInvert: /@mobile-only/,
       use: {
         browserName: "chromium",
@@ -293,12 +306,12 @@ module.exports = defineConfig({
       // Used for the public /league page suite which doesn't depend on
       // Safari-specific behavior.
       name: "mobile-chromium",
-      // a11y-axe.spec.js scans every route family on desktop-1366 and only
-      // a declared subset on mobile (CI time budget). The rest are tagged
-      // and filtered OUT here rather than test.skip()ped, so they never
-      // count against stack-death-reporter's skip ceiling — a skip there
-      // means "a layer stopped running", which these are not.
-      grepInvert: /@a11y-desktop-only/,
+      // @desktop-only journeys, and the a11y-axe.spec.js route families
+      // outside its declared mobile subset (@a11y-desktop-only, CI time
+      // budget), are tagged and filtered OUT here rather than test.skip()ped,
+      // so they are never counted as skipped — a skip means "a layer stopped
+      // running", which these are not.
+      grepInvert: PHONE_GREP_INVERT,
       use: {
         browserName: "chromium",
         viewport: { width: 390, height: 844 },
@@ -308,7 +321,7 @@ module.exports = defineConfig({
     },
     {
       name: "mobile-390",
-      grepInvert: /@a11y-desktop-only/,
+      grepInvert: PHONE_GREP_INVERT,
       use: {
         ...devices["iPhone 13"],
         viewport: { width: 390, height: 844 },
@@ -316,7 +329,7 @@ module.exports = defineConfig({
     },
     {
       name: "mobile-430",
-      grepInvert: /@a11y-desktop-only/,
+      grepInvert: PHONE_GREP_INVERT,
       use: {
         ...devices["iPhone 14 Pro Max"],
         viewport: { width: 430, height: 932 },

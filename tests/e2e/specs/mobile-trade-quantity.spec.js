@@ -86,10 +86,9 @@ async function incrementTo(page, name, n) {
   await expect(line.getByTestId("trade-asset-quantity")).toHaveText(String(n));
 }
 
-test.describe("mobile /trade: repeatable assets and market picks", () => {
-  test.beforeEach(async ({}, testInfo) => {
-    test.skip(!testInfo.project.name.startsWith("mobile"), "phone viewport flow");
-  });
+test.describe("mobile /trade: repeatable assets and market picks @mobile-only", () => {
+  // Phone-viewport flow: the @mobile-only tag is filtered OUT of desktop-1366
+  // (playwright.config.js grepInvert) instead of test.skip()ped there.
 
   test("search a future year → Early/Mid/Late visible → add Mid → x5 → total updates", async ({
     authedPage: page,

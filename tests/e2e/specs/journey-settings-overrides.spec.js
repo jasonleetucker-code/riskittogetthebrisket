@@ -32,7 +32,6 @@
  */
 const { test, expect } = require("../helpers/auth-fixture");
 const {
-  desktopOnly,
   gotoRankingsBoard,
   attachConsoleGuards,
   boardRowCount,
@@ -45,8 +44,7 @@ const SETTINGS_KEY = "next_settings_v2";
 // The panel's own statement (settings/page.jsx::CUSTOM_MIX_OFF_NOTE).
 const CUSTOM_MIX_OFF = "Custom source mixes are switched off";
 
-test.describe("journey: settings ranking sources", () => {
-  test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
+test.describe("journey: settings ranking sources @desktop-only", () => {
 
   test("settings lists every registered ranking source, says custom mixes are off, and shows the backend's voting status", async ({ authedPage: page }) => {
     // Authoritative registry size from the backend.
