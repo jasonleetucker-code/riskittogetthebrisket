@@ -737,7 +737,14 @@ def league_draft_years(
     lcs = dict(lifecycles or {})
     retired = sorted(retired_seasons(lcs))
     upcoming = first_active_class(anchor, retired)
-    window = range(anchor, anchor + OWNED_PICK_HORIZON_CLASSES)
+    # STAB-11 (pending owner approval): Sleeper issues class N + 3 when THIS
+    # league's class N draft completes (the owner's board-horizon decision), so
+    # the window may not reach past that issuance point -- the same rule as the
+    # board horizon, fed with this league's own evidence.  Without it, between
+    # New Year and the next rookie draft the window listed one class Sleeper has
+    # not issued yet.
+    issued_through = board_pick_horizon(anchor, lcs).end_year
+    window = range(anchor, min(anchor + OWNED_PICK_HORIZON_CLASSES, issued_through + 1))
     owned = tuple(y for y in window if y not in set(retired) and y >= upcoming)
     reasons = tuple(
         f"{s}:{lcs[s].status}"
