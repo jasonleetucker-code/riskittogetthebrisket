@@ -239,16 +239,19 @@ def test_each_block_column_counts_on_its_own(column):
     assert line.get("idp_blk_kick") == 1.0, f"{column} did not count as a blocked kick"
 
 
-def test_blocked_kicks_are_idp_scoped():
-    """``idp_blk_kick`` is an IDP rule.  A blocked kick by a rostered RB (3 of
-    44 in 2025 were by RB/TE/OT) is deliberately not paid by it — the team
-    ``blk_kick`` rule is a different family for an asset class this board does
-    not value.
+def test_blocked_kicks_are_paid_whoever_blocks_them():
+    """CORRECTED (IDPA-DEFECT-01).  This used to assert ``idp_blk_kick`` is IDP-
+    scoped, so a blocked kick by a rostered RB (3 of 44 in 2025 were by RB/TE/OT)
+    was deliberately not paid.  The 2026 host says otherwise: on dynasty_main
+    weeks 1-6 both blocked punts by a non-IDP-listed player (Simi Fehoko WR wk 1,
+    Julius Chestnut RB wk 6) carry ``idp_blk_kick: 1`` on Sleeper's own stat line
+    and were awarded 5.30 each.  The team ``blk_kick`` rule stays a different
+    family for team defense.
     """
     line = sleeper_stat_line_from_row(
         {"season": 2025, "week": 1, "position": "RB", "def_fg_blocks": 1}, position="RB"
     )
-    assert "idp_blk_kick" not in line
+    assert line.get("idp_blk_kick") == 1.0
 
 
 def test_team_blocked_kick_rule_stays_non_player():

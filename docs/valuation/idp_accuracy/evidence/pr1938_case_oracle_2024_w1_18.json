@@ -1,0 +1,1035 @@
+{
+ "baseRef": "origin/main",
+ "season": 2024,
+ "weeks": [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13,
+  14,
+  15,
+  16,
+  17,
+  18
+ ],
+ "scoringCard": "dynasty_main's CURRENT card for every season (a scorer-parity test: both paths score the same card; host awards are not read)",
+ "joinedByIdentityOwner": 17911,
+ "nflverseRows": 18130,
+ "pointsVsHostNative": {
+  "all/ALL": {
+   "n": 17911,
+   "withinTolBefore": 16080,
+   "withinTolAfter": 17206,
+   "newlyWrong": 0,
+   "fixed": 1126
+  },
+  "all/C": {
+   "n": 42,
+   "withinTolBefore": 39,
+   "withinTolAfter": 40,
+   "newlyWrong": 0,
+   "fixed": 1
+  },
+  "all/DB": {
+   "n": 3967,
+   "withinTolBefore": 3300,
+   "withinTolAfter": 3681,
+   "newlyWrong": 0,
+   "fixed": 381
+  },
+  "all/DL": {
+   "n": 3348,
+   "withinTolBefore": 3259,
+   "withinTolAfter": 3305,
+   "newlyWrong": 0,
+   "fixed": 46
+  },
+  "all/FB": {
+   "n": 82,
+   "withinTolBefore": 54,
+   "withinTolAfter": 55,
+   "newlyWrong": 0,
+   "fixed": 1
+  },
+  "all/G": {
+   "n": 124,
+   "withinTolBefore": 110,
+   "withinTolAfter": 121,
+   "newlyWrong": 0,
+   "fixed": 11
+  },
+  "all/K": {
+   "n": 1068,
+   "withinTolBefore": 1037,
+   "withinTolAfter": 1068,
+   "newlyWrong": 0,
+   "fixed": 31
+  },
+  "all/K/P": {
+   "n": 5,
+   "withinTolBefore": 5,
+   "withinTolAfter": 5,
+   "newlyWrong": 0,
+   "fixed": 0
+  },
+  "all/LB": {
+   "n": 2592,
+   "withinTolBefore": 1975,
+   "withinTolAfter": 2305,
+   "newlyWrong": 0,
+   "fixed": 330
+  },
+  "all/LS": {
+   "n": 64,
+   "withinTolBefore": 63,
+   "withinTolAfter": 64,
+   "newlyWrong": 0,
+   "fixed": 1
+  },
+  "all/OG": {
+   "n": 26,
+   "withinTolBefore": 24,
+   "withinTolAfter": 25,
+   "newlyWrong": 0,
+   "fixed": 1
+  },
+  "all/OL": {
+   "n": 517,
+   "withinTolBefore": 472,
+   "withinTolAfter": 508,
+   "newlyWrong": 0,
+   "fixed": 36
+  },
+  "all/OT": {
+   "n": 61,
+   "withinTolBefore": 59,
+   "withinTolAfter": 61,
+   "newlyWrong": 0,
+   "fixed": 2
+  },
+  "all/QB": {
+   "n": 664,
+   "withinTolBefore": 639,
+   "withinTolAfter": 656,
+   "newlyWrong": 0,
+   "fixed": 17
+  },
+  "all/RB": {
+   "n": 1526,
+   "withinTolBefore": 1461,
+   "withinTolAfter": 1512,
+   "newlyWrong": 0,
+   "fixed": 51
+  },
+  "all/T": {
+   "n": 197,
+   "withinTolBefore": 186,
+   "withinTolAfter": 193,
+   "newlyWrong": 0,
+   "fixed": 7
+  },
+  "all/TE": {
+   "n": 1193,
+   "withinTolBefore": 1143,
+   "withinTolAfter": 1187,
+   "newlyWrong": 0,
+   "fixed": 44
+  },
+  "all/WR": {
+   "n": 2435,
+   "withinTolBefore": 2254,
+   "withinTolAfter": 2420,
+   "newlyWrong": 0,
+   "fixed": 166
+  },
+  "weeks1to6/ALL": {
+   "n": 6021,
+   "withinTolBefore": 5378,
+   "withinTolAfter": 5790,
+   "newlyWrong": 0,
+   "fixed": 412
+  },
+  "weeks1to6/C": {
+   "n": 14,
+   "withinTolBefore": 13,
+   "withinTolAfter": 13,
+   "newlyWrong": 0,
+   "fixed": 0
+  },
+  "weeks1to6/DB": {
+   "n": 1342,
+   "withinTolBefore": 1116,
+   "withinTolAfter": 1260,
+   "newlyWrong": 0,
+   "fixed": 144
+  },
+  "weeks1to6/DL": {
+   "n": 1111,
+   "withinTolBefore": 1078,
+   "withinTolAfter": 1096,
+   "newlyWrong": 0,
+   "fixed": 18
+  },
+  "weeks1to6/FB": {
+   "n": 30,
+   "withinTolBefore": 18,
+   "withinTolAfter": 19,
+   "newlyWrong": 0,
+   "fixed": 1
+  },
+  "weeks1to6/G": {
+   "n": 40,
+   "withinTolBefore": 35,
+   "withinTolAfter": 39,
+   "newlyWrong": 0,
+   "fixed": 4
+  },
+  "weeks1to6/K": {
+   "n": 364,
+   "withinTolBefore": 352,
+   "withinTolAfter": 364,
+   "newlyWrong": 0,
+   "fixed": 12
+  },
+  "weeks1to6/LB": {
+   "n": 872,
+   "withinTolBefore": 659,
+   "withinTolAfter": 780,
+   "newlyWrong": 0,
+   "fixed": 121
+  },
+  "weeks1to6/LS": {
+   "n": 27,
+   "withinTolBefore": 26,
+   "withinTolAfter": 27,
+   "newlyWrong": 0,
+   "fixed": 1
+  },
+  "weeks1to6/OG": {
+   "n": 6,
+   "withinTolBefore": 6,
+   "withinTolAfter": 6,
+   "newlyWrong": 0,
+   "fixed": 0
+  },
+  "weeks1to6/OL": {
+   "n": 167,
+   "withinTolBefore": 150,
+   "withinTolAfter": 161,
+   "newlyWrong": 0,
+   "fixed": 11
+  },
+  "weeks1to6/OT": {
+   "n": 25,
+   "withinTolBefore": 24,
+   "withinTolAfter": 25,
+   "newlyWrong": 0,
+   "fixed": 1
+  },
+  "weeks1to6/QB": {
+   "n": 223,
+   "withinTolBefore": 213,
+   "withinTolAfter": 219,
+   "newlyWrong": 0,
+   "fixed": 6
+  },
+  "weeks1to6/RB": {
+   "n": 518,
+   "withinTolBefore": 494,
+   "withinTolAfter": 508,
+   "newlyWrong": 0,
+   "fixed": 14
+  },
+  "weeks1to6/T": {
+   "n": 80,
+   "withinTolBefore": 75,
+   "withinTolAfter": 78,
+   "newlyWrong": 0,
+   "fixed": 3
+  },
+  "weeks1to6/TE": {
+   "n": 387,
+   "withinTolBefore": 367,
+   "withinTolAfter": 384,
+   "newlyWrong": 0,
+   "fixed": 17
+  },
+  "weeks1to6/WR": {
+   "n": 815,
+   "withinTolBefore": 752,
+   "withinTolAfter": 811,
+   "newlyWrong": 0,
+   "fixed": 59
+  },
+  "weeks7plus/ALL": {
+   "n": 11890,
+   "withinTolBefore": 10702,
+   "withinTolAfter": 11416,
+   "newlyWrong": 0,
+   "fixed": 714
+  },
+  "weeks7plus/C": {
+   "n": 28,
+   "withinTolBefore": 26,
+   "withinTolAfter": 27,
+   "newlyWrong": 0,
+   "fixed": 1
+  },
+  "weeks7plus/DB": {
+   "n": 2625,
+   "withinTolBefore": 2184,
+   "withinTolAfter": 2421,
+   "newlyWrong": 0,
+   "fixed": 237
+  },
+  "weeks7plus/DL": {
+   "n": 2237,
+   "withinTolBefore": 2181,
+   "withinTolAfter": 2209,
+   "newlyWrong": 0,
+   "fixed": 28
+  },
+  "weeks7plus/FB": {
+   "n": 52,
+   "withinTolBefore": 36,
+   "withinTolAfter": 36,
+   "newlyWrong": 0,
+   "fixed": 0
+  },
+  "weeks7plus/G": {
+   "n": 84,
+   "withinTolBefore": 75,
+   "withinTolAfter": 82,
+   "newlyWrong": 0,
+   "fixed": 7
+  },
+  "weeks7plus/K": {
+   "n": 704,
+   "withinTolBefore": 685,
+   "withinTolAfter": 704,
+   "newlyWrong": 0,
+   "fixed": 19
+  },
+  "weeks7plus/K/P": {
+   "n": 5,
+   "withinTolBefore": 5,
+   "withinTolAfter": 5,
+   "newlyWrong": 0,
+   "fixed": 0
+  },
+  "weeks7plus/LB": {
+   "n": 1720,
+   "withinTolBefore": 1316,
+   "withinTolAfter": 1525,
+   "newlyWrong": 0,
+   "fixed": 209
+  },
+  "weeks7plus/LS": {
+   "n": 37,
+   "withinTolBefore": 37,
+   "withinTolAfter": 37,
+   "newlyWrong": 0,
+   "fixed": 0
+  },
+  "weeks7plus/OG": {
+   "n": 20,
+   "withinTolBefore": 18,
+   "withinTolAfter": 19,
+   "newlyWrong": 0,
+   "fixed": 1
+  },
+  "weeks7plus/OL": {
+   "n": 350,
+   "withinTolBefore": 322,
+   "withinTolAfter": 347,
+   "newlyWrong": 0,
+   "fixed": 25
+  },
+  "weeks7plus/OT": {
+   "n": 36,
+   "withinTolBefore": 35,
+   "withinTolAfter": 36,
+   "newlyWrong": 0,
+   "fixed": 1
+  },
+  "weeks7plus/QB": {
+   "n": 441,
+   "withinTolBefore": 426,
+   "withinTolAfter": 437,
+   "newlyWrong": 0,
+   "fixed": 11
+  },
+  "weeks7plus/RB": {
+   "n": 1008,
+   "withinTolBefore": 967,
+   "withinTolAfter": 1004,
+   "newlyWrong": 0,
+   "fixed": 37
+  },
+  "weeks7plus/T": {
+   "n": 117,
+   "withinTolBefore": 111,
+   "withinTolAfter": 115,
+   "newlyWrong": 0,
+   "fixed": 4
+  },
+  "weeks7plus/TE": {
+   "n": 806,
+   "withinTolBefore": 776,
+   "withinTolAfter": 803,
+   "newlyWrong": 0,
+   "fixed": 27
+  },
+  "weeks7plus/WR": {
+   "n": 1620,
+   "withinTolBefore": 1502,
+   "withinTolAfter": 1609,
+   "newlyWrong": 0,
+   "fixed": 107
+  }
+ },
+ "cases": {
+  "assists_idp_tkl_ast/idp/noStSnaps": {
+   "n": 1959,
+   "equal_before": 1950,
+   "equal_after": 1950,
+   "newly_wrong": 0,
+   "examples": [
+    {
+     "name": "Carlton Davis III",
+     "week": 7,
+     "nflversePos": "CB",
+     "sleeperPos": "CB",
+     "before": 1.0,
+     "after": 1.0,
+     "host": 0.0
+    },
+    {
+     "name": "Johnathan Abram",
+     "week": 7,
+     "nflversePos": "DB",
+     "sleeperPos": "DB",
+     "before": 2.0,
+     "after": 2.0,
+     "host": 1.0
+    },
+    {
+     "name": "Harold Landry III",
+     "week": 9,
+     "nflversePos": "LB",
+     "sleeperPos": "LB",
+     "before": 1.0,
+     "after": 1.0,
+     "host": 2.0
+    },
+    {
+     "name": "Khalen Saunders",
+     "week": 9,
+     "nflversePos": "DT",
+     "sleeperPos": "DT",
+     "before": 1.0,
+     "after": 1.0,
+     "host": 0.0
+    },
+    {
+     "name": "Shemar Jean-Charles",
+     "week": 9,
+     "nflversePos": "CB",
+     "sleeperPos": "CB",
+     "before": 2.0,
+     "after": 2.0,
+     "host": 1.0
+    },
+    {
+     "name": "Pete Werner",
+     "week": 9,
+     "nflversePos": "LB",
+     "sleeperPos": "LB",
+     "before": 3.0,
+     "after": 3.0,
+     "host": 2.0
+    }
+   ]
+  },
+  "assists_idp_tkl_ast/idp/stSnaps": {
+   "n": 4833,
+   "equal_before": 4235,
+   "equal_after": 4235,
+   "newly_wrong": 0,
+   "examples": [
+    {
+     "name": "J.T. Gray",
+     "week": 1,
+     "nflversePos": "DB",
+     "sleeperPos": "DB",
+     "before": 2.0,
+     "after": 2.0,
+     "host": 0.0
+    },
+    {
+     "name": "Chris Board",
+     "week": 1,
+     "nflversePos": "LB",
+     "sleeperPos": "LB",
+     "before": 1.0,
+     "after": 1.0,
+     "host": 0.0
+    },
+    {
+     "name": "Ka'dar Hollman",
+     "week": 1,
+     "nflversePos": "CB",
+     "sleeperPos": "DB",
+     "before": 1.0,
+     "after": 1.0,
+     "host": 0.0
+    },
+    {
+     "name": "Kris Boyd",
+     "week": 1,
+     "nflversePos": "CB",
+     "sleeperPos": "CB",
+     "before": 1.0,
+     "after": 1.0,
+     "host": 0.0
+    },
+    {
+     "name": "Del'Shawn Phillips",
+     "week": 1,
+     "nflversePos": "LB",
+     "sleeperPos": "LB",
+     "before": 1.0,
+     "after": 1.0,
+     "host": 0.0
+    },
+    {
+     "name": "Cam Lewis",
+     "week": 1,
+     "nflversePos": "CB",
+     "sleeperPos": "CB",
+     "before": 3.0,
+     "after": 3.0,
+     "host": 2.0
+    }
+   ]
+  },
+  "assists_idp_tkl_ast/nonIdp/noStSnaps": {
+   "n": 30,
+   "equal_before": 1,
+   "equal_after": 1,
+   "newly_wrong": 0,
+   "examples": [
+    {
+     "name": "Zack Moss",
+     "week": 1,
+     "nflversePos": "RB",
+     "sleeperPos": "RB",
+     "before": 0.0,
+     "after": 0.0,
+     "host": 1.0
+    },
+    {
+     "name": "Ezekiel Elliott",
+     "week": 2,
+     "nflversePos": "RB",
+     "sleeperPos": "RB",
+     "before": 0.0,
+     "after": 0.0,
+     "host": 1.0
+    },
+    {
+     "name": "Dak Prescott",
+     "week": 2,
+     "nflversePos": "QB",
+     "sleeperPos": "QB",
+     "before": 0.0,
+     "after": 0.0,
+     "host": 1.0
+    },
+    {
+     "name": "Jonnu Smith",
+     "week": 2,
+     "nflversePos": "TE",
+     "sleeperPos": "TE",
+     "before": 0.0,
+     "after": 0.0,
+     "host": 1.0
+    },
+    {
+     "name": "Sam Darnold",
+     "week": 2,
+     "nflversePos": "QB",
+     "sleeperPos": "QB",
+     "before": 0.0,
+     "after": 0.0,
+     "host": 1.0
+    },
+    {
+     "name": "Connor Williams",
+     "week": 3,
+     "nflversePos": "C",
+     "sleeperPos": "G",
+     "before": 0.0,
+     "after": 0.0,
+     "host": 1.0
+    }
+   ]
+  },
+  "assists_idp_tkl_ast/nonIdp/stSnaps": {
+   "n": 224,
+   "equal_before": 203,
+   "equal_after": 203,
+   "newly_wrong": 0,
+   "examples": [
+    {
+     "name": "Aaron Banks",
+     "week": 2,
+     "nflversePos": "G",
+     "sleeperPos": "OL",
+     "before": 0.0,
+     "after": 0.0,
+     "host": 1.0
+    },
+    {
+     "name": "Christian Darrisaw",
+     "week": 2,
+     "nflversePos": "OT",
+     "sleeperPos": "T",
+     "before": 0.0,
+     "after": 0.0,
+     "host": 1.0
+    },
+    {
+     "name": "Dominick Puni",
+     "week": 2,
+     "nflversePos": "OT",
+     "sleeperPos": "OL",
+     "before": 0.0,
+     "after": 0.0,
+     "host": 1.0
+    },
+    {
+     "name": "Tristan Wirfs",
+     "week": 3,
+     "nflversePos": "OT",
+     "sleeperPos": "T",
+     "before": 0.0,
+     "after": 0.0,
+     "host": 1.0
+    },
+    {
+     "name": "Evan Brown",
+     "week": 5,
+     "nflversePos": "C",
+     "sleeperPos": "C",
+     "before": 0.0,
+     "after": 0.0,
+     "host": 1.0
+    },
+    {
+     "name": "Tyler Goodson",
+     "week": 5,
+     "nflversePos": "RB",
+     "sleeperPos": "RB",
+     "before": 0.0,
+     "after": 0.0,
+     "host": 1.0
+    }
+   ]
+  },
+  "blocked_kick/fgmiss": {
+   "n": 30,
+   "equal_before": 12,
+   "equal_after": 30,
+   "newly_wrong": 0,
+   "examples": []
+  },
+  "blocked_kick/fgmiss_0_19": {
+   "n": 30,
+   "equal_before": 30,
+   "equal_after": 30,
+   "newly_wrong": 0,
+   "examples": []
+  },
+  "blocked_kick/fgmiss_20_29": {
+   "n": 30,
+   "equal_before": 30,
+   "equal_after": 30,
+   "newly_wrong": 0,
+   "examples": []
+  },
+  "blocked_kick/fgmiss_30_39": {
+   "n": 30,
+   "equal_before": 24,
+   "equal_after": 30,
+   "newly_wrong": 0,
+   "examples": []
+  },
+  "blocked_kick/fgmiss_40_49": {
+   "n": 30,
+   "equal_before": 23,
+   "equal_after": 30,
+   "newly_wrong": 0,
+   "examples": []
+  },
+  "blocked_kick/fgmiss_50_59": {
+   "n": 30,
+   "equal_before": 26,
+   "equal_after": 30,
+   "newly_wrong": 0,
+   "examples": []
+  },
+  "blocked_kick/fgmiss_50p": {
+   "n": 30,
+   "equal_before": 25,
+   "equal_after": 30,
+   "newly_wrong": 0,
+   "examples": []
+  },
+  "blocked_kick/fgmiss_60p": {
+   "n": 30,
+   "equal_before": 29,
+   "equal_after": 30,
+   "newly_wrong": 0,
+   "examples": []
+  },
+  "blocked_kick/xpmiss": {
+   "n": 30,
+   "equal_before": 18,
+   "equal_after": 30,
+   "newly_wrong": 0,
+   "examples": []
+  },
+  "def_td/idp": {
+   "n": 44,
+   "equal_before": 28,
+   "equal_after": 44,
+   "newly_wrong": 0,
+   "examples": []
+  },
+  "def_td/nonIdp": {
+   "n": 4,
+   "equal_before": 3,
+   "equal_after": 3,
+   "newly_wrong": 0,
+   "examples": [
+    {
+     "name": "KhaDarel Hodge",
+     "week": 4,
+     "nflversePos": "WR",
+     "sleeperPos": "WR",
+     "fumbleRecoveryTds": 1,
+     "defTds": 0,
+     "before": 0.0,
+     "after": 0.0,
+     "host": 1.0
+    }
+   ]
+  },
+  "fb_position/bonus_fd_rb": {
+   "n": 25,
+   "equal_before": 0,
+   "equal_after": 0,
+   "newly_wrong": 0,
+   "examples": [
+    {
+     "name": "Kyle Juszczyk",
+     "week": 1,
+     "nflversePos": "FB",
+     "sleeperPos": "FB",
+     "before": 1.0,
+     "after": 1.0,
+     "host": 0.0
+    },
+    {
+     "name": "Alec Ingold",
+     "week": 1,
+     "nflversePos": "FB",
+     "sleeperPos": "FB",
+     "before": 2.0,
+     "after": 2.0,
+     "host": 0.0
+    },
+    {
+     "name": "Hunter Luepke",
+     "week": 1,
+     "nflversePos": "RB",
+     "sleeperPos": "FB",
+     "before": 1.0,
+     "after": 1.0,
+     "host": 0.0
+    },
+    {
+     "name": "Kyle Juszczyk",
+     "week": 2,
+     "nflversePos": "FB",
+     "sleeperPos": "FB",
+     "before": 1.0,
+     "after": 1.0,
+     "host": 0.0
+    },
+    {
+     "name": "Alec Ingold",
+     "week": 2,
+     "nflversePos": "FB",
+     "sleeperPos": "FB",
+     "before": 1.0,
+     "after": 1.0,
+     "host": 0.0
+    },
+    {
+     "name": "Hunter Luepke",
+     "week": 3,
+     "nflversePos": "RB",
+     "sleeperPos": "FB",
+     "before": 2.0,
+     "after": 2.0,
+     "host": 0.0
+    }
+   ]
+  },
+  "fb_position/bonus_fd_te": {
+   "n": 2,
+   "equal_before": 0,
+   "equal_after": 0,
+   "newly_wrong": 0,
+   "examples": [
+    {
+     "name": "Connor Heyward",
+     "week": 16,
+     "nflversePos": "FB",
+     "sleeperPos": "RB",
+     "before": 0.0,
+     "after": 0.0,
+     "host": 1.0
+    },
+    {
+     "name": "Connor Heyward",
+     "week": 17,
+     "nflversePos": "FB",
+     "sleeperPos": "RB",
+     "before": 0.0,
+     "after": 0.0,
+     "host": 1.0
+    }
+   ]
+  },
+  "non_idp_defensive/idp_blk_kick": {
+   "n": 5,
+   "equal_before": 0,
+   "equal_after": 5,
+   "newly_wrong": 0,
+   "examples": []
+  },
+  "non_idp_defensive/idp_def_td": {
+   "n": 1,
+   "equal_before": 0,
+   "equal_after": 0,
+   "newly_wrong": 0,
+   "examples": [
+    {
+     "name": "KhaDarel Hodge",
+     "week": 4,
+     "nflversePos": "WR",
+     "sleeperPos": "WR",
+     "before": 0.0,
+     "after": 0.0,
+     "host": 1.0
+    }
+   ]
+  },
+  "non_idp_defensive/idp_ff": {
+   "n": 10,
+   "equal_before": 0,
+   "equal_after": 10,
+   "newly_wrong": 0,
+   "examples": []
+  },
+  "non_idp_defensive/idp_fum_rec": {
+   "n": 1,
+   "equal_before": 0,
+   "equal_after": 1,
+   "newly_wrong": 0,
+   "examples": []
+  },
+  "non_idp_defensive/idp_tkl_ast": {
+   "n": 50,
+   "equal_before": 0,
+   "equal_after": 0,
+   "newly_wrong": 0,
+   "examples": [
+    {
+     "name": "Zack Moss",
+     "week": 1,
+     "nflversePos": "RB",
+     "sleeperPos": "RB",
+     "before": 0.0,
+     "after": 0.0,
+     "host": 1.0
+    },
+    {
+     "name": "Ezekiel Elliott",
+     "week": 2,
+     "nflversePos": "RB",
+     "sleeperPos": "RB",
+     "before": 0.0,
+     "after": 0.0,
+     "host": 1.0
+    },
+    {
+     "name": "Dak Prescott",
+     "week": 2,
+     "nflversePos": "QB",
+     "sleeperPos": "QB",
+     "before": 0.0,
+     "after": 0.0,
+     "host": 1.0
+    },
+    {
+     "name": "Jonnu Smith",
+     "week": 2,
+     "nflversePos": "TE",
+     "sleeperPos": "TE",
+     "before": 0.0,
+     "after": 0.0,
+     "host": 1.0
+    },
+    {
+     "name": "Sam Darnold",
+     "week": 2,
+     "nflversePos": "QB",
+     "sleeperPos": "QB",
+     "before": 0.0,
+     "after": 0.0,
+     "host": 1.0
+    },
+    {
+     "name": "Aaron Banks",
+     "week": 2,
+     "nflversePos": "G",
+     "sleeperPos": "OL",
+     "before": 0.0,
+     "after": 0.0,
+     "host": 1.0
+    }
+   ]
+  },
+  "non_idp_defensive/idp_tkl_loss": {
+   "n": 2,
+   "equal_before": 0,
+   "equal_after": 2,
+   "newly_wrong": 0,
+   "examples": []
+  },
+  "non_idp_defensive/idp_tkl_solo": {
+   "n": 332,
+   "equal_before": 5,
+   "equal_after": 327,
+   "newly_wrong": 5,
+   "examples": [
+    {
+     "name": "McClendon Curtis",
+     "week": 4,
+     "nflversePos": "G",
+     "sleeperPos": "G",
+     "before": 0.0,
+     "after": 1.0,
+     "host": 0.0
+    },
+    {
+     "name": "Teven Jenkins",
+     "week": 12,
+     "nflversePos": "G",
+     "sleeperPos": "OL",
+     "before": 0.0,
+     "after": 1.0,
+     "host": 0.0
+    },
+    {
+     "name": "Asim Richards",
+     "week": 12,
+     "nflversePos": "OT",
+     "sleeperPos": "OL",
+     "before": 0.0,
+     "after": 1.0,
+     "host": 0.0
+    },
+    {
+     "name": "Matt Araiza",
+     "week": 13,
+     "nflversePos": "P",
+     "sleeperPos": "P",
+     "before": 0.0,
+     "after": 1.0,
+     "host": 0.0
+    },
+    {
+     "name": "Brock Hoffman",
+     "week": 15,
+     "nflversePos": "C",
+     "sleeperPos": "C",
+     "before": 0.0,
+     "after": 1.0,
+     "host": 0.0
+    }
+   ]
+  },
+  "st_count_pbp_vs_host/idp": {
+   "n": 864,
+   "equal_before": 0,
+   "equal_after": 863,
+   "newly_wrong": 0,
+   "examples": []
+  },
+  "st_count_pbp_vs_host/nonIdp": {
+   "n": 345,
+   "equal_before": 0,
+   "equal_after": 344,
+   "newly_wrong": 0,
+   "examples": []
+  },
+  "st_subtraction_idp_tkl_solo/idp": {
+   "n": 864,
+   "equal_before": 0,
+   "equal_after": 863,
+   "newly_wrong": 0,
+   "examples": [
+    {
+     "name": "Ugo Amadi",
+     "week": 2,
+     "nflversePos": "CB",
+     "sleeperPos": "DB",
+     "before": 3.0,
+     "after": 2.0,
+     "host": 0.0
+    }
+   ]
+  },
+  "st_subtraction_idp_tkl_solo/nonIdp": {
+   "n": 345,
+   "equal_before": 343,
+   "equal_after": 344,
+   "newly_wrong": 1,
+   "examples": [
+    {
+     "name": "Matt Araiza",
+     "week": 13,
+     "nflversePos": "P",
+     "sleeperPos": "P",
+     "before": 0.0,
+     "after": 1.0,
+     "host": 0.0
+    }
+   ]
+  }
+ }
+}

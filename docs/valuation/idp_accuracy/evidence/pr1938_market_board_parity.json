@@ -1,0 +1,20 @@
+{
+ "baseRef": "origin/main",
+ "export": "exports/latest/dynasty_data_2026-11-07.json",
+ "exportSha256": "7d35c88dafe5fa2232d9f253b4ca5066b14b08e5cd04edbba3e42cdedaa4eade",
+ "currentScorerSha256": "ad506643cbd13a35d9f77b0caa6748da68e1603336ff82e0d06029863b8cc23b",
+ "correctedScorerSha256": "24bad46c7a63213ff23f06385c07242148892a2b725d011085ae8abbc9f8e43f",
+ "currentArmLoaded": "current_realized_points.py",
+ "correctedArmLoaded": "realized_points.py",
+ "fields": [
+  "rankDerivedValue",
+  "canonicalConsensusRank",
+  "confidenceBucket"
+ ],
+ "rowsCurrent": 1103,
+ "rowsCorrected": 1103,
+ "tableSha256Current": "3043fb05d038ba13515fd1781035262c3e86c8147a7db404c0f7bfb747afa415",
+ "tableSha256Corrected": "3043fb05d038ba13515fd1781035262c3e86c8147a7db404c0f7bfb747afa415",
+ "rowsDiffering": 0,
+ "differing": []
+}
