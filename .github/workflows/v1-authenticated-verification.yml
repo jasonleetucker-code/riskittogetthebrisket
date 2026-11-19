@@ -110,8 +110,9 @@ jobs:
       group: production-deploy
       cancel-in-progress: false
     runs-on: ubuntu-latest
-    # 45 + the bounded warm wait (5 min) added 2026-10-19.
-    timeout-minutes: 50
+    # 45 + the bounded warm wait (5 min) added 2026-10-19 + the bounded
+    # trade-route readiness wait (step cap 8 min) added 2026-11-19.
+    timeout-minutes: 58
     environment: production
     steps:
       - name: Checkout
@@ -444,6 +445,40 @@ jobs:
                   "anyway — read slow or timed-out specs with that in mind"
               )
           PYEOF
+
+      # Bounded wait for the War Room's HEAVY authenticated routes (STAB-10).
+      # The public warm check above was satisfied in V1 run 44331428925 and
+      # the desktop War Room spec still timed out at 125 s, 6 min after a
+      # restart; over 11 runs (2026-11-16..18) that spec took a median 53 s
+      # 6-10 min after the restart against 23 s on mobile minutes later.  This
+      # probes exactly its two heavy requests -- the FULL /api/data contract
+      # and a Team Context /api/trade/analyze (X-Chase-Smoke: no receipt) --
+      # until both answer within 30 s, for at most 4 minutes, and reports how
+      # long warm-up took (a slow first probe is a ::warning, never hidden).
+      # Not ready inside the budget is exit 2: the suites still run for
+      # evidence and the verdict step below FAILS the job on it.
+      # The wait must end on its own before the 8 min step cap (a killed step
+      # skips every later suite): each probe request makes ONE 60 s attempt,
+      # so the worst case is 240 s budget + one probe started at its end
+      # (2 x 60 s) = 6 min, pinned under the cap with >= 60 s margin by
+      # tests/deploy/test_v1_heavy_route_readiness.py.
+      - name: Wait for warm trade routes (bounded, authenticated)
+        if: ${{ inputs.suite != 'baseline' }}
+        id: heavy_ready
+        timeout-minutes: 8
+        shell: bash
+        env:
+          LEAGUE: ${{ inputs.league || 'dynasty_main' }}
+        run: |
+          set -Eeuo pipefail
+          rc=0
+          python3 scripts/v1_heavy_route_readiness.py \
+            --origin "$ORIGIN" --league "$LEAGUE" \
+            --cookie-file "$RUNNER_TEMP/session_cookie" \
+            --budget-seconds 240 --ready-seconds 30 --interval-seconds 15 \
+            --request-timeout 60 || rc=$?
+          echo "heavy_ready_exit=$rc" >> "$GITHUB_OUTPUT"
+          echo "Trade-route readiness exit: $rc (0 ready · 2 not ready in bound · 1 usage)"
 
       - name: API verification suite
         # The temporary post-deploy Week 1 bridge needs the prod-auth browser
@@ -838,6 +873,7 @@ jobs:
           BASELINE_EXIT: ${{ steps.baseline.outputs.baseline_exit }}
           SECURITY_EXIT: ${{ steps.security.outputs.security_exit }}
           TRADE_SMOKE_EXIT: ${{ steps.trade_smoke.outputs.trade_smoke_exit }}
+          HEAVY_READY_EXIT: ${{ steps.heavy_ready.outputs.heavy_ready_exit }}
           BASELINE_REQUESTED: ${{ github.event_name == 'workflow_dispatch' && inputs.suite == 'baseline' }}
         run: |
           set -Eeuo pipefail
@@ -867,6 +903,11 @@ jobs:
             echo "::error::requested baseline failed or produced no verdict"
             exit 1
           fi
+          # A trade path that stayed cold past its bound is a failure in its
+          # own right (STAB-10), even when every spec squeaked through.
+          case "$HEAVY_READY_EXIT" in
+            1|2) echo "::error title=Trade routes not ready::the bounded trade-route readiness wait exited $HEAVY_READY_EXIT (latencies in that step's log)"; exit 1 ;;
+          esac
           for code in "$API_EXIT" "$LANE4_EXIT" "$BROWSER_EXIT" "$TRADE_SMOKE_EXIT"; do
             case "$code" in
               1|2) echo "::error title=V1 authenticated::a suite reported exit $code"; exit "$code" ;;

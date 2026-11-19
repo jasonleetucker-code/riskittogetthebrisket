@@ -63,6 +63,9 @@ import urllib.request
 from typing import Any, Callable
 
 SMOKE_HEADER = "X-Chase-Smoke"
+#: Pause before a network-error retry in ``Client.request``.  Public so a
+#: caller can bound a request's worst case (scripts/v1_heavy_route_readiness.py).
+RETRY_SLEEP_SECONDS = 3.0
 
 # Pinned against src/trade/team_verdicts.py and trade_decision.py by
 # tests/scripts/test_smoke_trade_analysis.py (this script stays stdlib-only).
@@ -379,19 +382,31 @@ def classify_two(status: int, body: Any) -> dict[str, Any]:
 
 
 class Client:
-    def __init__(self, origin: str, cookie_value: str, timeout: float, log: Callable[[str], None]):
+    def __init__(
+        self,
+        origin: str,
+        cookie_value: str,
+        timeout: float,
+        log: Callable[[str], None],
+        attempts: int = 2,
+    ):
         self.origin = origin.rstrip("/")
         self._cookie = f"jason_session={cookie_value}"
         self.timeout = timeout
         self._log = log
+        #: Network attempts per request (default 2: one retry).  A request's
+        #: worst case is ``attempts x timeout + (attempts - 1) x
+        #: RETRY_SLEEP_SECONDS``.
+        self.attempts = max(1, int(attempts))
 
     def request(self, path: str, body: dict | None = None) -> tuple[int | None, Any]:
-        """``(status, json)``.  ONE retry, for network errors only (never for
-        an HTTP status), logged without the URL query or any credential."""
+        """``(status, json)``.  By default ONE retry, for network errors only
+        (never for an HTTP status), logged without the URL query or any
+        credential."""
         headers = {"Cookie": self._cookie, "Accept": "application/json", SMOKE_HEADER: "1"}
         if body is not None:
             headers["Content-Type"] = "application/json"
-        for attempt in (1, 2):
+        for attempt in range(1, self.attempts + 1):
             req = urllib.request.Request(
                 self.origin + path,
                 method="POST" if body is not None else "GET",
@@ -407,9 +422,9 @@ class Client:
                 self._log(
                     f"network error on {path.split('?')[0]} (attempt {attempt}): {type(exc).__name__}"
                 )
-                if attempt == 2:
+                if attempt == self.attempts:
                     return None, None
-                time.sleep(3)
+                time.sleep(RETRY_SLEEP_SECONDS)
         return None, None  # pragma: no cover
 
 
