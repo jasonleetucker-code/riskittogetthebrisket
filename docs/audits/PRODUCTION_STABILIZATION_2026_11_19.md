@@ -140,6 +140,15 @@ Findings (2026-11-19):
 
 ### 10. CI housekeeping and observability
 
+- **Stale workflow registrations: DONE (2026-11-19 ~10:30 UTC).** The list was re-derived live rather than taken from
+  the Task 15 doc: 113 registered workflows; 57 whose file is not on `main`, excluding the two GitHub-managed
+  `dynamic/dependabot/*`. The most recent run of any of them was 2026-10-19 (`zz-enable-prod-verification.yml`); none
+  ran in the last 14 days. All 57 were set to `disabled_manually` with
+  `PUT /actions/workflows/{id}/disable`: 57 ok, 0 failed. After: 56 active, 57 disabled.
+  - Reversible: `PUT …/enable`. Run history is kept, and no workflow file or definition was deleted.
+  - Several were production-touching one-shot repair or proof jobs (`_tmp_chatgpt_v1_27_prod_proof`,
+    `zz-enable-prod-verification`) that any branch still carrying the file could have dispatched.
+
 ### 11. 2027 draft-pick policy
 
 Precise difference (`src/identity/pick_lifecycle.py`):
