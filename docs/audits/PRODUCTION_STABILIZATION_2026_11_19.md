@@ -106,6 +106,32 @@ apply script (see Owner actions). Verification after apply, done by me:
 
 ### 6. Node 22 production migration
 
+Findings (2026-11-19):
+- **Box runtime is Node 20.** The box stages with `scripts/stage_release_artifact.py`, which refuses an artifact whose
+  Node major differs from the box's. Deploy 44330192334 (artifact built on 22) was refused, and every deploy built on
+  20 since (#2256) has been accepted.
+- **The box uses a system install, not nvm.** The frontend unit runs `/usr/bin/npm` (deploy 44455009771 log:
+  "Frontend systemd unit ExecStart binary resolved to: /usr/bin/npm"). `deploy/deploy.sh::resolve_node_toolchain`
+  tries PATH before nvm.
+- **Compatibility.**
+  - Next.js 16.4.x declares `engines.node >=20.9.0`.
+  - Optional native bindings in the lockfile (rolldown) declare `^20.19.0 || >=22.12.0`, so the box needs 22.12 or
+    later. The current 22 LTS line (v22.23.4 used here) meets that.
+  - `frontend/package.json` `engines` is already `>=20 <23`, and `.nvmrc` is already `22`.
+  - The CI pins on the four production lanes (deploy, release-candidate, pr-validation, e2e) are 20, pinned by
+    `tests/deploy/test_deploy_node_matches_production.py`.
+  - The full local build and vitest on 22 passed in #2252.
+- **The cutover has to be ONE window, box first.**
+  1. The owner installs Node 22 (≥22.12) on the box.
+  2. Immediately merge the prepared lane PR: the four lanes to 22, `PRODUCTION_NODE_MAJOR = "22"`, `engines`
+     `>=22 <23`.
+  3. The next deploy builds and stages on 22.
+  4. Verify the release manifest and `/`, `/trade`.
+
+  Any deploy that runs between steps 1 and 2 is refused at staging (no production change; the running site keeps
+  serving), so the window should be minutes. The lane PR is prepared after worker A's deploy-workflow PRs merge
+  (same files).
+
 ### 7. Public-repository data exposure
 
 ### 8. Browser-test skip accounting
@@ -115,6 +141,32 @@ apply script (see Owner actions). Verification after apply, done by me:
 ### 10. CI housekeeping and observability
 
 ### 11. 2027 draft-pick policy
+
+Precise difference (`src/identity/pick_lifecycle.py`):
+- **Board (prices picks):** `board_pick_horizon` ends at the latest PROVEN-completed draft + 3. This is owner decision
+  2026-10-19: "let's not add 2030 until the 2027 draft is complete, because I think that's when we're issued our
+  2030 picks".
+- **League (displays owned picks):** `league_draft_years` spans `OWNED_PICK_HORIZON_CLASSES` = 4 classes from the
+  calendar anchor `max(calendar year, Sleeper league.season)`, minus retired classes.
+- **Today (2026-11-19):** both show 2027–2029; 2026 is retired.
+- **From 2027-01-01 until the 2027 rookie draft is proven complete:**
+  - the league anchor becomes 2027, so the league lists 2027–2030;
+  - the board still ends at 2029;
+  - a 2030 pick appears in league views and the trade tools as unpriced (never 0), pinned by
+    `test_documented_divergence_league_window_reaches_one_class_past_the_board_horizon`.
+- Sleeper issues class N+3 only when class N's draft completes (the code's own rule). So until the 2027 draft those
+  2030 rows are default-ownership placeholders that Sleeper has not issued and that cannot be traded.
+
+Recommendation: end the league window at the same issuance rule (the board-horizon function fed this league's own
+completion evidence). The league then never lists an unissued class, and every pick it shows is one the board prices.
+2030 appears in both scopes the moment the 2027 draft is proven complete. Values do not change.
+
+Prototype (NOT a PR, awaiting the decision): branch `claude/serene-shannon-7lsrm9-s11-league-pick-window` (`d5b8161d`),
+an 8-line change in `league_draft_years`. Measured effects:
+- 8 tests that pin today's behaviour would be updated with the decision (listed in the commit message). The full
+  related run was 2491 passed / 9 failed; 8 failures are those pins, and 1 was a load flake that passes alone.
+- Side effect to decide: a league with NO completion evidence would show 3 future classes instead of 4. That is the
+  board's fail-closed floor, which applies to the leagues outside `dynasty_main`.
 
 ### 12. Data-only deploy shadow evidence
 
