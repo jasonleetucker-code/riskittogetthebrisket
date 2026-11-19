@@ -531,6 +531,29 @@ test has since been pinned:
 - Its release candidate's advisory source-health step was red on the DLF rookie boards (§10), not on anything in the
   train.
 
+## Final verification (2026-11-19 ~16:00 UTC)
+
+- **Production `/api/status`:** `build.commit` **`58424f58`** (all 10 STAB PRs merged), `running: false`,
+  `hung: false`, last scrape success 15:59 UTC.
+- **`freshness_slo`:** top-200 stale 0/200; priced withheld 2 of 1,013 (0.2 %); board age 0.02 h. Private sources
+  are stale 4 of 4 (Signals, pending the owner reconnect).
+- **Pages:** `/` 200, `/league` 200, `/login` 200; `/rankings` and `/trade` 307 to `/login`, the private-page gate
+  working as designed.
+- **Deploy safety:** the new ancestry guard ran live (deploy 44515440979); 32212914036 answers 404; 43096180672 is
+  still `queued` and the API refuses both cancel and delete (owner action 4).
+- **Branch protection: NOT applied.** Ruleset 19976839 is still `deletion` + `non_fast_forward` with three always-on
+  bypasses, so `main` has no required checks until owner action 3.
+- **Workflows:** 56 active, 57 disabled (reversible).
+- **Post-deploy observation:** automatic for both push deploys (`workflow_run`) and bot deploys (#2272, verified on
+  44539332909).
+- **Not verified, with the reason:**
+  - alert receipt (no channel exists yet);
+  - Signals freshness (session needs the owner);
+  - off-box restore (no destination approved);
+  - physical-iPhone behaviour (owner checklist);
+  - Node 22 in production (box still on 20);
+  - data-only activation (evidence bar not met).
+
 ## Owner actions (consolidated, priority order)
 
 Each item says what to do, why, the risk, what is prepared, how I verify, and the rollback. Items 1–4 are the
