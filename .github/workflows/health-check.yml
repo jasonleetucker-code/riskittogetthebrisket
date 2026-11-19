@@ -6,6 +6,11 @@ on:
     # GitHub Actions cron uses UTC.
     - cron: "17 */6 * * *"
   workflow_dispatch:
+    inputs:
+      owner_push_test:
+        description: Also send one TEST push to the owner's ntfy topic (repo secret NOTIFY_WEBHOOK_URL)
+        type: boolean
+        default: false
 
 concurrency:
   group: health-check
@@ -55,6 +60,30 @@ jobs:
             exit 1
           fi
           echo "url=${URL%/}" >> "$GITHUB_OUTPUT"
+
+      - name: Send a test owner push (manual dispatch only)
+        # STAB-2: proves the GitHub-side alert path (health, SLO, deploy lag)
+        # reaches the owner's ntfy topic. Delivery to the ntfy server is checked
+        # here; RECEIPT is confirmed by the owner on the phone. Never prints the URL.
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.owner_push_test }}
+        shell: bash
+        env:
+          NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
+        run: |
+          set -Eeuo pipefail
+          if [[ "${NOTIFY_WEBHOOK_URL:-}" != https://* ]]; then
+            echo "::error title=Owner push not configured::repo secret NOTIFY_WEBHOOK_URL is unset or not https"
+            exit 1
+          fi
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          if curl -fsS --max-time 10 -H "Title: [TEST] Risk It GitHub-side alert" \
+              --data-binary "Test push from the Scheduled Health Check (manual dispatch). Health, SLO and deploy-lag alerts will reach you here. ${RUN_URL}" \
+              "${NOTIFY_WEBHOOK_URL}" >/dev/null 2>&1; then
+            echo "test push accepted by the ntfy server; confirm receipt on the phone"
+          else
+            echo "::error title=Owner push failed::the ntfy server did not accept the test push"
+            exit 1
+          fi
 
       - name: Check /api/health
         id: health
@@ -362,6 +391,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
           # This job has no `actions/checkout` step (deliberately —
           # it's a lightweight external HTTP ping), so `gh` cannot
           # infer the repo from a `.git` directory the way the
@@ -424,6 +454,18 @@ jobs:
           # that falls outside the window is a tracker that gets duplicated.
           # Proven against a gh stub + real jq for all three login spellings
           # by tests/deploy/test_sharp_tracker_dedup.py.
+          # Optional owner push (STAB-2): the repo secret NOTIFY_WEBHOOK_URL (a
+          # private ntfy topic). Unset -> no-op. Never prints the URL; a failed
+          # POST is a warning, never a step failure. Pushes only on a NEW
+          # incident, a CHANGED condition set, or a recovery -- not every run.
+          notify_owner() {
+            [[ "${NOTIFY_WEBHOOK_URL:-}" == https://* ]] || return 0
+            if curl -fsS --max-time 10 -H "Title: $1" --data-binary "$2" "${NOTIFY_WEBHOOK_URL}" >/dev/null 2>&1; then
+              echo "owner push sent: $1"
+            else
+              echo "::warning title=Owner push failed::the ntfy POST for '$1' did not succeed"
+            fi
+          }
           TRACKER_TITLE="Production health check failing"
           if ! ROWS=$(gh issue list --state open --label production-health \
                         --limit 1000 --json number,title); then
@@ -443,6 +485,8 @@ jobs:
               --title "$TRACKER_TITLE" \
               --body "$BODY" \
               --label production-health
+            notify_owner "Risk It: production health check failing" \
+              "The scheduled production health check failed. Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           fi
 
       - name: Close the tracking issue on a green run
@@ -453,6 +497,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
           # See the matching comment on "Open or update the tracking
           # issue on failure" — same missing-checkout cause.
           GH_REPO: ${{ github.repository }}
@@ -464,6 +509,18 @@ jobs:
           # TITLE (#958), and EVERY match is closed rather than `.[0]`: the
           # retired author clause let duplicates accumulate, and one green run
           # must drain all of them.
+          # Optional owner push (STAB-2): the repo secret NOTIFY_WEBHOOK_URL (a
+          # private ntfy topic). Unset -> no-op. Never prints the URL; a failed
+          # POST is a warning, never a step failure. Pushes only on a NEW
+          # incident, a CHANGED condition set, or a recovery -- not every run.
+          notify_owner() {
+            [[ "${NOTIFY_WEBHOOK_URL:-}" == https://* ]] || return 0
+            if curl -fsS --max-time 10 -H "Title: $1" --data-binary "$2" "${NOTIFY_WEBHOOK_URL}" >/dev/null 2>&1; then
+              echo "owner push sent: $1"
+            else
+              echo "::warning title=Owner push failed::the ntfy POST for '$1' did not succeed"
+            fi
+          }
           TRACKER_TITLE="Production health check failing"
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           if ! OPEN=$(gh issue list --state open --label production-health \
@@ -481,6 +538,7 @@ jobs:
             gh issue close "$N" --reason completed --comment \
               "Production health check green again as of $(date -u +"%Y-%m-%dT%H:%M:%SZ"). Closing. Workflow run: ${RUN_URL}"
           done
+          notify_owner "Risk It: production health recovered" "The production health check is green again. Run: ${RUN_URL}"
 
   slo:
     # Code freshness (is validated main actually deployed?), pipeline health and
@@ -545,10 +603,23 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
           GH_REPO: ${{ github.repository }}
           RC: ${{ steps.slo.outputs.rc }}
         run: |
           set -Eeuo pipefail
+          # Optional owner push (STAB-2): the repo secret NOTIFY_WEBHOOK_URL (a
+          # private ntfy topic). Unset -> no-op. Never prints the URL; a failed
+          # POST is a warning, never a step failure. Pushes only on a NEW
+          # incident, a CHANGED condition set, or a recovery -- not every run.
+          notify_owner() {
+            [[ "${NOTIFY_WEBHOOK_URL:-}" == https://* ]] || return 0
+            if curl -fsS --max-time 10 -H "Title: $1" --data-binary "$2" "${NOTIFY_WEBHOOK_URL}" >/dev/null 2>&1; then
+              echo "owner push sent: $1"
+            else
+              echo "::warning title=Owner push failed::the ntfy POST for '$1' did not succeed"
+            fi
+          }
           TRACKER_TITLE="Production SLO alert"
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -567,6 +638,7 @@ jobs:
             if [[ -n "$EXISTING" ]]; then
               gh issue close "$EXISTING" --reason completed --comment \
                 "Production SLOs back within budget as of ${NOW}. Workflow run: ${RUN_URL}"
+              notify_owner "Risk It: production SLOs recovered" "Back within budget as of ${NOW}. ${RUN_URL}"
             fi
             exit 0
           fi
@@ -586,6 +658,7 @@ jobs:
             "$HEADLINE" "$REPORT" "$NOW" "$RUN_URL" "$SIG")
           if [[ -z "$EXISTING" ]]; then
             gh issue create --title "$TRACKER_TITLE" --body "$BODY" --label production-health
+            notify_owner "Risk It: production SLO alert" "${HEADLINE} Conditions: ${SIG}. ${RUN_URL}"
             exit 0
           fi
           OLD_SIG=$(printf '%s' "$ROWS" \
@@ -596,4 +669,5 @@ jobs:
           if [[ "$OLD_SIG" != "$SIG" ]]; then
             gh issue comment "$EXISTING" --body \
               "Breached/unknown conditions changed at ${NOW}: \`${OLD_SIG:-none}\` -> \`${SIG}\`. ${RUN_URL}"
+            notify_owner "Risk It: production SLO conditions changed" "${OLD_SIG:-none} -> ${SIG}. ${RUN_URL}"
           fi
