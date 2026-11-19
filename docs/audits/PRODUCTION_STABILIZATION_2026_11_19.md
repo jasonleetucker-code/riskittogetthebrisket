@@ -158,6 +158,23 @@ Findings (2026-11-19):
   - Reversible: `PUT …/enable`. Run history is kept, and no workflow file or definition was deleted.
   - Several were production-touching one-shot repair or proof jobs (`_tmp_chatgpt_v1_27_prod_proof`,
     `zz-enable-prod-verification`) that any branch still carrying the file could have dispatched.
+- **Rank-form drift (#898): resolved as a tripwire, not silenced.**
+  - Since T15 (`67f19166`), the standing drift recorded in `config/ci/rank_form_drift_accepted.json` is green with
+    a warning and a summary. New or worse drift is still RED and comments on the issue.
+  - The owner closed #898 on 2026-11-18 14:58 UTC ("completed"). The last run (dispatch, 2026-11-18 17:47) passed.
+  - The constants were deliberately not re-pinned: that is a valuation methodology change. Measured standing drift
+    (2026-11-17): offense excess RMSE +96.5, IDP +181.8, against a 25.0 threshold.
+- **Sharp verification honesty: in place since T15.**
+  - `Verify Sharp Production Population` publishes `measured` and runs its `verdict` job only when production was
+    actually measured.
+  - Today `/api/sharp/cohort` answers 401, so every run reports `unverifiable_unauthenticated` on #1727 ("green, and
+    it has not measured anything"). It never claims a pass.
+  - Measuring it needs `SHARP_SMOKE_TOKEN`. That is a production credential (a repository secret plus the same value
+    in the box `.env`), so it is owner action 11.
+- **Ubuntu runner apt failures:** #2268 (`scripts/ci/install_apt_packages.sh`: retry plus a mirror fallback).
+- **Cold-start verification:** #2269 (readiness probe; worst case 360 s, inside the 480 s cap).
+- **Post-deploy observation of bot deploys:** #2272. Deploy Production now dispatches the shadow observer and the
+  authenticated verification for bot-started deploys. GitHub never fires `workflow_run` for them (see §12).
 
 ### 11. 2027 draft-pick policy
 
@@ -278,7 +295,9 @@ immediate-safety set.
    (§11 above; prototype branch `claude/serene-shannon-7lsrm9-s11-league-pick-window`).
 10. **Physical-device checks (STAB-9).** Work through `docs/qa/REAL_DEVICE_CHECKLIST_2026-11-19.md` (from #2270) on
     an iPhone.
-11. **Sharp smoke token (STAB-10).** Provision the `SHARP_SMOKE_TOKEN` repo secret (#1727); decide #898
-    (rank-form drift: re-pin the constants or retire the reconstruction path).
+11. **Sharp smoke token (STAB-10).** Provision `SHARP_SMOKE_TOKEN` (#1727): one random value, set both as the repo
+    secret and in the box `.env`, then restart `dynasty`. Until then the Sharp check honestly reports "not measured".
+    #898 is already closed by you; re-pinning the rank-form constants stays optional (the tripwire catches worse
+    drift).
 12. **Data-only deploy activation (STAB-12), later.** Decide whether retrospective comparisons count toward the
     ≥30 / ≥14-day bar, then approve or decline the Agent OS §3 amendment once the bar is met.
