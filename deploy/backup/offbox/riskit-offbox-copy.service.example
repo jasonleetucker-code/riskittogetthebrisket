@@ -27,3 +27,8 @@ StandardError=append:/var/log/riskit-offbox-backup.log
 Nice=10
 IOSchedulingClass=idle
 TimeoutStartSec=2h
+# Immediate failure notice (optional). Reuses the box's one owner push channel: put
+# NOTIFY_WEBHOOK_URL (a private ntfy topic; treat it as a secret) in /etc/riskit/offbox.env.
+# Unset = nothing is contacted. Never fails the unit; the stale-copy alert in
+# src/api/backup_health.py is the backstop if this notice cannot be delivered.
+ExecStopPost=/bin/sh -c '[ "$SERVICE_RESULT" = success ] || [ -z "$NOTIFY_WEBHOOK_URL" ] || curl -fsS -m 10 -d "riskit off-box backup copy FAILED ($SERVICE_RESULT)" "$NOTIFY_WEBHOOK_URL" >/dev/null 2>&1; exit 0'

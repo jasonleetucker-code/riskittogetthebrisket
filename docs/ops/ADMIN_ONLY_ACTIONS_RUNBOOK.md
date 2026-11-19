@@ -301,6 +301,11 @@ copy**, or a separately documented risk acceptance. On-host copies bound a proce
 
 **Measured 2026-11-18:** all 14 retained generations live on the production disk; there is no off-box copy yet.
 
+**Destination comparison and recommendation (2026-11-19, STAB-4):** `docs/ops/BACKUP_OFFBOX_DESIGN_2026-11-19.md`
+compares B2, R2, S3, a second host and the box's own vendor, recommends Backblaze B2 behind `rclone crypt` with a
+no-delete key and Object Lock, and specifies the isolated drill and the stale-copy alert. It is a recommendation; no
+provider is chosen until you approve it.
+
 Two opt-in paths exist, both disabled until you configure them. This repository picks no provider.
 
 **Path A (2026-11-18, recommended): `scripts/offbox_backup.py`, provider-independent, hash-verified.** It restore-verifies the newest generation locally, copies it to a target you choose (`dir:/mount/path`, `rsync:user@host:path`, or `rclone:remote:path`), then re-reads every file from the target and requires the SHA-256 to match. It never deletes anything on the target and refuses a target you have not declared encrypted. `scripts/offbox_backup.py drill` restores the newest copy into a fresh temp directory (never a production path), checks the manifest hashes and runs the same restore verification. Procedure at the end of this section.

@@ -233,3 +233,57 @@ def test_readback_fails_closed_without_free_space(env, monkeypatch):
 def test_docstring_does_not_claim_nothing_is_deleted():
     assert "Nothing is ever" not in ob.__doc__
     assert "previous copy" in ob.__doc__
+
+
+def test_verified_copy_records_a_health_marker_without_the_destination(env, capsys):
+    gen, remote = env
+    e = {ob.ENV_ACK: "1"}
+    argv = ["copy", "--target", f"dir:{remote}", "--generation", str(gen), "--json"]
+    assert ob.main(argv, env=e) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["health_marker"] == "ok"
+    marker = (gen.parent.parent / "last_mirror").read_text(encoding="utf-8")
+    assert "mirrored_at=" in marker and "generation=2026-11-18" in marker
+    assert "dest=offbox_copy:dir" in marker
+    assert str(remote) not in marker  # the destination never lands in the marker
+
+
+def test_failed_copy_leaves_the_marker_untouched(env):
+    gen, remote = env
+    e = {ob.ENV_ACK: "1"}
+    marker = gen.parent.parent / "last_mirror"
+    marker.write_text("schema=1\nmirrored_at=2026-01-01T00:00:00Z\n", encoding="utf-8")
+    (gen / "sqlite" / "user_kv.sqlite.gz").write_bytes(b"corrupt")
+    argv = ["copy", "--target", f"dir:{remote}", "--generation", str(gen)]
+    assert ob.main(argv, env=e) == 1
+    assert "2026-01-01" in marker.read_text(encoding="utf-8")
+
+
+def _dump_runner(payload: str, rc: int = 0):
+    def run(cmd):
+        return subprocess.CompletedProcess(cmd, rc, payload, "")
+
+    return run
+
+
+def test_encryption_evidence_is_observed_only_for_an_rclone_crypt_remote():
+    crypt = _dump_runner('{"sec": {"type": "crypt", "password": "OBSCURED"}, "b2": {"type": "b2"}}')
+    assert ob.parse_target("rclone:sec:bk", runner=crypt).encryption_evidence() == (
+        "rclone_crypt_remote"
+    )
+    assert ob.parse_target("rclone:b2:bk", runner=crypt).encryption_evidence() == "not_verified"
+    assert ob.parse_target("rclone:ghost:bk", runner=crypt).encryption_evidence() == "not_verified"
+    for bad in (_dump_runner("not json"), _dump_runner("{}", rc=1)):
+        assert ob.parse_target("rclone:sec:bk", runner=bad).encryption_evidence() == "not_verified"
+    assert ob.parse_target("rsync:u@h:p", runner=crypt).encryption_evidence() == "not_verified"
+    # the credential-bearing dump is never echoed
+    assert "OBSCURED" not in repr(ob.parse_target("rclone:sec:bk", runner=crypt).describe())
+
+
+def test_marker_write_failure_is_reported_not_fatal(env):
+    gen, _ = env
+    bad = gen.parent.parent.parent / "afile"  # a file where a directory is needed
+    bad.write_text("x", encoding="utf-8")
+    fake = bad / "daily" / "2026-11-18"
+    result = ob.record_copy_marker(fake, {"target": "dir:/x"}, generations=1)
+    assert result.startswith("not recorded")
