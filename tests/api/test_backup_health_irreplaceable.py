@@ -569,3 +569,78 @@ def test_unlistable_generations_make_an_absent_source_unverifiable_not_absent_by
     assert status["analyst_ledger"] == "unverifiable"
     assert "absent_by_design" not in status.values()
     assert ledgers["coverage"] == "unverifiable"
+
+
+def test_stale_recorded_offbox_copy_alerts_but_an_unconfigured_one_does_not(tmp_path):
+    _make_generation(tmp_path / "state")
+    assert bh.alert_rows(_detail(tmp_path))["rows"] == []  # never configured: opt-in, no alert
+    marker = tmp_path / "state" / "last_mirror"
+    marker.write_text("schema=1\nmirrored_at=2026-10-26T06:00:00Z\n", encoding="utf-8")
+    block = bh.alert_rows(_detail(tmp_path))
+    rows = [r for r in block["rows"] if r["kind"] == "offbox_copy"]
+    assert rows and rows[0]["state"] == "stale"  # NOW is far past that stamp
+    alerts = ops_alerts._check_backup_coverage(block)
+    assert any(a.category == "backup_offbox_copy" for a in alerts)
+
+
+def test_fresh_recorded_offbox_copy_raises_nothing(tmp_path):
+    _make_generation(tmp_path / "state")
+    fresh = datetime.fromtimestamp(NOW - 3600, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    (tmp_path / "state" / "last_mirror").write_text(
+        f"schema=1\nmirrored_at={fresh}\n", encoding="utf-8"
+    )
+    assert bh.alert_rows(_detail(tmp_path))["rows"] == []
+
+
+def test_unverifiable_or_unchecked_offbox_mirror_is_not_recovery(tmp_path):
+    """A firing ``backup_offbox_copy`` must survive a pass that cannot judge the
+    mirror (corrupt/unreadable marker, unreadable state root): unknown is not
+    recovered, so no false recovery notice and no re-fire afterwards."""
+    _make_generation(tmp_path / "state")
+    marker = tmp_path / "state" / "last_mirror"
+    marker.write_text("schema=1\nmirrored_at=2026-10-26T06:00:00Z\n", encoding="utf-8")
+    sent: list[tuple] = []
+
+    def delivery(to, subject, body):
+        sent.append((subject, body))
+        return True
+
+    kv = tmp_path / "kv.sqlite"
+    first = ops_alerts.check_and_alert(
+        backup_coverage=bh.alert_rows(_detail(tmp_path)),
+        delivery=delivery,
+        to_email="ops@example.test",
+        kv_path=kv,
+    )
+    assert first["fired"] == 1 and first["recovered"] == 0
+    sent.clear()
+
+    # 1. marker present but unreadable (a directory in its place) -> unverifiable
+    marker.unlink()
+    marker.mkdir()
+    block = bh.alert_rows(_detail(tmp_path))
+    assert block["ledgersChecked"] and not block["offboxChecked"]
+    unverifiable = ops_alerts.check_and_alert(
+        backup_coverage=block, delivery=delivery, to_email="ops@example.test", kv_path=kv
+    )
+    assert unverifiable["recovered"] == 0 and not sent
+    assert "backup_offbox_copy" in ops_alerts._load_ops_state(path=kv)  # noqa: SLF001
+
+    # 2. state root unreadable -> nothing checked at all
+    unchecked = ops_alerts.check_and_alert(
+        backup_coverage={"rows": [], "ledgersChecked": False, "proofChecked": False},
+        delivery=delivery,
+        to_email="ops@example.test",
+        kv_path=kv,
+    )
+    assert unchecked["recovered"] == 0 and not sent
+
+    # 3. a pass that CAN judge (marker removed by the operator) recovers it once
+    marker.rmdir()
+    cleared = ops_alerts.check_and_alert(
+        backup_coverage=bh.alert_rows(_detail(tmp_path)),
+        delivery=delivery,
+        to_email="ops@example.test",
+        kv_path=kv,
+    )
+    assert cleared["recovered"] == 1

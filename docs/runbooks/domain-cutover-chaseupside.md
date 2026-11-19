@@ -616,9 +616,44 @@ sudo systemctl restart dynasty
 **12b. [GITHUB] A deploy is bad.**
 
 Actions → **Deploy** → *Run workflow* with `deploy_ref` set to the last
-known-good commit and `allow_non_fast_forward=true` (required — the
-workflow blocks backwards deploys by default). Or run
+known-good commit, `allow_non_fast_forward=true` (required — the
+workflow blocks backwards deploys by default) **and `expected_live_sha`
+set to the full 40-hex commit production is running right now**. Or run
 `deploy/rollback.sh` on the box.
+
+Read the live commit immediately before dispatching:
+
+```bash
+curl -s "$PROD_PUBLIC_URL/api/status" | jq -r '.build.commit'
+```
+
+`expected_live_sha` is a compare-and-swap (STAB-1, 2026-11-19;
+`scripts/deploy_ancestry_guard.py`). The deploy guard honours the rollback
+only if that value equals the commit the box records as its last successful
+deploy at the moment the guard runs, so a rollback requested against one
+production state cannot fire after production has moved on. A missing,
+abbreviated or out-of-date value refuses the run before anything reaches the
+box; the error prints both the value you sent and the one production
+records — re-read `/api/status` and re-dispatch if the rollback is still
+wanted. Other refusals the same guard applies:
+
+* `allow_non_fast_forward=true` on anything but a manual dispatch (a push
+  never carries rollback intent).
+* A run whose **first attempt** reaches the guard more than 6 hours after it
+  was created (a run that sat queued that long is not the deploy anyone
+  intended). Start a fresh dispatch; re-running the same run is also accepted,
+  because a re-run is an explicit human action.
+* An unreadable run creation time (read with 3 bounded attempts) or
+  production baseline (it fails closed; re-run the job).
+* A state file that **exists but is empty** (or whitespace only, or not a full
+  40-hex SHA). That is what an interrupted write leaves, not a first deploy:
+  write the live commit (`/api/status` → `build.commit`) into
+  `~/.deploy-state/trade-calculator.last_successful_deploy_commit` on the box
+  and re-run, or delete the file only if the host has never completed a
+  deploy.
+* A box with **no state file at all** accepts a plain deploy (first deploy)
+  but not a rollback flag — there is nothing for the compare-and-swap to
+  match; dispatch without the flag.
 
 Since 2026-10-01 the workflow resolves `deploy_ref` once to a full commit SHA
 (branch name, tag name or full SHA; abbreviated SHAs and expressions such as

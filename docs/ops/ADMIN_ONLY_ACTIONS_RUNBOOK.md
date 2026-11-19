@@ -169,6 +169,11 @@ needs the public half, so save it from step 1 first. Deletion cannot be undone w
 
 **Why:** a literal value once sat in public history. `server.py` requires the value from the environment.
 
+**Full procedure, 2026-11-19 (STAB-5):** `docs/ops/CREDENTIAL_INVENTORY_2026-11-19.md` section 5 wraps the steps below
+with the replacement-access precondition, a no-reveal login test of the new AND the old value
+(`scripts/check_login_status.py`, prints only an HTTP status) and the ordered rollback. The inventory also lists every
+secret the workflows reference, with least-privilege findings.
+
 **Which secrets this covers.** `JASON_LOGIN_PASSWORD` is the only login secret this runbook names. The other
 box-side tokens (`SIGNAL_ALERT_CRON_TOKEN`, `INTEL_REFRESH_TOKEN`, `SHARP_SMOKE_TOKEN`) are bearer tokens; rotate them
 the same way, plus the matching GitHub Actions secret, only if you believe they leaked.
@@ -300,6 +305,11 @@ copy**, or a separately documented risk acceptance. On-host copies bound a proce
 1 hour, but do not survive losing the disk.
 
 **Measured 2026-11-18:** all 14 retained generations live on the production disk; there is no off-box copy yet.
+
+**Destination comparison and recommendation (2026-11-19, STAB-4):** `docs/ops/BACKUP_OFFBOX_DESIGN_2026-11-19.md`
+compares B2, R2, S3, a second host and the box's own vendor, recommends Backblaze B2 behind `rclone crypt` with a
+no-delete key and Object Lock, and specifies the isolated drill and the stale-copy alert. It is a recommendation; no
+provider is chosen until you approve it.
 
 Two opt-in paths exist, both disabled until you configure them. This repository picks no provider.
 

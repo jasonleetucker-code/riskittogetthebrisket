@@ -228,7 +228,11 @@ def test_rollback_still_needs_explicit_authorization(workflow):
     assert flag["default"] is False
     guard = _step(parsed["jobs"]["deploy"], "Guard against skipping")
     assert guard["env"]["ALLOW_NON_FF"] == "${{ inputs.allow_non_fast_forward }}"
-    assert "would move production BACKWARDS" in guard["run"]
+    # The decision lives in the workflow commit's helper since STAB-1
+    # (tests/deploy/test_deploy_ancestry_guard.py drives it end to end).
+    assert "python3 scripts/deploy_ancestry_guard.py" in guard["run"]
+    helper = (ROOT / "scripts" / "deploy_ancestry_guard.py").read_text(encoding="utf-8")
+    assert "would move production BACKWARDS" in helper
 
 
 def test_box_never_falls_back_to_the_branch_for_an_exact_commit():
