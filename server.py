@@ -22385,7 +22385,9 @@ async def run_signal_alerts(request: Request):
         # Board age, not process age (audit F-19).  This one fed the ALERTER,
         # so the wrong number here did not merely mislead a dashboard.
         data_age_hours = _board_age_hours()
-        ops_summary = _ops.check_and_alert(
+        # Delivery is network I/O (ntfy push, SMTP fallback): run the whole
+        # sweep off the event loop so a slow channel cannot stall requests.
+        ops_kwargs = dict(
             status_payload=status_payload,
             circuit_snapshots=_cb.snapshot_all(),
             contract_health=contract_health,
@@ -22400,6 +22402,7 @@ async def run_signal_alerts(request: Request):
             delivery=_deliver_owner_alert if _owner_alert_recipient() else None,
             to_email=_owner_alert_recipient(),
         )
+        ops_summary = await run_in_threadpool(lambda: _ops.check_and_alert(**ops_kwargs))
         result["opsAlerts"] = ops_summary
     except Exception as exc:  # noqa: BLE001
         log.warning("ops_alerts check failed: %s", exc)
@@ -22416,11 +22419,16 @@ async def run_signal_alerts(request: Request):
 
         source_health = _build_source_health_snapshot(latest_data or latest_contract_data)
         if source_health:
-            stale_summary = _sha.check_and_alert(
-                source_health,
-                source_weighting=(latest_contract_data or {}).get("sourceWeighting"),
-                delivery=_deliver_owner_alert if _owner_alert_recipient() else None,
-                to_email=_owner_alert_recipient(),
+            stale_weighting = (latest_contract_data or {}).get("sourceWeighting")
+            stale_delivery = _deliver_owner_alert if _owner_alert_recipient() else None
+            stale_to = _owner_alert_recipient()
+            stale_summary = await run_in_threadpool(
+                lambda: _sha.check_and_alert(
+                    source_health,
+                    source_weighting=stale_weighting,
+                    delivery=stale_delivery,
+                    to_email=stale_to,
+                )
             )
             result["sourceStalenessAlerts"] = stale_summary
     except Exception as exc:  # noqa: BLE001
