@@ -56,6 +56,20 @@ repository secrets — see ``.github/workflows/scheduled-refresh.yml``.
 A cached session (``dlf_session.json``, gitignored) caches the login
 cookies between runs so we only re-authenticate when WordPress
 invalidates the session (typically after ~14 days).
+
+Exit codes and board states
+---------------------------
+
+0 every board written; 1 a fetch/parse failure (or a board with no rows);
+2 a write guard refused a board (its last-good CSV is kept).  Every board that
+passed is still written.  ``--board-states PATH`` records one state per board
+(``written`` / ``refused`` / ``vendor_empty`` / ``parse_failed`` /
+``fetch_failed`` / ``preview``) so the prod push can say WHY a board did not
+refresh.  ``vendor_empty`` is a diagnostic label only, for boards that declare
+``may_publish_empty`` (the rookie boards): it still exits 1 and keeps the
+last-good CSV.  Deciding that an empty board is an expected seasonal state, so
+the source stops voting and stops alarming, belongs to
+``src/sources/seasonal_policy.py`` and is an owner decision.
 """
 
 from __future__ import annotations
@@ -108,12 +122,29 @@ BOARDS: dict[str, dict[str, str]] = {
         "out": "CSVs/site_raw/dlfRookieSf.csv",
         "label": "Rookie Superflex",
         "min_rows": 40,
+        # The draft class this board feeds, declared rather than inferred
+        # (2026-11-20).  The contract joins these rows by name onto players
+        # Sleeper marks as first-year, with no class check of its own, so a
+        # page that silently moved to the NEXT class would attach college
+        # names to whoever shares them.  ``_rookie_class_verdict`` refuses
+        # to overwrite the CSV when the page names another class or when
+        # the rows stop carrying NFL teams.  Changing class is a reviewed
+        # edit of these two keys, never a side effect of a scrape.
+        "rookie_class_year": 2026,
+        "rookie_class_stage": "drafted",
+        # The rookie boards can be published EMPTY between classes (measured
+        # 2026-11-20).  Only a board declaring this may be labelled
+        # ``vendor_empty``; any other empty board is ``parse_failed``.
+        "may_publish_empty": True,
     },
     "dlfRookieIdp": {
         "url": "https://dynastyleaguefootball.com/dynasty-rookie-idp-rankings/",
         "out": "CSVs/site_raw/dlfRookieIdp.csv",
         "label": "Rookie IDP",
         "min_rows": 20,  # smallest board; pre-NFL-draft class ~29 rows
+        "rookie_class_year": 2026,
+        "rookie_class_stage": "drafted",
+        "may_publish_empty": True,
     },
     # DLF's native offensive VALUE moved off the rankings boards to the Trade
     # Analyzer Values page (owner directive 2026-09-24).  Probed on the
@@ -613,11 +644,160 @@ def _values_summary(rows: list[dict]) -> list[str]:
     return lines
 
 
-def _board_verdict(cfg: dict, rows: list[dict]) -> tuple[bool, str]:
+#: Board states written by ``--board-states`` (one per processed board).
+#: Reasons are fixed codes or text this script composes, never raw exception
+#: or response text.
+BOARD_STATES = ("written", "refused", "vendor_empty", "parse_failed", "fetch_failed", "preview")
+
+
+def _empty_board_reason(html: str | None, cfg: dict | None = None) -> tuple[str, str] | None:
+    """Why a page yielded no rows: ``(state, reason)``, or None if it has rows.
+
+    Measured 2026-11-20 (DLF diagnostics 44742643782): the rookie pages render
+    the same DLF RankingEngine ``table#avgTable`` as the working Superflex
+    board, but with ZERO expert columns (headers ``Rank, Avg, Pos, Name, Team,
+    Age, Value, Follow``), zero body rows and no per-expert tables -- the
+    vendor has no rookie rankings published.  That is ``vendor_empty``: not a
+    parser or credential problem, and nothing to parse.  A rankings table that
+    names experts but carries no rows is ``parse_failed`` (rows we cannot see,
+    e.g. rendered client-side), and no rankings table at all is too.
+
+    ``vendor_empty`` is only ever a LABEL, and only for a board whose ``cfg``
+    declares ``may_publish_empty``; the same page on any other board is
+    ``parse_failed``.  The caller still fails the run either way.
+    """
+    if not html:
+        return ("parse_failed", "empty response body")
+    try:
+        from bs4 import BeautifulSoup
+    except ImportError:
+        return ("parse_failed", "bs4 unavailable")
+    soup = BeautifulSoup(html, "html.parser")
+    ranking_tables = []
+    for table in soup.find_all("table"):
+        thead = table.find("thead")
+        head = (thead or table.find("tr") or table).find_all(["th", "td"])
+        headers = [c.get_text(" ", strip=True).lower() for c in head]
+        firsts = {h.split()[0] for h in headers if h}
+        if "name" in firsts and ({"avg", "rank"} & firsts):
+            body = table.find("tbody") or table
+            rows = [tr for tr in body.find_all("tr") if tr.find_all("td")]
+            experts = sum(1 for h in headers if "last updated" in h)
+            ranking_tables.append((len(rows), experts))
+    if not ranking_tables:
+        return ("parse_failed", "no rankings table on the page")
+    if any(rows >= 10 for rows, _ in ranking_tables):
+        return None
+    if all(rows == 0 and experts == 0 for rows, experts in ranking_tables):
+        if not (cfg or {}).get("may_publish_empty"):
+            return (
+                "parse_failed",
+                "rankings table with 0 rows and 0 expert columns on a board that "
+                "does not declare may_publish_empty",
+            )
+        return (
+            "vendor_empty",
+            f"{len(ranking_tables)} rankings table(s) with 0 rows and 0 expert columns: "
+            "the vendor has no rankings published on this board",
+        )
+    return (
+        "parse_failed",
+        "rankings table carries <10 readable rows "
+        f"({ranking_tables[:4]} as (rows, expert columns))",
+    )
+
+
+#: NFL team abbreviations DLF prints in the Team column once a class is
+#: drafted (plus common alternates and FA for undrafted signings).  A college
+#: name in that column means a class that has not been drafted yet.
+_NFL_TEAM_CODES = frozenset(
+    {
+        "ARI", "ATL", "BAL", "BUF", "CAR", "CHI", "CIN", "CLE", "DAL", "DEN", "DET",
+        "GB", "GNB", "HOU", "IND", "JAX", "JAC", "KC", "KAN", "LV", "LVR", "LAC",
+        "LAR", "LA", "MIA", "MIN", "NE", "NWE", "NO", "NOR", "NYG", "NYJ", "PHI",
+        "PIT", "SF", "SFO", "SEA", "TB", "TAM", "TEN", "WAS", "WSH", "FA",
+    }
+)  # fmt: skip
+
+#: Share of team-carrying rows that must name an NFL team for a board
+#: declared ``rookie_class_stage: drafted``.  The committed 2026 boards sit at
+#: 61/61 and 31/31 (2026-11-20); an incoming class sits near 0.
+_DRAFTED_TEAM_SHARE_FLOOR = 0.8
+
+
+def _page_class_year(html: str | None) -> int | None:
+    """The rookie class a DLF page names in its <title>, e.g. 2026 for
+    "2026 Rookie Superflex Rankings For Dynasty Fantasy Football - DLF"."""
+    import re
+
+    if not html:
+        return None
+    m = re.search(r"<title[^>]*>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
+    if not m:
+        return None
+    title = " ".join(m.group(1).split())
+    # A title naming two different years ("Rookie Rankings 2026 | 2027 Class
+    # Preview") cannot say which class the rows are: no year, fail closed.
+    if len(set(re.findall(r"\b(20\d\d)\b", title))) > 1:
+        return None
+    # "2026 Rookie Superflex Rankings ...", "2026 Dynasty Rookie Rankings",
+    # "Rookie Rankings: 2027 Class" -- the year within 40 characters of
+    # "rookie", on either side.
+    y = re.search(r"\b(20\d\d)\b.{0,40}?\brookie", title, re.IGNORECASE) or re.search(
+        r"\brookie\b.{0,40}?\b(20\d\d)\b", title, re.IGNORECASE
+    )
+    return int(y.group(1)) if y else None
+
+
+def _drafted_team_share(rows: list[dict]) -> float | None:
+    """Share of rows with a Team cell that name an NFL team (None: no cells)."""
+    teams = [str(r.get("team") or "").strip().upper() for r in rows]
+    teams = [t for t in teams if t]
+    if not teams:
+        return None
+    return sum(1 for t in teams if t in _NFL_TEAM_CODES) / len(teams)
+
+
+def _rookie_class_verdict(cfg: dict, rows: list[dict], html: str | None) -> tuple[bool, str]:
+    """Is this the rookie class the board is declared to carry?  Fails closed.
+
+    No-op for boards without ``rookie_class_year``.  Otherwise the page title
+    must name exactly that class (a page that names none cannot be verified),
+    and a board declared ``drafted`` must carry NFL teams in its Team column.
+    """
+    expected = cfg.get("rookie_class_year")
+    if not expected:
+        return True, "ok"
+    year = _page_class_year(html)
+    if year is None:
+        return False, (
+            f"page title names no rookie class year; cannot verify it is the "
+            f"configured {expected} class"
+        )
+    if year != int(expected):
+        return False, (
+            f"page is the {year} rookie class but this board is configured for "
+            f"{expected}; switching classes is a reviewed config change "
+            f"(rookie_class_year / rookie_class_stage in BOARDS), never a scrape"
+        )
+    if cfg.get("rookie_class_stage") == "drafted":
+        share = _drafted_team_share(rows)
+        if share is None:
+            return False, "no Team cells parsed; cannot verify the drafted class"
+        if share < _DRAFTED_TEAM_SHARE_FLOOR:
+            return False, (
+                f"only {share:.0%} of rows name an NFL team; expected the drafted "
+                f"{expected} class (≥{_DRAFTED_TEAM_SHARE_FLOOR:.0%})"
+            )
+    return True, "ok"
+
+
+def _board_verdict(cfg: dict, rows: list[dict], html: str | None = None) -> tuple[bool, str]:
     """Would a real run write this board?  ``(ok, reason)``.
 
     The ONE place the per-board write guards live, shared by the real run and
     ``--dry-run`` so a diagnostic reports exactly the decision production makes.
+    Rookie boards also pass :func:`_rookie_class_verdict` (needs the page html).
     """
     min_rows = int(cfg.get("min_rows") or 30)
     if len(rows) < min_rows:
@@ -625,7 +805,7 @@ def _board_verdict(cfg: dict, rows: list[dict]) -> tuple[bool, str]:
             f"parsed only {len(rows)} rows — expected ≥{min_rows} (aligned with "
             "the downstream contract floor); partial/degraded scrape"
         )
-    return True, "ok"
+    return _rookie_class_verdict(cfg, rows, html)
 
 
 def _native_value_note(cfg: dict, rows: list[dict]) -> str | None:
@@ -724,6 +904,13 @@ def _probe_page(html: str) -> list[str]:
             f"table[{ti}] body_rows={len(body_rows)} id={str(table.get('id') or '')[:40]!r} "
             f"class={classes!r} attr_names={attrs[:12]}"
         )
+        if not body_rows:
+            # An empty table: its column headers only (an expert-less header
+            # row is how a vendor-empty board looks).  No surrounding page
+            # text -- it can carry the member's name.
+            thead = table.find("thead")
+            head = (thead or table.find("tr") or table).find_all(["th", "td"])
+            lines.append(f"  headers={[c.get_text(' ', strip=True)[:30] for c in head][:20]}")
         if len(body_rows) < 3:
             continue
         thead = table.find("thead")
@@ -733,6 +920,25 @@ def _probe_page(html: str) -> list[str]:
             cells = [c.get_text(" ", strip=True)[:30] for c in tr.find_all("td")][:14]
             lines.append(f"  row{ri}={cells}")
 
+    from urllib.parse import urlparse
+
+    srcs: list[str] = []
+    for script in soup.find_all("script", src=True):
+        parts = urlparse(str(script.get("src") or ""))
+        host = parts.hostname
+        if parts.scheme not in ("", "http", "https") or not parts.path.startswith("/"):
+            continue  # data:/blob: sources carry script text, not a path
+        if host and host != _PROBE_HOST and not host.endswith("." + _PROBE_HOST):
+            continue  # off-host, including protocol-relative //cdn paths
+        path = parts.path
+        if re.search(r"rank|table|dlf|player", path, re.IGNORECASE):
+            srcs.append(path[-90:])
+    if srcs:
+        lines.append(f"script_srcs={srcs[:15]}")
+    # Namespace only (``/wp-json/wp/v2``): a full route can carry a user slug.
+    rest = sorted(set(re.findall(r"/wp-json/[A-Za-z0-9_-]{1,40}(?:/v[0-9]{1,2})?", html)))
+    if rest:
+        lines.append(f"rest_paths={rest[:12]}")
     for si, script in enumerate(soup.find_all("script")):
         stype = str(script.get("type") or "")
         text = script.string or script.get_text() or ""
@@ -765,6 +971,35 @@ def _probe_page(html: str) -> list[str]:
     return lines
 
 
+def _probe_response_lines(response, url: str) -> list[str]:
+    """Where a URL actually landed: HTTP status, final path and redirect chain.
+
+    A page that moved (a new rookie class, a renamed slug) answers 200 at its
+    new address after a redirect, and the HTML alone does not say so.  Paths
+    only, and only on the DLF host -- never query strings, cookies or headers.
+    """
+    from urllib.parse import urlparse
+
+    def _path(u: str) -> str:
+        parts = urlparse(str(u or ""))
+        if (
+            parts.hostname
+            and parts.hostname != _PROBE_HOST
+            and not parts.hostname.endswith("." + _PROBE_HOST)
+        ):
+            return "<off-host>"
+        return parts.path or "/"
+
+    history = [
+        f"{getattr(h, 'status_code', '?')}:{_path(getattr(h, 'url', ''))}"
+        for h in (getattr(response, "history", None) or [])
+    ]
+    return [
+        f"status={getattr(response, 'status_code', '?')} "
+        f"final_path={_path(getattr(response, 'url', url))!r} redirects={history}",
+    ]
+
+
 def _probe(session, url: str) -> int:
     """Fetch one DLF URL with the member session and print diagnostics only."""
     from urllib.parse import urlparse
@@ -775,16 +1010,22 @@ def _probe(session, url: str) -> int:
     ):
         print(f"[DLF] probe refused: only https://{_PROBE_HOST} URLs", file=sys.stderr)
         return 2
+    # One GET per URL: the response that is described is the one parsed.
     try:
-        html = _fetch_rankings_html(session, url)
-        if _looks_like_preview(html):
+        response = session.get(url, timeout=45)
+        if response.status_code == 200 and _looks_like_preview(response.text):
             print("[DLF] probe: non-member preview — re-authenticating …", flush=True)
             _login(session)
-            html = _fetch_rankings_html(session, url)
-    except (RuntimeError, SystemExit) as exc:
-        print(f"[DLF] probe fetch failed: {exc}", file=sys.stderr)
+            response = session.get(url, timeout=45)
+    except Exception as exc:  # noqa: BLE001 - diagnostics only; type, never text
+        print(f"[DLF] probe fetch failed: {type(exc).__name__}", file=sys.stderr)
         return 1
     print(f"[DLF] probe {url}")
+    for line in _probe_response_lines(response, url):
+        print(f"  {line}")
+    if response.status_code != 200:
+        return 1
+    html = response.text
     for line in _probe_page(html):
         print(f"  {line}")
     return 0
@@ -872,6 +1113,17 @@ def main() -> int:
         ),
     )
     parser.add_argument(
+        "--board-states",
+        metavar="PATH",
+        default=None,
+        help=(
+            "Write a JSON object {board_key: {state, reason}} for every board this "
+            f"run processed; states: {', '.join(BOARD_STATES)}.  Lets the prod "
+            "push record WHY a board did not refresh.  A dry run records no "
+            "board state (the file holds {})."
+        ),
+    )
+    parser.add_argument(
         "--probe",
         metavar="URL",
         default=None,
@@ -892,12 +1144,23 @@ def main() -> int:
             return 1
         return _probe(session, args.probe)
     written_keys: list[str] = []
+    board_states: dict[str, dict[str, str]] = {}
 
     def _write_manifest() -> None:
         if args.written_manifest:
             Path(args.written_manifest).write_text(
                 json.dumps(written_keys) + "\n", encoding="utf-8"
             )
+        if args.board_states:
+            Path(args.board_states).write_text(
+                json.dumps(board_states, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+
+    def _state(key: str, state: str, reason: str) -> None:
+        if args.dry_run:
+            return  # a dry run decides nothing, so it records no state
+        board_states[key] = {"state": state, "reason": reason}
+        _write_manifest()
 
     _write_manifest()
 
@@ -926,6 +1189,7 @@ def main() -> int:
         except RuntimeError as exc:
             print(f"[DLF] {key} fetch failed: {exc}", file=sys.stderr)
             exit_code = max(exit_code, 1)
+            _state(key, "fetch_failed", f"fetch_error:{type(exc).__name__}")
             continue
         if _looks_like_preview(html):
             # The cached session may have expired mid-run; try once more.
@@ -936,6 +1200,7 @@ def main() -> int:
             except RuntimeError as exc:
                 print(f"[DLF] {key}: re-auth failed: {exc}", file=sys.stderr)
                 exit_code = max(exit_code, 1)
+                _state(key, "fetch_failed", f"reauth_error:{type(exc).__name__}")
                 continue
             if _looks_like_preview(html):
                 print(
@@ -943,6 +1208,7 @@ def main() -> int:
                     file=sys.stderr,
                 )
                 exit_code = max(exit_code, 1)
+                _state(key, "preview", "membership_preview_after_reauth")
                 continue
         if cfg.get("kind") == "values":
             vrows = _parse_trade_values(html)
@@ -961,6 +1227,7 @@ def main() -> int:
                     file=sys.stderr,
                 )
                 exit_code = max(exit_code, 2)
+                _state(key, "refused", reason)
                 continue
             count = _write_values_csv(out_path, vrows)
             picks = _write_value_picks_csv(REPO / cfg["picks_out"], vrows)
@@ -970,15 +1237,25 @@ def main() -> int:
                 flush=True,
             )
             written_keys.append(key)
-            _write_manifest()
+            _state(key, "written", f"{count} values")
             continue
         rows = _parse_rankings(html)
         print(f"[DLF] {key} ({label}): parsed {len(rows)} rows")
         if not rows:
+            # Still a failure (exit 1): only the seasonal-policy owner may make
+            # an empty board an expected state.  The label says which kind.
+            empty = _empty_board_reason(html, cfg) or ("parse_failed", "no rows extracted")
             print(f"[DLF] WARN: no rows extracted for {key}", file=sys.stderr)
+            if empty[0] == "vendor_empty":
+                print(
+                    f"[DLF] {key}: vendor published no rankings (vendor_empty); "
+                    "preserving last-good CSV.",
+                    file=sys.stderr,
+                )
             exit_code = max(exit_code, 1)
+            _state(key, empty[0], empty[1])
             continue
-        ok, reason = _board_verdict(cfg, rows)
+        ok, reason = _board_verdict(cfg, rows, html)
         if args.dry_run:
             # Evidence only: what the real run WOULD decide, from the same
             # verdict function, plus the table headers the parser saw.  Used by
@@ -1018,6 +1295,7 @@ def main() -> int:
                 file=sys.stderr,
             )
             exit_code = max(exit_code, 2)
+            _state(key, "refused", reason)
             continue
         note = _native_value_note(cfg, rows)
         if note:
@@ -1028,7 +1306,7 @@ def main() -> int:
             flush=True,
         )
         written_keys.append(key)
-        _write_manifest()
+        _state(key, "written", f"{count} rows")
     return exit_code
 
 

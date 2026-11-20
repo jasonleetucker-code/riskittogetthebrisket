@@ -135,6 +135,13 @@ fi
 "${PY}" -c 'import bs4, curl_cffi; print("deps : bs4", bs4.__version__, "curl_cffi", curl_cffi.__version__)' 2>&1 || echo "deps : import FAILED"
 
 # ------------------------------------------------------------------ 6 --
+hdr "[5b] per-board states recorded by the timer (box-local, not committed)"
+if [[ -f "${WORK_DIR}/dlf_board_states.json" ]]; then
+  cat "${WORK_DIR}/dlf_board_states.json"
+else
+  echo "no ${WORK_DIR}/dlf_board_states.json yet (written by the first timer run after #2275)"
+fi
+
 hdr "[6] per-board dry run (runner's fetch_dlf.py, no CSV written)"
 set +e
 (
@@ -150,16 +157,27 @@ echo "dry_run_exit=${rc}"
 # Analyzer Values page.  Page structure is evidence the parser is designed
 # from; the probe prints table shapes, first rows and embedded-data markers,
 # never cookies or script bodies, and writes nothing.
-hdr "[7] probe trade-analyzer-values"
+# The rookie boards are probed too: on 2026-11-17 both started parsing 0 rows
+# while every other board kept working, and a moved or client-rendered page is
+# only visible in its structure (status, final path, tables, embedded data).
+hdr "[7] probe page structure (values + rookie boards)"
 DLF_VALUES_URL="${DLF_VALUES_URL:-https://dynastyleaguefootball.com/trade-analyzer-values/?l=sf_te_prem}"
-set +e
-(
-  cd "${DIAG_DIR}"
-  export DLF_USERNAME DLF_PASSWORD
-  timeout 180 "${PY}" scripts/fetch_dlf.py --probe "${DLF_VALUES_URL}" 2>&1
-) | scrub
-rc=${PIPESTATUS[0]}
-set -e
-echo "probe_exit=${rc}"
+PROBE_URLS=(
+  "${DLF_VALUES_URL}"
+  "https://dynastyleaguefootball.com/dynasty-superflex-rankings/"
+  "https://dynastyleaguefootball.com/dynasty-rookie-superflex-rankings/"
+  "https://dynastyleaguefootball.com/dynasty-rookie-idp-rankings/"
+)
+for url in "${PROBE_URLS[@]}"; do
+  set +e
+  (
+    cd "${DIAG_DIR}"
+    export DLF_USERNAME DLF_PASSWORD
+    timeout 180 "${PY}" scripts/fetch_dlf.py --probe "${url}" 2>&1
+  ) | scrub
+  rc=${PIPESTATUS[0]}
+  set -e
+  echo "probe_exit=${rc}"
+done
 echo
 echo "=== done ==="
