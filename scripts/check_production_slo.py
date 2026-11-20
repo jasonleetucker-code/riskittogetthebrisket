@@ -18,8 +18,10 @@ Named results (code freshness and data freshness are kept separate):
 * ``pipeline.refresh``                hours since the last successful
   ``scheduled-refresh.yml`` run;
 * ``data_freshness.*``                the ``freshness_slo`` block of
-  ``/api/status`` (top-200 stale share, withheld share, board age) and
-  ``data_freshness.private_sources`` (provisioned private sources past budget);
+  ``/api/status`` (top-200 stale share, withheld share, board age),
+  ``data_freshness.private_sources`` (provisioned private sources past budget)
+  and ``data_freshness.roster_age_hours`` (the default league's rosters, judged
+  on the box by ``roster_freshness.roster_age`` against its own budget);
 * ``alerting.alert_delivery_failing`` consecutive failed owner-alert deliveries
   on the box (``/api/status`` ``alertDelivery``);
 * ``alerting.alert_sweep_age``        hours since the box's daily alert sweep
@@ -332,6 +334,78 @@ def rule_private_sources(snap: Snapshot, cfg: Mapping[str, Any]) -> Result:
     return Result(name, DATA, OK, stale, limit, "")
 
 
+def _number(value: Any) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
+def rule_roster_age(snap: Snapshot, cfg: Mapping[str, Any]) -> Result:
+    """The default league's rosters are not current (about three missed box scrapes).
+
+    The verdict and its budget are the box's own: ``rosterState`` is decided by
+    ``src/api/roster_freshness.roster_age`` against
+    ``league_registry.SCORING_SNAPSHOT_MAX_AGE_HOURS`` (published as
+    ``rosterMaxAgeHours``), the same rule the N-team trade engine refuses on.
+    So this rule adds no threshold of its own, and ``cfg`` is unused.
+    """
+    name = "data_freshness.roster_age_hours"
+    if not snap.status_reachable:
+        return Result(name, DATA, UNKNOWN, None, None, "/api/status unreachable")
+    slo = snap.freshness_slo
+    if not isinstance(slo, Mapping):
+        return Result(
+            name,
+            DATA,
+            UNKNOWN,
+            None,
+            None,
+            "status_block_absent: /api/status has no freshness_slo block",
+        )
+    if "rosterState" not in slo:
+        return Result(
+            name,
+            DATA,
+            UNKNOWN,
+            None,
+            None,
+            "status_field_absent: the deployed build does not publish rosterState",
+        )
+    state, source = slo.get("rosterState"), slo.get("rosterSource")
+    age, limit = _number(slo.get("rosterAgeHours")), _number(slo.get("rosterMaxAgeHours"))
+    if state == "current" and age is not None:
+        return Result(
+            name,
+            DATA,
+            OK,
+            age,
+            limit,
+            f"hours since the default league's rosters were fetched (source {source})",
+        )
+    if state == "stale":
+        why = (
+            "a failed roster fetch restored the last-good block"
+            if source == "last_good"
+            else "the live roster block is past its budget"
+        )
+        return Result(
+            name,
+            DATA,
+            BREACH,
+            age,
+            limit,
+            f"{why}; team-attributed trades on these rosters are refused as unverifiable",
+        )
+    return Result(
+        name,
+        DATA,
+        UNKNOWN,
+        None,
+        limit,
+        f"no provable roster fetch time on the served board (rosterState={state})",
+    )
+
+
 def _alerting_value(snap: Snapshot, key: str) -> tuple[bool, Any, str]:
     """``(present, value, why_unknown)`` for one ``ALERTING_STATUS_KEYS`` field."""
     if not snap.status_reachable:
@@ -446,6 +520,7 @@ RULES = (
     rule_withheld,
     rule_board_age,
     rule_private_sources,
+    rule_roster_age,
     rule_alert_delivery,
     rule_alert_sweep_age,
 )
