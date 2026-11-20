@@ -136,12 +136,45 @@ def test_kickoff_converts_eastern_to_utc_across_the_dst_boundary(tmp_path):
         bt.kickoff_utc(2026, 99, csv_path)
 
 
-def test_archive_selection_is_strictly_before_the_kickoff():
+#: Hermetic stand-in for the real ``exports/archive`` (a rolling window retention
+#: prunes): minimal zips under the source archives' own names carrying the two values
+#: ``select_archive`` reads, with every source archive's sha256 in ``provenance.json``
+#: (built by ``build_fixture.py`` beside them).
+SELECTION_FIXTURE = REPO / "tests" / "fixtures" / "idp_backtest_20260909"
+SELECTION_FIXTURE_ARCHIVES = SELECTION_FIXTURE / "exports" / "archive"
+
+
+def _selection_provenance() -> dict:
+    return json.loads((SELECTION_FIXTURE / "provenance.json").read_text(encoding="utf-8"))
+
+
+def test_archive_selection_fixture_is_the_recorded_extraction():
+    archives = _selection_provenance()["archives"]
+    on_disk = sorted(p.name for p in SELECTION_FIXTURE_ARCHIVES.iterdir())
+    assert on_disk == sorted(archives)
+    for name, rec in archives.items():
+        path = SELECTION_FIXTURE_ARCHIVES / name
+        assert bt.sha256_file(path) == rec["pinnedSha256"]
+        assert len(rec["sourceSha256"]) == 64 and len(rec["addedInCommit"]) == 40
+        gen = bt.archive_generation(path)
+        assert gen["source"] == "payload.scrapeTimestamp"
+        assert gen["g"] == datetime.fromisoformat(rec["scrapeTimestamp"])
+        assert gen["manifestGeneratedAt"] == rec["manifestGeneratedAt"]
+
+
+def test_archive_selection_is_strictly_before_the_kickoff(monkeypatch):
+    monkeypatch.setattr(bt, "REPO", SELECTION_FIXTURE)
     k = datetime(2026, 9, 10, 0, 20, tzinfo=timezone.utc)
     sel = bt.select_archive(k)
-    assert sel["name"] == "dynasty_export_20260909_211525.zip"
+    # the 2026-09-09 21:15:25 export (its filename stamp and its internal instant)
+    assert bt.archive_filename_stamp(sel["name"]) == datetime(
+        2026, 9, 9, 21, 15, 25, tzinfo=timezone.utc
+    )
+    assert sel["g"] == datetime(2026, 9, 9, 21, 15, 25, 520881, tzinfo=timezone.utc)
     assert sel["g"] < k
-    assert all(bt.archive_generation(REPO / "exports/archive" / n)["g"] >= k for n in sel["later"])
+    assert sel["later"] and all(
+        bt.archive_generation(SELECTION_FIXTURE_ARCHIVES / n)["g"] >= k for n in sel["later"]
+    )
     # a kickoff exactly at an archive's generation instant excludes that archive (strict)
     just_at = sel["g"]
     assert bt.select_archive(just_at)["g"] < just_at

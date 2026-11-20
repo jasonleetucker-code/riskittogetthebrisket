@@ -12,23 +12,36 @@ Pins the key outputs of the methodology proposal
   counts, so a later methodology change re-opens the proposal instead of breaking the
   suite.
 
+Hermetic: the archive's raw payload (pseudonymized) and the contract-build tree of the
+commit that added it are committed in ``tests/fixtures/te_skew_20261106/inputs.zip``
+(built by ``build_fixture.py`` beside it; its manifest records the source archive's
+sha256 and the tree revision).  The test used to read ``exports/archive`` -- a rolling
+window retention prunes -- and ``git archive`` the tree, and skipped when either was
+absent.  The fixture reproduces that analysis output exactly (measured when it was
+built: every output key identical, the incumbent board sha256 included).
+
 Research only: nothing here touches a served path.
 """
 
 from __future__ import annotations
 
+import contextlib
+import hashlib
 import importlib.util
+import json
 import math
 import random
-import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / "scripts" / "research" / "w27_f005_te_skew.py"
-ARCHIVE = "exports/archive/dynasty_export_20261106_194518.zip"
+PINNED_INPUTS = REPO / "tests" / "fixtures" / "te_skew_20261106" / "inputs.zip"
+#: sha256 of the source export archive, and the commit that added it (whose tree built
+#: that board).  The fixture's manifest must record exactly these.
 ARCHIVE_SHA256 = "d4b196eace153ec17a2c29bff53b66568bda3264a48c09aaadac852c7ce7ced1"
 TREE_REVISION = "2550b42abf36728731320bcfd78f762b7833402e"
 
@@ -119,26 +132,79 @@ def test_c1_is_scale_neutral_and_c0_is_not(W):
 
 
 @pytest.fixture(scope="module")
-def pinned(W):
-    if not (REPO / ARCHIVE).is_file():
-        pytest.skip("pinned archive absent")
-    try:
-        subprocess.run(
-            ["git", "-C", str(REPO), "cat-file", "-e", f"{TREE_REVISION}^{{commit}}"],
-            check=True,
-            capture_output=True,
+def pin_manifest():
+    with zipfile.ZipFile(PINNED_INPUTS) as zf:
+        return json.loads(zf.read("manifest.json"))
+
+
+@pytest.fixture(scope="module")
+def pinned_tree(pin_manifest, tmp_path_factory):
+    """The fixture's ``tree/`` extracted, every member checked against the manifest."""
+    base = tmp_path_factory.mktemp("te-skew-inputs")
+    with zipfile.ZipFile(PINNED_INPUTS) as zf:
+        names = set(zf.namelist()) - {"manifest.json"}
+        assert names == set(pin_manifest["files"]), "fixture zip and manifest disagree"
+        for name in sorted(names):
+            digest = hashlib.sha256(zf.read(name)).hexdigest()
+            assert digest == pin_manifest["files"][name], f"{name} does not match the manifest"
+            if name.startswith("tree/"):
+                zf.extract(name, base)
+    return base / "tree"
+
+
+@pytest.fixture(scope="module")
+def pinned(W, pin_manifest, pinned_tree):
+    """``analyse_archive`` over the committed inputs.
+
+    The fixture zip IS the archive (it carries the payload under the archive's own
+    member name), and the tree revision's contract-build paths come from the fixture
+    instead of ``git archive``, so neither ``exports/archive`` nor git history is read."""
+    from scripts.research_pinned_board import tree_content_sha256
+
+    revision = pin_manifest["source"]["treeRevision"]
+
+    @contextlib.contextmanager
+    def fixture_tree(rev):
+        assert rev == revision
+        yield (
+            pinned_tree,
+            {
+                "source": "committed fixture",
+                "revisionSha": rev,
+                "contentSha256": tree_content_sha256(pinned_tree),
+            },
         )
-    except (OSError, subprocess.CalledProcessError):
-        pytest.skip("pinned tree revision not in this clone's history")
-    return W.analyse_archive(ARCHIVE, counterfactuals=True)
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(W, "archive_revision", lambda archive: revision)
+        mp.setattr(W, "csv_tree", fixture_tree)
+        return W.analyse_archive(str(PINNED_INPUTS), counterfactuals=True)
 
 
-def test_inputs_are_pinned_and_offline(pinned):
+def test_inputs_are_pinned_and_offline(pinned, pin_manifest):
+    source = pin_manifest["source"]
+    assert source["archiveSha256"] == ARCHIVE_SHA256
+    assert source["treeRevision"] == TREE_REVISION
     inputs = pinned["inputs"]
-    assert inputs["archiveSha256"] == ARCHIVE_SHA256
     assert inputs["treeRevision"] == TREE_REVISION
+    assert inputs["payloadMember"] == source["payloadMember"]
+    assert inputs["payloadSha256"] == pin_manifest["files"][source["payloadMember"]]
+    assert inputs["boardDate"] == "2026-11-06"
     assert inputs["networkAttemptsRefused"] == 0
     assert pinned["incumbentRestatementMismatches"] == 0
+
+
+def test_pinned_payload_is_pseudonymized(pin_manifest):
+    """The repository is public: the committed payload carries synthetic ids and names."""
+    from tests import pinned_board_build as pb
+
+    with zipfile.ZipFile(PINNED_INPUTS) as zf:
+        payload = json.loads(zf.read(pin_manifest["source"]["payloadMember"]))
+    sleeper = payload["sleeper"]
+    assert sleeper["leagueId"] == pb.SYNTHETIC_LEAGUE_ID
+    for team in sleeper["teams"]:
+        assert team["name"] == pb.manager_name(int(team["roster_id"]))
+        assert str(team["ownerId"]).startswith(pb.SYNTHETIC_ID_PREFIX)
 
 
 def test_ktc_own_te_uplift_matches_the_curve_on_the_pin(pinned):

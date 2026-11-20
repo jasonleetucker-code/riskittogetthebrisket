@@ -208,6 +208,33 @@ def test_league_upcoming_class_is_continuous_when_2026_is_proven_retired():
     assert after.retired_seasons == ()  # classes before the anchor are not reported
 
 
+def test_league_window_once_the_2027_draft_is_proven_complete():
+    """League-side completion case.  Derivation: the anchor is ``max(calendar year,
+    league season)`` and a retirement verdict never moves it, so between the 2027
+    draft's proven completion and the 2028 New Year the anchor stays 2027.
+    ``upcoming`` = first non-retired class >= anchor = 2028; the window is the four
+    classes FROM THE ANCHOR (2027..2030) minus the retired 2027 = 2028..2030.  It
+    counts from the anchor, not from ``upcoming``, so it does not reach 2031 yet
+    (Sleeper issues class N + 3 when class N's draft completes: 2027 + 3 = 2030), and
+    it then agrees with the board horizon, which also ends at 2030.
+
+    From the 2028 New Year the anchor is 2028 and the window is 2028..2031 -- one
+    class past the board again (the divergence pinned below, one year on)."""
+    retired = _retired(2026, 2027)
+    league = league_draft_years(2027, retired)
+    assert league.upcoming_draft_year == 2028
+    assert league.owned_pick_seasons == (2028, 2029, 2030)
+    assert league.retired_seasons == (2027,)
+    board = board_pick_horizon(2027, retired)
+    assert board.basis == HORIZON_BASIS_PROVEN
+    assert max(league.owned_pick_seasons) == board.end_year == 2030
+
+    after_new_year = league_draft_years(2028, retired)
+    assert after_new_year.upcoming_draft_year == 2028
+    assert after_new_year.owned_pick_seasons == (2028, 2029, 2030, 2031)
+    assert after_new_year.retired_seasons == ()  # classes before the anchor are not reported
+
+
 def test_documented_divergence_league_window_reaches_one_class_past_the_board_horizon():
     """DOCUMENTED, NOT ENDORSED — the one place the two scopes disagree at the
     boundary, pinned so changing it is a deliberate owner decision.

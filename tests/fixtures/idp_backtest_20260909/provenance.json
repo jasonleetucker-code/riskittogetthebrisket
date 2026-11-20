@@ -1,0 +1,46 @@
+{
+ "archives": {
+  "dynasty_export_20260906_205400.zip": {
+   "addedInCommit": "b1c5e4423a2eed9f5d09f1e76f480aafaee7f2f8",
+   "manifestGeneratedAt": "2026-09-06T20:54:00.270485",
+   "payloadMember": "dynasty_data_2026-09-06.json",
+   "pinnedSha256": "abe4d749ae2dd60de275e23d7fcd27650cab746dc17de4246060ac351e1f43be",
+   "scrapeTimestamp": "2026-09-06T20:54:00.200026+00:00",
+   "sourceSha256": "3aac677669f6b8cc2f479ee9844969ba0831514eb4c4cf952a9d9361b41448a0"
+  },
+  "dynasty_export_20260907_230241.zip": {
+   "addedInCommit": "b1c5e4423a2eed9f5d09f1e76f480aafaee7f2f8",
+   "manifestGeneratedAt": "2026-09-07T23:02:41.784281",
+   "payloadMember": "dynasty_data_2026-09-07.json",
+   "pinnedSha256": "0e12fc7035d31dd76219b118dfbfdf38f5f8d2d186b7da581db58f995b78fc01",
+   "scrapeTimestamp": "2026-09-07T23:02:41.696628+00:00",
+   "sourceSha256": "25d1a2561e661a866bb4971a6bf45e56b75ff2c34fe652fb9f5e0122d0e4f6a7"
+  },
+  "dynasty_export_20260908_212819.zip": {
+   "addedInCommit": "b1c5e4423a2eed9f5d09f1e76f480aafaee7f2f8",
+   "manifestGeneratedAt": "2026-09-08T21:28:19.826369",
+   "payloadMember": "dynasty_data_2026-09-08.json",
+   "pinnedSha256": "5aa0b222255dfdf409b487e9e0a7736ae7ce641037cd69cf024cd7399f7efcaf",
+   "scrapeTimestamp": "2026-09-08T21:28:19.755167+00:00",
+   "sourceSha256": "dbff43127e55deeea1bde339b05f33eed7cf701ab19af7600919174b5c8c868b"
+  },
+  "dynasty_export_20260909_211525.zip": {
+   "addedInCommit": "b1c5e4423a2eed9f5d09f1e76f480aafaee7f2f8",
+   "manifestGeneratedAt": "2026-09-09T21:15:25.603909",
+   "payloadMember": "dynasty_data_2026-09-09.json",
+   "pinnedSha256": "2e1b0cab8c09760e2aab2f2f9f57dce1013317468e21660f36497edabebd9dab",
+   "scrapeTimestamp": "2026-09-09T21:15:25.520881+00:00",
+   "sourceSha256": "bfd1f406b3a2f855f6bf9356d0d99cc1b032587c7a2ae357c2ca3a13f67a8972"
+  },
+  "dynasty_export_20260910_224947.zip": {
+   "addedInCommit": "b1c5e4423a2eed9f5d09f1e76f480aafaee7f2f8",
+   "manifestGeneratedAt": "2026-09-10T22:49:47.197747",
+   "payloadMember": "dynasty_data_2026-09-10.json",
+   "pinnedSha256": "d0407b35d57b5288b56ee8e604baf20558531953f5cbbaf1fd6eabe87a4ed81d",
+   "scrapeTimestamp": "2026-09-10T22:49:47.117154+00:00",
+   "sourceSha256": "161505e52256b2a05b3104b6faba34cfe9cd6dfffbdcf8c6b6db93b6d441efbf"
+  }
+ },
+ "extraction": "payload scrapeTimestamp + manifest.json generatedAt; nothing else",
+ "purpose": "Archive-selection inputs of tests/idp_accuracy/test_backtest.py: each source export's generation instant and manifest generatedAt, under its own name. Built by tests/fixtures/idp_backtest_20260909/build_fixture.py."
+}

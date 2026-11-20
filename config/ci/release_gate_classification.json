@@ -566,6 +566,9 @@
     "future-clock.yml::custom-instant::Set up Python": {
       "category": "blocking"
     },
+    "future-clock.yml::failure-tracker::Open or update the tracking issue on failure": {
+      "category": "blocking"
+    },
     "future-clock.yml::future-clock::Checkout": {
       "category": "blocking"
     },
@@ -576,6 +579,9 @@
       "category": "blocking"
     },
     "future-clock.yml::future-clock::Set up Python": {
+      "category": "blocking"
+    },
+    "future-clock.yml::green-tracker::Close the tracking issue on a green run": {
       "category": "blocking"
     },
     "game-day-capture.yml::capture::Configure production SSH": {

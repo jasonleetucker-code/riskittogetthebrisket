@@ -290,6 +290,64 @@ def test_run_passes_and_summary_has_no_names():
     ]
 
 
+@pytest.mark.parametrize(
+    ("rosters", "code"),
+    [
+        ({"state": "stale"}, "rosters_not_current:stale"),
+        ({"state": "unknown"}, "rosters_not_current:unknown"),
+        ({"state": "something-else"}, "rosters_not_current:unstated"),
+        (None, "rosters_not_current:unstated"),
+    ],
+)
+def test_non_current_rosters_warn_but_never_fail(rosters, code):
+    summary = smoke.run(FakeClient(_answers(multi=(200, _multi_body(rosters=rosters)))), "x")
+    assert summary["ok"] is True  # rosters refresh on their own schedule: not a failure
+    assert summary["warnings"] == [{"id": "analyze_multi_3team", "code": code}]
+
+
+def test_current_rosters_and_failed_checks_carry_no_roster_warning():
+    assert smoke.run(FakeClient(_answers()), "x")["warnings"] == []
+    # a failing check is reported as a failure, not also as a roster warning
+    failed = smoke.run(
+        FakeClient(
+            _answers(multi=(200, _multi_body(rosters={"state": "stale"}, teams=[_team(1)])))
+        ),
+        "x",
+    )
+    assert failed["ok"] is False and failed["warnings"] == []
+
+
+@pytest.mark.parametrize(
+    ("github_actions", "expected"),
+    [
+        (
+            "true",
+            "::warning title=Trade smoke rosters::analyze_multi_3team: rosters_not_current:stale",
+        ),
+        (None, "warning: analyze_multi_3team: rosters_not_current:stale"),
+    ],
+)
+def test_main_warns_on_stale_rosters_and_still_passes(
+    tmp_path, monkeypatch, capsys, github_actions, expected
+):
+    cookie = tmp_path / "cookie"
+    cookie.write_text("SECRETVALUE", encoding="utf-8")
+    if github_actions is None:
+        monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    else:
+        monkeypatch.setenv("GITHUB_ACTIONS", github_actions)
+    monkeypatch.setattr(
+        smoke,
+        "Client",
+        lambda *a, **k: FakeClient(_answers(multi=(200, _multi_body(rosters={"state": "stale"})))),
+    )
+    argv = ["--origin", "https://x.invalid", "--cookie-file", str(cookie)]
+    assert smoke.main(argv) == smoke.EXIT_PASS
+    err = capsys.readouterr().err
+    assert expected in err
+    assert "::error" not in err and "SECRETVALUE" not in err
+
+
 def test_run_flag_off_fails_with_diagnostic():
     summary = smoke.run(
         FakeClient(_answers(multi=(503, {"error": "multi_team_analysis_disabled"}))), "x"

@@ -26,12 +26,24 @@ is outside the gate and never reported.
 from __future__ import annotations
 
 import json
+import subprocess
+import time
+from datetime import datetime, timezone
+from pathlib import Path, PurePosixPath
 
+from src.maintenance import retention
 from tests import hermetic_gate_scan as scan
 from tests.conftest import _LIVEDATA_MODULES
 
 ALLOWLIST = scan.TESTS / "hermetic_gate_allowlist.json"
 SELF = "tests/test_hermetic_gate_inputs.py"
+
+#: How far ahead the early warning looks: an allowlisted read of an export the
+#: retention pass will delete within this window fails NOW, not on the day it skips.
+RETENTION_WARNING_DAYS = 90
+#: Allowlist flag for an entry whose archive literals name an export it never needs
+#: (a provenance string, or a re-verification that passes when the zip is gone).
+NOT_READ_FLAG = "archiveLiteralsNotRead"
 
 
 def _allowlist() -> dict[str, dict]:
@@ -81,6 +93,119 @@ def test_the_allowlist_has_no_stale_or_unreasoned_entry():
             unreasoned.append(rel)
     assert not stale, f"stale allowlist entries: {stale}"
     assert not unreasoned, f"allowlist entries without a real reason: {unreasoned}"
+
+
+# ── early warning: an allowlisted archive read must outlive retention ───────
+
+
+def _tracked_archive_names() -> set[str]:
+    """Names of the exports git tracks in ``exports/archive`` (the listing only)."""
+    out = subprocess.run(
+        ["git", "-C", str(scan.REPO), "ls-files", "--", "exports/archive"],
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    ).stdout
+    return {PurePosixPath(line).name for line in out.splitlines() if line.strip()}
+
+
+def _doomed_by_retention(names, now: float, workdir: Path, monkeypatch) -> set[str]:
+    """The exports among ``names`` the retention pass would delete at ``now``.
+
+    Runs the real ``retention._prune_thin_to_daily`` (the exports policy) in dry-run
+    over EMPTY stand-in files named like the listing, in ``workdir``: retention ages a
+    zip by its filename stamp, so the stand-ins age exactly like the real zips, and
+    nothing in the checkout is opened or touched."""
+    archive_dir = workdir / "exports" / "archive"
+    archive_dir.mkdir(parents=True)
+    for name in names:
+        (archive_dir / name).touch()
+    doomed: set[str] = set()
+    real_delete = retention._delete
+
+    def record(target, allowed_root, protected, cat, *, dry_run):
+        assert dry_run, "the early warning must never delete"
+        doomed.add(Path(target).name)
+        real_delete(target, allowed_root, protected, cat, dry_run=True)
+
+    monkeypatch.setattr(retention, "_delete", record)
+    retention._prune_thin_to_daily(
+        archive_dir,
+        "dynasty_export_*.zip",
+        retention.EXPORTS_ARCHIVE_MAX_AGE_DAYS,
+        retention.EXPORTS_ARCHIVE_DAILY_MAX_AGE_DAYS,
+        retention._protected_paths(workdir),
+        retention.CategoryResult(name="exports_archive"),
+        now=now,
+        dry_run=True,
+    )
+    return doomed
+
+
+def _allowlisted_archive_reads(tracked: set[str]) -> dict[str, set[str]]:
+    """Tracked exports each allowlisted test names, unless it declares them not read."""
+    reads: dict[str, set[str]] = {}
+    for rel, entry in _allowlist().items():
+        if entry.get(NOT_READ_FLAG) or not (scan.REPO / rel).is_file():
+            continue
+        source = (scan.REPO / rel).read_text(encoding="utf-8")
+        named = {
+            PurePosixPath(hit.detail).name
+            for hit in scan.scan_source(source)
+            if hit.kind == "archive-literal"
+        }
+        if named & tracked:
+            reads[rel] = named & tracked
+    return reads
+
+
+def test_allowlisted_archive_reads_survive_retention(tmp_path, monkeypatch):
+    """Fails ``RETENTION_WARNING_DAYS`` before an allowlisted test loses its export.
+
+    Retention keeps every export 14 days, then the newest per day for 365 days.  A
+    test that still reads a specific tracked export would turn into a skip (and,
+    past the skip budget, a red gate) the day the scheduled refresh prunes it; this
+    says so a quarter ahead.  The fix is to pin the input under ``tests/fixtures``."""
+    tracked = _tracked_archive_names()
+    reads = _allowlisted_archive_reads(tracked)
+    needed = set().union(*reads.values()) if reads else set()
+    now = time.time() + RETENTION_WARNING_DAYS * 86_400
+    doomed = _doomed_by_retention(sorted(tracked), now, tmp_path, monkeypatch) & needed
+    offenders = sorted(
+        f"{rel}: {sorted(names & doomed)}" for rel, names in reads.items() if names & doomed
+    )
+    assert not offenders, (
+        f"retention deletes these allowlisted archive reads within {RETENTION_WARNING_DAYS} "
+        f"days: {offenders}. Pin the inputs under tests/fixtures (see "
+        "tests/fixtures/te_skew_20261106) and drop the archive-literal allowlist entry."
+    )
+
+
+def test_not_read_flag_is_only_on_entries_that_name_an_archive():
+    flagged_without_literal = [
+        rel
+        for rel, entry in _allowlist().items()
+        if entry.get(NOT_READ_FLAG) and not entry.get("maxHits", {}).get("archive-literal")
+    ]
+    assert (
+        not flagged_without_literal
+    ), f"`{NOT_READ_FLAG}` on entries with no archive-literal budget: {flagged_without_literal}"
+
+
+def test_retention_early_warning_sees_a_doomed_read(tmp_path, monkeypatch):
+    """Guard on the guard: the dry-run helper flags exactly what retention would delete."""
+    now = datetime(2027, 3, 1, 12, 0, tzinfo=timezone.utc).timestamp()
+    names = [
+        "dynasty_export_20270228_230000.zip",  # inside the 14-day full window: kept
+        "dynasty_export_20270228_010000.zip",  # same day, inside the full window: kept
+        "dynasty_export_20261201_230000.zip",  # newest of its day: kept
+        "dynasty_export_20261201_010000.zip",  # not the newest of its day: deleted
+        "dynasty_export_20260101_230000.zip",  # past the 365-day tail: deleted
+    ]
+    doomed = _doomed_by_retention(names, now, tmp_path, monkeypatch)
+    assert doomed == {"dynasty_export_20261201_010000.zip", "dynasty_export_20260101_230000.zip"}
+    assert sorted(p.name for p in (tmp_path / "exports" / "archive").glob("*.zip")) == sorted(names)
 
 
 # ── guard on the guard: the scanner must fire on a seeded violation ─────────

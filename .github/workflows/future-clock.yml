@@ -3,8 +3,9 @@ name: Future Clock (year boundary)
 # ADVISORY.  Runs the clock-reading test files under a fake wall clock at the
 # 2026 -> 2027 boundary instants so a year-boundary defect is found BEFORE the
 # real rollover.  Not a required check, not part of PR Validation / Release
-# Candidate / Deploy, and it cannot affect production: read-only token, tests
-# only, no writes to data/, exports/ or anything deployed.
+# Candidate / Deploy, and it cannot affect production: read-only contents token,
+# tests only, no writes to data/, exports/ or anything deployed.  The two
+# tracker jobs at the end may write ISSUES only (one rolling tracker).
 # Harness: tests/fake_clock.py + scripts/run_future_clock_suites.sh.
 
 on:
@@ -46,6 +47,23 @@ jobs:
           - label: "2027-01-01T03:00Z (LA still 2026-12-31)"
             instant: "2027-01-01T03:00:00Z"
             tz: "America/Los_Angeles"
+          # The other calendar rules the board and the league read: the
+          # rookie-draft-year rollover on May 15 (current_rookie_draft_year's
+          # date fallback), either side of it; Feb 1 (current_nfl_season:
+          # January still answers the previous season, February is the
+          # offseason); Sep 1 (the new NFL season starts).
+          - label: "2027-05-14T23:30Z (before the May-15 draft-year rollover)"
+            instant: "2027-05-14T23:30:00Z"
+            tz: "UTC"
+          - label: "2027-05-15T00:30Z (after the May-15 draft-year rollover)"
+            instant: "2027-05-15T00:30:00Z"
+            tz: "UTC"
+          - label: "2027-02-01T00:30Z (NFL season boundary, Feb 1)"
+            instant: "2027-02-01T00:30:00Z"
+            tz: "UTC"
+          - label: "2027-09-01T00:30Z (NFL season boundary, Sep 1)"
+            instant: "2027-09-01T00:30:00Z"
+            tz: "UTC"
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -103,3 +121,120 @@ jobs:
         env:
           FAKE_INSTANT: ${{ inputs.instant }}
         run: bash scripts/run_future_clock_suites.sh "$FAKE_INSTANT"
+
+  # ── A red sweep must not be silent ──────────────────────────────────────
+  # Nothing used to read this workflow's result: a failing instant was a red
+  # square on a page nobody watches, weeks before the real clock got there.
+  # One rolling issue (label production-health, the health-check.yml shape:
+  # identity is LABEL + exact TITLE, oldest wins, a failed lookup is loud,
+  # GH_REPO because these jobs have no checkout), opened or commented on by a
+  # failing run and closed by the next green one.  Separate jobs that `need`
+  # the matrix, so its parallel instants cannot race each other into
+  # duplicate trackers.  A cancelled run (concurrency) files nothing.
+  failure-tracker:
+    name: Open or update the year-boundary tracker
+    needs: [future-clock, custom-instant]
+    # failure() on a dependent job: true when any job it needs failed.
+    if: ${{ failure() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Open or update the tracking issue on failure
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          MATRIX_RESULT: ${{ needs.future-clock.result }}
+          CUSTOM_RESULT: ${{ needs.custom-instant.result }}
+        run: |
+          set -Eeuo pipefail
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          BODY=$(cat <<EOF
+          Future Clock (year boundary) sweep failed.
+
+          - Workflow run: ${RUN_URL}
+          - Trigger: ${GITHUB_EVENT_NAME:-unknown}
+          - Fixed instants: ${MATRIX_RESULT:-unknown}; custom instant: ${CUSTOM_RESULT:-unknown}
+          - Checked at: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          The sweep runs the clock-reading test files under a fake wall clock
+          (scripts/run_future_clock_suites.sh) at the 2026 -> 2027 New-Year
+          instants and the May-15 / Feb-1 / Sep-1 calendar boundaries.  A red
+          instant is a defect that reaches production when the real clock gets
+          there: open the run and read which instant failed.
+
+          This issue is rolling: it is commented on rather than reopened, and
+          closed automatically by the next green run.
+          EOF
+          )
+          gh label create production-health \
+            --color B60205 \
+            --description "Auto-opened when the scheduled production health check fails" \
+            2>/dev/null || true
+          TRACKER_TITLE="Future clock (year boundary) sweep failing"
+          if ! ROWS=$(gh issue list --state open --label production-health \
+                        --limit 1000 --json number,title); then
+            echo "::error title=Tracker lookup failed::gh issue list failed; filing an alert without deduplicating against the existing tracker"
+            ROWS=""
+          fi
+          if [[ -n "$ROWS" ]]; then
+            EXISTING=$(printf '%s' "$ROWS" \
+              | jq -r "[.[] | select(.title==\"${TRACKER_TITLE}\") | .number] | min // empty")
+          else
+            EXISTING=""
+          fi
+          if [[ -n "$EXISTING" && "$EXISTING" != "null" ]]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+          else
+            gh issue create \
+              --title "$TRACKER_TITLE" \
+              --body "$BODY" \
+              --label production-health
+          fi
+
+  green-tracker:
+    name: Close the year-boundary tracker
+    needs: [future-clock, custom-instant]
+    # Green = every fixed instant passed, and the optional custom instant
+    # passed or was not requested.  Explicit results rather than success():
+    # custom-instant is SKIPPED on every scheduled run.
+    if: >-
+      ${{ always()
+          && needs.future-clock.result == 'success'
+          && (needs.custom-instant.result == 'success'
+              || needs.custom-instant.result == 'skipped') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Close the tracking issue on a green run
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -Eeuo pipefail
+          # Same identification as the alert step (LABEL + exact TITLE), and
+          # EVERY match is closed, so one green run drains any duplicates.
+          TRACKER_TITLE="Future clock (year boundary) sweep failing"
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          if ! OPEN=$(gh issue list --state open --label production-health \
+                        --limit 1000 --json number,title \
+                        --jq "[.[] | select(.title==\"${TRACKER_TITLE}\") | .number] | sort | .[]"); then
+            echo "::error title=Tracker lookup failed::gh issue list failed; the green all-clear did NOT run and any open tracker is still open"
+            exit 1
+          fi
+          if [[ -z "$OPEN" ]]; then
+            echo "no open year-boundary tracker; nothing to close"
+            exit 0
+          fi
+          for N in $OPEN; do
+            echo "closing #${N}"
+            gh issue close "$N" --reason completed --comment \
+              "Future Clock (year boundary) sweep green again as of $(date -u +"%Y-%m-%dT%H:%M:%SZ"). Closing. Workflow run: ${RUN_URL}"
+          done

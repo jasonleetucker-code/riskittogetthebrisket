@@ -1,5 +1,5 @@
 {
- "_comment": "Allowlist for tests/test_hermetic_gate_inputs.py. Only NEW violations fail: a file listed here may carry at most `maxHits` of each kind. Add an entry only with a reason; prefer making the test hermetic (pin its input under tests/fixtures) or marking it @pytest.mark.livedata.",
+ "_comment": "Allowlist for tests/test_hermetic_gate_inputs.py. Only NEW violations fail: a file listed here may carry at most `maxHits` of each kind. Add an entry only with a reason; prefer making the test hermetic (pin its input under tests/fixtures) or marking it @pytest.mark.livedata. An entry whose archive literals name a real export it never depends on (a provenance string, or a re-verification that passes when the zip is gone) sets `archiveLiteralsNotRead: true`; every other tracked export an allowlisted test names must survive retention for 90 more days (test_allowlisted_archive_reads_survive_retention).",
  "files": {
   "tests/api/test_audit_cw40_batch_s_open.py": {
    "maxHits": {
@@ -392,6 +392,7 @@
    "reason": "Synthetic path strings passed to the pure path classifier in scripts/report_data_policy_migration.py (STAB-7); no archive file is opened or listed -- the classifier decides by path prefix, so the test must name an exports/archive/ path."
   },
   "tests/identity/test_audit_w06_f001_regression.py": {
+   "archiveLiteralsNotRead": true,
    "maxHits": {
     "archive-literal": 2
    },
@@ -405,10 +406,9 @@
   },
   "tests/idp_accuracy/test_backtest.py": {
    "maxHits": {
-    "archive-literal": 1,
     "missing-data-skip": 7
    },
-   "reason": "select_archive walks the real exports/archive; the asserted export is the newest of 2026-09-09, which retention keeps for 365 days. Follow-up: a hermetic archive dir. Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'shallow checkout without the prereg commit'; 'stage 1 has not run in this checkout'; 'the supplement has not run in this checkout'"
+   "reason": "Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'shallow checkout without the prereg commit'; 'stage 1 has not run in this checkout'; 'the supplement has not run in this checkout'. The archive-selection test reads the hermetic tests/fixtures/idp_backtest_20260909, never exports/archive."
   },
   "tests/idp_accuracy/test_market_baseline.py": {
    "maxHits": {
@@ -525,6 +525,7 @@
    "reason": "Synthetic archive file names created under tmp_path (or asserted as plain strings) to exercise the code under test; nothing is read from the real exports/archive."
   },
   "tests/scripts/test_bdvm_saturation_study.py": {
+   "archiveLiteralsNotRead": true,
    "maxHits": {
     "archive-literal": 2,
     "missing-data-skip": 1
@@ -550,17 +551,11 @@
    "reason": "Globs a tmp_path/exports/archive tree the test itself builds; never the real one."
   },
   "tests/scripts/test_w27_f001_idp_edge_benchmark.py": {
+   "archiveLiteralsNotRead": true,
    "maxHits": {
     "archive-literal": 1
    },
    "reason": "Asserts the provenance string recorded in the committed fixture; the archive is never opened."
-  },
-  "tests/scripts/test_w27_f005_te_skew_research.py": {
-   "maxHits": {
-    "archive-literal": 1,
-    "missing-data-skip": 2
-   },
-   "reason": "Reads the newest export of 2026-11-06, which retention keeps for 365 days (until ~2027-11-06); its archive_revision needs the adding commit in git history. Follow-up: pin the bytes under tests/fixtures. Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'pinned archive absent'; \"pinned tree revision not in this clone's history\""
   },
   "tests/scripts/test_w30_f008_hill_denominator_research.py": {
    "maxHits": {
