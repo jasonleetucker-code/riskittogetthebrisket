@@ -968,10 +968,15 @@ check_box_env_guards() {
     warn "Target revision has no src/api/startup_guards.py; skipping box .env pre-flight."
     return 0
   fi
+  # The webhook validator rides along, beside the guard in the same private dir:
+  # startup_guards.py loads it from there and from nowhere else.  Optional -- a
+  # target without it simply does not judge the webhook.
+  git show "${TARGET_REV}:src/utils/owner_notify.py" > "${tmp}/owner_notify.py" 2>/dev/null \
+    || rm -f -- "${tmp}/owner_notify.py"
   python3 -B -E -s "${tmp}/startup_guards.py" --check-env-file "${env_file}" --production || rc=$?
   # No recursive delete: deploy.sh may only ``rm -rf`` its own staging dirs
   # (tests/sources/test_signals_auth.py::test_deploy_cleans_nothing_outside_app_dir).
-  rm -f -- "${tmp}/startup_guards.py"; rmdir -- "${tmp}" 2>/dev/null || true
+  rm -f -- "${tmp}/startup_guards.py" "${tmp}/owner_notify.py"; rmdir -- "${tmp}" 2>/dev/null || true
   if [[ "${rc}" -ne 0 ]]; then
     error "${env_file} would make the backend refuse to start; refusing to deploy (nothing was changed; old release keeps serving)."
     return 1
