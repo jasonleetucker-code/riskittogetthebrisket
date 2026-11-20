@@ -993,6 +993,34 @@ def format_ops_email(alerts: list[OpsAlert]) -> tuple[str, str]:
     return subject, "\n".join(lines)
 
 
+#: The category a producer TEST notice carries.  It is never stored, so it can
+#: neither spend a cooldown nor earn a recovery notice.
+TEST_CATEGORY = "owner_alert_producer_test"
+
+
+def format_test_notice() -> tuple[str, str]:
+    """``(subject, body)`` of one labelled TEST notice, built by
+    :func:`format_ops_email` -- the sweep's own formatter -- for ``POST
+    /api/test-alert?producers=1``.  Pure: it reads and writes no state."""
+    from src.utils import owner_alerts  # noqa: PLC0415
+
+    return owner_alerts.mark_test(
+        *format_ops_email(
+            [
+                OpsAlert(
+                    severity="warning",
+                    category=TEST_CATEGORY,
+                    title="Ops-alert producer test (no condition fired)",
+                    detail=(
+                        "An operator check of the ops-alert sweep's formatting and owner "
+                        "delivery.  No cooldown or recovery state was read or written."
+                    ),
+                )
+            ]
+        )
+    )
+
+
 def check_and_alert(
     *,
     status_payload: dict[str, Any] | None = None,

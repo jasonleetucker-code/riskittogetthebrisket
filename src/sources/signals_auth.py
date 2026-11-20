@@ -88,11 +88,13 @@ __all__ = [
     "acquisition_state_for",
     "classify_data_response",
     "deliver_reconnect_notice",
+    "format_test_reconnect_notice",
     "get_access_token",
     "import_session",
     "peek_fresh_access_token",
     "renew",
     "resolve_store_dir",
+    "send_test_reconnect_notice",
     "status",
 ]
 
@@ -1045,6 +1047,79 @@ NOTICE_CLAIM_TTL_SECONDS = 120.0
 NoticeChannel = Callable[[str, str], bool]
 
 
+def _notice_channels(
+    channels: Sequence[tuple[str, NoticeChannel | None]] | None,
+    delivery: Callable[[str, str, str], bool] | None,
+    to_email: str | None,
+) -> list[tuple[str, NoticeChannel]]:
+    """The configured notice channels, in preference order (``None`` = skipped;
+    ``delivery`` + ``to_email`` becomes one trailing ``email`` channel)."""
+    chans: list[tuple[str, NoticeChannel]] = [
+        (name, fn) for name, fn in (channels or []) if fn is not None
+    ]
+    if delivery is not None and to_email:
+        chans.append(("email", lambda subj, body: delivery(to_email, subj, body)))
+    return chans
+
+
+def _send_on_first_channel(
+    chans: Sequence[tuple[str, NoticeChannel]], subject: str, body: str
+) -> tuple[str | None, list[str]]:
+    """Try ``chans`` in order until one delivers: ``(delivered via, attempted)``.
+    A raising channel is a failed one (it never breaks the caller)."""
+    attempted: list[str] = []
+    for name, fn in chans:
+        attempted.append(name)
+        try:
+            ok = bool(fn(subject, body))
+        except Exception:  # noqa: BLE001 - a channel fault must never break the caller
+            ok = False
+        if ok:
+            return name, attempted
+    return None, attempted
+
+
+#: The failure class a producer TEST notice names (never a real episode's).
+TEST_NOTICE_CLASS = "producer_test"
+
+
+def format_test_reconnect_notice(now: float | None = None) -> tuple[str, str]:
+    """``(subject, body)`` of one labelled TEST notice, built by
+    :func:`format_reconnect_notice` from a synthetic episode that is never
+    stored, for ``POST /api/test-alert?producers=1``."""
+    from src.utils import owner_alerts  # noqa: PLC0415
+
+    episode = {
+        "failureClass": TEST_NOTICE_CLASS,
+        "reason": "operator_producer_test",
+        "startedAt": _utc_iso(time.time() if now is None else now),
+        "id": "producer-test",
+    }
+    return owner_alerts.mark_test(*format_reconnect_notice(episode))
+
+
+def send_test_reconnect_notice(
+    *,
+    channels: Sequence[tuple[str, NoticeChannel | None]] | None = None,
+    delivery: Callable[[str, str, str], bool] | None = None,
+    to_email: str | None = None,
+    now_fn: Callable[[], float] = time.time,
+) -> dict[str, Any]:
+    """Send ONE labelled TEST notice on the same channels, in the same order,
+    as :func:`deliver_reconnect_notice` (first success wins).  A channel fault
+    is a failed send, never an exception.
+
+    It opens no store and reads or writes no episode, claim or stamp, so it can
+    neither consume nor fake a real episode's notice.  ``delivered`` is ``None``
+    when no channel is configured -- "not configured", never "failed"."""
+    subject, body = format_test_reconnect_notice(now_fn())
+    chans = _notice_channels(channels, delivery, to_email)
+    if not chans:
+        return {"delivered": None, "deliveredVia": None, "channelsAttempted": []}
+    via, attempted = _send_on_first_channel(chans, subject, body)
+    return {"delivered": via is not None, "deliveredVia": via, "channelsAttempted": attempted}
+
+
 def deliver_reconnect_notice(
     *,
     store: SignalsStore | None = None,
@@ -1070,11 +1145,7 @@ def deliver_reconnect_notice(
     a successful renewal closes the episode; a later, independent failure opens
     a new one, which may notify again.
     """
-    chans: list[tuple[str, NoticeChannel]] = [
-        (name, fn) for name, fn in (channels or []) if fn is not None
-    ]
-    if delivery is not None and to_email:
-        chans.append(("email", lambda subj, body: delivery(to_email, subj, body)))
+    chans = _notice_channels(channels, delivery, to_email)
     try:
         store = store or SignalsStore.open()
     except (StorePathError, OSError) as exc:
@@ -1124,17 +1195,7 @@ def deliver_reconnect_notice(
         return {"state": "store_busy", "error": type(exc).__name__}
     episode_id = episode.get("id")
     subject, body = format_reconnect_notice(episode)
-    delivered_via: str | None = None
-    attempted: list[str] = []
-    for name, fn in chans:
-        attempted.append(name)
-        try:
-            ok = bool(fn(subject, body))
-        except Exception:  # noqa: BLE001 - a channel fault must never break the caller
-            ok = False
-        if ok:
-            delivered_via = name
-            break
+    delivered_via, attempted = _send_on_first_channel(chans, subject, body)
     delivered = delivered_via is not None
     try:
         # Recording a SENT notice waits the full lock timeout (both callers run
