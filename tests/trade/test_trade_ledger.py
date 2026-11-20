@@ -220,3 +220,22 @@ def test_private_policy_reads_config_and_fails_closed(monkeypatch, tmp_path):
     bad.write_text('{"maxTeams": 99, "maxLegs": 1, "participation": "any_leg"}', encoding="utf-8")
     monkeypatch.setattr(tl, "_CONFIG_PATH", bad)
     assert tl.private_policy().max_teams == 2
+
+
+def test_ledgers_validated_on_non_current_rosters_are_counted(monkeypatch):
+    """X-ROSTER-FRESHNESS: every team-attributed trade whose ownership could not
+    be verified because the rosters were not current is counted by state, so
+    /api/status can show how often stale rosters block a trade (T12)."""
+    monkeypatch.setattr(tl, "_ROSTER_REFUSALS", {"stale": 0, "unknown": 0})
+    legs = [{"id": "p:101", "from": 1, "to": 2}, {"id": "p:201", "from": 2, "to": 1}]
+    fresh = mts.synthetic_snapshot()
+    tl.validate_ledger(fresh, teams=[1, 2], legs=legs, policy=tl.LedgerPolicy())
+    assert tl.roster_refusal_counts()["stale"] == 0
+    assert tl.roster_refusal_counts()["unknown"] == 0
+    for state, expected in (("stale", (1, 0)), ("unknown", (1, 1)), ("stale", (2, 1))):
+        snap = replace(fresh, rosters_state=state)
+        result = tl.validate_ledger(snap, teams=[1, 2], legs=legs, policy=tl.LedgerPolicy())
+        assert set(result.unverifiable_asset_ids) == {"p:101", "p:201"}
+        counts = tl.roster_refusal_counts()
+        assert (counts["stale"], counts["unknown"]) == expected
+    assert counts["since"]
