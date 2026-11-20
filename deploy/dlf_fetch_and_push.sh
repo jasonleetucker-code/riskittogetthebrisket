@@ -109,19 +109,25 @@ rm -f "${BOARD_STATES_RUN}"
 FETCH_RC=0
 "${VENV_PYTHON}" scripts/fetch_dlf.py --written-manifest "${MANIFEST}" \
   --board-states "${BOARD_STATES_RUN}" || FETCH_RC=$?
-mapfile -t WRITTEN < <("${VENV_PYTHON}" -c 'import json,sys; print("\n".join(json.load(open(sys.argv[1]))))' "${MANIFEST}" 2>/dev/null || true)
-# Exit 4 (scripts/fetch_dlf.py EXIT_VENDOR_EMPTY): every board that did not
-# refresh was published EMPTY by the vendor (measured 2026-11-20: the rookie
-# boards carry 0 expert columns and 0 rows).  Not a failure of ours: the
-# last-good CSVs stay, their stamps age honestly, and the per-board state file
-# below says why.  Anything else non-zero is still a failure to see.
-if [[ "${FETCH_RC}" -ne 0 && "${FETCH_RC}" -ne 4 && "${#WRITTEN[@]}" -eq 0 ]]; then
+# One key per line and NOTHING for an empty manifest: ``print("\n".join([]))``
+# prints a blank line, mapfile reads it as one empty key, and the "wrote no
+# board" guard below never fired.  Blank entries are dropped regardless.
+mapfile -t WRITTEN_RAW < <("${VENV_PYTHON}" -c 'import json,sys; sys.stdout.write("".join(str(k) + "\n" for k in json.load(open(sys.argv[1]))))' "${MANIFEST}" 2>/dev/null || true)
+WRITTEN=()
+for key in "${WRITTEN_RAW[@]}"; do
+  if [[ -n "${key}" ]]; then
+    WRITTEN+=("${key}")
+  fi
+done
+if [[ "${FETCH_RC}" -ne 0 && "${#WRITTEN[@]}" -eq 0 ]]; then
   err "fetch_dlf.py exited ${FETCH_RC} and wrote no board - keeping previous CSVs / stamps; will retry on next timer fire."
   exit 1
 fi
-if [[ "${FETCH_RC}" -eq 4 ]]; then
-  log "vendor published no rankings on some boards (see data/scrape_state/dlf_board_states.json); committing the boards it wrote: ${WRITTEN[*]:-none}"
-elif [[ "${FETCH_RC}" -ne 0 ]]; then
+# A board the vendor published empty (state ``vendor_empty``, measured on the
+# rookie boards 2026-11-20) is still a non-zero exit: deciding that an empty
+# board is an expected seasonal state belongs to src/sources/seasonal_policy.py
+# and is an owner decision.  The per-board state file below records the label.
+if [[ "${FETCH_RC}" -ne 0 ]]; then
   err "fetch_dlf.py exited ${FETCH_RC}; committing only the boards it wrote: ${WRITTEN[*]}"
 else
   WRITTEN=(dlfSf dlfIdp dlfRookieSf dlfRookieIdp dlfValuesSfTep)
@@ -171,8 +177,10 @@ fi
 # (the GitHub refresh skips them).  Only boards written this run are
 # recorded; a refused board keeps its last observation, so its data age keeps
 # growing honestly.  Non-fatal.
-"${VENV_PYTHON}" scripts/record_source_datasets.py --only "${WRITTEN[@]}" \
-  || err "record_source_datasets.py failed - dataset state left at its last observation"
+if [[ "${#WRITTEN[@]}" -gt 0 ]]; then
+  "${VENV_PYTHON}" scripts/record_source_datasets.py --only "${WRITTEN[@]}" \
+    || err "record_source_datasets.py failed - dataset state left at its last observation"
+fi
 DATASET_PATHS=()
 for key in "${WRITTEN[@]}"; do
   if [[ -f "data/scrape_state/${key}_dataset.json" ]]; then
@@ -188,9 +196,10 @@ done
 # Existing paths only: a board that has never been written (dlfValuesSfTep
 # before its first successful capture) has no CSV yet, and one missing
 # pathspec would abort the whole add — and with it every healthy board.
-# Per-board state (written / refused / vendor_empty / parse_failed / ...),
-# with ``since`` carried over while a board's state is unchanged so the file
-# only changes on a transition (no commit every two hours).
+# Per-board state (written / refused / vendor_empty / parse_failed / ...).
+# ``since`` is carried over while a board's state is unchanged, so the file
+# changes only when a state or its reason changes (a written board's row
+# count, say), never merely because another run happened.
 if [[ -s "${BOARD_STATES_RUN}" ]]; then
   "${VENV_PYTHON}" scripts/dlf_board_states.py merge \
     --run "${BOARD_STATES_RUN}" --out data/scrape_state/dlf_board_states.json || \
@@ -229,9 +238,8 @@ attempt=1
 while (( attempt <= PUSH_RETRY_MAX )); do
   if git push origin main; then
     log "push succeeded on attempt ${attempt}/${PUSH_RETRY_MAX}"
-    # A partial run pushed what it could but is still a failure to see;
-    # a vendor-empty board (4) is recorded, not a failure.
-    if [[ "${FETCH_RC}" -ne 0 && "${FETCH_RC}" -ne 4 ]]; then
+    # A partial run pushed what it could but is still a failure to see.
+    if [[ "${FETCH_RC}" -ne 0 ]]; then
       exit 1
     fi
     exit 0

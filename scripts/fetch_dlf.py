@@ -56,6 +56,20 @@ repository secrets — see ``.github/workflows/scheduled-refresh.yml``.
 A cached session (``dlf_session.json``, gitignored) caches the login
 cookies between runs so we only re-authenticate when WordPress
 invalidates the session (typically after ~14 days).
+
+Exit codes and board states
+---------------------------
+
+0 every board written; 1 a fetch/parse failure (or a board with no rows);
+2 a write guard refused a board (its last-good CSV is kept).  Every board that
+passed is still written.  ``--board-states PATH`` records one state per board
+(``written`` / ``refused`` / ``vendor_empty`` / ``parse_failed`` /
+``fetch_failed`` / ``preview``) so the prod push can say WHY a board did not
+refresh.  ``vendor_empty`` is a diagnostic label only, for boards that declare
+``may_publish_empty`` (the rookie boards): it still exits 1 and keeps the
+last-good CSV.  Deciding that an empty board is an expected seasonal state, so
+the source stops voting and stops alarming, belongs to
+``src/sources/seasonal_policy.py`` and is an owner decision.
 """
 
 from __future__ import annotations
@@ -118,6 +132,10 @@ BOARDS: dict[str, dict[str, str]] = {
         # edit of these two keys, never a side effect of a scrape.
         "rookie_class_year": 2026,
         "rookie_class_stage": "drafted",
+        # The rookie boards can be published EMPTY between classes (measured
+        # 2026-11-20).  Only a board declaring this may be labelled
+        # ``vendor_empty``; any other empty board is ``parse_failed``.
+        "may_publish_empty": True,
     },
     "dlfRookieIdp": {
         "url": "https://dynastyleaguefootball.com/dynasty-rookie-idp-rankings/",
@@ -126,6 +144,7 @@ BOARDS: dict[str, dict[str, str]] = {
         "min_rows": 20,  # smallest board; pre-NFL-draft class ~29 rows
         "rookie_class_year": 2026,
         "rookie_class_stage": "drafted",
+        "may_publish_empty": True,
     },
     # DLF's native offensive VALUE moved off the rankings boards to the Trade
     # Analyzer Values page (owner directive 2026-09-24).  Probed on the
@@ -626,14 +645,12 @@ def _values_summary(rows: list[dict]) -> list[str]:
 
 
 #: Board states written by ``--board-states`` (one per processed board).
+#: Reasons are fixed codes or text this script composes, never raw exception
+#: or response text.
 BOARD_STATES = ("written", "refused", "vendor_empty", "parse_failed", "fetch_failed", "preview")
 
-#: Exit code when every failure in the run was a board the vendor published
-#: empty.  Distinct from 1 (fetch/parse failure) and 2 (a write guard refused).
-EXIT_VENDOR_EMPTY = 4
 
-
-def _empty_board_reason(html: str | None) -> tuple[str, str] | None:
+def _empty_board_reason(html: str | None, cfg: dict | None = None) -> tuple[str, str] | None:
     """Why a page yielded no rows: ``(state, reason)``, or None if it has rows.
 
     Measured 2026-11-20 (DLF diagnostics 44742643782): the rookie pages render
@@ -644,6 +661,10 @@ def _empty_board_reason(html: str | None) -> tuple[str, str] | None:
     parser or credential problem, and nothing to parse.  A rankings table that
     names experts but carries no rows is ``parse_failed`` (rows we cannot see,
     e.g. rendered client-side), and no rankings table at all is too.
+
+    ``vendor_empty`` is only ever a LABEL, and only for a board whose ``cfg``
+    declares ``may_publish_empty``; the same page on any other board is
+    ``parse_failed``.  The caller still fails the run either way.
     """
     if not html:
         return ("parse_failed", "empty response body")
@@ -668,6 +689,12 @@ def _empty_board_reason(html: str | None) -> tuple[str, str] | None:
     if any(rows >= 10 for rows, _ in ranking_tables):
         return None
     if all(rows == 0 and experts == 0 for rows, experts in ranking_tables):
+        if not (cfg or {}).get("may_publish_empty"):
+            return (
+                "parse_failed",
+                "rankings table with 0 rows and 0 expert columns on a board that "
+                "does not declare may_publish_empty",
+            )
         return (
             "vendor_empty",
             f"{len(ranking_tables)} rankings table(s) with 0 rows and 0 expert columns: "
@@ -694,7 +721,7 @@ _NFL_TEAM_CODES = frozenset(
 
 #: Share of team-carrying rows that must name an NFL team for a board
 #: declared ``rookie_class_stage: drafted``.  The committed 2026 boards sit at
-#: 57/61 and 31/31 (2026-11-20); an incoming class sits near 0.
+#: 61/61 and 31/31 (2026-11-20); an incoming class sits near 0.
 _DRAFTED_TEAM_SHARE_FLOOR = 0.8
 
 
@@ -708,7 +735,13 @@ def _page_class_year(html: str | None) -> int | None:
     m = re.search(r"<title[^>]*>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
     if not m:
         return None
-    y = re.search(r"\b(20[2-4]\d)\s+Rookie\b", m.group(1), re.IGNORECASE)
+    title = " ".join(m.group(1).split())
+    # "2026 Rookie Superflex Rankings ...", "2026 Dynasty Rookie Rankings",
+    # "Rookie Rankings: 2027 Class" -- the year within 40 characters of
+    # "rookie", on either side.
+    y = re.search(r"\b(20\d\d)\b.{0,40}?\brookie", title, re.IGNORECASE) or re.search(
+        r"\brookie\b.{0,40}?\b(20\d\d)\b", title, re.IGNORECASE
+    )
     return int(y.group(1)) if y else None
 
 
@@ -868,23 +901,12 @@ def _probe_page(html: str) -> list[str]:
             f"class={classes!r} attr_names={attrs[:12]}"
         )
         if not body_rows:
-            # An empty table: say what the page shows around it (a "coming
-            # soon" note reads very differently from a client-rendered grid).
+            # An empty table: its column headers only (an expert-less header
+            # row is how a vendor-empty board looks).  No surrounding page
+            # text -- it can carry the member's name.
             thead = table.find("thead")
             head = (thead or table.find("tr") or table).find_all(["th", "td"])
             lines.append(f"  headers={[c.get_text(' ', strip=True)[:30] for c in head][:20]}")
-            parent = table.parent
-            for _ in range(3):
-                if (
-                    parent is not None
-                    and len(parent.get_text(" ", strip=True)) < 40
-                    and parent.parent is not None
-                ):
-                    parent = parent.parent
-            context = " ".join(
-                (parent.get_text(" ", strip=True) if parent is not None else "").split()
-            )
-            lines.append(f"  empty_table_context={context[:300]!r}")
         if len(body_rows) < 3:
             continue
         thead = table.find("thead")
@@ -894,13 +916,15 @@ def _probe_page(html: str) -> list[str]:
             cells = [c.get_text(" ", strip=True)[:30] for c in tr.find_all("td")][:14]
             lines.append(f"  row{ri}={cells}")
 
+    from urllib.parse import urlparse
+
     srcs: list[str] = []
     for script in soup.find_all("script", src=True):
-        src = str(script.get("src") or "")
-        host = re.match(r"^https?://([^/]+)", src)
-        if host and host.group(1) != _PROBE_HOST and not host.group(1).endswith("." + _PROBE_HOST):
-            continue
-        path = re.sub(r"^https?://[^/]+", "", src).split("?", 1)[0]
+        parts = urlparse(str(script.get("src") or ""))
+        host = parts.hostname
+        if host and host != _PROBE_HOST and not host.endswith("." + _PROBE_HOST):
+            continue  # off-host, including protocol-relative //cdn paths
+        path = parts.path
         if re.search(r"rank|table|dlf|player", path, re.IGNORECASE):
             srcs.append(path[-90:])
     if srcs:
@@ -940,77 +964,8 @@ def _probe_page(html: str) -> list[str]:
     return lines
 
 
-#: Quoted literals the script probe may print verbatim: URL paths, and
-#: identifiers that contain an underscore or a hyphen (action names, column
-#: keys).  WordPress nonces are 10 hex characters with neither, so they can
-#: never match; every other literal prints as ``<str:N>``.
-_SAFE_LITERAL = None
-
-
-def _sanitize_script_window(text: str) -> str:
-    """One script excerpt with every non-structural literal redacted."""
-    import re
-
-    global _SAFE_LITERAL
-    if _SAFE_LITERAL is None:
-        _SAFE_LITERAL = re.compile(
-            r"^(?:/[\w./-]{0,120}|[a-z][a-z0-9]*(?:[_-][a-z0-9]+)+|[a-z]{1,8}|GET|POST)$"
-        )
-
-    def _lit(m: "re.Match[str]") -> str:
-        q, body = m.group(1), m.group(2)
-        val = body
-        for host in ("https://dynastyleaguefootball.com", "http://dynastyleaguefootball.com"):
-            if val.startswith(host):
-                val = val[len(host) :] or "/"
-        if "?" in val:
-            val = val.split("?", 1)[0] + "?<query>"
-        return (
-            f"{q}{val}{q}"
-            if _SAFE_LITERAL.match(val.replace("?<query>", ""))
-            else f"{q}<str:{len(body)}>{q}"
-        )
-
-    out = re.sub(r"(['\"])((?:(?!\1)[^\\\n]|\\.){0,400})\1", _lit, text)
-    out = re.sub(r"\b[A-Za-z0-9]{16,}\b", "<tok>", out)
-    return " ".join(out.split())
-
-
-def _probe_script_lines(html: str) -> list[str]:
-    """How a client-rendered DLF table gets its rows: sanitized init excerpts.
-
-    For scripts that build the rankings DataTable, print up to four 600-char
-    windows around the table / ajax configuration, with every string literal
-    redacted unless it is a URL path or an identifier with ``_`` / ``-``
-    (see :data:`_SAFE_LITERAL`).  Never cookies, never nonces, never values.
-    """
-    try:
-        from bs4 import BeautifulSoup
-    except ImportError:
-        return []
-    lines: list[str] = []
-    needles = ("avgTable", "DataTable(", "dlf_rankings", "ajax", "wp-json", "admin-ajax")
-    for si, script in enumerate(BeautifulSoup(html, "html.parser").find_all("script")):
-        text = script.string or script.get_text() or ""
-        if not any(n in text for n in ("avgTable", "DataTable(", "dlf_rankings")):
-            continue
-        src = str(script.get("src") or "")
-        lines.append(f"script[{si}] bytes={len(text)} src_path={src.split('?', 1)[0][-80:]!r}")
-        starts: list[int] = []
-        for n in needles:
-            i = text.find(n)
-            while i != -1 and len(starts) < 12:
-                if all(abs(i - j) > 600 for j in starts):
-                    starts.append(i)
-                i = text.find(n, i + 1)
-        for i in sorted(starts)[:4]:
-            lo = max(0, i - 150)
-            lines.append(f"  window@{i}: {_sanitize_script_window(text[lo : lo + 600])}")
-    return lines
-
-
-def _probe_response_lines(session, url: str) -> list[str]:
-    """Where a URL actually lands: HTTP status, final path and redirect chain.
+def _probe_response_lines(response, url: str) -> list[str]:
+    """Where a URL actually landed: HTTP status, final path and redirect chain.
 
     A page that moved (a new rookie class, a renamed slug) answers 200 at its
     new address after a redirect, and the HTML alone does not say so.  Paths
@@ -1028,16 +983,13 @@ def _probe_response_lines(session, url: str) -> list[str]:
             return "<off-host>"
         return parts.path or "/"
 
-    try:
-        r = session.get(url, timeout=45)
-    except Exception as exc:  # noqa: BLE001 - diagnostics only
-        return [f"response error={type(exc).__name__}"]
     history = [
         f"{getattr(h, 'status_code', '?')}:{_path(getattr(h, 'url', ''))}"
-        for h in (getattr(r, "history", None) or [])
+        for h in (getattr(response, "history", None) or [])
     ]
     return [
-        f"status={r.status_code} final_path={_path(getattr(r, 'url', url))!r} redirects={history}",
+        f"status={getattr(response, 'status_code', '?')} "
+        f"final_path={_path(getattr(response, 'url', url))!r} redirects={history}",
     ]
 
 
@@ -1051,20 +1003,22 @@ def _probe(session, url: str) -> int:
     ):
         print(f"[DLF] probe refused: only https://{_PROBE_HOST} URLs", file=sys.stderr)
         return 2
+    # One GET per URL: the response that is described is the one parsed.
     try:
-        html = _fetch_rankings_html(session, url)
-        if _looks_like_preview(html):
+        response = session.get(url, timeout=45)
+        if response.status_code == 200 and _looks_like_preview(response.text):
             print("[DLF] probe: non-member preview — re-authenticating …", flush=True)
             _login(session)
-            html = _fetch_rankings_html(session, url)
-    except (RuntimeError, SystemExit) as exc:
-        print(f"[DLF] probe fetch failed: {exc}", file=sys.stderr)
+            response = session.get(url, timeout=45)
+    except Exception as exc:  # noqa: BLE001 - diagnostics only; type, never text
+        print(f"[DLF] probe fetch failed: {type(exc).__name__}", file=sys.stderr)
         return 1
     print(f"[DLF] probe {url}")
-    for line in _probe_response_lines(session, url):
+    for line in _probe_response_lines(response, url):
         print(f"  {line}")
-    for line in _probe_script_lines(html):
-        print(f"  {line}")
+    if response.status_code != 200:
+        return 1
+    html = response.text
     for line in _probe_page(html):
         print(f"  {line}")
     return 0
@@ -1158,7 +1112,7 @@ def main() -> int:
         help=(
             "Write a JSON object {board_key: {state, reason}} for every board this "
             f"run processed; states: {', '.join(BOARD_STATES)}.  Lets the prod "
-            "push record WHY a board did not refresh (vendor_empty vs failure)."
+            "push record WHY a board did not refresh.  Not written by --dry-run."
         ),
     )
     parser.add_argument(
@@ -1195,6 +1149,8 @@ def main() -> int:
             )
 
     def _state(key: str, state: str, reason: str) -> None:
+        if args.dry_run:
+            return  # a dry run decides nothing, so it records no state
         board_states[key] = {"state": state, "reason": reason}
         _write_manifest()
 
@@ -1214,7 +1170,6 @@ def main() -> int:
         return 1
 
     exit_code = 0
-    vendor_empty = False
     for key in boards:
         cfg = BOARDS[key]
         url = cfg["url"]
@@ -1226,7 +1181,7 @@ def main() -> int:
         except RuntimeError as exc:
             print(f"[DLF] {key} fetch failed: {exc}", file=sys.stderr)
             exit_code = max(exit_code, 1)
-            _state(key, "fetch_failed", str(exc)[:200])
+            _state(key, "fetch_failed", f"fetch_error:{type(exc).__name__}")
             continue
         if _looks_like_preview(html):
             # The cached session may have expired mid-run; try once more.
@@ -1237,7 +1192,7 @@ def main() -> int:
             except RuntimeError as exc:
                 print(f"[DLF] {key}: re-auth failed: {exc}", file=sys.stderr)
                 exit_code = max(exit_code, 1)
-                _state(key, "fetch_failed", f"re-auth failed: {str(exc)[:160]}")
+                _state(key, "fetch_failed", f"reauth_error:{type(exc).__name__}")
                 continue
             if _looks_like_preview(html):
                 print(
@@ -1245,9 +1200,7 @@ def main() -> int:
                     file=sys.stderr,
                 )
                 exit_code = max(exit_code, 1)
-                _state(
-                    key, "preview", "non-member preview after re-auth; membership may have lapsed"
-                )
+                _state(key, "preview", "membership_preview_after_reauth")
                 continue
         if cfg.get("kind") == "values":
             vrows = _parse_trade_values(html)
@@ -1281,19 +1234,17 @@ def main() -> int:
         rows = _parse_rankings(html)
         print(f"[DLF] {key} ({label}): parsed {len(rows)} rows")
         if not rows:
-            empty = _empty_board_reason(html) or ("parse_failed", "no rows extracted")
+            # Still a failure (exit 1): only the seasonal-policy owner may make
+            # an empty board an expected state.  The label says which kind.
+            empty = _empty_board_reason(html, cfg) or ("parse_failed", "no rows extracted")
+            print(f"[DLF] WARN: no rows extracted for {key}", file=sys.stderr)
             if empty[0] == "vendor_empty":
-                # Nothing to parse: keep the last-good CSV, say why, and do not
-                # call it a failure of ours (EXIT_VENDOR_EMPTY, never masking 1/2).
                 print(
-                    f"[DLF] {key}: vendor published no rankings ({empty[1]}).  "
-                    f"Preserving last-good {out_path.relative_to(REPO)}.",
+                    f"[DLF] {key}: vendor published no rankings (vendor_empty); "
+                    "preserving last-good CSV.",
                     file=sys.stderr,
                 )
-                vendor_empty = True
-            else:
-                print(f"[DLF] WARN: no rows extracted for {key}: {empty[1]}", file=sys.stderr)
-                exit_code = max(exit_code, 1)
+            exit_code = max(exit_code, 1)
             _state(key, empty[0], empty[1])
             continue
         ok, reason = _board_verdict(cfg, rows, html)
@@ -1312,7 +1263,6 @@ def main() -> int:
                 f"expect_native_value={bool(cfg.get('expect_native_value'))}"
             )
             print(f"  verdict={'WRITE' if ok else 'REFUSE'} reason={reason}")
-            _state(key, "written" if ok else "refused", f"dry run: {reason}")
             note = _native_value_note(cfg, rows)
             if note:
                 print(f"  native_value=UNAVAILABLE {note}")
@@ -1349,8 +1299,6 @@ def main() -> int:
         )
         written_keys.append(key)
         _state(key, "written", f"{count} rows")
-    if exit_code == 0 and vendor_empty:
-        return EXIT_VENDOR_EMPTY
     return exit_code
 
 

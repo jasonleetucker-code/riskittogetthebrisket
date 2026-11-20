@@ -410,6 +410,7 @@ STAGE_PATTERNS = {
         "reauth_failed": r"\[DLF\] (?:dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp|dlfValuesSfTep): re-auth failed: .+",
         "preview_persisted": r"\[DLF\] (?:dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp|dlfValuesSfTep): still preview after re-auth — membership may have lapsed\.",
         "no_rows": r"\[DLF\] WARN: no rows extracted for (?:dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp|dlfValuesSfTep)",
+        "vendor_empty": r"\[DLF\] (?:dlfRookieSf|dlfRookieIdp): vendor published no rankings \(vendor_empty\); preserving last-good CSV\.",
         "board_parsed": r"\[DLF\] (?:dlfSf \(Dynasty Superflex\)|dlfIdp \(Dynasty IDP\)|dlfRookieSf \(Rookie Superflex\)|dlfRookieIdp \(Rookie IDP\)|dlfValuesSfTep \(Trade Analyzer Values \(SF, TE premium\)\)): parsed [0-9]{1,6} (?:rows|assets)",
         "push_succeeded": r"\[dlf-fetch\] push succeeded on attempt [1-3]/3",
         "push_rejected": r"\[dlf-fetch\] push rejected on attempt [1-3]/3 - rebasing and retrying",

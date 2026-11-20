@@ -3,7 +3,8 @@
 
 ``merge``: fold one fetch run's ``--board-states`` output into the committed
 ``data/scrape_state/dlf_board_states.json``.  A board keeps its ``since`` while
-its state is unchanged, so the file changes only on a transition.
+its state is unchanged, so the file changes only when a state or its
+reason changes, never merely because another run happened.
 
 ``report``: print one line per board (state, since, reason) for CI and the
 staleness reports.  Exit 0 always; it reports, it does not judge.

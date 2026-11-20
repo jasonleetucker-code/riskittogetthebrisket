@@ -430,6 +430,11 @@ def test_stage_report_validates_without_changing_resource_verdict():
             "preview_persisted",
         ),
         ("[DLF] WARN: no rows extracted for dlfIdp", "no_rows"),
+        (
+            "[DLF] dlfRookieSf: vendor published no rankings (vendor_empty); "
+            "preserving last-good CSV.",
+            "vendor_empty",
+        ),
         ("[DLF] dlfSf (Dynasty Superflex): parsed 287 rows", "board_parsed"),
         ("[dlf-fetch] push succeeded on attempt 1/3", "push_succeeded"),
         (
