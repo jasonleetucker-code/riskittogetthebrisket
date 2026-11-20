@@ -55,6 +55,7 @@ import {
   teamOptions,
 } from "@/lib/player-filters";
 import { buildTeamByPlayer } from "@/lib/waiver-logic";
+import { csvField } from "@/lib/csv-cell";
 import { useBdvmEndpoint } from "@/components/useBdvm";
 import {
   buildBdvmIndex,
@@ -933,14 +934,9 @@ export default function RankingsPage() {
   }
 
   function exportCsv() {
-    const escape = (cell) => {
-      const s = cell == null ? "" : String(cell);
-      if (/[",\n\r]/.test(s)) {
-        return `"${s.replace(/"/g, '""')}"`;
-      }
-      return s;
-    };
-    const lines = buildExportLines(",", escape);
+    // Player and team names go through the one CSV owner (lib/csv-cell):
+    // formula-neutralized text, numbers left as numbers.
+    const lines = buildExportLines(",", csvField);
     const csv = lines.join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
