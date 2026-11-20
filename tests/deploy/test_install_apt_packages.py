@@ -918,6 +918,7 @@ def _playwright_runs():
                 if (
                     re.search(r"playwright\s+install\b", run)
                     or "install_apt_packages.sh --playwright" in run
+                    or '"${INSTALLER}" --playwright' in run
                 ):
                     found.append((path.name, job_id, step))
     return found
@@ -929,12 +930,18 @@ def _playwright_runs():
 def test_playwright_workflows_use_the_shared_installer_and_never_with_deps(workflow):
     steps = [(j, s) for w, j, s in _playwright_runs() if w == workflow]
     assert steps, workflow
-    for _job_id, step in steps:
+    doc = yaml.safe_load((WORKFLOWS / workflow).read_text(encoding="utf-8"))
+    for job_id, step in steps:
         run = _code_lines(step["run"])
-        assert "bash scripts/ci/install_apt_packages.sh --playwright chromium" in run
+        assert re.search(
+            r'bash (scripts/ci/install_apt_packages\.sh|"\$\{INSTALLER\}") --playwright chromium',
+            run,
+        )
         assert not re.search(r"npx playwright install\b", run), "browsers come from the installer"
         assert "continue-on-error" not in step
-        assert 0 < step["timeout-minutes"] <= 60
+        # A step cap at or above the job's own budget can never fire: the job is
+        # cancelled first and the failure-handling steps never run.
+        assert 0 < step["timeout-minutes"] < doc["jobs"][job_id]["timeout-minutes"]
 
 
 def test_no_workflow_uses_with_deps_or_a_bare_install_deps():
@@ -964,6 +971,27 @@ def test_e2e_installs_both_browsers_in_one_step():
 
 def test_prod_smoke_installs_through_the_shared_installer():
     name, flag = PLAYWRIGHT_STEPS[("prod-e2e-smoke.yml", "smoke")]
-    step = _named(_job("prod-e2e-smoke.yml", "smoke"), name)
+    job = _job("prod-e2e-smoke.yml", "smoke")
+    step = _named(job, name)
     assert f"bash scripts/ci/install_apt_packages.sh {flag}" in step["run"]
-    assert step["timeout-minutes"] == 20
+    assert step["timeout-minutes"] < job["timeout-minutes"]
+
+
+def test_v1_reads_the_installer_from_the_workflow_commit():
+    """V1 checks out the DEPLOYED sha while its YAML comes from main, so a deploy
+    that predates --playwright must still get an installer that has it."""
+    doc = yaml.safe_load(
+        (WORKFLOWS / "v1-authenticated-verification.yml").read_text(encoding="utf-8")
+    )
+    runs = [
+        _code_lines(str(s.get("run") or ""))
+        for job in doc["jobs"].values()
+        for s in job.get("steps") or []
+        if "--playwright" in str(s.get("run") or "")
+    ]
+    assert len(runs) == 2
+    for run in runs:
+        assert 'git fetch -q --no-tags --depth=1 origin "${GITHUB_SHA}"' in run
+        assert 'git show "${GITHUB_SHA}:scripts/ci/install_apt_packages.sh"' in run
+        assert 'bash "${INSTALLER}" --playwright chromium' in run
+        assert "bash scripts/ci/install_apt_packages.sh" not in run
