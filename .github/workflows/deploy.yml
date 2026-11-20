@@ -601,17 +601,49 @@ jobs:
             exit 1
           fi
 
+      # tesseract-ocr, as in PR Validation (CI-1c): resolve the .deb list from
+      # the freshly signature-checked index -> restore the cache into a
+      # quarantine -> install (cached files used only after their size and
+      # hash match the index; the rest downloaded under a wall-clock cap) ->
+      # save, on main only.
+      #
+      # The installer is the WORKFLOW commit's scripts/ci/install_apt_packages.sh
+      # (bounded retries + the STAB-10 repair of a runner whose apt sources
+      # carry no Ubuntu archive; it never skips), read with `git show` because
+      # this job checks out the TARGET tree, and a rollback target may predate
+      # the script.  The checkout above is full history, so the workflow commit
+      # is present.  Both steps read it afresh, so nothing the cache restore
+      # writes can stand in for it.
+      - name: Resolve tesseract-ocr apt packages (cache key)
+        id: apt-resolve
+        timeout-minutes: 20
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          INSTALLER="${RUNNER_TEMP}/install_apt_packages.sh"
+          git show "${GITHUB_SHA}:scripts/ci/install_apt_packages.sh" > "${INSTALLER}" || {
+            echo "::error title=Missing CI installer::scripts/ci/install_apt_packages.sh is not readable at the workflow commit ${GITHUB_SHA}."
+            exit 1
+          }
+          bash "${INSTALLER}" --resolve tesseract-ocr
+
+      - name: Restore verified apt package cache
+        id: apt-cache
+        # Advisory: a cache outage costs a download, never the gate.
+        continue-on-error: true
+        timeout-minutes: 10
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ runner.temp }}/apt-quarantine
+          key: ${{ steps.apt-resolve.outputs.key }}
+          restore-keys: ${{ steps.apt-resolve.outputs.restore-prefix }}
+
       - name: Install tesseract-ocr (screenshot import OCR tests)
         # Same as PR Validation: the real-OCR tests (``@pytest.mark.tesseract``)
         # RUN here instead of skipping, so the deploy gate is at least as strict
         # as the PR gate and both are measured against one skip budget.
-        #
-        # The installer is the WORKFLOW commit's scripts/ci/install_apt_packages.sh
-        # (bounded retries + the STAB-10 repair of a runner whose apt sources
-        # carry no Ubuntu archive; it never skips), read with `git show` because
-        # this job checks out the TARGET tree, and a rollback target may predate
-        # the script.  The checkout above is full history, so the workflow commit
-        # is present.
+        id: apt-install
+        timeout-minutes: 20
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -622,6 +654,18 @@ jobs:
           }
           bash "${INSTALLER}" tesseract-ocr
           tesseract --version | head -1
+
+      - name: Save verified apt package cache
+        # Same path as the restore (actions/cache versions an entry by its
+        # path list); the installer has replaced its contents with only the
+        # files it verified.  Main only, only on a miss.
+        if: ${{ github.ref == 'refs/heads/main' && steps.apt-cache.outputs.cache-hit != 'true' && steps.apt-install.outputs.saved != '0' }}
+        continue-on-error: true
+        timeout-minutes: 10
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ runner.temp }}/apt-quarantine
+          key: ${{ steps.apt-resolve.outputs.key }}
 
       - name: Run unit tests (hard gate — pure logic)
         shell: bash

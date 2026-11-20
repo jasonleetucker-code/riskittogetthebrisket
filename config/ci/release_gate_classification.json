@@ -359,8 +359,17 @@
     "deploy.yml::hard-gate::Install dependencies (requirements-dev.txt)": {
       "category": "blocking"
     },
+    "deploy.yml::hard-gate::Resolve tesseract-ocr apt packages (cache key)": {
+      "category": "blocking"
+    },
+    "deploy.yml::hard-gate::Restore verified apt package cache": {
+      "category": "advisory"
+    },
     "deploy.yml::hard-gate::Install tesseract-ocr (screenshot import OCR tests)": {
       "category": "blocking"
+    },
+    "deploy.yml::hard-gate::Save verified apt package cache": {
+      "category": "advisory"
     },
     "deploy.yml::hard-gate::Run unit tests (hard gate \u2014 pure logic)": {
       "category": "blocking"
@@ -800,8 +809,17 @@
     "pr-validation.yml::backend::Fetch base branch": {
       "category": "blocking"
     },
+    "pr-validation.yml::backend::Resolve tesseract-ocr apt packages (cache key)": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::backend::Restore verified apt package cache": {
+      "category": "advisory"
+    },
     "pr-validation.yml::backend::Install tesseract-ocr (screenshot import OCR tests)": {
       "category": "blocking"
+    },
+    "pr-validation.yml::backend::Save verified apt package cache": {
+      "category": "advisory"
     },
     "pr-validation.yml::backend::Run unit tests (hard gate \u2014 pure logic)": {
       "category": "blocking"
@@ -1013,8 +1031,17 @@
     "release-candidate.yml::hard-gate::Install dependencies": {
       "category": "blocking"
     },
+    "release-candidate.yml::hard-gate::Resolve tesseract-ocr apt packages (cache key)": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::hard-gate::Restore verified apt package cache": {
+      "category": "advisory"
+    },
     "release-candidate.yml::hard-gate::Install tesseract-ocr (screenshot import OCR tests)": {
       "category": "blocking"
+    },
+    "release-candidate.yml::hard-gate::Save verified apt package cache": {
+      "category": "advisory"
     },
     "release-candidate.yml::hard-gate::Rebuild the candidate and assert it is the planned tree": {
       "category": "blocking"
