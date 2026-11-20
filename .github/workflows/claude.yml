@@ -10,6 +10,12 @@ on:
   pull_request_review:
     types: [submitted]
 
+# Least privilege by default (T13).  The one job below declares exactly the
+# scopes it needs; a job added later without its own block gets read-only
+# contents rather than the repository's default token scopes.
+permissions:
+  contents: read
+
 jobs:
   claude:
     if: |
@@ -32,6 +38,10 @@ jobs:
 
       - name: Run Claude Code
         id: claude
-        uses: anthropics/claude-code-action@v1.0.275
+        # Pinned to the commit the v1.0.275 tag points at (resolved with
+        # `git ls-remote https://github.com/anthropics/claude-code-action
+        # refs/tags/v1.0.275` -> peeled ^{} object), not the movable tag: a
+        # third-party action runs with this job's write token.
+        uses: anthropics/claude-code-action@4d75e5f390ee76b2e09c1980ecc99ff3a2e088c8 # v1.0.275
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
