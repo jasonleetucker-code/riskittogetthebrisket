@@ -1364,11 +1364,17 @@
     "v1-authenticated-verification.yml::v1-authenticated::Wait for a warm backend (bounded, public endpoints)": {
       "category": "advisory"
     },
+    "v1-authenticated-verification.yml::v1-authenticated::Wait for production to run the verified revision (bounded, public /api/status)": {
+      "category": "advisory"
+    },
     "v1-authenticated-verification.yml::v1-authenticated::Wait for warm trade routes (bounded, authenticated)": {
       "category": "blocking"
     },
     "v1-authenticated-verification.yml::v1-authenticated::Detect a backend restart during the run (public /api/status)": {
       "category": "advisory"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Publish whether this run verified the triggering deploy": {
+      "category": "blocking"
     },
     "v1-authenticated-verification.yml::v1-authenticated::Classify failures (report-only, never a gate)": {
       "category": "advisory"
