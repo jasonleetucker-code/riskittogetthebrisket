@@ -1375,9 +1375,11 @@ def alert_rows(detail: dict[str, Any]) -> dict[str, Any]:
     """What the operator alert needs, from ONE ``build_backup_health_detail``.
 
     PRIVATE: it names the uncovered stores, which the public block never does.
-    ``ledgersChecked`` / ``proofChecked`` say whether this pass could judge each
-    half at all -- an unreadable state root or a proof that has not reported is
-    UNKNOWN, and ``ops_alerts`` must not read unknown as "recovered".
+    ``ledgersChecked`` / ``proofChecked`` / ``stateChecked`` say whether this
+    pass could judge each part at all -- an unreadable state root or a proof that
+    has not reported is UNKNOWN, and ``ops_alerts`` must not read unknown as
+    "recovered".  A ``state_backup`` row means the newest state-backup generation
+    is older than ``STALE_AFTER_HOURS``.
     """
     state = detail.get("stateBackup") if isinstance(detail, dict) else None
     ledgers = (state or {}).get("irreplaceableLedgers") or {}
@@ -1403,6 +1405,29 @@ def alert_rows(detail: dict[str, Any]) -> dict[str, Any]:
             rows.append({"kind": "offbox_copy", "state": "stale", "ageHours": age})
     elif isinstance(mirror, dict) and mirror.get("state") == "clock_skew":
         rows.append({"kind": "offbox_copy", "state": "clock_skew", "ageHours": None})
+    # The state backup's AGE.  A run that FAILS leaves riskit-state-backup.service
+    # failed (the failed-unit row); a timer that stops firing, or runs that stop
+    # producing generations, leaves nothing failed, so only the age can say so.
+    # Judged by this module's own verdict (``STALE_AFTER_HOURS``).  Any other
+    # answer -- an unreadable root, an untrustworthy newest generation, no
+    # generation, a probe that failed -- is UNKNOWN: no row, and never "fresh".
+    state_verdict = (state or {}).get("state")
+    state_age = (state or {}).get("newestGenerationAgeHours")
+    state_checked = (
+        state_verdict in ("healthy", "stale")
+        and isinstance(state_age, (int, float))
+        and not isinstance(state_age, bool)
+    )
+    if state_checked and state_verdict == "stale":
+        rows.append(
+            {
+                "kind": "state_backup",
+                "state": "stale",
+                "ageHours": state_age,
+                "staleAfterHours": STALE_AFTER_HOURS,
+                "newestGeneration": (state or {}).get("newestGeneration"),
+            }
+        )
     proof_checked = result is not None and result not in PROOF_UNCHECKED_RESULTS
     if result in PROOF_ALERT_RESULTS:
         rows.append(
@@ -1421,6 +1446,9 @@ def alert_rows(detail: dict[str, Any]) -> dict[str, Any]:
         # unreadable marker is UNKNOWN, never "recovered".
         "offboxChecked": isinstance(mirror, dict) and mirror.get("state") != "unverifiable",
         "proofChecked": proof_checked,
+        # The state backup's age could be judged (healthy or stale).  Anything
+        # else is UNKNOWN, and ``ops_alerts`` must not read it as "recovered".
+        "stateChecked": state_checked,
     }
 
 

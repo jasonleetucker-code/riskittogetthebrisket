@@ -25,6 +25,10 @@ these conditions hold:
       its source exists on this host, or one the writer recorded as failed or
       shed (one alert per store), and a post-deploy restore proof that failed,
       could not run or died mid-way (``src/api/backup_health.py``)
+    * A state backup whose newest generation is older than
+      ``backup_health.STALE_AFTER_HOURS`` -- a timer that stopped firing or runs
+      that stopped producing generations, which leave no unit ``failed``
+      (``backup_state_stale``; an unjudgeable root is unknown, never fresh)
     * A shipped ``dynasty-*`` / ``riskit-*`` systemd service in the ``failed``
       state -- a timer whose latest run failed (``src/api/systemd_failures.py``;
       one alert per unit)
@@ -289,11 +293,16 @@ def _check_roster_construction(rows: list[dict[str, Any]]) -> list[OpsAlert]:
     return alerts
 
 
+#: The category of the stale-state-backup row (COV-BACKUP, 2026-11-20).
+BACKUP_STATE_STALE_CATEGORY = "backup_state_stale"
+
+
 def _check_backup_coverage(block: dict[str, Any] | None) -> list[OpsAlert]:
     """Irreplaceable-store coverage and the restore proof, from ``alert_rows``.
 
-    One alert per uncovered store, keyed ``backup_ledger:<store>``, and one for
-    the proof keyed ``backup_restore_proof``.  The email goes to the operator, so
+    One alert per uncovered store, keyed ``backup_ledger:<store>``, one for
+    the proof keyed ``backup_restore_proof``, and one for a stale state backup
+    keyed ``backup_state_stale``.  The email goes to the operator, so
     it names the store (the public ``/api/health`` block never does).  A store
     that does not exist on this host never reaches here -- ``absent_by_design``
     is not a finding.
@@ -337,6 +346,31 @@ def _check_backup_coverage(block: dict[str, Any] | None) -> list[OpsAlert]:
                         "-u riskit-offbox-copy.service -n 80 --no-pager (and "
                         "/var/log/riskit-offbox-backup.log), then re-run "
                         "`offbox_backup.py copy`.  See docs/ops/BACKUP_OFFBOX_DESIGN_2026-11-19.md."
+                    ),
+                )
+            )
+        elif row.get("kind") == "state_backup":
+            age = row.get("ageHours")
+            limit = row.get("staleAfterHours")
+            alerts.append(
+                OpsAlert(
+                    severity="warning",
+                    category=BACKUP_STATE_STALE_CATEGORY,
+                    title=(
+                        f"State backup is stale ({age:.0f} h old)"
+                        if isinstance(age, (int, float))
+                        else "State backup is stale"
+                    ),
+                    detail=(
+                        "The newest generation of the nightly state backup "
+                        f"({row.get('newestGeneration') or 'unknown date'}) is older than "
+                        f"{limit if limit is not None else 'the stale threshold'} h, so at "
+                        "least one nightly run did not produce a generation, and no unit "
+                        "is in the failed state to say so.  Check the timer is still "
+                        "scheduled (systemctl list-timers riskit-state-backup.timer), then "
+                        "read the last run: sudo journalctl -u riskit-state-backup.service "
+                        "-n 80 --no-pager.  Run it now with sudo systemctl start "
+                        "riskit-state-backup.service."
                     ),
                 )
             )
@@ -1032,6 +1066,10 @@ def check_and_alert(
         active_categories |= {c for c in state if str(c) == "backup_offbox_copy"}
     if not (backup_coverage or {}).get("proofChecked"):
         active_categories |= {c for c in state if str(c) == "backup_restore_proof"}
+    if not (backup_coverage or {}).get("stateChecked"):
+        # The state backup's age could not be judged (unreadable root, no
+        # generation, a failed probe): UNKNOWN, never "fresh again".
+        active_categories |= {c for c in state if str(c) == BACKUP_STATE_STALE_CATEGORY}
 
     # Recovery alerts first — for conditions that were firing but
     # aren't now.
