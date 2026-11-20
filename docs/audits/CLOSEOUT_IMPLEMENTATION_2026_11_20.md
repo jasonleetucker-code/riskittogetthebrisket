@@ -222,6 +222,18 @@ That stopped the wave-1 workflow and the first review workflow. On resume:
   can strand its service-worker registration for the session. HomeClient's standalone-PWA redirect to `/auction` is
   one such path. Recorded as a follow-up for a WebKit device check.
 
+**Independent review, workflow `wf_5eaf751c-c6c` (10 agents, 2026-11-20 ~19:00 UTC):**
+- Approved with nits only: #2277, #2278, #2279, #2281, #2282, #2283 and #2285. #2281's integrity hashes all match the
+  npm registry. #2279 had a 96-state parity matrix between the view and the reconciler: 0 mismatches.
+- #2280 changes requested. Adversarial verification confirmed two important findings:
+  - a flapping uptime check sends about 8 pushes an hour (80 at the 30 s floor) against about 1 on `main`;
+  - the delivery-health record is in memory only, so a restart reads 0 failures and the SLO rule says OK.
+
+  It also confirmed one nit: an SMTP failure logs the recipient. A fix agent is working on all three.
+- #2284 and #2286 are under a separate review.
+- A merge-tree simulation of #2275, #2278, #2279, #2282, #2283, #2277, #2285, #2281, #2284 and #2286 on `main`
+  found no conflicts.
+
 ## Integration log
 
 (Appended as trains land.)
