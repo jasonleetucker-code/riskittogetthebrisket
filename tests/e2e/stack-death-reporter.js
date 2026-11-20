@@ -166,21 +166,22 @@ function coverageBound(name, fallback) {
 // says "this green is not trustworthy".  120 keeps 19 tests of headroom
 // for ordinary drift.
 //
-// The skip ceiling is 70, raised from 60 (run 32415289607, job
-// 96574935284, head 357c9410e — passed=184, skipped=62). It had
-// already drifted from the 60-against-49 measurement this comment used
-// to cite: legitimate project-gating growth since then (more
-// desktopOnly/mobileOnly describes) had already spent nearly all of
-// that headroom before V1-106's rankings-windowing.spec.js added 3
-// more (1 mobileOnly + 2 desktopOnly, split across the desktop-1366 /
-// mobile-chromium projects) and tipped it over. 70 restores ~8 tests of
-// headroom above the new measured 62 — deliberately smaller than the
-// original 11, because a ceiling this close to a moving baseline is
-// exactly the "needs adjusting every quarter" trap the old comment
-// warned about; the fix for that is tracking real suite growth here
-// when it happens, not inflating the margin so nobody has to.
+// Skips are NOT bounded by a count any more (STAB-8).  Each skipped test
+// is accounted against the reviewed baseline, tests/e2e/skip-baseline.json
+// (skip-accounting.js): an unlisted skip fails the run by name, a listed one
+// that no longer skips fails as stale.  The old bare ceiling (70, sitting at
+// exactly 70 of 70) made every new deliberate skip break the whole suite
+// while saying nothing about WHICH test stopped running.
+//
+// What remains below is only a COARSE sanity bound, kept because it still
+// protects one thing the baseline cannot: a baseline that has quietly grown.
+// With project gating moved to grepInvert tags the real count is 4 on the
+// chromium run and 2 on the WebKit run; 20 is generous headroom, and
+// prod-e2e-smoke.yml still pins it to 0 for its single-spec run.
 const MIN_EXPECTED_PASSED = coverageBound("E2E_MIN_PASSED", 120);
-const MAX_EXPECTED_SKIPPED = coverageBound("E2E_MAX_SKIPPED", 70);
+const MAX_EXPECTED_SKIPPED = coverageBound("E2E_MAX_SKIPPED", 20);
+
+const skipAccounting = require("./skip-accounting.js");
 
 class StackDeathReporter {
   constructor() {
@@ -322,6 +323,38 @@ class StackDeathReporter {
   }
 
   /**
+   * Compare every skipped test against tests/e2e/skip-baseline.json.
+   * Returns { failed } or null when the suite could not be inspected.
+   * See skip-accounting.js for the rules.
+   */
+  _accountSkips() {
+    if (!this.rootSuite || typeof this.rootSuite.allTests !== "function") return null;
+    let report;
+    try {
+      const baseline = skipAccounting.loadBaseline();
+      const collected = this.rootSuite.allTests().map(skipAccounting.describeTest);
+      report = skipAccounting.evaluateSkips(collected, baseline);
+    } catch (err) {
+      // An unreadable/invalid baseline must not read as "no skips".
+      process.stderr.write(
+        `\nE2E SKIP ACCOUNTING COULD NOT RUN: ${err && err.message}\n\n`,
+      );
+      return { failed: true };
+    }
+    const text = skipAccounting.formatReport(report);
+    if (text) {
+      const line = "═".repeat(72);
+      const failed = report.unexpected.length > 0 || report.stale.length > 0;
+      process.stderr.write(
+        `\n${line}\nE2E SKIP ACCOUNTING${failed ? " -- THIS GREEN IS NOT TRUSTWORTHY" : ""}\n` +
+          `${line}\n${text}\n${line}\n\n`,
+      );
+      return { failed };
+    }
+    return { failed: false };
+  }
+
+  /**
    * Enforce the coverage floor.  Returning a status from onEnd is
    * Playwright's supported way for a reporter to change the run's
    * outcome, so a suite that executed almost nothing exits non-zero
@@ -342,7 +375,13 @@ class StackDeathReporter {
     // a switch's stated purpose and its actual reach.
     this._reportFlaky();
     if (!this.enabled) return undefined;
+
+    // Per-test skip accounting.  Runs before the failed-run early return so
+    // an unexpected skip is NAMED even on a run that is red for another
+    // reason, but only a green run is turned red by it.
+    const accounting = this._accountSkips();
     if (result && result.status === "failed") return undefined;
+    if (accounting && accounting.failed) return { status: "failed" };
 
     const { passed, skipped } = this.counts;
     const tooFewRan = passed < MIN_EXPECTED_PASSED;
@@ -361,8 +400,8 @@ class StackDeathReporter {
             `to zero failures reports the same green as one that passed.\n`
           : "") +
         (tooManySkipped
-          ? `Too many tests skipped.  Expected ~29 from deliberate project\n` +
-            `gating; well above that means a whole layer stopped running.\n`
+          ? `Too many tests skipped (coarse bound; the per-test baseline is\n` +
+            `tests/e2e/skip-baseline.json).  A whole layer stopped running.\n`
           : "") +
         `\nUsual causes: E2E_TEST_SECRET missing or not matching the\n` +
         `server (every signed-in spec skips), a project filter that\n` +

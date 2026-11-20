@@ -19,7 +19,6 @@
  */
 const { test, expect } = require("../helpers/auth-fixture");
 const {
-  desktopOnly,
   attachConsoleGuards,
   pageUrl,
   SEL,
@@ -29,8 +28,7 @@ const {
 } = require("../helpers/journey");
 const { openPackageScan } = require("../helpers/arbitrage-page");
 
-test.describe("journey: trade surfaces", () => {
-  test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
+test.describe("journey: trade surfaces @desktop-only", () => {
 
   test("/trade renders the builder with working controls", async ({ authedPage: page }) => {
     const guard = attachConsoleGuards(page);

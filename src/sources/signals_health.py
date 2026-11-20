@@ -464,6 +464,64 @@ def served_section(status: Mapping[str, Any] | None) -> dict[str, Any]:
 # ── assembly + public projection ─────────────────────────────────────────
 
 
+#: Units that send an owner push from their OWN environment (a systemd drop-in),
+#: not the app ``.env``: the uptime probe and the session-renewal timer.
+PUSH_DROPIN_UNITS: dict[str, str] = {
+    "uptimeProbeNtfyConfigured": "riskit-uptime.service",
+    "renewalNtfyConfigured": "dynasty-signals-auth-renew.service",
+}
+_DROPIN_WEBHOOK = re.compile(r"(?:^|\s)NOTIFY_WEBHOOK_URL=(\S+)")
+
+
+def _env_file(path: Path) -> dict[str, str] | None:
+    """``KEY=VALUE`` lines of a systemd ``EnvironmentFile`` (last one wins).
+
+    Values stay inside this process: callers derive booleans only."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    out: dict[str, str] = {}
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        if line.startswith("export "):
+            line = line[len("export ") :].lstrip()
+        key, value = line.split("=", 1)
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        out[key.strip()] = value
+    return out
+
+
+def alert_routing_section(app_dir: Path, units: Mapping[str, Any], show: ShowFn) -> dict[str, Any]:
+    """Which owner-alert channels the box has configured -- booleans only.
+
+    The app ``.env`` feeds the backend and the alert-sweep timer (ntfy first,
+    e-mail fallback: ``src/utils/owner_alerts.py``); two units push from their
+    own drop-in.  ``None`` = could not be read (unknown, never "configured")."""
+    from src.utils import owner_alerts  # noqa: PLC0415
+
+    env = _env_file(Path(app_dir) / ".env")
+    channels = owner_alerts.channels_configured(env) if env is not None else None
+    out: dict[str, Any] = {
+        "sweepTimerActive": (units.get("alertSweep") or {}).get("timerActive"),
+        "envFileReadable": env is not None,
+        "ntfyConfigured": channels["ntfy"] if channels else None,
+        "emailConfigured": channels["email"] if channels else None,
+    }
+    for field, unit in PUSH_DROPIN_UNITS.items():
+        props = show(unit, ("LoadState", "Environment"))
+        if not props or props.get("LoadState") not in ("loaded",):
+            out[field] = None
+            continue
+        match = _DROPIN_WEBHOOK.search(props.get("Environment") or "")
+        out[field] = bool(match and match.group(1).startswith("https://"))
+    return out
+
+
 def build_health_report(
     app_dir: Path,
     *,
@@ -485,9 +543,7 @@ def build_health_report(
         "boards": boards_section(store_root, state_dir, now=now),
         "weighting": weighting_section(state_dir, now=now),
         "served": served_section(status_fetch()),
-        "alertRouting": {
-            "sweepTimerActive": (units.get("alertSweep") or {}).get("timerActive"),
-        },
+        "alertRouting": alert_routing_section(Path(app_dir), units, show),
         "memAvailableMb": mem_available_mb(meminfo),
     }
 
@@ -555,6 +611,11 @@ PUBLIC_PATHS: tuple[str, ...] = (
     "served.flags.*.enabled",
     "served.absentByDesign.*",
     "alertRouting.sweepTimerActive",
+    "alertRouting.envFileReadable",
+    "alertRouting.ntfyConfigured",
+    "alertRouting.emailConfigured",
+    "alertRouting.uptimeProbeNtfyConfigured",
+    "alertRouting.renewalNtfyConfigured",
     "memAvailableMb",
 )
 

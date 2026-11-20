@@ -366,3 +366,77 @@ def test_the_counts_reach_the_public_projection(monkeypatch):
     assert out["session"]["reconnectNoticeAttempts"] == 3
     assert out["session"]["reconnectNoticeChannelAttempts"] == {"ntfy": 3, "email": 0}
     assert "redacted" not in out
+
+
+# ── owner-alert channel configuration (owner directive 2026-11-19, STAB-2) ──
+
+_TOPIC = "https://ntfy.sh/private-topic-xyz"
+
+
+def _routing(tmp_path, env_text, props=None):
+    (tmp_path / ".env").write_text(env_text, encoding="utf-8")
+    props = props or {}
+
+    def show(unit, wanted):
+        return props.get(unit, {})
+
+    return H.alert_routing_section(tmp_path, {"alertSweep": {"timerActive": True}}, show)
+
+
+def test_routing_reads_the_env_file_as_booleans(tmp_path):
+    out = _routing(
+        tmp_path, f"# comment\nexport NOTIFY_WEBHOOK_URL='{_TOPIC}'\nALERT_ENABLED=false\n"
+    )
+    assert out["envFileReadable"] is True
+    assert out["ntfyConfigured"] is True
+    assert out["emailConfigured"] is False
+    assert out["sweepTimerActive"] is True
+
+
+def test_last_assignment_wins_and_empty_is_unconfigured(tmp_path):
+    out = _routing(tmp_path, f"NOTIFY_WEBHOOK_URL={_TOPIC}\nNOTIFY_WEBHOOK_URL=\n")
+    assert out["ntfyConfigured"] is False
+
+
+def test_unreadable_env_is_unknown_not_unconfigured(tmp_path):
+    out = H.alert_routing_section(tmp_path / "missing", {}, lambda u, p: {})
+    assert out["envFileReadable"] is False
+    assert out["ntfyConfigured"] is None and out["emailConfigured"] is None
+
+
+def test_dropin_units_report_push_presence(tmp_path):
+    props = {
+        "riskit-uptime.service": {
+            "LoadState": "loaded",
+            "Environment": f"LOG_FILE=/dev/stdout NOTIFY_WEBHOOK_URL={_TOPIC}",
+        },
+        "dynasty-signals-auth-renew.service": {
+            "LoadState": "loaded",
+            "Environment": "RISKIT_SIGNALS_AUTH_DIR=/var/lib/signals-auth",
+        },
+    }
+    out = _routing(tmp_path, "", props)
+    assert out["uptimeProbeNtfyConfigured"] is True
+    assert out["renewalNtfyConfigured"] is False
+
+
+def test_a_missing_unit_is_unknown(tmp_path):
+    out = _routing(tmp_path, "", {"riskit-uptime.service": {"LoadState": "not-found"}})
+    assert out["uptimeProbeNtfyConfigured"] is None
+    assert out["renewalNtfyConfigured"] is None
+
+
+def test_routing_never_leaks_the_topic_through_the_projection(tmp_path):
+    props = {
+        "riskit-uptime.service": {
+            "LoadState": "loaded",
+            "Environment": f"NOTIFY_WEBHOOK_URL={_TOPIC}",
+        }
+    }
+    routing = _routing(tmp_path, f"NOTIFY_WEBHOOK_URL={_TOPIC}\n", props)
+    out = H.public_projection({"mode": "health", "alertRouting": routing})
+    text = json.dumps(out)
+    assert "ntfy.sh" not in text and "private-topic" not in text
+    assert out["alertRouting"]["ntfyConfigured"] is True
+    assert out["alertRouting"]["uptimeProbeNtfyConfigured"] is True
+    assert "redacted" not in out

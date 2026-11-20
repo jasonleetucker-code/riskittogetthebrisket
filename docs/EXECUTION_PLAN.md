@@ -1,5 +1,28 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+> **Worker count — owner 2026-11-20.** The fixed cap on concurrent workers is removed; size the team to the work
+> (`docs/AGENT_OPERATING_SYSTEM.md` §3 "Usage efficiency" item 1). Dated campaign sections below that say "at most
+> 4 concurrent editing workers" record the rule in force at the time and are superseded on that one point. Process
+> only: this authorizes no feature.
+
+## Production stabilization and final closeout — owner, 2026-11-19
+
+**AUTHORIZED NOW.** Intake STAB-1 … STAB-12 (`docs/OWNER_REQUESTED_TODO.md`); live tracker
+`docs/audits/PRODUCTION_STABILIZATION_2026_11_19.md`.
+
+- **Authorized to implement:** ordinary non-destructive engineering for all 12 workstreams — a permanent stale-deploy
+  safeguard, runner and verification resilience, browser-test skip accounting, mobile verification and fixes, data
+  exposure preparation, backup tooling and design, credential / key inventory, Node 22 migration preparation, the
+  2027 pick-policy analysis, shadow-evidence collection; tests, PRs, merges through the normal gates, permitted
+  verification; cancelling obsolete queued deploy runs.
+- **Not authorized without an explicit owner approval for that specific change:** rotating or revoking credentials,
+  choosing a backup destination or paying for storage, transferring production data off the box, changing repository
+  visibility or rewriting history, purging tracked data, applying branch protection, the production Node cutover,
+  activating the data-only deploy path (Agent OS §3), changing the 2030 pick policy, and any valuation-methodology,
+  source-voting or flag change.
+- At most 4 concurrent editing workers, including the coordinator. Small focused PRs; merge only on green required
+  checks, independent review and an exact-tree release-candidate run.
+
 ## Implement all 16 audit priorities — owner, 2026-11-18
 
 **AUTHORIZED NOW.** Intake AUD-1 … AUD-16 (`docs/OWNER_REQUESTED_TODO.md`); live tracker
@@ -515,8 +538,8 @@ Each mathematical change ships behind its own flag. A change that fails validati
 
 **PROCESS ONLY, NOT NEW FEATURE AUTHORIZATION.** The authorized work in
 §0 should be built by independent workers in isolated branches/worktrees,
-within the Agent OS §3 "Usage efficiency" limit (at most four concurrent workers,
-owner 2026-10-26; supersedes the earlier 3–5 target), instead of
+sized by the Agent OS §3 "Usage efficiency" rule (no fixed worker cap since owner
+2026-11-20: one worker per independent deliverable, no speculative fan-out), instead of
 serializing behind unrelated full CI. Keep L0/L1 checks during coding,
 full required L2 at each PR integration boundary, and strict L3 at the
 existing release boundary. The **exclusive Integration Authority** may

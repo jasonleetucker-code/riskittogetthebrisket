@@ -18,15 +18,13 @@
  */
 const { test, expect } = require("../helpers/auth-fixture");
 const {
-  desktopOnly,
   pageUrl,
   pageHeading,
   contractFixture,
   attachConsoleGuards,
 } = require("../helpers/journey");
 
-test.describe("journey: /tools health pages", () => {
-  test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
+test.describe("journey: /tools health pages @desktop-only", () => {
 
   test("/tools/source-health lists real scraper sources from /api/status", async ({
     authedPage: page,

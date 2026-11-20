@@ -31,7 +31,6 @@ const {
   pageHeading,
   titleFor,
   contractFixture,
-  desktopOnly,
 } = require("../helpers/journey");
 
 // ── Assertion policy for this file ─────────────────────────────────
@@ -47,7 +46,7 @@ const {
 // Both survive the design-system rewrite: they pin roles, accessible
 // names and data, never classes, colours or fonts.
 
-test.describe("signed-in: basic navigation + UI render", () => {
+test.describe("signed-in: basic navigation + UI render @desktop-only", () => {
   // Desktop only, and this gate is new.  The originals ran on every
   // project, but they asserted body text that the shell prints at any
   // viewport — so running them on mobile added a green tick, not
@@ -57,7 +56,6 @@ test.describe("signed-in: basic navigation + UI render", () => {
   // resolves but is `hidden`, so the assertion is genuinely
   // viewport-coupled rather than flaky.  Mobile coverage lives in
   // mobile-smoke.spec.js, per the convention in helpers/journey.js.
-  test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
 
   test("home dashboard renders the war-room surface with a real team list", async ({
     authedPage,

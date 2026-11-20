@@ -69,10 +69,18 @@ def test_no_skippable_workflow_holds_the_deploy_group_at_workflow_level(path: Pa
     if not _workflow_level_deploy_group(doc):
         return
     skip_prone = sorted(_triggers(doc) & _SKIP_PRONE_TRIGGERS)
-    gated_jobs = sorted(
-        name for name, job in (doc.get("jobs") or {}).items() if "if" in (job or {})
+    jobs = doc.get("jobs") or {}
+    gated_jobs = sorted(name for name, job in jobs.items() if "if" in (job or {}))
+    # A root job (no `needs`) with no `if` runs on every run, so the run can
+    # never be a do-nothing run however many DOWNSTREAM jobs are gated.
+    # deploy.yml's bot-only post-deploy dispatch jobs (STAB-10) are such
+    # downstream jobs; its `resolve` job always runs.
+    always_runs = sorted(
+        name
+        for name, job in jobs.items()
+        if "if" not in (job or {}) and not (job or {}).get("needs")
     )
-    assert not skip_prone and not gated_jobs, (
+    assert not skip_prone and (not gated_jobs or always_runs), (
         f"{path.name} declares workflow-level `concurrency: {GROUP}` but can run "
         f"without doing work (triggers {skip_prone}, job-level `if` on {gated_jobs}). "
         "A skipped run still queues in the group and cancels the pending deploy; "

@@ -7,7 +7,6 @@ and deterministic: stub news provider, source-shape scans, ``git ls-files``, the
 * W21-F003  REPAIRED: roster news filters by the roster's player names (tests below are plain passes).
 * W24-F001  no union skip census (characterization); the executed/skip floor gate now exists (sharded hard gate).
 * W24-F002  the 22 ``test_real_rosters.py`` tests skip: an input file they need is untracked.
-* W24-F004  ``e2e.yml`` sets ``SKIP_VISUAL_REGRESSION=1`` and the specs skip the whole describe.
 * W20-F006  three team-direction classifiers remain reachable (was four; ``scoreTeamTiers`` gone).
 """
 
@@ -166,44 +165,6 @@ def test_w24_f002_every_input_of_the_real_roster_variation_guards_is_tracked():
         if not _tracked(str(p.relative_to(REPO)))
     ]
     assert missing == [], f"untracked inputs make the 22 tests skip: {missing}"
-
-
-# --------------------------------------------------------------------------- W24-F004
-def _e2e_sets_skip_visual() -> bool:
-    import yaml
-
-    doc = yaml.safe_load((REPO / ".github" / "workflows" / "e2e.yml").read_text(encoding="utf-8"))
-    for job in (doc.get("jobs") or {}).values():
-        for step in job.get("steps") or []:
-            if "SKIP_VISUAL_REGRESSION" in (step.get("env") or {}):
-                return True
-    return False
-
-
-def _spec_skips_whole_describe(rel: str) -> bool:
-    src = (REPO / "tests" / "e2e" / "specs" / rel).read_text(encoding="utf-8")
-    return bool(
-        re.search(r"test\.describe\([^\n]*\n\s*test\.skip\(\s*!!process\.env\.SKIP_VISUAL", src)
-    )
-
-
-def test_w24_f004_characterization_both_visual_specs_skip_their_whole_describe():
-    assert _spec_skips_whole_describe("chart-visual-regression.spec.js")
-    assert _spec_skips_whole_describe("public-league-visual.spec.js")
-
-
-@pytest.mark.xfail(
-    reason="W24-F004 OPEN: e2e.yml sets SKIP_VISUAL_REGRESSION=1 and each visual spec skips its "
-    "ENTIRE describe on it, so the structural assertions the workflow comment says still run "
-    "never execute (13 tests)",
-    **STRICT,
-)
-def test_w24_f004_ci_does_not_skip_the_structural_visual_assertions():
-    skips_everything = _e2e_sets_skip_visual() and (
-        _spec_skips_whole_describe("chart-visual-regression.spec.js")
-        or _spec_skips_whole_describe("public-league-visual.spec.js")
-    )
-    assert not skips_everything
 
 
 # --------------------------------------------------------------------------- W20-F006

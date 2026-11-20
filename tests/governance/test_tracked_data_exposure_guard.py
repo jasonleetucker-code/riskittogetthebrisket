@@ -235,3 +235,38 @@ def test_oversized_zip_member_is_a_finding(tmp_path, monkeypatch):
     monkeypatch.setattr(guard, "MAX_SCAN_BYTES", 1000)
     reasons = guard.guard_findings("exports/z.zip", fail_closed=True)
     assert any("zip member larger" in r for r in reasons)
+
+
+def test_new_paid_vendor_directory_under_a_baselined_prefix_is_a_finding(tmp_path, monkeypatch):
+    """Closes the documented gap: the rotating prefixes acknowledge dated files in
+    EXISTING vendor directories, but a paid-vendor feed in a directory that did not
+    exist at the merge base is a new publication, not a refresh."""
+    repo = tmp_path / "r"
+    (repo / "data" / "raw" / "dlf_sf").mkdir(parents=True)
+    (repo / "data" / "raw" / "dlf_sf" / "old.csv").write_text("a\n", encoding="utf-8")
+    (repo / "README").write_text("x", encoding="utf-8")
+    base = tmp_path / "baseline.txt"
+    base.write_text("prefix: data/raw/\n", encoding="utf-8")
+    _git(repo.parent, "init", "-q", "-b", "main", str(repo))
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "base")
+    _git(repo, "checkout", "-q", "-b", "feature")
+    monkeypatch.setattr(guard, "REPO", repo)
+
+    # refresh-style: new dated file in an existing vendor directory -> still fine
+    (repo / "data" / "raw" / "dlf_sf" / "new.csv").write_text("b\n", encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "refresh")
+    assert guard.check_changed_since("main", base) == []
+
+    # a NEW paid vendor directory under the same prefix -> finding; a free one is not
+    (repo / "data" / "raw" / "footballguys_sf").mkdir()
+    (repo / "data" / "raw" / "footballguys_sf" / "a.csv").write_text("a\n", encoding="utf-8")
+    (repo / "data" / "raw" / "ktc_new").mkdir()
+    (repo / "data" / "raw" / "ktc_new" / "a.csv").write_text("a\n", encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "new vendor")
+    found = guard.check_changed_since("main", base)
+    assert len(found) == 1
+    assert found[0].startswith("data/raw/footballguys_sf/a.csv")
+    assert "NEW directory" in found[0] and "Footballguys" in found[0]

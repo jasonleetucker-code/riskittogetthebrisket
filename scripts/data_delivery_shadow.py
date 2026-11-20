@@ -68,6 +68,18 @@ PLAN_JOB = "Plan the hard gate"
 COMPLETE_JOB = "Hard gate complete"
 DEPLOY_JOB = "Deploy To Production"
 SHARD_PREFIX = "Hard gate ("
+#: deploy.yml jobs that are not gates besides the deploy job itself: the
+#: post-deploy dispatch jobs (STAB-10).  They run (bot-started deploys) or are
+#: skipped (human-started) as late as after the deploy job, so counting them
+#: would stretch the pre-deploy timing.  Every deploy.yml job is pinned to
+#: exactly one side by tests/deploy/test_data_delivery_shadow.py.
+POST_DEPLOY_JOB_PREFIXES = ("Dispatch ",)
+
+
+def is_pre_deploy_job(name: str) -> bool:
+    """Whether a deploy run's job counts toward the pre-deploy timing."""
+    return name != DEPLOY_JOB and not name.startswith(POST_DEPLOY_JOB_PREFIXES)
+
 
 #: ``scripts/resolve_deploy_ref.py`` prints exactly this line (pinned by test).
 #: Anchored to the START of a log line (after the runner's optional timestamp
@@ -340,7 +352,7 @@ def full_verdict(jobs: list[dict]) -> dict:
 
 
 def full_timing(run: dict, jobs: list[dict]) -> dict:
-    gate_jobs = [j for j in jobs if j.get("name") != DEPLOY_JOB]
+    gate_jobs = [j for j in jobs if is_pre_deploy_job(str(j.get("name") or ""))]
     runner_seconds = 0.0
     last_gate_end: datetime | None = None
     for job in gate_jobs:

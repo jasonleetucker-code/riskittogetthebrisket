@@ -25,8 +25,6 @@
 const { test, expect } = require("../helpers/auth-fixture");
 const {
   SEL,
-  desktopOnly,
-  mobileOnly,
   gotoRankingsBoard,
   boardRowCount,
   attachConsoleGuards,
@@ -71,8 +69,7 @@ async function boardShape(page) {
 }
 
 test.describe("V1-106: rankings board windowing stays active at scale", () => {
-  test.describe("desktop", () => {
-    test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
+  test.describe("desktop @desktop-only", () => {
 
     test("full board mounts a bounded DOM, not one row per player", async ({
       authedPage: page,
@@ -126,8 +123,7 @@ test.describe("V1-106: rankings board windowing stays active at scale", () => {
     });
   });
 
-  test.describe("mobile (390x844)", () => {
-    test.beforeEach(async ({}, testInfo) => mobileOnly(test, testInfo));
+  test.describe("mobile (390x844) @mobile-only", () => {
 
     test("full board mounts a bounded DOM on a phone viewport too", async ({
       authedPage: page,
