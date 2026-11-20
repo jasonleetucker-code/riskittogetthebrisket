@@ -599,6 +599,9 @@
     "game-day-live-diagnostics.yml::inventory::Collect Game Day live collector inventory": {
       "category": "blocking"
     },
+    "health-check.yml::health::Check out the shared owner-push script": {
+      "category": "blocking"
+    },
     "health-check.yml::health::Check /api/health": {
       "category": "blocking"
     },
@@ -845,7 +848,13 @@
     "pr-verification-receipt.yml::receipt::Check receipt": {
       "category": "blocking"
     },
+    "prod-e2e-smoke.yml::smoke::Close the tracking issue on a green run": {
+      "category": "blocking"
+    },
     "prod-e2e-smoke.yml::smoke::Checkout": {
+      "category": "blocking"
+    },
+    "prod-e2e-smoke.yml::smoke::Open or update the tracking issue on failure": {
       "category": "blocking"
     },
     "prod-e2e-smoke.yml::smoke::Install Playwright chromium": {

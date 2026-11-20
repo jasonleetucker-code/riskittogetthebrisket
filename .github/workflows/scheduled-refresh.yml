@@ -875,25 +875,61 @@ jobs:
         #
         # ``if: always()`` so the assertion runs even when an earlier
         # step crashed.
+        #
+        # DLF is NOT fetched by this workflow (see the note in 'Run scraper'):
+        # the production box's ``dynasty-dlf-fetch.timer`` fetches it with the
+        # box's own ``.env`` credentials and pushes the stamps.  So the
+        # remediation points at the box, never at this run's log or repo
+        # secrets, and the message names each RANK board's own stamp: the
+        # aggregate is written only when all four refreshed, and one refusing
+        # board used to read as "DLF is down" while the other three were fresh.
+        # The assertion itself is unchanged: the aggregate stamp, 24 h.
+        # The stale board list goes to $RUNNER_TEMP for the failure alert's
+        # state signature.
         if: always()
         shell: bash
         run: |
           set -Eeuo pipefail
           THRESHOLD_HOURS=24
           STAMP="data/scrape_state/dlf_last_success"
+          NOW=$(date +%s)
+          BOARDS=""
+          STALE_BOARDS=""
+          for key in dlfSf dlfIdp dlfRookieSf dlfRookieIdp; do
+            board_stamp="data/scrape_state/${key}_last_success"
+            if [[ ! -f "$board_stamp" ]]; then
+              BOARDS+=" ${board_stamp}=missing;"
+              STALE_BOARDS+="${key} "
+              continue
+            fi
+            board_epoch="$(tr -dc '0-9' < "$board_stamp")"
+            if [[ -z "$board_epoch" ]]; then
+              BOARDS+=" ${board_stamp}=unparseable;"
+              STALE_BOARDS+="${key} "
+              continue
+            fi
+            board_age=$(( (NOW - board_epoch) / 3600 ))
+            BOARDS+=" ${board_stamp}=${board_age}h;"
+            if (( board_age > THRESHOLD_HOURS )); then
+              STALE_BOARDS+="${key} "
+            fi
+          done
+          STALE_BOARDS="${STALE_BOARDS% }"
+          printf '%s\n' "${STALE_BOARDS}" > "${RUNNER_TEMP}/dlf_stale_boards.txt"
+          echo "per-board DLF stamps:${BOARDS}"
+          REMEDIATION="Stale board(s): ${STALE_BOARDS:-none}.  DLF is fetched on the production box, not in this workflow: on the box run 'journalctl -u dynasty-dlf-fetch.service --since -26h' and check DLF_USERNAME/DLF_PASSWORD in the box .env, or dispatch the 'DLF Fetch Diagnostics (read-only)' workflow (dlf-diagnostics.yml)."
           if [[ ! -f "$STAMP" ]]; then
-            echo "::error title=DLF freshness::${STAMP} missing — DLF has never produced a successful run since this guard was added.  Check the [DLF] log lines in 'Run scraper' above and verify DLF_USERNAME/DLF_PASSWORD repo secrets."
+            echo "::error title=DLF freshness::${STAMP} missing — no fully clean DLF run (all four rank boards) has been recorded since this guard was added.  Per-board stamps:${BOARDS}  ${REMEDIATION}"
             exit 1
           fi
           LAST_SUCCESS="$(tr -dc '0-9' < "$STAMP")"
           if [[ -z "$LAST_SUCCESS" ]]; then
-            echo "::error title=DLF freshness::${STAMP} contains no parseable epoch — file is corrupt."
+            echo "::error title=DLF freshness::${STAMP} contains no parseable epoch — file is corrupt.  Per-board stamps:${BOARDS}"
             exit 1
           fi
-          NOW=$(date +%s)
           AGE_HOURS=$(( (NOW - LAST_SUCCESS) / 3600 ))
           if (( AGE_HOURS > THRESHOLD_HOURS )); then
-            echo "::error title=DLF freshness::Last successful fetch_dlf.py run was ${AGE_HOURS}h ago (threshold ${THRESHOLD_HOURS}h).  Check the [DLF] log lines in 'Run scraper' above and verify DLF_USERNAME/DLF_PASSWORD repo secrets."
+            echo "::error title=DLF freshness::The last run that refreshed ALL four DLF rank boards (${STAMP}) was ${AGE_HOURS}h ago (threshold ${THRESHOLD_HOURS}h).  Per-board stamps:${BOARDS}  ${REMEDIATION}"
             exit 1
           fi
           echo "ok: last successful DLF fetch was ${AGE_HOURS}h ago"
@@ -957,12 +993,28 @@ jobs:
 
       - name: Alert on workflow failure
         # When the run fails (scrape crash, DLF guard tripped,
-        # staleness watchdog red, etc.) open or update a tracking
+        # staleness watchdog red, etc.) open or update ONE rolling tracking
         # issue so the outage surfaces immediately instead of sitting
-        # quietly until someone notices the on-site banner.  Idempotent:
-        # if an open ``stale-sources`` issue already exists, post a
-        # comment with the new run details rather than spamming new
-        # issues each cycle.
+        # quietly until someone notices the on-site banner.
+        #
+        # It reports a STATE, not a run (CI-3c).  The cron fires every 2 h,
+        # and posting the same generic comment on every failing run (#2261
+        # collected one per run) buries the comment that matters under copies
+        # that say nothing new.  The state is (failing step names, stale
+        # source set, stale DLF boards) -- never an age, which changes every
+        # run.  It is stamped into every body this step writes as a hidden
+        # marker; a run whose state equals the LATEST marker on the tracker
+        # stays quiet, and a changed state gets exactly one comment.
+        #
+        # Identity is LABEL + exact TITLE, oldest wins (#958): the old
+        # label-only `.[0]` would have commented on a human's issue that
+        # carried the label.  A lookup that FAILS says so and still files.
+        #
+        # Owner push through scripts/notify_owner.sh (COV-REFRESH): only when
+        # the tracker is CREATED (and on recovery, in the close step) -- at
+        # most one push per incident despite the 2 h cron.  A push that did not
+        # go out leaves `<!-- owner-push: pending -->` in the tracker body and
+        # the next failing run retries it.
         #
         # Mainline only — see the long note on the same guard in e2e.yml
         # (#716); workflow_dispatch is this workflow's only non-main path.
@@ -970,13 +1022,19 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
+          # The failing step names come from this run's own jobs API, which can
+          # trail the step that just finished by a moment; settle first.
+          STEP_LIST_SETTLE_SECONDS: "5"
         run: |
           set -Eeuo pipefail
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          TRACKER_TITLE="Scheduled data refresh failing"
           # Pull the watchdog's stale-source summary (if it ran) so the
           # issue names what's actually stale instead of a generic blurb.
           STALE_SUMMARY="(see the Run scraper / watchdog steps)"
           DEGRADED_SUMMARY="none"
+          STALE_SET=""
           if [[ -f "${RUNNER_TEMP}/staleness.log" ]]; then
             LINE=$(grep -E '^(fail|ok):' "${RUNNER_TEMP}/staleness.log" | tail -n1 || true)
             [[ -n "$LINE" ]] && STALE_SUMMARY="$LINE"
@@ -985,27 +1043,73 @@ jobs:
             # reads as if the degraded source were healthy.
             DEG=$(grep -E '^degraded:' "${RUNNER_TEMP}/staleness.log" | sed 's/^/  - /' || true)
             [[ -n "$DEG" ]] && DEGRADED_SUMMARY=$'\n'"$DEG"
+            # The SET of stale / unmeasurable sources, names only.
+            STALE_SET=$(grep -oE '^::error title=(Stale|Unmeasurable) source: [A-Za-z0-9_]+' \
+                          "${RUNNER_TEMP}/staleness.log" | sed -E 's/.*source: //' \
+                          | sort -u | paste -sd, - || true)
           fi
+          # Written by "Assert DLF freshness": the rank boards past 24 h.
+          DLF_STALE=""
+          if [[ -f "${RUNNER_TEMP}/dlf_stale_boards.txt" ]]; then
+            DLF_STALE=$(tr -s ' \n' ',,' < "${RUNNER_TEMP}/dlf_stale_boards.txt" | sed 's/^,//; s/,$//')
+          fi
+          # Which steps failed, by name, from this run's jobs API.  Unreadable
+          # is "unknown", never "none".
+          sleep "${STEP_LIST_SETTLE_SECONDS:-0}"
+          FAILING=""
+          STEPS_READ=0
+          for attempt in 1 2 3; do
+            if FAILING=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT:-1}/jobs" \
+                           --jq '[.jobs[].steps[]? | select(.conclusion == "failure") | .name] | unique | join("; ")'); then
+              STEPS_READ=1
+              [[ -n "$FAILING" ]] && break
+            else
+              STEPS_READ=0
+              FAILING=""
+            fi
+            if (( attempt < 3 )); then sleep "${STEP_LIST_SETTLE_SECONDS:-0}"; fi
+          done
+          if [[ -n "$FAILING" ]]; then
+            FAILING_SIG="$FAILING"
+          elif [[ "$STEPS_READ" == "1" ]]; then
+            FAILING="unknown (the jobs API listed no failed step yet)"
+            FAILING_SIG="?"
+          else
+            FAILING="unknown (the run's step list could not be read)"
+            FAILING_SIG="?"
+          fi
+          STATE="steps=${FAILING_SIG}|stale=${STALE_SET:-none}|dlf=${DLF_STALE:-none}"
+          STATE_MARKER="<!-- refresh-failure-state: ${STATE} -->"
           BODY=$(cat <<EOF
           Scheduled data refresh failed.
 
           - Workflow run: ${RUN_URL}
           - Commit: ${GITHUB_SHA}
           - Triggered: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          - Failing steps: ${FAILING}
           - Freshness watchdog: ${STALE_SUMMARY}
+          - Stale DLF rank boards (fetched on the production box): ${DLF_STALE:-none}
           - Degraded (acknowledged fetch outage, withheld from voting, non-fatal): ${DEGRADED_SUMMARY}
 
-          Likely causes:
-          1. A fetcher crashed (check the **Run scraper** step).
-          2. KTC produced too few rows (primary-source guard tripped).
-          3. The DLF freshness guard tripped (>24h since last DLF stamp).
-          4. The staleness watchdog flagged one or more sources past
-             threshold (see the run summary table) — including any
-             acknowledged fetch outage that expired or started voting.
+          Where to look, by failing step:
+          - **Run scraper**: a fetcher crashed, or KTC produced too few rows
+            (primary-source guard).
+          - **Assert DLF freshness**: DLF is fetched on the production box by
+            \`dynasty-dlf-fetch.timer\`, not in this workflow. On the box run
+            \`journalctl -u dynasty-dlf-fetch.service --since -26h\` and check the
+            DLF credentials in the box \`.env\`, or dispatch the
+            **DLF Fetch Diagnostics (read-only)** workflow.
+          - **Staleness watchdog**: a source is past its threshold in
+            \`config/source_staleness.json\` (named above), including an
+            acknowledged fetch outage that expired or started voting.
+          - **Contract coverage watchdog**: a fresh source covers ~0 players
+            on the board the server would serve.
 
-          The cron will retry automatically on the next 2h cycle.  If
-          the same failure recurs, fix the root cause and trigger a
-          manual run via ``workflow_dispatch``.
+          This issue is commented on only when the failing steps or the stale
+          sources CHANGE, and closed automatically by the next green run. The
+          owner is pushed when it opens and when it recovers.
+
+          ${STATE_MARKER}
           EOF
           )
           # Ensure the dedup label exists.  Previously it never did, so
@@ -1017,17 +1121,43 @@ jobs:
             --color B60205 \
             --description "Auto-opened when the scheduled data refresh fails" \
             2>/dev/null || true
-          # Idempotent: comment on the existing open tracking issue if
-          # one exists, else open a single labelled one and reuse it.
-          EXISTING=$(gh issue list --state open --label stale-sources \
-                       --json number --jq '.[0].number' 2>/dev/null || echo "")
+          if ! ROWS=$(gh issue list --state open --label stale-sources \
+                        --limit 1000 --json number,title); then
+            echo "::error title=Tracker lookup failed::gh issue list failed; filing an alert without deduplicating against the existing tracker"
+            ROWS=""
+          fi
+          EXISTING=""
+          if [[ -n "$ROWS" ]]; then
+            EXISTING=$(printf '%s' "$ROWS" \
+              | jq -r "[.[] | select(.title==\"${TRACKER_TITLE}\") | .number] | min // empty")
+          fi
+          PUSH_TITLE="Risk It: data refresh failing"
+          PUSH_TEXT="The scheduled data refresh failed. Failing steps: ${FAILING}. Stale: ${STALE_SET:-none}. DLF: ${DLF_STALE:-none}. ${RUN_URL}"
           if [[ -n "$EXISTING" && "$EXISTING" != "null" ]]; then
-            gh issue comment "$EXISTING" --body "$BODY"
+            # The LATEST state reported on the thread (body, then comments in
+            # order).  A view that FAILS is not "already reported": comment,
+            # because a duplicate comment is cheaper than a lost state change.
+            if THREAD=$(gh issue view "$EXISTING" --json body,comments); then
+              LAST_STATE=$(printf '%s' "$THREAD" | jq -r \
+                '[.body, (.comments[]?.body)] | map(select(. != null) | [scan("<!-- refresh-failure-state: (.*?) -->")[0]]) | add | last // ""')
+            else
+              echo "::warning title=Tracker view failed::gh issue view #${EXISTING} failed; commenting rather than risk losing a state change"
+              LAST_STATE=""
+            fi
+            if [[ "$LAST_STATE" == "$STATE" ]]; then
+              echo "::notice title=Refresh tracker unchanged::#${EXISTING} already reports this state (${STATE}); not commenting again"
+            else
+              gh issue comment "$EXISTING" --body "$BODY"
+            fi
+            bash scripts/notify_owner.sh --retry-pending "$EXISTING" "$PUSH_TITLE" \
+              "${PUSH_TEXT} (Delayed: the first push for this incident did not go out.)" || true
           else
-            gh issue create \
-              --title "Scheduled data refresh failing" \
+            NEW_URL=$(gh issue create \
+              --title "$TRACKER_TITLE" \
               --body "$BODY" \
-              --label stale-sources
+              --label stale-sources)
+            echo "$NEW_URL"
+            bash scripts/notify_owner.sh --issue "$NEW_URL" "$PUSH_TITLE" "$PUSH_TEXT" || true
           fi
 
       - name: Close the tracking issue on a green run
@@ -1050,21 +1180,39 @@ jobs:
         # was green.  Mainline only, for the reason in e2e.yml (#716): a
         # green dispatch from a branch would close a real open mainline
         # issue with an all-clear it never measured.
+        #
+        # Identity is the alert step's LABEL + exact TITLE, and EVERY match
+        # closes (duplicates drain).  A lookup that fails is an error, never
+        # "nothing to close".  Recovery push through scripts/notify_owner.sh,
+        # tied to the newest tracker closed; one that does not go out is
+        # retried by the next green run from that closed issue's marker.
         if: success() && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
         run: |
           set -Eeuo pipefail
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          # Close every open one, not just the first.  The pre-#584 alert
-          # step could fall back to creating UNLABELLED duplicates, and a
-          # label was added to the query later, so more than one may be
-          # open; ``--json number --jq '.[0]'`` (the read the alert step
-          # uses) would leave the rest orphaned.
-          OPEN=$(gh issue list --state open --label stale-sources \
-                   --json number --jq '.[].number' 2>/dev/null || echo "")
+          TRACKER_TITLE="Scheduled data refresh failing"
+          PUSH_TITLE="Risk It: data refresh recovered"
+          if ! OPEN=$(gh issue list --state open --label stale-sources \
+                        --limit 1000 --json number,title \
+                        --jq "[.[] | select(.title==\"${TRACKER_TITLE}\") | .number] | sort | .[]"); then
+            echo "::error title=Tracker lookup failed::gh issue list failed; the green all-clear did NOT run and any open tracker is still open"
+            exit 1
+          fi
           if [[ -z "$OPEN" ]]; then
-            echo "no open stale-sources issue; nothing to close"
+            echo "no open stale-sources tracker; nothing to close"
+            if LAST_CLOSED=$(gh issue list --state closed --label stale-sources \
+                               --limit 100 --json number,title \
+                               --jq "[.[] | select(.title==\"${TRACKER_TITLE}\") | .number] | max // empty"); then
+              if [[ -n "$LAST_CLOSED" ]]; then
+                bash scripts/notify_owner.sh --retry-pending "$LAST_CLOSED" "$PUSH_TITLE" \
+                  "The scheduled data refresh is green. (Delayed: the recovery push did not go out.) ${RUN_URL}" || true
+              fi
+            else
+              echo "::warning title=Recovery-push retry skipped::gh issue list (closed) failed; an undelivered recovery push stays pending"
+            fi
             exit 0
           fi
           # Green is not all-clear while an acknowledged fetch outage is
@@ -1088,3 +1236,5 @@ jobs:
 
           Reopened automatically by the alert step if the refresh fails again." || true
           done
+          bash scripts/notify_owner.sh --issue "$N" "$PUSH_TITLE" \
+            "The scheduled data refresh is green again; all gates passed. ${RUN_URL}" || true
