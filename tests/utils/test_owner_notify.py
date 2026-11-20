@@ -128,19 +128,23 @@ def test_a_string_integer_status_still_counts():
 # ── redirects are refused (the scheme check covers the only hop) ───────────
 
 
-def test_a_redirect_is_not_followed():
+@pytest.mark.parametrize("code", [301, 302, 303, 307, 308])
+def test_a_redirect_is_not_followed(code):
+    """urllib's default handler follows 301/302/303 for a POST (as a GET), to
+    any URL the server names -- past the scheme check.  None may be followed."""
     import http.server
     import threading
 
     hits: list[str] = []
 
     class Handler(http.server.BaseHTTPRequestHandler):
-        def do_POST(self):  # noqa: N802 - http.server API
-            hits.append(self.path)
+        def _answer(self):
+            hits.append(f"{self.command} {self.path}")
             length = int(self.headers.get("Content-Length") or 0)
-            self.rfile.read(length)
+            if length:
+                self.rfile.read(length)
             if self.path == "/start":
-                self.send_response(307)
+                self.send_response(code)
                 self.send_header("Location", "/elsewhere")
                 self.send_header("Content-Length", "0")
                 self.end_headers()
@@ -148,6 +152,9 @@ def test_a_redirect_is_not_followed():
             self.send_response(200)
             self.send_header("Content-Length", "0")
             self.end_headers()
+
+        do_POST = _answer  # noqa: N815 - http.server API
+        do_GET = _answer  # noqa: N815
 
         def log_message(self, *_a):
             return None
@@ -160,7 +167,7 @@ def test_a_redirect_is_not_followed():
         assert N.send("t", "b", url=f"{base}/elsewhere") is True  # the server itself works
         hits.clear()
         assert N.send("t", "b", url=f"{base}/start") is False
-        assert hits == ["/start"], "the redirect target must not be contacted"
+        assert hits == ["POST /start"], "the redirect target must not be contacted"
     finally:
         server.shutdown()
         server.server_close()
