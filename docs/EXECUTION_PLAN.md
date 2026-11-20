@@ -5,6 +5,24 @@
 > 4 concurrent editing workers" record the rule in force at the time and are superseded on that one point. Process
 > only: this authorizes no feature.
 
+## Master implementation closeout — owner, 2026-11-20
+
+**AUTHORIZED NOW.** Intake CLO-0 … CLO-14 (`docs/OWNER_REQUESTED_TODO.md`); record
+`docs/audits/CLOSEOUT_IMPLEMENTATION_2026_11_20.md`.
+
+- **Authorized:** ordinary code, test, documentation and CI work for every item, plus focused PRs, merges through the
+  normal gates (release candidate on the exact tree), deploys through the normal pipeline, and read-only production
+  verification and diagnostics. This includes the DLF rookie-board repair (no valuation or class-semantics change),
+  alert-path hardening, CI honesty, apt resilience, frontend hardening, the year-boundary and hermetic test work, and
+  shadow-evidence tooling.
+- **Applying branch protection is authorized** when a credential that can write the ruleset is available. On
+  2026-11-20 this session's proxy refused the write (HTTP 403), so it stays an owner action.
+- **Still owner-only:** rotating or revoking credentials; choosing or paying for a backup destination or moving data
+  off the box; repository visibility, history or data-publication policy; the production Node runtime change;
+  activating the data-only deploy path; changing the 2030 pick policy; any valuation, source-voting (including
+  holding the stale `dlfRookieSf` vote) or flag change.
+- Up to four concurrent agents (this directive), each on its own branch and worktree with disjoint files.
+
 ## Production stabilization and final closeout — owner, 2026-11-19
 
 **AUTHORIZED NOW.** Intake STAB-1 … STAB-12 (`docs/OWNER_REQUESTED_TODO.md`); live tracker
