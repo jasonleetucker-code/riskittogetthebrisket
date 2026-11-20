@@ -40,6 +40,12 @@ PASS only when ALL hold:
   entry is ``null``).
 A missing field is a failure (missing is never zero, never "assumed fine").
 
+Warning, never a failure: the 3-team answer's ``rosters.state`` is anything but
+``current`` (``stale``, ``unknown``, or not stated).  The analysis still ran,
+but on rosters the server could not call current; rosters are refreshed by
+their own job, independently of a deploy, so this cannot fail the deploy's
+smoke.  It is listed in ``warnings`` and, under GitHub Actions, annotated.
+
 Failure classes (``code``): ``flag_off``, ``auth_failure``, ``data_not_ready``,
 ``package_model_unavailable``, ``busy``, ``ownership_refused:<reason>``,
 ``refused:<error>[:<reason>]``, ``schema_drift:<what>``, ``all_withheld``,
@@ -55,6 +61,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 import time
@@ -475,9 +482,27 @@ def run(client: Client, league: str) -> dict[str, Any]:
     return _summary(league, checks)
 
 
+#: The only ``rosters.state`` a passing analysis is not warned about.
+CURRENT_ROSTERS = "current"
+
+
+def roster_warnings(checks: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """A warning for every PASSING check that answered on non-current rosters."""
+    out = []
+    for c in checks:
+        if c.get("status") != "pass" or "rostersState" not in c:
+            continue
+        state = c.get("rostersState")
+        if state != CURRENT_ROSTERS:
+            out.append(
+                {"id": str(c.get("id")), "code": f"rosters_not_current:{state or 'unstated'}"}
+            )
+    return out
+
+
 def _summary(league: str, checks: list[dict[str, Any]]) -> dict[str, Any]:
     ok = bool(checks) and all(c.get("status") == "pass" for c in checks) and len(checks) == 2
-    return {"ok": ok, "league": league, "checks": checks}
+    return {"ok": ok, "league": league, "checks": checks, "warnings": roster_warnings(checks)}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -506,6 +531,16 @@ def main(argv: list[str] | None = None) -> int:
     for c in summary["checks"]:
         if c.get("status") != "pass":
             print(f"::error title=Trade smoke::{c['id']} failed: {c.get('code')}", file=sys.stderr)
+    annotate = os.environ.get("GITHUB_ACTIONS") == "true"
+    for w in summary.get("warnings") or []:
+        msg = (
+            f"{w['id']}: {w['code']} (the analysis passed, on rosters the server "
+            "did not call current; rosters refresh on their own schedule)"
+        )
+        print(
+            f"::warning title=Trade smoke rosters::{msg}" if annotate else f"warning: {msg}",
+            file=sys.stderr,
+        )
     return EXIT_PASS if summary["ok"] else EXIT_FAIL
 
 

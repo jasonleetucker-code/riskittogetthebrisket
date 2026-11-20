@@ -93,6 +93,15 @@ SPECS = [
         "Close the tracking issue on a green run",
     ),
     Spec(
+        # Shares the production-health LABEL with health-check.yml; the exact
+        # title keeps the two trackers apart.
+        "future-clock.yml",
+        "production-health",
+        "Future clock (year boundary) sweep failing",
+        "Open or update the tracking issue on failure",
+        "Close the tracking issue on a green run",
+    ),
+    Spec(
         "intel-refresh.yml",
         "intel-stale",
         "Daily intel refresh failing",
