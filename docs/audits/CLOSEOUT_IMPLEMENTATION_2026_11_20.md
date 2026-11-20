@@ -53,7 +53,7 @@ EXTERNAL BLOCKER · VERIFIED NOT NEEDED. A status is set only from evidence.
 | 12 | P2 Sharp smoke token | IN PROGRESS / OWNER | honest "not measured" since T15 | wave 1: measure only after deploy commit | — | — | — | owner provisions `SHARP_SMOKE_TOKEN` | — |
 | 13 | P2 2030 pick policy | OWNER ACTION REQUIRED (decision) | league window vs board horizon | prototype `d5b8161d` | — | — | — | decision before 2027-01-01 | — |
 | 14 | P2 data-only activation | EXTERNAL BLOCKER (time) | evidence bar not met | observer automatic since #2272 | — | — | 17 compared + live since | time; owner on counting rule | wave 2: aggregate dedup + live-only window |
-| 15 | §17 audit leftovers | IN PROGRESS | see §17 table | waves 1–2 | — | — | — | — | — |
+| 15 | §17 audit leftovers | IN PROGRESS | see §17 table | waves 1–2; #2278 (T13 deploy token); #2279 (X-HEALTH); CI-1c apt cache; #2233 closed as superseded | #2278, #2279 | targeted suites green (see PRs) | — | — | review → release candidate → merge |
 
 ## §1 DLF rookie boards — evidence and decision
 
@@ -145,6 +145,43 @@ Then I verify:
 - the next collection succeeds;
 - `freshness_slo.privateSourcesStale` drops;
 - `sourceVotingStatus` shows the votes resumed.
+
+## §17 The 16 audit tasks (2026-11-18 audit), reconciled
+
+The reconciliation comes from the read-only understand pass (`wf_285342a1-685`), checked against `main` at
+`5ae4299c`. Any status other than VERIFIED COMPLETE is routed to the unit named in the "Route" column.
+
+| Task | Status at intake | Route | Current |
+|---|---|---|---|
+| T1 Hermetic hard gate, skip budget | VERIFIED COMPLETE | evidence-tooling agent pins the two remaining archive-reading tests and adds a retention early warning (X-HERMETIC) | IN PROGRESS |
+| T2 Freshness and deploy-lag SLO | VERIFIED COMPLETE | — | VERIFIED COMPLETE |
+| T3 Data delivery decoupled from the full gate | OWNER / time | evidence-tooling (CI-4b dedup, live-only window, specific advisory gates); activation stays the owner's | IN PROGRESS (code); EXTERNAL BLOCKER (time) |
+| T4 Owner admin-action pack | OWNER ACTION REQUIRED | ledger rows 3, 6, 7 | OWNER ACTION REQUIRED |
+| T5 Year boundary 2026→2027 | VERIFIED COMPLETE | evidence-tooling adds future-clock instants and a failure tracker (X-YEAR-BOUNDARY) | IN PROGRESS |
+| T6 Five UI-fix PRs | VERIFIED COMPLETE | — | VERIFIED COMPLETE |
+| T7 Trade and War Room smoke | VERIFIED COMPLETE | evidence-tooling: a stale `rostersState` becomes an explicit warning (X-SMOKE) | IN PROGRESS |
+| T8 Public-repo data exposure | OWNER ACTION REQUIRED (decision) | ledger row 8; #2275 deliberately adds no tracked vendor-named file | OWNER ACTION REQUIRED |
+| T9 Trade-flow resilience | VERIFIED COMPLETE | wave-1 frontend-hardening (service-worker / API failure recovery) | IN PROGRESS |
+| T10 Mobile ergonomics, 390 px | PARTIAL | wave-1 frontend-hardening (touch-target coverage and ratchet); a physical-device check is the owner's | IN PROGRESS |
+| T11 Signals restore | OWNER ACTION REQUIRED | ledger row 4, §4 | OWNER ACTION REQUIRED |
+| T12 Live roster refresh | VERIFIED NOT NEEDED (measure first) | X-ROSTER-FRESHNESS adds the measurement (after wave 1) | NOT STARTED |
+| T13 Security hardening | PARTIAL | `deploy.yml` top-level token grant plus a guard test for every workflow (#2278); `claude.yml` grant and SHA pin (wave-1 alerts-workflows #2277); CSV injection (frontend-hardening); health side effects (#2279) | PR OPEN |
+| T14 Next.js | VERIFIED COMPLETE (16.4.5) | superseded Dependabot #2233 closed 2026-11-20; 16.4.6 patch bump (after wave 1) | MERGED (16.4.5); 16.4.6 NOT STARTED |
+| T15 Permanent-red / vacuous-green checks | VERIFIED COMPLETE | remaining X-CI items: refresh assertion text (#2277); production-auth suite skip floor (queued); `pipeline.refresh` basis (after alerts-box) | IN PROGRESS |
+| T16 Node 20 → 22 | OWNER ACTION REQUIRED | #2271 refreshed against main (`b9adf5dd`); held until Node ≥22.12 is on the box | OWNER ACTION REQUIRED |
+
+**Understand-pass items routed to units:**
+- wave-1 alerts-box: URL-HANDLING, STARTUP-VALIDATION, SRC-COOLDOWN, SENDALERT-COOLDOWN, ALL-FAIL, DEADMAN,
+  DOC-DRIFT, COV-STALENESS.
+- wave-1 alerts-workflows (#2277): COV-REFRESH, CI-3c, COV-DEPLOYLAG, COV-DECISION, CI-5b, CI-2c, T13 (`claude.yml`).
+- wave-1 frontend-hardening: X-CSV-INJECTION, X-FRONTEND-FAILURE-SW, X-MOBILE-TOUCH, T10, T9.
+- evidence-tooling agent: X-HERMETIC, X-YEAR-BOUNDARY, CI-4b, T3 (advisory gates), X-SMOKE.
+- #2279: X-HEALTH.
+- #2278: T13 (`deploy.yml`).
+- CI-1c worker: verified apt cache.
+- After wave 1: X-ROSTER-FRESHNESS, COV-BACKUP, COV-CRITICAL, E2E-TEST, CI-1d, X-CI (production-auth skip floor and
+  the `pipeline.refresh` basis), Next 16.4.6.
+- Watch only: CI-5c (`audit-rank-form-drift` must be green on its next scheduled run, week of 2026-11-24).
 
 ## Integration log
 
