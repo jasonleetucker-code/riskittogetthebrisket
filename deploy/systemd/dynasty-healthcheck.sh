@@ -291,13 +291,39 @@ pyspy_dump() {
 # next threshold crossing) and is cleared as soon as the backend answers
 # again, so the next outage notifies afresh.  The URL is never printed:
 # failures log a reason class only.  Never fails the watchdog.
+# The shell form of src/utils/owner_notify.validate (this root-owned copy has
+# no repo Python): surrounding whitespace dropped; lower-case https:// (or
+# http:// to loopback), no inner whitespace, no user:pass@, a host.  Prints a
+# reason CODE on refusal, never any part of the value.
+webhook_reject_reason() {
+    local u="$1" rest authority host
+    if [[ "${u}" =~ [[:space:]] ]]; then echo whitespace; return; fi
+    case "${u}" in
+        https://*) rest="${u#https://}" ;;
+        http://127.0.0.1*|http://localhost*|http://\[::1\]*) rest="${u#http://}" ;;
+        *) echo scheme; return ;;
+    esac
+    authority="${rest%%[/?#]*}"
+    if [[ "${authority}" == *@* ]]; then echo userinfo; return; fi
+    host="${authority%:*}"
+    if [[ -z "${host}" ]]; then echo no_host; return; fi
+}
+
 notify_restart() {
-    [[ -n "${NOTIFY_WEBHOOK_URL}" ]] || return 0
+    local url="${NOTIFY_WEBHOOK_URL}" reason
+    url="${url#"${url%%[![:space:]]*}"}"
+    url="${url%"${url##*[![:space:]]}"}"
+    [[ -n "${url}" ]] || return 0
     [[ ! -f "${NOTIFIED_FILE}" ]] || return 0
+    reason="$(webhook_reject_reason "${url}")"
+    if [[ -n "${reason}" ]]; then
+        log "WARN: restart push not sent (reason=webhook_rejected:${reason})"
+        return 0
+    fi
     local rc=0
     curl -fsS --max-time "${HEALTH_NOTIFY_TIMEOUT}" -X POST \
         -d "[dynasty-healthcheck] restarting ${HEALTH_SERVICE}.service after ${failures} consecutive liveness failures at $(date -u +%FT%TZ)" \
-        "${NOTIFY_WEBHOOK_URL}" >/dev/null 2>&1 || rc=$?
+        "${url}" >/dev/null 2>&1 || rc=$?
     if (( rc == 0 )); then
         : > "${NOTIFIED_FILE}" 2>/dev/null || true
         log "restart push delivered"

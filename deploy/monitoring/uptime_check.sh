@@ -95,29 +95,70 @@ logline "${LINE}"
 # ── State-change notification (optional, operator-configured) ────────
 PREV="$(cat "${STATE_FILE}" 2>/dev/null || echo UP)"
 
-# Returns non-zero when a configured channel failed to deliver.
-notify() {
-    local msg="$1" rc=0
-    if [[ -n "${NOTIFY_WEBHOOK_URL}" ]]; then
-        curl -fsS --max-time 10 -X POST -d "${msg}" "${NOTIFY_WEBHOOK_URL}" >/dev/null 2>&1 \
-            || { logline "${NOW} WARN notify-webhook failed"; rc=1; }
-    fi
-    if [[ -n "${NOTIFY_CMD}" ]]; then
-        printf '%s\n' "${msg}" | ${NOTIFY_CMD} >/dev/null 2>&1 \
-            || { logline "${NOW} WARN notify-cmd failed"; rc=1; }
-    fi
-    return "${rc}"
+# Delivery is tracked PER CHANNEL, separately from the observed status.
+# The status is recorded every run (so a short outage still yields its
+# "DOWN -> UP" message), and each channel keeps its own queue of messages it
+# has not yet delivered (${STATE_FILE}.pending-<channel>, at most
+# PENDING_MAX, oldest dropped).  Every run first retries a channel's queue in
+# order, then appends the new transition, so:
+#   * a failed push is retried even if the outage cleared before the next run;
+#   * a working channel never repeats a message because another one failed;
+#   * a channel that is no longer configured has its queue discarded.
+PENDING_MAX=10
+
+send_one() {
+    local channel="$1" msg="$2"
+    case "${channel}" in
+        webhook) curl -fsS --max-time 10 -X POST -d "${msg}" "${NOTIFY_WEBHOOK_URL}" >/dev/null 2>&1 ;;
+        cmd) printf '%s\n' "${msg}" | ${NOTIFY_CMD} >/dev/null 2>&1 ;;
+        *) return 1 ;;
+    esac
 }
 
-# The state is recorded only AFTER the push succeeded (or when none is
-# needed): a failed push leaves the old state, so the next run still sees
-# the transition and retries instead of losing the alert for good.
-if [[ "${STATUS}" != "${PREV}" ]]; then
-    if notify "[riskit-uptime] ${PREV} -> ${STATUS} at ${NOW}: ${RESULTS[*]}"; then
-        printf '%s\n' "${STATUS}" > "${STATE_FILE}" 2>/dev/null || true
+# deliver_queue <channel> <queue file> <new message, or empty>
+deliver_queue() {
+    local channel="$1" file="$2" new="$3"
+    local -a queue=() rest=()
+    local line failed=0 start
+    if [[ -f "${file}" ]]; then
+        mapfile -t queue < "${file}" 2>/dev/null || queue=()
     fi
+    if [[ -n "${new}" ]]; then
+        queue+=("${new}")
+    fi
+    for line in "${queue[@]}"; do
+        [[ -n "${line}" ]] || continue
+        # Stop at the first failure so the messages arrive in order.
+        if (( failed == 0 )) && send_one "${channel}" "${line}"; then
+            continue
+        fi
+        failed=1
+        rest+=("${line}")
+    done
+    if (( ${#rest[@]} > 0 )); then
+        start=$(( ${#rest[@]} > PENDING_MAX ? ${#rest[@]} - PENDING_MAX : 0 ))
+        printf '%s\n' "${rest[@]:start}" > "${file}" 2>/dev/null || true
+        logline "${NOW} WARN notify-${channel} failed; $(( ${#rest[@]} - start )) message(s) kept for the next run"
+    else
+        rm -f "${file}" 2>/dev/null || true
+    fi
+}
+
+NEW_MSG=""
+if [[ "${STATUS}" != "${PREV}" ]]; then
+    NEW_MSG="[riskit-uptime] ${PREV} -> ${STATUS} at ${NOW}: ${RESULTS[*]}"
+fi
+printf '%s\n' "${STATUS}" > "${STATE_FILE}" 2>/dev/null || true
+
+if [[ -n "${NOTIFY_WEBHOOK_URL}" ]]; then
+    deliver_queue webhook "${STATE_FILE}.pending-webhook" "${NEW_MSG}"
 else
-    printf '%s\n' "${STATUS}" > "${STATE_FILE}" 2>/dev/null || true
+    rm -f "${STATE_FILE}.pending-webhook" 2>/dev/null || true
+fi
+if [[ -n "${NOTIFY_CMD}" ]]; then
+    deliver_queue cmd "${STATE_FILE}.pending-cmd" "${NEW_MSG}"
+else
+    rm -f "${STATE_FILE}.pending-cmd" 2>/dev/null || true
 fi
 
 exit "${FAILED}"

@@ -184,6 +184,24 @@ def test_a_non_https_url_is_refused_and_never_contacted(box):
     assert "ntfy.example.invalid" not in cp.stdout + cp.stderr
 
 
+@pytest.mark.parametrize("pad", ["  ", "\t", "\n"])
+def test_surrounding_whitespace_is_dropped_so_the_value_judged_is_the_value_sent(box, pad):
+    """Review 2026-11-20: the validator ignores surrounding whitespace, so the
+    script must send the same stripped value rather than the raw one."""
+    cp = box.run("Title X", "Body Y", url=pad + URL + pad)
+    assert cp.returncode == 0, cp.stdout + cp.stderr
+    (args,) = box.pushes()
+    assert args.rstrip().endswith(URL), "curl gets the stripped URL"
+    assert "private-topic" not in cp.stdout + cp.stderr
+
+
+def test_a_whitespace_only_secret_is_unset_not_a_delivery_failure(box):
+    cp = box.run("Title X", "Body Y", url="   ")
+    assert cp.returncode == 0
+    assert "::notice title=Owner push not configured::" in cp.stdout
+    assert box.pushes() == []
+
+
 def test_a_message_starting_with_at_is_sent_literally_not_read_as_a_file(box):
     secret_file = box.dir / "x"
     secret_file.write_text("FILE CONTENT", encoding="utf-8")
