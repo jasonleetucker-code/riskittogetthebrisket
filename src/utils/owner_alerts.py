@@ -23,23 +23,36 @@ Rules (the ``owner_notify`` contract, unchanged):
   ``None`` from :func:`recipient` when no channel exists at all.
 
 Delivery health (2026-11-20): every :func:`deliver` / :func:`deliver_each` that
-ATTEMPTED at least one channel is recorded in process memory -- last delivered,
-last failed, consecutive failures -- and :func:`delivery_health` publishes it
-(booleans, ISO timestamps and a count; ``/api/status`` ``alertDelivery``), so a
-box that cannot reach its owner is visible from outside
-(``scripts/check_production_slo.py``).  A call with no channel configured
-attempted nothing and is not a failure.  The record resets on restart.
+ATTEMPTED at least one channel is recorded -- last delivered, last failed,
+consecutive failures -- and :func:`delivery_health` publishes it (booleans, ISO
+timestamps and a count; ``/api/status`` ``alertDelivery``), so a box that cannot
+reach its owner is visible from outside (``scripts/check_production_slo.py``).
+A call with no channel configured attempted nothing and is not a failure.
+
+The record PERSISTS across restarts (2026-11-20 review): a sweep attempts at
+most a couple of deliveries, so the three failures the SLO rule breaches on take
+several sweeps, and an in-memory record reset by a deploy in between read 0
+("OK") while delivery was failing.  It lives in user_kv under the ops-alert
+system user (beside ``ops_alerts.record_sweep``'s stamp), best-effort: a store
+fault is logged (exception class only) and never breaks a delivery, and this
+process's own record still answers.  No record anywhere is UNKNOWN
+(``consecutiveFailures: None``), never 0.
 """
 
 from __future__ import annotations
 
+import logging
 import os
 import threading
 import time
 from collections.abc import Callable, Mapping
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
 
 from src.utils import owner_notify
+
+_LOGGER = logging.getLogger(__name__)
 
 #: Stand-in recipient for callers whose contract requires an address
 #: (``ops_alerts.check_and_alert`` / ``source_health_alerts.check_and_alert`` only
@@ -95,11 +108,14 @@ def deliver(
     *,
     email: EmailDelivery | None = None,
     push: PushDelivery | None = None,
+    persist: bool = True,
 ) -> bool:
     """Push first, e-mail as fallback.  ``True`` when either channel delivered.
 
     ``push`` defaults to the configured ntfy webhook (absent -> skipped).
     ``email`` is used only for a real address (never :data:`OWNER_CHANNEL`).
+    ``persist=False`` keeps the attempt out of the store (a process that is not
+    the server, e.g. ``scripts/send_owner_test_alert.py``).
     """
     push_fn = push if push is not None else owner_notify.channel()
     attempted = False
@@ -107,7 +123,7 @@ def deliver(
         attempted = True
         try:
             if push_fn(subject, body):
-                _record(True)
+                _record(True, persist=persist)
                 return True
         except Exception:  # noqa: BLE001 - a channel fault must never break the caller
             pass
@@ -119,7 +135,7 @@ def deliver(
         except Exception:  # noqa: BLE001
             delivered = False
     if attempted:
-        _record(delivered)
+        _record(delivered, persist=persist)
     return delivered
 
 
@@ -130,8 +146,10 @@ def deliver_each(
     *,
     email: EmailDelivery | None = None,
     push: PushDelivery | None = None,
+    persist: bool = True,
 ) -> dict[str, bool | None]:
-    """Try EVERY channel once (an operator test): ``None`` = not configured."""
+    """Try EVERY channel once (an operator test): ``None`` = not configured.
+    ``persist`` as in :func:`deliver`."""
     out: dict[str, bool | None] = {"ntfy": None, "email": None}
     push_fn = push if push is not None else owner_notify.channel()
     if push_fn is not None:
@@ -146,30 +164,165 @@ def deliver_each(
             out["email"] = False
     attempted = [v for v in out.values() if v is not None]
     if attempted:
-        _record(any(attempted))
+        _record(any(attempted), persist=persist)
     return out
 
 
-# ── in-process delivery health ───────────────────────────────────────────
+# ── delivery health (persisted, best-effort) ─────────────────────────────
+
+#: The user_kv synthetic user the record persists under -- the one
+#: ``ops_alerts.record_sweep`` stamps the sweep under (pinned equal by test).
+HEALTH_STATE_USER = "_system_ops_alerts"
+#: The record's key in that user's state blob.
+HEALTH_STATE_KEY = "alertDelivery"
+#: The user_kv store file; ``None`` = ``user_kv.USER_KV_PATH`` (read at call
+#: time).  ``tests/runtime_data_isolation.py`` points it at a per-test file.
+HEALTH_STORE_PATH: Path | None = None
+
+#: ``{"lastDeliveredEpoch", "lastFailedEpoch", "consecutiveFailures"}``.
+HealthRecord = dict[str, Any]
 
 _HEALTH_LOCK = threading.Lock()
-_HEALTH: dict[str, float | int | None] = {
-    "lastDeliveredAt": None,
-    "lastFailedAt": None,
-    "consecutiveFailures": 0,
-}
+#: This process's view of the record (``None`` until it records one).
+_HEALTH: dict[str, HealthRecord | None] = {"record": None}
 
 
-def _record(delivered: bool, *, now: float | None = None) -> None:
-    """One ATTEMPTED delivery.  A success resets the failure streak."""
+def _store_path() -> Path:
+    if HEALTH_STORE_PATH is not None:
+        return Path(HEALTH_STORE_PATH)
+    from src.api import user_kv  # noqa: PLC0415 - lazily, from a utils module
+
+    return Path(user_kv.USER_KV_PATH)
+
+
+def _epoch(value: Any) -> tuple[bool, float | None]:
+    """``(readable, value)``: ``None`` (never happened) or a number of seconds."""
+    if value is None:
+        return True, None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False, None
+    return True, float(value)
+
+
+def _coerce_record(raw: Any) -> HealthRecord | None:
+    """A stored record, or ``None`` when absent or unreadable -- never a 0."""
+    if not isinstance(raw, dict):
+        return None
+    failures = raw.get("consecutiveFailures")
+    if isinstance(failures, bool) or not isinstance(failures, int) or failures < 0:
+        return None
+    delivered_ok, delivered = _epoch(raw.get("lastDeliveredEpoch"))
+    failed_ok, failed = _epoch(raw.get("lastFailedEpoch"))
+    if not (delivered_ok and failed_ok):
+        return None
+    return {
+        "lastDeliveredEpoch": delivered,
+        "lastFailedEpoch": failed,
+        "consecutiveFailures": failures,
+    }
+
+
+def _latest_event(record: HealthRecord) -> float:
+    stamps = [s for s in (record["lastDeliveredEpoch"], record["lastFailedEpoch"]) if s is not None]
+    return max(stamps) if stamps else float("-inf")
+
+
+def _later(a: float | None, b: float | None) -> float | None:
+    if a is None:
+        return b
+    if b is None:
+        return a
+    return max(a, b)
+
+
+def _merge(a: HealthRecord | None, b: HealthRecord | None) -> HealthRecord | None:
+    """Two views of the record: the most recent EVENT decides the streak, and
+    each timestamp is the later of the two."""
+    if a is None:
+        return b
+    if b is None:
+        return a
+    newer = a if _latest_event(a) >= _latest_event(b) else b
+    return {
+        "lastDeliveredEpoch": _later(a["lastDeliveredEpoch"], b["lastDeliveredEpoch"]),
+        "lastFailedEpoch": _later(a["lastFailedEpoch"], b["lastFailedEpoch"]),
+        "consecutiveFailures": newer["consecutiveFailures"],
+    }
+
+
+def _advance(prior: HealthRecord | None, delivered: bool, stamp: float) -> HealthRecord:
+    """The record after one ATTEMPTED delivery; a success resets the streak.
+    With no prior record the streak starts at this attempt -- a lower bound,
+    since attempts made before any record existed are not known."""
+    if prior is None:
+        record: HealthRecord = {
+            "lastDeliveredEpoch": None,
+            "lastFailedEpoch": None,
+            "consecutiveFailures": 0,
+        }
+    else:
+        record = dict(prior)
+    if delivered:
+        record["lastDeliveredEpoch"] = stamp
+        record["consecutiveFailures"] = 0
+    else:
+        record["lastFailedEpoch"] = stamp
+        record["consecutiveFailures"] += 1
+    return record
+
+
+def _persist(delivered: bool, stamp: float, memory: HealthRecord | None) -> HealthRecord | None:
+    """Advance the STORED record under the user_kv write lock.  Returns the new
+    record, or ``None`` when the store could not be written (logged with the
+    exception class only, never raised)."""
+    written: dict[str, HealthRecord] = {}
+
+    def _apply(entry: dict[str, Any]) -> None:
+        base = _merge(_coerce_record(entry.get(HEALTH_STATE_KEY)), memory)
+        written["record"] = _advance(base, delivered, stamp)
+        entry[HEALTH_STATE_KEY] = written["record"]
+
+    try:
+        from src.api import user_kv  # noqa: PLC0415
+
+        user_kv.mutate_user_state(HEALTH_STATE_USER, _apply, path=_store_path())
+    except Exception as exc:  # noqa: BLE001 - delivery never fails over its bookkeeping
+        _LOGGER.warning(
+            "owner-alert delivery health not persisted (%s); this process keeps its own record",
+            type(exc).__name__,
+        )
+        return None
+    return written.get("record")
+
+
+def _read_stored() -> HealthRecord | None:
+    """The stored record; ``None`` when there is none or it cannot be read.
+    Read-only: a missing store is answered ``None`` without creating it."""
+    try:
+        path = _store_path()
+        if not path.is_file():
+            return None
+        from src.api import user_kv  # noqa: PLC0415
+
+        state = user_kv.get_user_state(HEALTH_STATE_USER, path=path)
+    except Exception as exc:  # noqa: BLE001 - a diagnostic never raises
+        _LOGGER.warning("owner-alert delivery health unreadable (%s)", type(exc).__name__)
+        return None
+    return _coerce_record(state.get(HEALTH_STATE_KEY))
+
+
+def _record(delivered: bool, *, now: float | None = None, persist: bool = True) -> None:
+    """One ATTEMPTED delivery: advance the stored record (best-effort) and
+    this process's own."""
     stamp = time.time() if now is None else now
     with _HEALTH_LOCK:
-        if delivered:
-            _HEALTH["lastDeliveredAt"] = stamp
-            _HEALTH["consecutiveFailures"] = 0
+        memory = _HEALTH["record"]
+    written = _persist(delivered, stamp, memory) if persist else None
+    with _HEALTH_LOCK:
+        if written is not None:
+            _HEALTH["record"] = _merge(_HEALTH["record"], written)
         else:
-            _HEALTH["lastFailedAt"] = stamp
-            _HEALTH["consecutiveFailures"] = int(_HEALTH["consecutiveFailures"] or 0) + 1
+            _HEALTH["record"] = _advance(_HEALTH["record"], delivered, stamp)
 
 
 def _iso(epoch: float | int | None) -> str | None:
@@ -180,20 +333,42 @@ def _iso(epoch: float | int | None) -> str | None:
 
 def delivery_health(env: Mapping[str, str] | None = None) -> dict[str, bool | int | str | None]:
     """``/api/status`` ``alertDelivery``: which channels exist and how delivery
-    has gone in THIS process.  Booleans, ISO timestamps (``None`` = never) and a
-    count only -- no address, no URL, no subject."""
+    has gone -- the stored record merged with this process's own.  Booleans,
+    ISO timestamps (``None`` = never) and a count (``None`` = no attempt is
+    recorded, or the record is unreadable: unknown, never 0) -- no address,
+    no URL, no subject."""
     channels = channels_configured(env)
+    stored = _read_stored()
     with _HEALTH_LOCK:
-        snap = dict(_HEALTH)
+        record = _merge(stored, _HEALTH["record"])
+    if record is None:
+        return {
+            "ntfyConfigured": channels["ntfy"],
+            "emailConfigured": channels["email"],
+            "lastDeliveredAt": None,
+            "lastFailedAt": None,
+            "consecutiveFailures": None,
+        }
     return {
         "ntfyConfigured": channels["ntfy"],
         "emailConfigured": channels["email"],
-        "lastDeliveredAt": _iso(snap["lastDeliveredAt"]),
-        "lastFailedAt": _iso(snap["lastFailedAt"]),
-        "consecutiveFailures": int(snap["consecutiveFailures"] or 0),
+        "lastDeliveredAt": _iso(record["lastDeliveredEpoch"]),
+        "lastFailedAt": _iso(record["lastFailedEpoch"]),
+        "consecutiveFailures": record["consecutiveFailures"],
     }
 
 
-def reset_delivery_health_for_tests() -> None:
+def reset_delivery_health_for_tests(*, store: bool = True) -> None:
+    """Forget this process's record and, unless ``store=False`` (a simulated
+    restart), the stored one."""
     with _HEALTH_LOCK:
-        _HEALTH.update(lastDeliveredAt=None, lastFailedAt=None, consecutiveFailures=0)
+        _HEALTH["record"] = None
+    if not store:
+        return
+    path = _store_path()
+    if path.is_file():
+        from src.api import user_kv  # noqa: PLC0415
+
+        user_kv.mutate_user_state(
+            HEALTH_STATE_USER, lambda entry: entry.pop(HEALTH_STATE_KEY, None), path=path
+        )

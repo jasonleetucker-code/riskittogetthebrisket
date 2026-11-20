@@ -33,11 +33,21 @@ and `ALERT_TO` is not set. Every production alert reached no one, except the Git
     (`rejected:scheme`, or `rejected_scheme` in the probe).
   - **Delivery health is visible from outside.** `/api/status` publishes `alertDelivery` (`ntfyConfigured`,
     `emailConfigured`, `lastDeliveredAt`, `lastFailedAt`, `consecutiveFailures`; booleans, timestamps and a
-    count, kept in memory since the last restart). It also publishes `alertSweepAgeHours`, the hours since the
-    daily alert sweep last finished (`null` = none recorded yet). The 6-hourly SLO check breaches on 3 failed
-    deliveries in a row (`alerting.alert_delivery_failing`) and on a sweep older than 30 h
-    (`alerting.alert_sweep_age`). A missing value is UNKNOWN, never OK. Expect `alert_sweep_age` to be UNKNOWN
-    until the first sweep (15:00 UTC) after the deploy that ships it.
+    count). It also publishes `alertSweepAgeHours`, the hours since the daily alert sweep last finished
+    (`null` = none recorded yet). The 6-hourly SLO check breaches on 3 failed deliveries in a row
+    (`alerting.alert_delivery_failing`) and on a sweep older than 30 h (`alerting.alert_sweep_age`). A missing
+    value is UNKNOWN, never OK. Expect `alert_sweep_age` to be UNKNOWN until the first sweep (15:00 UTC) after
+    the deploy that ships it.
+  - **The delivery record survives restarts.** Each sweep attempts at most a couple of deliveries, so three
+    failures in a row take several sweeps, and a deploy in between used to reset the count to 0. The record now
+    persists in the server's user store, beside the sweep stamp. Failures add up across sweeps and restarts
+    until a delivery succeeds. Writing the record is best-effort: if the store fails, the alert is still sent,
+    the server logs the error class, and it reports its own in-process count.
+  - **No record is unknown, not 0.** Until the box records a delivery attempt, `consecutiveFailures` is `null`
+    and the SLO rule reports `alert_delivery_failing` as UNKNOWN ("no owner-alert delivery attempt is
+    recorded"). That includes the first deploy that ships this. To record one at once, send `POST
+    /api/test-alert` (admin). The `notify-test` probe mode does not record anything: it runs outside the server
+    and never writes the server's store.
 
 **What you need to do (about 10 minutes).** The topic name is a secret: anyone who knows it can read and post to it.
 Never paste it in chat, an issue or a commit.
@@ -107,10 +117,17 @@ tests and by the "A REAL alert" row.
 - **Signals notice:** sent once per failure episode.
 - **`send_alert`** (uptime, scrape failure, partial scrape, low disk, stale backups): a one-hour cooldown PER
   ALERT CLASS since 2026-11-20. One class no longer silences another.
-  - "Uptime recovered" is never held back by a cooldown. Once it is delivered, the next uptime failure is
-    announced at once.
+  - Each uptime outage you were told about gets exactly one "Uptime recovered", even inside the hour. A
+    recovery is never held back by a cooldown.
+  - You get no recovery for an outage you were never told about.
+  - A recovery does not reset the uptime cooldown. If the check flaps, you get at most one failure and one
+    recovery per hour (2026-11-20 review: resetting it sent 8 pushes an hour at the default 5-minute check
+    interval and 80 at the 30-second minimum).
+  - A recovery that arrives while its failure alert is still being sent waits for that send. It goes out only
+    if the failure alert was delivered.
   - An undelivered alert sets no cooldown, so it is retried on the next trigger.
-  - The e-mail fallback uses the same 587-then-465 sender as the sweeps.
+  - The e-mail fallback uses the same 587-then-465 sender as the sweeps. On failure it logs the error class
+    only, never the address or the server's reply.
 - **GitHub-side pushes:** only on create, change and recovery.
 
 **Expect a short burst after setup.** Conditions that are already firing are pushed on the next sweep. The Signals

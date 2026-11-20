@@ -83,6 +83,8 @@ def _alerting(monkeypatch):
     monkeypatch.setattr(server, "_last_alert_time_by_key", {})
     monkeypatch.setattr(server, "_alerts_in_flight", set())
     monkeypatch.setattr(server, "_alert_unconfigured_logged_at", {})
+    monkeypatch.setattr(server, "_alert_incident_open", set())
+    monkeypatch.setattr(server, "_alert_recovery_deferred", {})
     monkeypatch.setattr(server.smtplib, "SMTP", _BlockingSMTP)
     monkeypatch.setattr(server.smtplib, "SMTP_SSL", _BlockingSMTP)
     monkeypatch.delenv("NOTIFY_WEBHOOK_URL", raising=False)

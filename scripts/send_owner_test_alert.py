@@ -61,6 +61,9 @@ def run(app_dir: Path, *, transport: owner_notify.Transport | None = None) -> tu
             title,
             BODY,
             push=lambda s, b: owner_notify.send(s, b, url=url, transport=transport),
+            # Not the server: never write its user_kv store (/api/status
+            # alertDelivery) from this out-of-process operator run.
+            persist=False,
         )
         sent[key] = result["ntfy"]
     out["sent"] = sent

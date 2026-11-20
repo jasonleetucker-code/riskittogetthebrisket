@@ -53,6 +53,8 @@ def _reset(monkeypatch):
     monkeypatch.setattr(server, "_last_alert_time_by_key", {})
     monkeypatch.setattr(server, "_alerts_in_flight", set())
     monkeypatch.setattr(server, "_alert_unconfigured_logged_at", {})
+    monkeypatch.setattr(server, "_alert_incident_open", set())
+    monkeypatch.setattr(server, "_alert_recovery_deferred", {})
     monkeypatch.setattr(server.smtplib, "SMTP", _RecordingSMTP)
     monkeypatch.setattr(server.smtplib, "SMTP_SSL", _RecordingSMTP)
     owner_alerts.reset_delivery_health_for_tests()
@@ -68,8 +70,14 @@ def _reset(monkeypatch):
 
 
 def _settle():
-    for t in threading.enumerate():
-        if t.name == "alert-smtp":
+    """Join every delivery thread, including one started by another (a deferred
+    recovery is sent from the thread that delivered its failure alert)."""
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        threads = [t for t in threading.enumerate() if t.name == "alert-smtp"]
+        if not threads:
+            return
+        for t in threads:
             t.join(timeout=5)
 
 
@@ -147,22 +155,112 @@ def test_different_classes_do_not_suppress_each_other(monkeypatch):
     assert len(pushed) == 3
 
 
-def test_recovery_is_sent_inside_the_window_and_rearms_its_class(monkeypatch):
+FAILING = "Uptime check failing (2 consecutive)"
+RECOVERED = "Uptime recovered"
+
+
+def _fail():
+    server.send_alert(FAILING, "b", key=server.ALERT_KEY_UPTIME)
+    _settle()
+
+
+def _recover():
+    server.send_alert(RECOVERED, "b", key=server.ALERT_KEY_UPTIME_RECOVERY)
+    _settle()
+
+
+def test_one_outage_is_one_failure_and_one_recovery_inside_the_window(monkeypatch):
     pushed = _pushes(monkeypatch)
-    server.send_alert("Uptime check failing (2 consecutive)", "b", key=server.ALERT_KEY_UPTIME)
-    _settle()
+    _fail()
     # Minutes later -- well inside the one-hour window -- the site is back.
-    server.send_alert("Uptime recovered", "b", key=server.ALERT_KEY_UPTIME_RECOVERY)
+    _recover()
+    assert pushed == [f"[Dynasty Server] {FAILING}", f"[Dynasty Server] {RECOVERED}"]
+    assert server._alert_incident_open == set()
+
+
+def test_a_recovery_does_not_rearm_the_failure_cooldown(monkeypatch):
+    """2026-11-20 review: clearing the cooldown on recovery let a flapping
+    check push a failure + recovery every cycle (8/hour at 300 s)."""
+    pushed = _pushes(monkeypatch)
+    _fail()
+    _recover()
+    # It flaps: down again inside the window -- cooled down, not announced...
+    _fail()
+    # ...so its recovery has no announced incident to resolve and is not sent.
+    _recover()
+    assert len(pushed) == 2
+    assert server._last_alert_time_by_key.get(server.ALERT_KEY_UPTIME)
+
+
+def test_a_recovery_without_an_announced_incident_is_not_sent(monkeypatch):
+    pushed = _pushes(monkeypatch)
+    _recover()
+    assert pushed == []
+
+
+def test_an_undelivered_failure_opens_no_incident_and_is_retried(monkeypatch):
+    pushed = _pushes(monkeypatch, results=[False, True, True])
+    _fail()  # channel down: nothing announced, no cooldown, no incident
+    assert server._alert_incident_open == set()
+    assert server._last_alert_time_by_key == {}
+    _recover()  # the owner never heard of that outage
+    assert pushed == [f"[Dynasty Server] {FAILING}"]
+    _fail()  # the next outage is retried at once and delivered
+    _recover()
+    assert pushed[1:] == [f"[Dynasty Server] {FAILING}", f"[Dynasty Server] {RECOVERED}"]
+
+
+def test_an_undelivered_recovery_keeps_the_incident_open_for_the_next_one(monkeypatch):
+    pushed = _pushes(monkeypatch, results=[True, False, True])
+    _fail()
+    _recover()  # not delivered: the incident stays open
+    assert server._alert_incident_open == {server.ALERT_KEY_UPTIME}
+    _recover()
+    assert pushed[-1] == f"[Dynasty Server] {RECOVERED}" and len(pushed) == 3
+    assert server._alert_incident_open == set()
+
+
+def test_a_long_outage_reannounced_each_window_gets_one_recovery(monkeypatch):
+    pushed = _pushes(monkeypatch)
+    _fail()
+    # An hour later it is still down: the cooldown has expired, so it is re-announced.
+    server._last_alert_time_by_key[server.ALERT_KEY_UPTIME] -= server.ALERT_COOLDOWN_SEC
+    _fail()
+    _recover()
+    _recover()
+    assert pushed == [f"[Dynasty Server] {FAILING}"] * 2 + [f"[Dynasty Server] {RECOVERED}"]
+
+
+@pytest.mark.parametrize("failure_delivers", [True, False])
+def test_a_recovery_during_the_failure_delivery_waits_for_its_outcome(
+    monkeypatch, failure_delivers
+):
+    """A recovery requested while its failure alert is still in flight is sent
+    once that alert is delivered, and dropped if it is not."""
+    monkeypatch.setenv("NOTIFY_WEBHOOK_URL", PUSH)
+    release = threading.Event()
+    pushed: list[str] = []
+
+    def fake_send(title, body, **_k):
+        if title.endswith(FAILING):
+            release.wait(timeout=5)
+            pushed.append(title)
+            return failure_delivers
+        pushed.append(title)
+        return True
+
+    monkeypatch.setattr(owner_notify, "send", fake_send)
+    server.send_alert(FAILING, "b", key=server.ALERT_KEY_UPTIME)
+    server.send_alert(RECOVERED, "b", key=server.ALERT_KEY_UPTIME_RECOVERY)
+    assert pushed == [], "the recovery must not overtake the failure it resolves"
+    release.set()
     _settle()
-    assert pushed[-1] == "[Dynasty Server] Uptime recovered"
-    # The incident is closed, so a NEW failure is announced at once.
-    server.send_alert("Uptime check failing (2 consecutive)", "b", key=server.ALERT_KEY_UPTIME)
-    _settle()
-    assert len(pushed) == 3
-    # And a recovery is never cooled down by an earlier recovery.
-    server.send_alert("Uptime recovered", "b", key=server.ALERT_KEY_UPTIME_RECOVERY)
-    _settle()
-    assert len(pushed) == 4
+    if failure_delivers:
+        assert pushed == [f"[Dynasty Server] {FAILING}", f"[Dynasty Server] {RECOVERED}"]
+    else:
+        assert pushed == [f"[Dynasty Server] {FAILING}"]
+    assert server._alert_incident_open == set()
+    assert server._alert_recovery_deferred == {}
 
 
 def test_an_undelivered_alert_sets_no_cooldown_and_is_retried(monkeypatch):
@@ -244,3 +342,29 @@ def test_sweep_recipient_and_delivery(monkeypatch):
     monkeypatch.setattr(owner_notify, "send", lambda title, body, **k: pushed.append(title) or True)
     assert server._deliver_owner_alert(owner_alerts.OWNER_CHANNEL, "Ops: freshness", "b") is True
     assert pushed == ["Ops: freshness"]
+
+
+class _RefusingSMTP(_RecordingSMTP):
+    """``send_message`` refuses the recipient, the way Gmail does: smtplib's
+    ``SMTPRecipientsRefused`` carries the address in its message."""
+
+    def send_message(self, *_a):
+        raise server.smtplib.SMTPRecipientsRefused(
+            {"owner@example.invalid": (550, b"5.1.1 <owner@example.invalid> unknown user")}
+        )
+
+
+def test_smtp_failure_logs_the_exception_class_never_the_recipient(monkeypatch, caplog):
+    import logging
+
+    _email_on(monkeypatch)
+    monkeypatch.setattr(server.smtplib, "SMTP", _RefusingSMTP)
+    monkeypatch.setattr(server.smtplib, "SMTP_SSL", _RefusingSMTP)
+    with caplog.at_level(logging.DEBUG):
+        delivered = server._deliver_email_smtp("owner@example.invalid", "subject-text", "body")
+    assert delivered is False
+    assert [i["port"] for i in _RefusingSMTP.instances] == [587, 465]
+    text = "\n".join(r.getMessage() for r in caplog.records)
+    assert "SMTPRecipientsRefused" in text
+    for leaked in ("owner@example.invalid", "unknown user", "550", "subject-text"):
+        assert leaked not in text, leaked

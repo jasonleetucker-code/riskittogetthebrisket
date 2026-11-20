@@ -77,3 +77,13 @@ def test_main_output_is_public_safe_and_never_names_the_topic(tmp_path, capsys, 
     assert code == 0
     assert "ntfy.sh" not in printed and "private-topic" not in printed
     assert json.loads(printed)["configured"] == {"ntfy": True}
+
+
+def test_the_operator_run_never_writes_the_servers_delivery_record(tmp_path, monkeypatch):
+    """This script runs out of process on the box; the delivery-health record
+    in user_kv is the server's (``/api/status`` ``alertDelivery``)."""
+    store = tmp_path / "user_kv.sqlite"
+    monkeypatch.setattr(T.owner_alerts, "HEALTH_STORE_PATH", store)
+    out, code = T.run(_env(tmp_path, f"NOTIFY_WEBHOOK_URL={TOPIC}\n"), transport=lambda *a: 500)
+    assert code == 1 and not any(out["sent"].values())
+    assert not store.exists()

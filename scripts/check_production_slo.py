@@ -359,6 +359,17 @@ def rule_alert_delivery(snap: Snapshot, cfg: Mapping[str, Any]) -> Result:
     if not isinstance(block, Mapping):
         return Result(name, ALERTING, UNKNOWN, None, limit, "alertDelivery is not an object")
     failures = block.get("consecutiveFailures")
+    if failures is None and "consecutiveFailures" in block:
+        # The box has no delivery attempt on record (persisted since
+        # 2026-11-20): unknown, never "0 failures".
+        return Result(
+            name,
+            ALERTING,
+            UNKNOWN,
+            None,
+            limit,
+            "no owner-alert delivery attempt is recorded on the box (unknown, not 0)",
+        )
     if not isinstance(failures, int) or isinstance(failures, bool):
         return Result(
             name, ALERTING, UNKNOWN, None, limit, "alertDelivery.consecutiveFailures not measured"

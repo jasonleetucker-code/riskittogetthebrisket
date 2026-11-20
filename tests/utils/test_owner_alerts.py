@@ -127,7 +127,7 @@ def test_the_gmail_app_password_alias_counts_like_server_py():
     assert A.channels_configured(env)["email"] is True
 
 
-# ── in-process delivery health ─────────────────────────────────────────────
+# ── delivery health ─────────────────────────────────────────────────────────
 
 
 @pytest.fixture()
@@ -164,12 +164,13 @@ def test_nothing_configured_attempts_nothing_and_counts_nothing(health, monkeypa
     assert A.deliver(None, "s", "b") is False
     assert A.deliver(A.OWNER_CHANNEL, "s", "b", email=lambda *a: True) is False
     assert A.deliver_each(None, "s", "b") == {"ntfy": None, "email": None}
+    # No attempt is recorded anywhere: the count is UNKNOWN, never 0.
     assert _health() == {
         "ntfyConfigured": False,
         "emailConfigured": False,
         "lastDeliveredAt": None,
         "lastFailedAt": None,
-        "consecutiveFailures": 0,
+        "consecutiveFailures": None,
     }
 
 
@@ -187,3 +188,151 @@ def test_delivery_health_publishes_presence_and_never_a_value(health):
     text = repr(out)
     for secret in (NTFY, "owner@example.invalid", "not-a-real-password", "private-topic"):
         assert secret not in text
+
+
+# ── the record survives a restart (2026-11-20 review) ──────────────────────
+#
+# Each daily sweep attempts at most a couple of deliveries, so the three
+# failures the SLO rule breaches on take several sweeps -- and an in-memory
+# record reset by a deploy or restart in between read 0 ("OK") while delivery
+# was failing.  The record now persists in user_kv under the ops-alert system
+# user, best-effort.
+
+T0 = 1_800_000_000.0
+
+
+@pytest.fixture()
+def store(tmp_path, monkeypatch):
+    path = tmp_path / "user_kv.sqlite"
+    monkeypatch.setattr(A, "HEALTH_STORE_PATH", path)
+    A.reset_delivery_health_for_tests()
+    yield path
+    A.reset_delivery_health_for_tests()
+
+
+def _restart():
+    """A new process: the in-memory record is gone, the store is not."""
+    A.reset_delivery_health_for_tests(store=False)
+
+
+def _fail_once():
+    assert A.deliver(None, "s", "b", push=lambda s, b: False) is False
+
+
+def test_the_record_survives_a_restart(store):
+    A._record(False, now=T0)
+    A._record(False, now=T0 + 60)
+    _restart()
+    h = _health()
+    assert h["consecutiveFailures"] == 2
+    assert h["lastFailedAt"].startswith("2027-01-15T") and h["lastDeliveredAt"] is None
+
+
+def test_failures_accumulate_across_sweeps_and_restarts_until_a_delivery(store):
+    _fail_once()  # sweep 1
+    _restart()  # deploy
+    _fail_once()  # sweep 2
+    _restart()
+    _fail_once()  # sweep 3
+    assert _health()["consecutiveFailures"] == 3, "the SLO rule's breach count is reachable"
+    _restart()
+    assert _health()["consecutiveFailures"] == 3
+    assert A.deliver(None, "s", "b", push=lambda s, b: True) is True
+    _restart()
+    h = _health()
+    assert h["consecutiveFailures"] == 0 and h["lastDeliveredAt"] and h["lastFailedAt"]
+
+
+def test_no_record_anywhere_is_unknown_and_reading_creates_nothing(store):
+    h = _health()
+    assert h["consecutiveFailures"] is None
+    assert h["lastDeliveredAt"] is None and h["lastFailedAt"] is None
+    assert not store.exists(), "a diagnostic read must not create the store"
+
+
+def test_the_record_lives_beside_the_sweep_stamp_under_the_ops_system_user(store):
+    from src.api import ops_alerts, user_kv
+
+    assert A.HEALTH_STATE_USER == ops_alerts._OPS_STATE_USER
+    A._record(False, now=T0)
+    ops_alerts.record_sweep(now=T0 + 5, kv_path=store)
+    entry = user_kv.get_user_state(ops_alerts._OPS_STATE_USER, path=store)
+    assert entry[A.HEALTH_STATE_KEY] == {
+        "lastDeliveredEpoch": None,
+        "lastFailedEpoch": T0,
+        "consecutiveFailures": 1,
+    }
+    assert ops_alerts.SWEEP_STATE_KEY in entry
+    _restart()
+    assert _health()["consecutiveFailures"] == 1
+
+
+def test_a_newer_event_in_the_store_wins_over_this_process(store):
+    """Another writer (or an earlier persist this process missed) is merged:
+    the most recent event decides the streak, timestamps take the latest."""
+    from src.api import user_kv
+
+    A._record(False, now=T0)
+
+    def _delivered_later(entry):
+        entry[A.HEALTH_STATE_KEY] = {
+            "lastDeliveredEpoch": T0 + 30,
+            "lastFailedEpoch": T0,
+            "consecutiveFailures": 0,
+        }
+
+    user_kv.mutate_user_state(A.HEALTH_STATE_USER, _delivered_later, path=store)
+    h = _health()
+    assert h["consecutiveFailures"] == 0 and h["lastDeliveredAt"] and h["lastFailedAt"]
+
+
+@pytest.mark.parametrize(
+    "stored",
+    [
+        "garbage",
+        {"consecutiveFailures": -1},
+        {"consecutiveFailures": True},
+        {"consecutiveFailures": "3"},
+        {"lastFailedEpoch": "yesterday", "consecutiveFailures": 2},
+    ],
+)
+def test_an_unreadable_stored_record_is_unknown_not_zero(store, stored):
+    from src.api import user_kv
+
+    user_kv.mutate_user_state(
+        A.HEALTH_STATE_USER, lambda e: e.update({A.HEALTH_STATE_KEY: stored}), path=store
+    )
+    assert _health()["consecutiveFailures"] is None
+
+
+def test_a_store_failure_never_breaks_delivery(store, monkeypatch, caplog):
+    import logging
+    import sqlite3
+
+    from src.api import user_kv
+
+    def boom(*_a, **_k):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(user_kv, "mutate_user_state", boom)
+    monkeypatch.setattr(user_kv, "get_user_state", boom)
+    with caplog.at_level(logging.WARNING):
+        assert A.deliver(None, "s", "b", push=lambda s, b: True) is True
+        assert A.deliver(None, "s", "b", push=lambda s, b: False) is False
+        h = _health()
+    # This process's own record still answers.
+    assert h["consecutiveFailures"] == 1 and h["lastDeliveredAt"] and h["lastFailedAt"]
+    messages = [r.getMessage() for r in caplog.records]
+    assert any("not persisted" in m and "OperationalError" in m for m in messages)
+    assert not any("database is locked" in m for m in messages)
+
+
+def test_an_unpersisted_delivery_does_not_write_the_store(store):
+    """The out-of-process operator script is not the server: it must not write
+    the server's store (``persist=False``); its result stays in its memory."""
+    assert A.deliver_each(None, "s", "b", push=lambda s, b: False, persist=False) == {
+        "ntfy": False,
+        "email": None,
+    }
+    assert not store.exists()
+    assert _health()["consecutiveFailures"] == 1

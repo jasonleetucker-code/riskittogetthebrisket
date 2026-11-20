@@ -360,19 +360,32 @@ ALERT_KEY_PARTIAL_SCRAPE = "partial_scrape"
 ALERT_KEY_DISK_LOW = "disk_low"
 ALERT_KEY_BACKUP_STALE = "backup_stale"
 ALERT_KEY_GENERAL = "general"
-#: Recovery class -> the class it resolves.  A recovery is EXEMPT from the
-#: cooldown (sent whenever its condition clears), and delivering it re-arms the
-#: class it resolves so the next incident is announced at once.
+#: Recovery class -> the class it resolves.  A delivered failure alert of the
+#: resolved class OPENS an incident; its recovery is sent only while that
+#: incident is open (one recovery per announced outage, never for an outage the
+#: owner was not told about), is EXEMPT from the cooldown, and closes the
+#: incident WITHOUT clearing the failure class's cooldown -- so a check that
+#: flaps around its threshold announces at most one failure per window
+#: (2026-11-20 review: clearing it sent 8 pushes/hour at the default 300 s
+#: interval and 80/hour at the 30 s floor).
 ALERT_RECOVERY_KEYS = {ALERT_KEY_UPTIME_RECOVERY: ALERT_KEY_UPTIME}
+#: Failure classes that have a recovery class (the values of the map above).
+_ALERT_INCIDENT_CLASSES = frozenset(ALERT_RECOVERY_KEYS.values())
 #: ``key -> epoch of the last DELIVERED alert`` (an undelivered one sets nothing).
 _last_alert_time_by_key: dict[str, float] = {}
+#: Failure classes whose incident was announced (delivered) and not yet resolved.
+_alert_incident_open: set[str] = set()
+#: ``failure class -> (recovery key, subject, body)``: a recovery requested while
+#: that class's failure alert was still being delivered.  Sent when that
+#: delivery ends if the incident is then open, dropped otherwise.
+_alert_recovery_deferred: dict[str, tuple[str, str, str]] = {}
 #: ``key -> epoch`` of the last "no channel configured" warning (rate-limited).
 _alert_unconfigured_logged_at: dict[str, float] = {}
 # Every SMTP socket operation is bounded.  The same 15 s ``_deliver_email_smtp``
 # already uses; ``smtplib``'s default is NO timeout.
 ALERT_SMTP_TIMEOUT_SEC = 15
 # At most one delivery in flight PER CLASS (bounded by the number of keys).
-# The lock also guards the two dicts above, which the delivery thread writes.
+# The lock also guards the alert state above, which the delivery thread writes.
 _alert_lock = threading.Lock()
 _alerts_in_flight: set[str] = set()
 
@@ -382,7 +395,8 @@ def send_alert(subject: str, body: str, *, key: str = ALERT_KEY_GENERAL):
 
     ``key`` names the alert CLASS (``ALERT_KEY_*``): the one-hour cooldown and
     the one-in-flight rule apply per class, so one class never silences
-    another.  A recovery class (``ALERT_RECOVERY_KEYS``) is never cooled down.
+    another.  A recovery class (``ALERT_RECOVERY_KEYS``) is never cooled down,
+    but is sent only for an announced incident of the class it resolves.
 
     Never blocks the caller on the network.  Two callers run ON the event
     loop — ``backup_watchdog_loop`` (stale backups) and ``uptime_watchdog_loop``
@@ -422,15 +436,27 @@ def send_alert(subject: str, body: str, *, key: str = ALERT_KEY_GENERAL):
         return
 
     with _alert_lock:
-        last_delivered = _last_alert_time_by_key.get(key)
-        cooled = (
-            key not in ALERT_RECOVERY_KEYS
-            and last_delivered is not None
-            and now - last_delivered < ALERT_COOLDOWN_SEC
-        )
-        if cooled:
-            log.info("Alert suppressed (cooldown, %s): %s", key, subject)
-            return
+        resolves = ALERT_RECOVERY_KEYS.get(key)
+        if resolves is not None:
+            # Never cooled down -- but only an ANNOUNCED incident is resolved.
+            if resolves in _alerts_in_flight:
+                # Its failure alert is still being delivered: decide when that ends.
+                _alert_recovery_deferred[resolves] = (key, subject, body)
+                log.info("Alert deferred (%s): its %s alert is being sent", key, resolves)
+                return
+            if resolves not in _alert_incident_open:
+                log.info(
+                    "Alert not sent (%s): the owner was not told of a %s incident: %s",
+                    key,
+                    resolves,
+                    subject,
+                )
+                return
+        else:
+            last_delivered = _last_alert_time_by_key.get(key)
+            if last_delivered is not None and now - last_delivered < ALERT_COOLDOWN_SEC:
+                log.info("Alert suppressed (cooldown, %s): %s", key, subject)
+                return
         if key in _alerts_in_flight:
             log.info("Alert suppressed (one %s alert is being sent): %s", key, subject)
             return
@@ -468,8 +494,9 @@ def _deliver_alert(
     Routed through ``owner_alerts.deliver`` -- push first, then
     ``_deliver_email_smtp`` (587 STARTTLS, then 465) -- so this path and the
     alert sweeps share ONE routing and ONE delivery-health record.  Only a
-    DELIVERED alert starts its class's cooldown; a failed one is retried on the
-    next trigger."""
+    DELIVERED alert starts its class's cooldown (and, for a class with a
+    recovery, opens its incident); a failed one is retried on the next trigger.
+    A delivered recovery closes the incident and leaves the cooldown alone."""
     try:
         from src.utils import owner_alerts as _owner_alerts
 
@@ -484,9 +511,12 @@ def _deliver_alert(
                 _last_alert_time_by_key[key] = attempted_at
                 resolved = ALERT_RECOVERY_KEYS.get(key)
                 if resolved is not None:
-                    # The incident is over and the owner was told: the next
-                    # one is a new incident, announced without waiting.
-                    _last_alert_time_by_key.pop(resolved, None)
+                    # The owner was told the outage is over.  The failure
+                    # class's cooldown stays: a flapping check must not
+                    # re-announce inside the window.
+                    _alert_incident_open.discard(resolved)
+                elif key in _ALERT_INCIDENT_CLASSES:
+                    _alert_incident_open.add(key)
             log.info("Alert delivered (%s): %s", key, subject)
         else:
             log.error(
@@ -499,6 +529,19 @@ def _deliver_alert(
     finally:
         with _alert_lock:
             _alerts_in_flight.discard(key)
+            deferred = _alert_recovery_deferred.pop(key, None)
+            announced = key in _alert_incident_open
+        if deferred is not None:
+            recovery_key, recovery_subject, recovery_body = deferred
+            if announced:
+                # The recovery that arrived while this alert was in flight.
+                send_alert(recovery_subject, recovery_body, key=recovery_key)
+            else:
+                log.info(
+                    "Alert not sent (%s): the %s alert it resolves was not delivered",
+                    recovery_key,
+                    key,
+                )
 
 
 # ── PATHS ───────────────────────────────────────────────────────────────
@@ -7064,8 +7107,9 @@ def _freshness_slo_block() -> dict:
 def _alert_delivery_block() -> dict:
     """``alertDelivery`` for ``/api/status`` (``owner_alerts.delivery_health``):
     ``ntfyConfigured`` / ``emailConfigured`` / ``lastDeliveredAt`` /
-    ``lastFailedAt`` / ``consecutiveFailures``, recorded in this process's
-    memory.  Never raises."""
+    ``lastFailedAt`` / ``consecutiveFailures``, persisted across restarts in
+    user_kv (``consecutiveFailures: None`` = no attempt on record).  Never
+    raises."""
     try:
         from src.utils import owner_alerts as _owner_alerts
 
@@ -21451,10 +21495,11 @@ def _deliver_email_smtp(to: str, subject: str, body: str) -> bool:
             s.send_message(msg)
         return True
     except Exception as exc587:  # noqa: BLE001
+        # The exception CLASS only: neither the recipient nor the message
+        # (``SMTPRecipientsRefused`` carries the address) is logged.
         log.warning(
-            "signal-alert SMTP 587 STARTTLS failed to %s: %s — falling back to 465",
-            to,
-            exc587,
+            "alert e-mail: SMTP 587 STARTTLS failed (%s); falling back to 465",
+            type(exc587).__name__,
         )
         try:
             with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as s:
@@ -21462,7 +21507,7 @@ def _deliver_email_smtp(to: str, subject: str, body: str) -> bool:
                 s.send_message(msg)
             return True
         except Exception as exc465:  # noqa: BLE001
-            log.warning("signal-alert SMTP 465 SSL also failed to %s: %s", to, exc465)
+            log.warning("alert e-mail: SMTP 465 SSL also failed (%s)", type(exc465).__name__)
             return False
 
 

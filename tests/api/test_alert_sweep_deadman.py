@@ -6,7 +6,7 @@ reconnect backstop -- rides on ``POST /api/signal-alerts/run`` (the
 ``dynasty-signal-alerts`` timer).  A wrong bearer token, a disabled timer or a
 backend that is down at 15:00 UTC stops ALL of them, silently: a sweep that never
 runs cannot say so.  Pinned here: the sweep stamps its end, ``/api/status``
-publishes the age and the in-process delivery record as public-safe values, and
+publishes the age and the (persisted) delivery record as public-safe values, and
 an unknown age is ``None`` -- never 0.
 """
 
@@ -157,13 +157,29 @@ def test_unconfigured_channels_attempt_nothing_and_are_not_failures(status_env):
     status_env.setattr(oa, "alert_sweep_age_hours", lambda **_k: None)
     assert owner_alerts.deliver(None, "s", "b") is False
     block = _public_status()["alertDelivery"]
+    # Nothing was attempted, so nothing failed -- and nothing is recorded, so
+    # the count is UNKNOWN (null), never 0.
     assert block == {
         "ntfyConfigured": False,
         "emailConfigured": False,
         "lastDeliveredAt": None,
         "lastFailedAt": None,
-        "consecutiveFailures": 0,
+        "consecutiveFailures": None,
     }
+
+
+def test_status_reports_failures_recorded_before_a_restart(status_env):
+    """2026-11-20 review: the record used to live in memory only, so a restart
+    between sweeps reset ``consecutiveFailures`` to 0 while delivery was
+    failing and the SLO rule read OK."""
+    status_env.setenv("NOTIFY_WEBHOOK_URL", "https://ntfy.sh/private-topic-for-tests")
+    status_env.setattr(oa, "alert_sweep_age_hours", lambda **_k: None)
+    for _ in range(3):
+        owner_alerts.deliver(None, "s", "b", push=lambda s, b: False)
+        owner_alerts.reset_delivery_health_for_tests(store=False)  # a restart
+    block = _public_status()["alertDelivery"]
+    assert block["consecutiveFailures"] == 3 and isinstance(block["lastFailedAt"], str)
+    assert pd.unsafe_public_values(block) == []
 
 
 def test_a_success_resets_the_failure_streak():

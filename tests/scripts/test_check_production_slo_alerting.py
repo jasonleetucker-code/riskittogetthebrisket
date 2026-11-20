@@ -95,6 +95,24 @@ def test_unmeasurable_delivery_is_unknown_never_ok(alerting):
     assert rules(snap(alerting))[DELIVERY].status == slo.UNKNOWN
 
 
+@pytest.mark.parametrize("channels", [(True, False), (False, False)])
+def test_no_delivery_on_record_is_unknown_and_says_so(channels):
+    """The box publishes ``consecutiveFailures: null`` when no attempt is
+    recorded (owner_alerts persists the record since 2026-11-20): UNKNOWN with
+    a reason, never "0 failures" -- with or without a channel configured."""
+    ntfy, email = channels
+    block = delivery(
+        ntfyConfigured=ntfy,
+        emailConfigured=email,
+        lastDeliveredAt=None,
+        lastFailedAt=None,
+        consecutiveFailures=None,
+    )
+    r = rules(snap({"alertDelivery": block}))[DELIVERY]
+    assert r.status == slo.UNKNOWN and r.measured is None
+    assert "no owner-alert delivery attempt is recorded" in r.detail
+
+
 @pytest.mark.parametrize(
     ("age", "status"), [(0.5, "OK"), (30.0, "OK"), (30.01, "BREACH"), (90, "BREACH")]
 )
