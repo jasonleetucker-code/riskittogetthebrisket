@@ -557,6 +557,13 @@
    },
    "reason": "Asserts the provenance string recorded in the committed fixture; the archive is never opened."
   },
+  "tests/scripts/test_w27_f005_te_skew_research.py": {
+   "maxHits": {
+    "archive-literal": 1,
+    "missing-data-skip": 2
+   },
+   "reason": "Reads the newest export of 2026-11-06, which retention keeps for 365 days (until ~2027-11-06); its archive_revision needs the adding commit in git history. Follow-up: pin the bytes under tests/fixtures. Pre-existing conditional skip inventoried 2026-11-18 before this guard existed (each skips only when its data is missing; none skipped in the latest green Deploy Production gate): 'pinned archive absent'; \"pinned tree revision not in this clone's history\""
+  },
   "tests/scripts/test_w30_f008_hill_denominator_research.py": {
    "maxHits": {
     "missing-data-skip": 1

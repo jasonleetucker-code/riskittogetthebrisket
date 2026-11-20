@@ -178,7 +178,8 @@ def test_allowlisted_archive_reads_survive_retention(tmp_path, monkeypatch):
     assert not offenders, (
         f"retention deletes these allowlisted archive reads within {RETENTION_WARNING_DAYS} "
         f"days: {offenders}. Pin the inputs under tests/fixtures (see "
-        "tests/fixtures/te_skew_20261106) and drop the archive-literal allowlist entry."
+        "tests/fixtures/idp_backtest_20260909) and drop the archive-literal allowlist entry; "
+        "a fixture must pass the tracked-data-exposure guard (no paid-vendor or owner data)."
     )
 
 
