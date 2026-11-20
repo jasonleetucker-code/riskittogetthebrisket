@@ -83,6 +83,10 @@ if [[ "$mode" == "retry" && -z "$issue" ]]; then
 fi
 
 url="${NOTIFY_WEBHOOK_URL:-}"
+# Surrounding whitespace (a badly pasted secret) is dropped here, as the
+# validator below drops it, so the value judged is the value sent.
+url="${url#"${url%%[![:space:]]*}"}"
+url="${url%"${url##*[![:space:]]}"}"
 if [[ -z "$url" ]]; then
   echo "::notice title=Owner push not configured::NOTIFY_WEBHOOK_URL is unset; '${title}' was not sent"
   exit 0
