@@ -99,3 +99,91 @@ def test_deliver_each_tries_every_channel_and_marks_unconfigured_none():
 def test_deliver_each_with_no_channel_is_all_none(monkeypatch):
     monkeypatch.delenv("NOTIFY_WEBHOOK_URL", raising=False)
     assert A.deliver_each(None, "s", "b") == {"ntfy": None, "email": None}
+
+
+# ── the one validator, and why a channel is off (2026-11-20) ──────────────
+
+
+@pytest.mark.parametrize(
+    ("raw", "state"),
+    [
+        (None, "unset"),
+        (NTFY, "ok"),
+        ("http://ntfy.sh/topic", "rejected:scheme"),
+        ("https://u:p@ntfy.sh/topic", "rejected:userinfo"),
+        ("https://ntfy.sh/a b", "rejected:whitespace"),
+    ],
+)
+def test_ntfy_state_is_the_validators_answer(raw, state):
+    env = {} if raw is None else {"NOTIFY_WEBHOOK_URL": raw}
+    assert A.ntfy_state(env) == state
+    assert A.channels_configured(env)["ntfy"] is (state == "ok")
+
+
+def test_the_gmail_app_password_alias_counts_like_server_py():
+    env = {k: v for k, v in EMAIL_ENV.items() if k != "ALERT_PASSWORD"}
+    assert A.channels_configured(env)["email"] is False
+    env["GMAIL_APP_PASSWORD"] = "not-a-real-password"
+    assert A.channels_configured(env)["email"] is True
+
+
+# ── in-process delivery health ─────────────────────────────────────────────
+
+
+@pytest.fixture()
+def health():
+    A.reset_delivery_health_for_tests()
+    yield
+    A.reset_delivery_health_for_tests()
+
+
+def _health():
+    return A.delivery_health({})
+
+
+def test_attempted_failures_count_and_a_success_resets(health):
+    A.deliver(None, "s", "b", push=lambda s, b: False)
+    A.deliver("owner@example.invalid", "s", "b", push=lambda s, b: False, email=lambda *a: False)
+    h = _health()
+    assert h["consecutiveFailures"] == 2 and h["lastFailedAt"] and h["lastDeliveredAt"] is None
+    A.deliver("owner@example.invalid", "s", "b", push=lambda s, b: False, email=lambda *a: True)
+    h = _health()
+    assert h["consecutiveFailures"] == 0 and h["lastDeliveredAt"]
+
+
+def test_a_raising_channel_is_a_failure_not_a_crash(health):
+    def boom(s, b):
+        raise RuntimeError("network")
+
+    assert A.deliver(None, "s", "b", push=boom) is False
+    assert _health()["consecutiveFailures"] == 1
+
+
+def test_nothing_configured_attempts_nothing_and_counts_nothing(health, monkeypatch):
+    monkeypatch.delenv("NOTIFY_WEBHOOK_URL", raising=False)
+    assert A.deliver(None, "s", "b") is False
+    assert A.deliver(A.OWNER_CHANNEL, "s", "b", email=lambda *a: True) is False
+    assert A.deliver_each(None, "s", "b") == {"ntfy": None, "email": None}
+    assert _health() == {
+        "ntfyConfigured": False,
+        "emailConfigured": False,
+        "lastDeliveredAt": None,
+        "lastFailedAt": None,
+        "consecutiveFailures": 0,
+    }
+
+
+def test_an_operator_test_is_delivery_evidence_too(health):
+    A.deliver_each(None, "s", "b", push=lambda s, b: False)
+    assert _health()["consecutiveFailures"] == 1
+    A.deliver_each(None, "s", "b", push=lambda s, b: True)
+    assert _health()["consecutiveFailures"] == 0
+
+
+def test_delivery_health_publishes_presence_and_never_a_value(health):
+    env = {**EMAIL_ENV, "NOTIFY_WEBHOOK_URL": NTFY}
+    out = A.delivery_health(env)
+    assert out["ntfyConfigured"] is True and out["emailConfigured"] is True
+    text = repr(out)
+    for secret in (NTFY, "owner@example.invalid", "not-a-real-password", "private-topic"):
+        assert secret not in text

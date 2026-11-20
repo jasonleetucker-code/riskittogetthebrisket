@@ -49,6 +49,20 @@ def test_a_failed_push_is_reported_and_exits_1(tmp_path):
     assert list(out["sent"].values()).count(False) == 1
 
 
+def test_a_rejected_value_sends_nothing_and_says_why(tmp_path, capsys, monkeypatch):
+    calls = []
+    app = _env(tmp_path, "NOTIFY_WEBHOOK_URL=http://ntfy.sh/private-topic-for-tests\n")
+    out, code = T.run(app, transport=lambda *a: calls.append(a) or 200)
+    assert code == 3 and calls == []
+    assert out["configured"] == {"ntfy": False}
+    assert out["ntfyState"] == "rejected_scheme"
+    monkeypatch.setattr(T.owner_notify, "_urllib_transport", lambda *a: 200)
+    assert T.main(["--app-dir", str(app)]) == 3
+    printed = capsys.readouterr().out
+    assert json.loads(printed)["ntfyState"] == "rejected_scheme"
+    assert "private-topic" not in printed
+
+
 def test_missing_env_file_is_unreadable_not_configured(tmp_path):
     out, code = T.run(tmp_path / "nope", transport=lambda *a: 200)
     assert code == 3
