@@ -150,7 +150,8 @@ def test_deploy_sh_copies_the_validator_into_the_same_private_dir():
     assert 'git show "${TARGET_REV}:src/utils/owner_notify.py" > "${tmp}/owner_notify.py"' in body
     assert body.index("owner_notify.py") < body.index("--check-env-file")
     assert 'rm -f -- "${tmp}/startup_guards.py" "${tmp}/owner_notify.py"' in body
-    assert "rm -rf" not in body
+    code = "\n".join(ln for ln in body.splitlines() if not ln.strip().startswith("#"))
+    assert "rm -rf" not in code
 
 
 def test_the_staged_pair_judges_the_webhook_end_to_end(tmp_path):
