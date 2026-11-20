@@ -812,6 +812,24 @@ def _probe_page(html: str) -> list[str]:
             f"table[{ti}] body_rows={len(body_rows)} id={str(table.get('id') or '')[:40]!r} "
             f"class={classes!r} attr_names={attrs[:12]}"
         )
+        if not body_rows:
+            # An empty table: say what the page shows around it (a "coming
+            # soon" note reads very differently from a client-rendered grid).
+            thead = table.find("thead")
+            head = (thead or table.find("tr") or table).find_all(["th", "td"])
+            lines.append(f"  headers={[c.get_text(' ', strip=True)[:30] for c in head][:20]}")
+            parent = table.parent
+            for _ in range(3):
+                if (
+                    parent is not None
+                    and len(parent.get_text(" ", strip=True)) < 40
+                    and parent.parent is not None
+                ):
+                    parent = parent.parent
+            context = " ".join(
+                (parent.get_text(" ", strip=True) if parent is not None else "").split()
+            )
+            lines.append(f"  empty_table_context={context[:300]!r}")
         if len(body_rows) < 3:
             continue
         thead = table.find("thead")
@@ -821,6 +839,20 @@ def _probe_page(html: str) -> list[str]:
             cells = [c.get_text(" ", strip=True)[:30] for c in tr.find_all("td")][:14]
             lines.append(f"  row{ri}={cells}")
 
+    srcs: list[str] = []
+    for script in soup.find_all("script", src=True):
+        src = str(script.get("src") or "")
+        host = re.match(r"^https?://([^/]+)", src)
+        if host and host.group(1) != _PROBE_HOST and not host.group(1).endswith("." + _PROBE_HOST):
+            continue
+        path = re.sub(r"^https?://[^/]+", "", src).split("?", 1)[0]
+        if re.search(r"rank|table|dlf|player", path, re.IGNORECASE):
+            srcs.append(path[-90:])
+    if srcs:
+        lines.append(f"script_srcs={srcs[:15]}")
+    rest = sorted(set(re.findall(r"/wp-json/[A-Za-z0-9_/-]{2,80}", html)))
+    if rest:
+        lines.append(f"rest_paths={rest[:12]}")
     for si, script in enumerate(soup.find_all("script")):
         stype = str(script.get("type") or "")
         text = script.string or script.get_text() or ""

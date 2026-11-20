@@ -157,6 +157,7 @@ hdr "[7] probe page structure (values + rookie boards)"
 DLF_VALUES_URL="${DLF_VALUES_URL:-https://dynastyleaguefootball.com/trade-analyzer-values/?l=sf_te_prem}"
 PROBE_URLS=(
   "${DLF_VALUES_URL}"
+  "https://dynastyleaguefootball.com/dynasty-superflex-rankings/"
   "https://dynastyleaguefootball.com/dynasty-rookie-superflex-rankings/"
   "https://dynastyleaguefootball.com/dynasty-rookie-idp-rankings/"
 )
