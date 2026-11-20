@@ -14,7 +14,7 @@ def test_measurement_predicates_run_in_blocking_browser_ci_before_app_start():
     steps = workflow["jobs"]["e2e"]["steps"]
     names = [step["name"] for step in steps]
     index = names.index("Validate route measurement predicates")
-    assert names.index("Install Playwright chromium (test runner only)") < index
+    assert names.index("Install Playwright browsers + system deps (chromium, webkit)") < index
     assert index < names.index("Start backend (FastAPI :8000)")
     step = steps[index]
     assert "if" not in step and not step.get("continue-on-error", False)

@@ -94,10 +94,11 @@ jobs:
           npm install --no-audit --no-fund
 
       - name: Install Playwright chromium
+        timeout-minutes: 20
         shell: bash
         run: |
           set -Eeuo pipefail
-          npx playwright install --with-deps chromium
+          bash scripts/ci/install_apt_packages.sh --playwright chromium
 
       - name: Run public /league spec against prod
         shell: bash
