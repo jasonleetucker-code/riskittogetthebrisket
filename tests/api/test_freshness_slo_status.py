@@ -179,3 +179,22 @@ def test_status_without_a_contract_says_unknown_not_healthy(monkeypatch):
     monkeypatch.setattr(server, "send_alert", lambda *a, **k: None)
     slo = json.loads(asyncio.run(server.get_status()).body)["freshness_slo"]
     assert slo["state"] == "unknown" and slo["top200StaleShare"] is None
+
+
+def test_roster_freshness_and_refusals_are_reported():
+    """X-ROSTER-FRESHNESS: the default league's roster age, judged by the one
+    owner, plus the non-current-roster trade count passed in by the server."""
+    contract = _contract([_row(1)])
+    contract["sleeper"] = {"rosterSource": "live", "rosterFetchedAt": "2026-11-18T04:30:00+00:00"}
+    out = fs.board_freshness_metrics(
+        contract, now=NOW, roster_refusals={"stale": 3, "unknown": 1, "since": "x"}
+    )
+    assert out["rosterState"] == "stale" and out["rosterAgeHours"] == 7.5
+    assert out["rosterSource"] == "live" and out["rosterMaxAgeHours"] == 6.0
+    assert out["rosterUnverifiableTrades"] == {"stale": 3, "unknown": 1, "since": "x"}
+
+
+def test_roster_fields_are_unknown_not_zero_without_evidence():
+    out = fs.board_freshness_metrics(_contract([_row(1)]), now=NOW)
+    assert out["rosterState"] == "unknown" and out["rosterAgeHours"] is None
+    assert out["rosterUnverifiableTrades"] is None

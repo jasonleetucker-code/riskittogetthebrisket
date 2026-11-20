@@ -7000,7 +7000,16 @@ def _freshness_slo_block() -> dict:
         except Exception as exc:  # noqa: BLE001
             log.warning("private source availability unreadable: %s", exc)
             private = None
-        return _fs.board_freshness_metrics(latest_contract_data, private_availability=private)
+        try:
+            from src.trade.trade_ledger import roster_refusal_counts
+
+            refusals = roster_refusal_counts()
+        except Exception as exc:  # noqa: BLE001
+            log.warning("roster refusal counts unreadable: %s", exc)
+            refusals = None
+        return _fs.board_freshness_metrics(
+            latest_contract_data, private_availability=private, roster_refusals=refusals
+        )
     except Exception as exc:  # noqa: BLE001
         log.warning("freshness_slo block failed: %s", exc)
         return {"schemaVersion": "freshness-slo.v1", "state": "unknown", "error": "unavailable"}
