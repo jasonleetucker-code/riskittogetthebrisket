@@ -429,17 +429,54 @@ jobs:
           python scripts/python_lock.py check
           pip install --require-hashes -r requirements-dev.lock.txt
 
+      # tesseract-ocr, as in PR Validation and Deploy (CI-1c): resolve the
+      # .deb list from the freshly signature-checked index -> restore the
+      # cache into a quarantine -> install (cached files used only after their
+      # size and hash match the index) -> save, on main only.  The candidate
+      # tree always contains main, so it carries
+      # scripts/ci/install_apt_packages.sh (bounded retries + the STAB-10
+      # runner apt-source repair; never skips).
+      - name: Resolve tesseract-ocr apt packages (cache key)
+        id: apt-resolve
+        timeout-minutes: 20
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash scripts/ci/install_apt_packages.sh --resolve tesseract-ocr
+
+      - name: Restore verified apt package cache
+        id: apt-cache
+        # Advisory: a cache outage costs a download, never the gate.
+        continue-on-error: true
+        timeout-minutes: 10
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ runner.temp }}/apt-quarantine
+          key: ${{ steps.apt-resolve.outputs.key }}
+          restore-keys: ${{ steps.apt-resolve.outputs.restore-prefix }}
+
       - name: Install tesseract-ocr (screenshot import OCR tests)
-        # As in PR Validation and Deploy: the real-OCR tests
-        # (``@pytest.mark.tesseract``) RUN instead of skipping, so all three
-        # gates are measured against one skip budget.  The candidate tree
-        # always contains main, so it carries scripts/ci/install_apt_packages.sh
-        # (bounded retries + the STAB-10 runner apt-source repair; never skips).
+        # The real-OCR tests (``@pytest.mark.tesseract``) RUN instead of
+        # skipping, so all three gates are measured against one skip budget.
+        id: apt-install
+        timeout-minutes: 20
         shell: bash
         run: |
           set -Eeuo pipefail
           bash scripts/ci/install_apt_packages.sh tesseract-ocr
           tesseract --version | head -1
+
+      - name: Save verified apt package cache
+        # Same path as the restore (actions/cache versions an entry by its
+        # path list); the installer has replaced its contents with only the
+        # files it verified.  Main only, only on a miss.
+        if: ${{ github.ref == 'refs/heads/main' && steps.apt-cache.outputs.cache-hit != 'true' && steps.apt-install.outputs.saved != '0' }}
+        continue-on-error: true
+        timeout-minutes: 10
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ runner.temp }}/apt-quarantine
+          key: ${{ steps.apt-resolve.outputs.key }}
 
       - name: Unit tests (hard gate — pure logic)
         shell: bash
