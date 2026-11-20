@@ -285,3 +285,44 @@ def test_roster_construction_unknown_is_not_recovery(kv):
     # Checked and fine: the recovery notice fires once.
     s3 = oa.check_and_alert(roster_construction=[], delivery=_send, to_email="a@b.com", kv_path=kv)
     assert s3["recovered"] == 1
+
+
+def test_nothing_configured_is_one_warning_per_sweep(kv, caplog):
+    """ "Nothing to say" and "nobody to say it to" must not look the same in the
+    journal: one line per sweep when notices exist but no channel does."""
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="src.api.ops_alerts"):
+        summary = oa.check_and_alert(
+            data_age_hours=100.0,
+            status_payload={"scrape_success_rate_24h": 0.1},
+            delivery=None,
+            to_email=None,
+            kv_path=kv,
+        )
+    assert summary["deliveryConfigured"] is False and summary["delivered"] is False
+    lines = [r.getMessage() for r in caplog.records if "no owner alert channel" in r.getMessage()]
+    assert len(lines) == 1 and "2 notice(s)" in lines[0]
+
+
+def test_a_quiet_sweep_with_no_channel_logs_nothing(kv, caplog):
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="src.api.ops_alerts"):
+        oa.check_and_alert(delivery=None, to_email=None, kv_path=kv)
+    assert not [r for r in caplog.records if "owner alert channel" in r.getMessage()]
+
+
+def test_a_failed_delivery_is_logged_and_retried(kv, caplog):
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="src.api.ops_alerts"):
+        s1 = oa.check_and_alert(
+            data_age_hours=100.0, delivery=lambda *a: False, to_email="a@b.com", kv_path=kv
+        )
+    assert s1["delivered"] is False
+    assert [r for r in caplog.records if "NOT delivered" in r.getMessage()]
+    s2 = oa.check_and_alert(
+        data_age_hours=100.0, delivery=lambda *a: True, to_email="a@b.com", kv_path=kv
+    )
+    assert s2["fired"] == 1 and s2["delivered"] is True
