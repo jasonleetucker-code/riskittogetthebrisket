@@ -765,6 +765,38 @@ def _probe_page(html: str) -> list[str]:
     return lines
 
 
+def _probe_response_lines(session, url: str) -> list[str]:
+    """Where a URL actually lands: HTTP status, final path and redirect chain.
+
+    A page that moved (a new rookie class, a renamed slug) answers 200 at its
+    new address after a redirect, and the HTML alone does not say so.  Paths
+    only, and only on the DLF host -- never query strings, cookies or headers.
+    """
+    from urllib.parse import urlparse
+
+    def _path(u: str) -> str:
+        parts = urlparse(str(u or ""))
+        if (
+            parts.hostname
+            and parts.hostname != _PROBE_HOST
+            and not parts.hostname.endswith("." + _PROBE_HOST)
+        ):
+            return "<off-host>"
+        return parts.path or "/"
+
+    try:
+        r = session.get(url, timeout=45)
+    except Exception as exc:  # noqa: BLE001 - diagnostics only
+        return [f"response error={type(exc).__name__}"]
+    history = [
+        f"{getattr(h, 'status_code', '?')}:{_path(getattr(h, 'url', ''))}"
+        for h in (getattr(r, "history", None) or [])
+    ]
+    return [
+        f"status={r.status_code} final_path={_path(getattr(r, 'url', url))!r} redirects={history}",
+    ]
+
+
 def _probe(session, url: str) -> int:
     """Fetch one DLF URL with the member session and print diagnostics only."""
     from urllib.parse import urlparse
@@ -785,6 +817,8 @@ def _probe(session, url: str) -> int:
         print(f"[DLF] probe fetch failed: {exc}", file=sys.stderr)
         return 1
     print(f"[DLF] probe {url}")
+    for line in _probe_response_lines(session, url):
+        print(f"  {line}")
     for line in _probe_page(html):
         print(f"  {line}")
     return 0
