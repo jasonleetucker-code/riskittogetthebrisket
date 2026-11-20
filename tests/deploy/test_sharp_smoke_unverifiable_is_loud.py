@@ -334,9 +334,12 @@ def test_the_token_value_itself_is_never_written_to_the_record():
 
 _SMOKE_HARNESS = """
 import datetime as _dt
+import io
+import json
 import os
 import runpy
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -347,10 +350,35 @@ class _Fixed(_dt.datetime):
 
 _dt.datetime = _Fixed
 
-def _answer_401(request, timeout=None):
+# A fake clock: the smoke's bounded waits run to their bound instantly.
+_clock = [0.0]
+time.monotonic = lambda: _clock[0]
+def _sleep(seconds):
+    _clock[0] += seconds
+time.sleep = _sleep
+
+class _Response(io.BytesIO):
+    status = 200
+    def __enter__(self):
+        return self
+    def __exit__(self, *exc):
+        return False
+
+def _answer(request, timeout=None):
+    with open(os.environ["REQUEST_LOG"], "a", encoding="utf-8") as log:
+        log.write(json.dumps({
+            "url": request.full_url,
+            "authorized": request.get_header("Authorization") is not None,
+        }) + "\\n")
+    if request.full_url.endswith("/api/status"):
+        commit = os.environ.get("PROD_COMMIT")
+        if commit is None:
+            raise urllib.error.HTTPError(request.full_url, 502, "Bad Gateway", {}, None)
+        return _Response(json.dumps({"build": {"commit": commit}}).encode("utf-8"))
+    # /api/sharp/* is the private gate: no session, so 401.
     raise urllib.error.HTTPError(request.full_url, 401, "Unauthorized", {}, None)
 
-urllib.request.urlopen = _answer_401
+urllib.request.urlopen = _answer
 runpy.run_path(sys.argv[1], run_name="__main__")
 """
 
@@ -387,13 +415,27 @@ class _SmokeRepo:
         return self.tracked.read_text(encoding="utf-8") if self.tracked.exists() else None
 
     def run(
-        self, *, event, deploy_conclusion, now, token="", deploy_run_id="", deploy_sha="abc"
+        self,
+        *,
+        event,
+        deploy_conclusion,
+        now,
+        token="",
+        deploy_run_id="",
+        deploy_sha="abc",
+        prod_commit: str | None = "",
     ) -> dict:
+        """``prod_commit``: what /api/status reports; ``""`` = the deploy's own
+        SHA (production already runs it), ``None`` = /api/status unreachable."""
         self.runs += 1
         runner_temp = self.tmp / f"runner_temp_{self.runs}"
         runner_temp.mkdir()
         summary = self.tmp / f"summary_{self.runs}.md"
+        self.request_log = self.tmp / f"requests_{self.runs}.jsonl"
         env = os.environ.copy()
+        env.pop("PROD_COMMIT", None)
+        if prod_commit is not None:
+            env["PROD_COMMIT"] = prod_commit or deploy_sha
         env.update(
             {
                 "EVENT_NAME": event,
@@ -404,6 +446,7 @@ class _SmokeRepo:
                 "RUNNER_TEMP": str(runner_temp),
                 "GITHUB_STEP_SUMMARY": str(summary),
                 "FAKE_NOW": now,
+                "REQUEST_LOG": str(self.request_log),
                 "PYTHONUTF8": "1",
                 "PYTHONIOENCODING": "utf-8",
             }
@@ -506,3 +549,100 @@ def test_the_shipped_smoke_step_never_writes_the_token_anywhere(tmp_path):
     everything += repo.tracked_text() or ""
     assert "sentinel-bearer-value" not in everything
     assert out["current"]["tokenProvisioned"] is True
+
+
+# --------------------------------------------------------------------------
+# CI-2c: never grade a revision production is not running
+# --------------------------------------------------------------------------
+
+
+def test_the_push_trigger_is_gone_and_only_deploy_completions_start_the_smoke():
+    document = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    triggers = document.get(True) or document.get("on")
+    assert set(triggers) == {"workflow_run"}, triggers
+    assert triggers["workflow_run"]["workflows"] == ["Deploy Production"]
+    condition = document["jobs"]["verify"]["if"]
+    assert "push" not in condition and "head_branch == 'main'" in condition
+
+
+def _requests(repo: _SmokeRepo) -> list[dict]:
+    return [json.loads(line) for line in repo.request_log.read_text(encoding="utf-8").splitlines()]
+
+
+def test_a_successful_deploy_is_measured_only_once_production_runs_its_commit(tmp_path):
+    repo = _SmokeRepo(tmp_path)
+    sha = "1" * 40
+    out = repo.run(
+        event="workflow_run",
+        deploy_conclusion="success",
+        now="2026-11-20T10:00:00+00:00",
+        deploy_sha=sha,
+        token="sentinel-bearer-value",
+    )
+    urls = [r["url"] for r in _requests(repo)]
+    assert urls[0].endswith("/api/status"), "the revision is checked BEFORE anything is graded"
+    assert any(u.endswith("/api/sharp/cohort") for u in urls)
+    assert out["current"]["status"] == "unverifiable_unauthenticated"
+    status_calls = [r for r in _requests(repo) if r["url"].endswith("/api/status")]
+    assert not any(r["authorized"] for r in status_calls), "no bearer to a public endpoint"
+
+
+def test_a_different_running_revision_is_unmeasured_and_never_graded(tmp_path):
+    repo = _SmokeRepo(tmp_path)
+    repo.run(event="workflow_run", deploy_conclusion="success", now="2026-11-20T09:00:00+00:00")
+    standing = repo.tracked_text()
+    out = repo.run(
+        event="workflow_run",
+        deploy_conclusion="success",
+        now="2026-11-20T10:00:00+00:00",
+        deploy_sha="1" * 40,
+        prod_commit="2" * 40,
+    )
+    assert out["current"]["status"] == "deploy_unmeasured"
+    assert out["current"]["measured"] is False
+    assert out["current"]["lastError"]["type"] == "ProductionCommitMismatch"
+    assert "production runs 222222222222" in out["current"]["lastError"]["message"]
+    assert "::warning title=Sharp smoke did not measure the triggering deploy::" in out["stdout"]
+    urls = [r["url"] for r in _requests(repo)]
+    assert urls and all(u.endswith("/api/status") for u in urls), "nothing private was probed"
+    assert len(urls) > 1, "the wait polls until its bound"
+    assert repo.tracked_text() == standing, "an unmeasured run leaves the standing record alone"
+
+
+def test_an_unreadable_running_revision_is_unmeasured(tmp_path):
+    repo = _SmokeRepo(tmp_path)
+    out = repo.run(
+        event="workflow_run",
+        deploy_conclusion="success",
+        now="2026-11-20T10:00:00+00:00",
+        deploy_sha="1" * 40,
+        prod_commit=None,
+    )
+    assert out["current"]["status"] == "deploy_unmeasured"
+    assert "an unreadable commit" in out["current"]["lastError"]["message"]
+
+
+def test_the_gate_names_a_revision_mismatch_rather_than_a_missing_conclusion(tmp_path):
+    mismatch = _run_scoped(
+        {
+            "status": "deploy_unmeasured",
+            "cohort": {},
+            "ffpcMarket": {},
+            "errors": [
+                {
+                    "attempt": 0,
+                    "type": "ProductionCommitMismatch",
+                    "message": "production runs 222222222222, the triggering deploy shipped "
+                    "111111111111",
+                }
+            ],
+            "tokenProvisioned": True,
+            "deployConclusion": "success",
+        }
+    )
+    proc, summary, outputs = _run_gate(tmp_path, mismatch)
+    assert proc.returncode == 0, proc.stderr
+    assert "::warning title=Sharp smoke did not measure the triggering deploy::" in proc.stdout
+    assert "production runs 222222222222" in proc.stdout
+    assert "no deploy conclusion" not in proc.stdout
+    assert "UNMEASURED" in summary and "measured=false" in outputs

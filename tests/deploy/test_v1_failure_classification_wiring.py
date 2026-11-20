@@ -134,4 +134,6 @@ def test_the_required_gates_are_untouched():
     assert "concurrency" not in doc
     job = doc["jobs"]["v1-authenticated"]
     assert job["concurrency"] == {"group": "production-deploy", "cancel-in-progress": False}
-    assert job["timeout-minutes"] == 58  # +8: the trade-route readiness step cap (STAB-10)
+    # +8: the trade-route readiness step cap (STAB-10); +4: the bounded
+    # verified-revision wait (CI-5b, 180 s plus one 30 s probe).
+    assert job["timeout-minutes"] == 62

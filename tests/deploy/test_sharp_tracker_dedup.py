@@ -106,6 +106,23 @@ SPECS = [
         "Alert on workflow failure",
         "Close the tracking issue when the suite is green",
     ),
+    Spec(
+        "prod-e2e-smoke.yml",
+        "production-health",
+        "Production E2E smoke (public /league) failing",
+        "Open or update the tracking issue on failure",
+        "Close the tracking issue on a green run",
+    ),
+    # CI-3c: the refresh tracker reports a STATE (failing steps + stale set),
+    # not a run -- #2261 collected the same generic comment on every 2 h run.
+    Spec(
+        "scheduled-refresh.yml",
+        "stale-sources",
+        "Scheduled data refresh failing",
+        "Alert on workflow failure",
+        "Close the tracking issue on a green run",
+        reports_state_changes_only=True,
+    ),
 ]
 
 # Every spelling `gh` is known or suspected to emit for this bot.
@@ -175,7 +192,8 @@ if argv[:2] == ["issue", "list"]:
     matching.sort(key=lambda it: it["number"], reverse=True)
     rows = [
         {"number": it["number"], "title": it["title"],
-         "author": {"login": it["author"], "is_bot": True}}
+         "author": {"login": it["author"], "is_bot": True},
+         "body": it.get("body", "")}
         for it in matching[:limit]
     ]
     state["list_calls"] = state.get("list_calls", 0) + 1
@@ -218,16 +236,75 @@ if argv[:2] == ["issue", "comment"]:
     print(f"https://github.com/o/r/issues/{n}#issuecomment-1")
     sys.exit(0)
 
+def emit(payload, argv):
+    # Print `payload` as gh does: raw JSON, or through --jq (real jq).
+    text = json.dumps(payload)
+    if "--jq" not in argv:
+        sys.stdout.write(text)
+        sys.exit(0)
+    proc = subprocess.run(["jq", "-r", argv[argv.index("--jq") + 1]], input=text,
+                          capture_output=True, text=True)
+    sys.stderr.write(proc.stderr)
+    if proc.returncode != 0:
+        sys.exit(proc.returncode)
+    out = proc.stdout.rstrip("\n")
+    sys.stdout.write("" if out == "null" else out)
+    sys.exit(0)
+
 if argv[:2] == ["issue", "view"]:
     n = int(argv[2])
     for it in state["issues"]:
         if it["number"] == n:
-            sys.stdout.write(json.dumps({
+            emit({
                 "body": it.get("body", ""),
                 "comments": [{"body": b} for b in it.get("comment_bodies", [])],
-            }))
-            sys.exit(0)
+            }, argv)
     sys.stderr.write(f"no issue {n}\n")
+    sys.exit(1)
+
+if argv[:2] == ["issue", "edit"]:
+    n = int(argv[2])
+    if "--body-file" in argv:
+        with open(argv[argv.index("--body-file") + 1], encoding="utf-8") as fh:
+            body = fh.read()
+    else:
+        body = argv[argv.index("--body") + 1]
+    for it in state["issues"]:
+        if it["number"] == n:
+            it["body"] = body
+            it["edits"] = it.get("edits", 0) + 1
+    save(state)
+    sys.exit(0)
+
+if argv[:1] == ["api"]:
+    # Only what the tracker steps use: a GET of this run's jobs (failing step
+    # names) and a PATCH of an issue body (the SLO tracker's in-place update).
+    method, path, fields, i = "GET", None, {}, 1
+    while i < len(argv):
+        a = argv[i]
+        if a in ("--method", "-X"):
+            method = argv[i + 1]; i += 2
+        elif a in ("-f", "-F", "--field", "--raw-field"):
+            k, _, v = argv[i + 1].partition("="); fields[k] = v; i += 2
+        elif a == "--jq":
+            i += 2
+        elif a.startswith("-"):
+            i += 1
+        else:
+            path = path or a; i += 1
+    parts = (path or "").split("/")
+    if method == "PATCH" and len(parts) == 5 and parts[3] == "issues":
+        for it in state["issues"]:
+            if it["number"] == int(parts[4]) and "body" in fields:
+                it["body"] = fields["body"]
+        save(state)
+        sys.stdout.write("{}")
+        sys.exit(0)
+    answers = state.get("api") or {}
+    for prefix, payload in answers.items():
+        if (path or "").startswith(prefix):
+            emit(payload, argv)
+    sys.stderr.write(f"gh stub: api {path} not seeded\n")
     sys.exit(1)
 
 if argv[:2] == ["issue", "close"]:
@@ -265,14 +342,26 @@ class Harness:
         gh.write_text(GH_STUB, encoding="utf-8")
         gh.chmod(0o755)
         self.bindir = bindir
+        # The tracker steps push through the shared script by its repo-relative
+        # path, so the scratch checkout carries the real one.
+        (tmp_path / "scripts").mkdir()
+        (tmp_path / "scripts" / "notify_owner.sh").write_text(
+            (ROOT / "scripts" / "notify_owner.sh").read_text(encoding="utf-8"), encoding="utf-8"
+        )
+        self.runner_temp = tmp_path / "runner_temp"
+        self.runner_temp.mkdir()
 
     def run(
         self, script: str, extra_env: dict[str, str] | None = None
     ) -> subprocess.CompletedProcess:
         env = os.environ.copy()
+        # A push is only ever sent when a test asks for one.
+        env.pop("NOTIFY_WEBHOOK_URL", None)
         env.update(
             {
                 "PATH": f"{self.bindir}{os.pathsep}{env['PATH']}",
+                "RUNNER_TEMP": str(self.runner_temp),
+                "GITHUB_RUN_ATTEMPT": "1",
                 "GH_STUB_STATE": str(self.state_path),
                 "GH_TOKEN": "stub",
                 "GITHUB_SERVER_URL": "https://github.com",
