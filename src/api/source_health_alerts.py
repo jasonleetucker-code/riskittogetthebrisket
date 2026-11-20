@@ -26,9 +26,9 @@ spends nothing: the next sweep tries again.  A pre-upgrade entry
 carrying only ``lastAlertedAt`` keeps suppressing what it already
 suppressed, so an upgrade does not burst.
 
-Recovery alerts: when a source the owner was TOLD is stale comes back,
-emit a one-shot "is back" notice; it is retried every sweep until it is
-delivered.  A stale episode the owner never heard about ends silently --
+Recovery alerts: when a stale source the owner was TOLD about comes
+back, emit a one-shot "is back" notice; it is retried every sweep until
+it is delivered.  A stale episode the owner never heard about ends silently --
 a recovery for an incident nobody announced is noise.
 
 Integration point: the signal-alert cron calls ``check_and_alert()``
