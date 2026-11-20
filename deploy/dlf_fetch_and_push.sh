@@ -104,14 +104,24 @@ log "running scripts/fetch_dlf.py"
 # ``dlf_last_success`` stamp still requires a fully clean run, and the unit
 # still exits non-zero so the failure stays visible in the journal.
 MANIFEST="${WORK_DIR}/dlf_written.json"
+BOARD_STATES_RUN="${WORK_DIR}/dlf_board_states.run.json"
+rm -f "${BOARD_STATES_RUN}"
 FETCH_RC=0
-"${VENV_PYTHON}" scripts/fetch_dlf.py --written-manifest "${MANIFEST}" || FETCH_RC=$?
+"${VENV_PYTHON}" scripts/fetch_dlf.py --written-manifest "${MANIFEST}" \
+  --board-states "${BOARD_STATES_RUN}" || FETCH_RC=$?
 mapfile -t WRITTEN < <("${VENV_PYTHON}" -c 'import json,sys; print("\n".join(json.load(open(sys.argv[1]))))' "${MANIFEST}" 2>/dev/null || true)
-if [[ "${FETCH_RC}" -ne 0 && "${#WRITTEN[@]}" -eq 0 ]]; then
+# Exit 4 (scripts/fetch_dlf.py EXIT_VENDOR_EMPTY): every board that did not
+# refresh was published EMPTY by the vendor (measured 2026-11-20: the rookie
+# boards carry 0 expert columns and 0 rows).  Not a failure of ours: the
+# last-good CSVs stay, their stamps age honestly, and the per-board state file
+# below says why.  Anything else non-zero is still a failure to see.
+if [[ "${FETCH_RC}" -ne 0 && "${FETCH_RC}" -ne 4 && "${#WRITTEN[@]}" -eq 0 ]]; then
   err "fetch_dlf.py exited ${FETCH_RC} and wrote no board - keeping previous CSVs / stamps; will retry on next timer fire."
   exit 1
 fi
-if [[ "${FETCH_RC}" -ne 0 ]]; then
+if [[ "${FETCH_RC}" -eq 4 ]]; then
+  log "vendor published no rankings on some boards (see data/scrape_state/dlf_board_states.json); committing the boards it wrote: ${WRITTEN[*]:-none}"
+elif [[ "${FETCH_RC}" -ne 0 ]]; then
   err "fetch_dlf.py exited ${FETCH_RC}; committing only the boards it wrote: ${WRITTEN[*]}"
 else
   WRITTEN=(dlfSf dlfIdp dlfRookieSf dlfRookieIdp dlfValuesSfTep)
@@ -178,7 +188,15 @@ done
 # Existing paths only: a board that has never been written (dlfValuesSfTep
 # before its first successful capture) has no CSV yet, and one missing
 # pathspec would abort the whole add — and with it every healthy board.
-OWNED_PATHS=(data/scrape_state/dlf_last_success CSVs/site_raw/dlfValuesSfTepPicks.csv)
+# Per-board state (written / refused / vendor_empty / parse_failed / ...),
+# with ``since`` carried over while a board's state is unchanged so the file
+# only changes on a transition (no commit every two hours).
+if [[ -s "${BOARD_STATES_RUN}" ]]; then
+  "${VENV_PYTHON}" scripts/dlf_board_states.py merge \
+    --run "${BOARD_STATES_RUN}" --out data/scrape_state/dlf_board_states.json || \
+    err "could not record per-board states (non-fatal)"
+fi
+OWNED_PATHS=(data/scrape_state/dlf_last_success data/scrape_state/dlf_board_states.json CSVs/site_raw/dlfValuesSfTepPicks.csv)
 for key in dlfSf dlfIdp dlfRookieSf dlfRookieIdp dlfValuesSfTep; do
   OWNED_PATHS+=("CSVs/site_raw/${key}.csv" "data/scrape_state/${key}_last_success")
 done
@@ -211,8 +229,9 @@ attempt=1
 while (( attempt <= PUSH_RETRY_MAX )); do
   if git push origin main; then
     log "push succeeded on attempt ${attempt}/${PUSH_RETRY_MAX}"
-    # A partial run pushed what it could but is still a failure to see.
-    if [[ "${FETCH_RC}" -ne 0 ]]; then
+    # A partial run pushed what it could but is still a failure to see;
+    # a vendor-empty board (4) is recorded, not a failure.
+    if [[ "${FETCH_RC}" -ne 0 && "${FETCH_RC}" -ne 4 ]]; then
       exit 1
     fi
     exit 0

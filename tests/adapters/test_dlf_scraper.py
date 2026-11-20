@@ -596,3 +596,127 @@ def test_probe_script_lines_redact_nonces_and_values(dlf_module):
         dlf_module._probe_script_lines("<html><script>var x = 'secret-value';</script></html>")
         == []
     )
+
+
+# ── vendor-empty boards (2026-11-20) ──────────────────────────────────
+#
+# Synthetic shapes of what the box measured (DLF diagnostics 44742643782):
+# the rookie pages render the RankingEngine table with ZERO expert columns
+# and ZERO rows; the working Superflex page renders expert columns and rows.
+
+_EMPTY_ROOKIE_PAGE = """<html><head><title>2026 Rookie Superflex Rankings For Dynasty Fantasy Football - DLF</title></head>
+<body><table id="avgTable" class="display dlf_rankings-table avgtable startup-table">
+<thead><tr><th>Rank</th><th>Avg</th><th>Pos</th><th>Name</th><th>Team</th><th>Age</th><th>Value</th><th>Follow</th></tr></thead>
+<tbody></tbody></table><button>Load More</button></body></html>"""
+
+_EXPERTS_NO_ROWS_PAGE = """<html><body><table id="avgTable" class="dlf_rankings-table">
+<thead><tr><th>Rank</th><th>Avg</th><th>Pos</th><th>Name</th><th>Team</th><th>Age</th>
+<th>Expert A Last Updated: 11/17</th><th>Value</th></tr></thead><tbody></tbody></table></body></html>"""
+
+
+def _board_page(n: int, title: str = "Dynasty Superflex Rankings") -> str:
+    rows = "".join(
+        f"<tr><td>{i}</td><td>{i}.5</td><td>QB{i}</td><td>Player {i}</td><td>ARI</td><td>25</td><td>{i}</td><td></td><td></td></tr>"
+        for i in range(1, n + 1)
+    )
+    return (
+        f"<html><head><title>{title}</title></head><body><table id='avgTable' class='dlf_rankings-table'>"
+        "<thead><tr><th>Rank</th><th>Avg</th><th>Pos</th><th>Name</th><th>Team</th><th>Age</th>"
+        "<th>Expert A Last Updated: 11/17</th><th>Value</th><th>Follow</th></tr></thead>"
+        f"<tbody>{rows}</tbody></table></body></html>"
+    )
+
+
+def test_empty_board_reason_names_a_vendor_empty_board(dlf_module):
+    assert dlf_module._parse_rankings(_EMPTY_ROOKIE_PAGE) == []
+    state, reason = dlf_module._empty_board_reason(_EMPTY_ROOKIE_PAGE)
+    assert state == "vendor_empty" and "0 expert columns" in reason
+
+
+def test_empty_board_reason_keeps_parse_failures_as_failures(dlf_module):
+    state, _ = dlf_module._empty_board_reason(_EXPERTS_NO_ROWS_PAGE)
+    assert state == "parse_failed"
+    assert (
+        dlf_module._empty_board_reason("<html><body><p>nothing</p></body></html>")[0]
+        == "parse_failed"
+    )
+    assert dlf_module._empty_board_reason("")[0] == "parse_failed"
+    assert dlf_module._empty_board_reason(_board_page(20)) is None
+
+
+def _run_main(dlf_module, monkeypatch, tmp_path, pages: dict, boards: dict):
+    monkeypatch.setattr(dlf_module, "REPO", tmp_path)
+    monkeypatch.setattr(dlf_module, "BOARDS", boards)
+    monkeypatch.setattr(dlf_module, "_load_env_dotfile", lambda path: None)
+    monkeypatch.setattr(dlf_module, "_build_session", lambda: object())
+    monkeypatch.setattr(dlf_module, "_ensure_logged_in", lambda session: None)
+    monkeypatch.setattr(dlf_module, "_fetch_rankings_html", lambda session, url: pages[url])
+    states = tmp_path / "states.json"
+    written = tmp_path / "written.json"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["fetch_dlf.py", "--board-states", str(states), "--written-manifest", str(written)],
+    )
+    code = dlf_module.main()
+    import json as _json
+
+    return (
+        code,
+        _json.loads(states.read_text(encoding="utf-8")),
+        _json.loads(written.read_text(encoding="utf-8")),
+    )
+
+
+def test_main_vendor_empty_board_keeps_last_good_and_exits_4(dlf_module, monkeypatch, tmp_path):
+    rookie = dict(
+        dlf_module.BOARDS["dlfRookieSf"], url="https://example.test/rookie", out="out/rookie.csv"
+    )
+    sf = dict(
+        dlf_module.BOARDS["dlfIdp"], url="https://example.test/sf", out="out/sf.csv", min_rows=20
+    )
+    last_good = tmp_path / "out" / "rookie.csv"
+    last_good.parent.mkdir(parents=True)
+    last_good.write_text(
+        "name,rank,value,position,team\nKept Player,1.00,,RB1,ARI\n", encoding="utf-8"
+    )
+    pages = {rookie["url"]: _EMPTY_ROOKIE_PAGE, sf["url"]: _board_page(25)}
+    code, states, written = _run_main(
+        dlf_module, monkeypatch, tmp_path, pages, {"dlfRookieSf": rookie, "dlfIdp": sf}
+    )
+    assert code == dlf_module.EXIT_VENDOR_EMPTY == 4
+    assert states["dlfRookieSf"]["state"] == "vendor_empty"
+    assert states["dlfIdp"]["state"] == "written"
+    assert written == ["dlfIdp"]
+    assert "Kept Player" in last_good.read_text(encoding="utf-8")  # never zeroed, never overwritten
+
+
+def test_main_vendor_empty_never_masks_a_real_failure(dlf_module, monkeypatch, tmp_path):
+    rookie = dict(
+        dlf_module.BOARDS["dlfRookieSf"], url="https://example.test/rookie", out="out/rookie.csv"
+    )
+    broken = dict(
+        dlf_module.BOARDS["dlfIdp"], url="https://example.test/broken", out="out/broken.csv"
+    )
+    pages = {rookie["url"]: _EMPTY_ROOKIE_PAGE, broken["url"]: _EXPERTS_NO_ROWS_PAGE}
+    code, states, written = _run_main(
+        dlf_module, monkeypatch, tmp_path, pages, {"dlfRookieSf": rookie, "dlfIdp": broken}
+    )
+    assert code == 1
+    assert states["dlfIdp"]["state"] == "parse_failed"
+    assert states["dlfRookieSf"]["state"] == "vendor_empty"
+    assert written == []
+
+
+def test_main_refuses_the_next_rookie_class(dlf_module, monkeypatch, tmp_path):
+    rookie = dict(
+        dlf_module.BOARDS["dlfRookieSf"], url="https://example.test/rookie", out="out/rookie.csv"
+    )
+    page = _board_page(
+        60, title="2027 Rookie Superflex Rankings For Dynasty Fantasy Football - DLF"
+    )
+    code, states, written = _run_main(
+        dlf_module, monkeypatch, tmp_path, {rookie["url"]: page}, {"dlfRookieSf": rookie}
+    )
+    assert code == 2 and states["dlfRookieSf"]["state"] == "refused" and written == []
+    assert not (tmp_path / "out" / "rookie.csv").exists()

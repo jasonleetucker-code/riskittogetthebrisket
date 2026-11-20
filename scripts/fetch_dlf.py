@@ -625,6 +625,61 @@ def _values_summary(rows: list[dict]) -> list[str]:
     return lines
 
 
+#: Board states written by ``--board-states`` (one per processed board).
+BOARD_STATES = ("written", "refused", "vendor_empty", "parse_failed", "fetch_failed", "preview")
+
+#: Exit code when every failure in the run was a board the vendor published
+#: empty.  Distinct from 1 (fetch/parse failure) and 2 (a write guard refused).
+EXIT_VENDOR_EMPTY = 4
+
+
+def _empty_board_reason(html: str | None) -> tuple[str, str] | None:
+    """Why a page yielded no rows: ``(state, reason)``, or None if it has rows.
+
+    Measured 2026-11-20 (DLF diagnostics 44742643782): the rookie pages render
+    the same DLF RankingEngine ``table#avgTable`` as the working Superflex
+    board, but with ZERO expert columns (headers ``Rank, Avg, Pos, Name, Team,
+    Age, Value, Follow``), zero body rows and no per-expert tables -- the
+    vendor has no rookie rankings published.  That is ``vendor_empty``: not a
+    parser or credential problem, and nothing to parse.  A rankings table that
+    names experts but carries no rows is ``parse_failed`` (rows we cannot see,
+    e.g. rendered client-side), and no rankings table at all is too.
+    """
+    if not html:
+        return ("parse_failed", "empty response body")
+    try:
+        from bs4 import BeautifulSoup
+    except ImportError:
+        return ("parse_failed", "bs4 unavailable")
+    soup = BeautifulSoup(html, "html.parser")
+    ranking_tables = []
+    for table in soup.find_all("table"):
+        thead = table.find("thead")
+        head = (thead or table.find("tr") or table).find_all(["th", "td"])
+        headers = [c.get_text(" ", strip=True).lower() for c in head]
+        firsts = {h.split()[0] for h in headers if h}
+        if "name" in firsts and ({"avg", "rank"} & firsts):
+            body = table.find("tbody") or table
+            rows = [tr for tr in body.find_all("tr") if tr.find_all("td")]
+            experts = sum(1 for h in headers if "last updated" in h)
+            ranking_tables.append((len(rows), experts))
+    if not ranking_tables:
+        return ("parse_failed", "no rankings table on the page")
+    if any(rows >= 10 for rows, _ in ranking_tables):
+        return None
+    if all(rows == 0 and experts == 0 for rows, experts in ranking_tables):
+        return (
+            "vendor_empty",
+            f"{len(ranking_tables)} rankings table(s) with 0 rows and 0 expert columns: "
+            "the vendor has no rankings published on this board",
+        )
+    return (
+        "parse_failed",
+        "rankings table names experts but carries <10 readable rows "
+        f"({ranking_tables[:4]} as (rows, experts))",
+    )
+
+
 #: NFL team abbreviations DLF prints in the Team column once a class is
 #: drafted (plus common alternates and FA for undrafted signings).  A college
 #: name in that column means a class that has not been drafted yet.
@@ -1097,6 +1152,16 @@ def main() -> int:
         ),
     )
     parser.add_argument(
+        "--board-states",
+        metavar="PATH",
+        default=None,
+        help=(
+            "Write a JSON object {board_key: {state, reason}} for every board this "
+            f"run processed; states: {', '.join(BOARD_STATES)}.  Lets the prod "
+            "push record WHY a board did not refresh (vendor_empty vs failure)."
+        ),
+    )
+    parser.add_argument(
         "--probe",
         metavar="URL",
         default=None,
@@ -1117,12 +1182,21 @@ def main() -> int:
             return 1
         return _probe(session, args.probe)
     written_keys: list[str] = []
+    board_states: dict[str, dict[str, str]] = {}
 
     def _write_manifest() -> None:
         if args.written_manifest:
             Path(args.written_manifest).write_text(
                 json.dumps(written_keys) + "\n", encoding="utf-8"
             )
+        if args.board_states:
+            Path(args.board_states).write_text(
+                json.dumps(board_states, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+
+    def _state(key: str, state: str, reason: str) -> None:
+        board_states[key] = {"state": state, "reason": reason}
+        _write_manifest()
 
     _write_manifest()
 
@@ -1140,6 +1214,7 @@ def main() -> int:
         return 1
 
     exit_code = 0
+    vendor_empty = False
     for key in boards:
         cfg = BOARDS[key]
         url = cfg["url"]
@@ -1151,6 +1226,7 @@ def main() -> int:
         except RuntimeError as exc:
             print(f"[DLF] {key} fetch failed: {exc}", file=sys.stderr)
             exit_code = max(exit_code, 1)
+            _state(key, "fetch_failed", str(exc)[:200])
             continue
         if _looks_like_preview(html):
             # The cached session may have expired mid-run; try once more.
@@ -1161,6 +1237,7 @@ def main() -> int:
             except RuntimeError as exc:
                 print(f"[DLF] {key}: re-auth failed: {exc}", file=sys.stderr)
                 exit_code = max(exit_code, 1)
+                _state(key, "fetch_failed", f"re-auth failed: {str(exc)[:160]}")
                 continue
             if _looks_like_preview(html):
                 print(
@@ -1168,6 +1245,9 @@ def main() -> int:
                     file=sys.stderr,
                 )
                 exit_code = max(exit_code, 1)
+                _state(
+                    key, "preview", "non-member preview after re-auth; membership may have lapsed"
+                )
                 continue
         if cfg.get("kind") == "values":
             vrows = _parse_trade_values(html)
@@ -1186,6 +1266,7 @@ def main() -> int:
                     file=sys.stderr,
                 )
                 exit_code = max(exit_code, 2)
+                _state(key, "refused", reason)
                 continue
             count = _write_values_csv(out_path, vrows)
             picks = _write_value_picks_csv(REPO / cfg["picks_out"], vrows)
@@ -1195,13 +1276,25 @@ def main() -> int:
                 flush=True,
             )
             written_keys.append(key)
-            _write_manifest()
+            _state(key, "written", f"{count} values")
             continue
         rows = _parse_rankings(html)
         print(f"[DLF] {key} ({label}): parsed {len(rows)} rows")
         if not rows:
-            print(f"[DLF] WARN: no rows extracted for {key}", file=sys.stderr)
-            exit_code = max(exit_code, 1)
+            empty = _empty_board_reason(html) or ("parse_failed", "no rows extracted")
+            if empty[0] == "vendor_empty":
+                # Nothing to parse: keep the last-good CSV, say why, and do not
+                # call it a failure of ours (EXIT_VENDOR_EMPTY, never masking 1/2).
+                print(
+                    f"[DLF] {key}: vendor published no rankings ({empty[1]}).  "
+                    f"Preserving last-good {out_path.relative_to(REPO)}.",
+                    file=sys.stderr,
+                )
+                vendor_empty = True
+            else:
+                print(f"[DLF] WARN: no rows extracted for {key}: {empty[1]}", file=sys.stderr)
+                exit_code = max(exit_code, 1)
+            _state(key, empty[0], empty[1])
             continue
         ok, reason = _board_verdict(cfg, rows, html)
         if args.dry_run:
@@ -1219,6 +1312,7 @@ def main() -> int:
                 f"expect_native_value={bool(cfg.get('expect_native_value'))}"
             )
             print(f"  verdict={'WRITE' if ok else 'REFUSE'} reason={reason}")
+            _state(key, "written" if ok else "refused", f"dry run: {reason}")
             note = _native_value_note(cfg, rows)
             if note:
                 print(f"  native_value=UNAVAILABLE {note}")
@@ -1243,6 +1337,7 @@ def main() -> int:
                 file=sys.stderr,
             )
             exit_code = max(exit_code, 2)
+            _state(key, "refused", reason)
             continue
         note = _native_value_note(cfg, rows)
         if note:
@@ -1253,7 +1348,9 @@ def main() -> int:
             flush=True,
         )
         written_keys.append(key)
-        _write_manifest()
+        _state(key, "written", f"{count} rows")
+    if exit_code == 0 and vendor_empty:
+        return EXIT_VENDOR_EMPTY
     return exit_code
 
 
