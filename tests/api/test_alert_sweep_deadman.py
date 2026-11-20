@@ -144,9 +144,11 @@ def test_status_publishes_delivery_health_as_booleans_timestamps_and_a_count(sta
         "lastDeliveredAt",
         "lastFailedAt",
         "consecutiveFailures",
+        "deliveryRecord",
     }
     assert block["ntfyConfigured"] is True and block["emailConfigured"] is False
     assert block["consecutiveFailures"] == 2 and block["lastDeliveredAt"] is None
+    assert block["deliveryRecord"] == "recorded"
     assert isinstance(block["lastFailedAt"], str)
     text = json.dumps(body)
     assert "ntfy.sh" not in text and "private-topic" not in text
@@ -158,13 +160,14 @@ def test_unconfigured_channels_attempt_nothing_and_are_not_failures(status_env):
     assert owner_alerts.deliver(None, "s", "b") is False
     block = _public_status()["alertDelivery"]
     # Nothing was attempted, so nothing failed -- and nothing is recorded, so
-    # the count is UNKNOWN (null), never 0.
+    # the count is null, never 0, and deliveryRecord says why ("none").
     assert block == {
         "ntfyConfigured": False,
         "emailConfigured": False,
         "lastDeliveredAt": None,
         "lastFailedAt": None,
         "consecutiveFailures": None,
+        "deliveryRecord": "none",
     }
 
 
