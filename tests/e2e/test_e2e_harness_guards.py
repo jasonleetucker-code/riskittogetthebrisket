@@ -770,5 +770,108 @@ class TestProjectGatingIsATagNotASkip(unittest.TestCase):
         self.assertIn("tests/e2e/skip-accounting.test.js", wf)
 
 
+class TestProdAuthSkipsAreAccountedAndTheRunCannotBeVacuous(unittest.TestCase):
+    """X-CI item 3: the production-auth suite used to report "108 passed, 26
+    skipped -- run passed" with no skip accounting and no passed floor, so a
+    mostly- or all-skipped run read green.  Project gating is now a title tag
+    filtered at collection (never a runtime skip), every remaining skip is
+    named in ``prod-auth-skip-baseline.json`` (the same engine as the main
+    suite's STAB-8 baseline), and a credentialed run must pass a floor.
+    """
+
+    _DIR = E2E_DIR / "specs" / "prod-auth"
+    _CONFIG = E2E_DIR / "prod-auth.config.js"
+    _REPORTER = E2E_DIR / "prod-auth-safe-reporter.js"
+    _BASELINE = E2E_DIR / "prod-auth-skip-baseline.json"
+
+    def _specs(self):
+        return sorted(self._DIR.glob("*.spec.js"))
+
+    def test_no_prod_auth_spec_or_helper_gates_by_project_with_a_runtime_skip(self):
+        offenders = []
+        for path in [*self._specs(), self._DIR / "helpers.js"]:
+            src = path.read_text(encoding="utf-8")
+            if re.search(r"\b(desktopOnly|mobileOnly)\b", src):
+                offenders.append(f"{path.name} references desktopOnly/mobileOnly")
+            for m in re.finditer(r"test\.skip\(([^)]*)\)", src, re.S):
+                if re.search(r"project\.name|isMobile", m.group(1)):
+                    offenders.append(f"{path.name}: test.skip({m.group(1).strip()[:80]}")
+        self.assertEqual(
+            offenders,
+            [],
+            "Project-only gating is an @desktop-only / @mobile-only title tag "
+            "filtered by grepInvert in prod-auth.config.js, never a test.skip().\n"
+            + "\n".join(offenders),
+        )
+
+    def test_each_project_filters_the_other_projects_tag_at_collection(self):
+        cfg = self._CONFIG.read_text(encoding="utf-8")
+        desktop = cfg[cfg.index('name: "prod-desktop"') : cfg.index('name: "prod-mobile"')]
+        mobile = cfg[cfg.index('name: "prod-mobile"') :]
+        self.assertIn("grepInvert: /@mobile-only/", desktop[: desktop.index("use:")])
+        self.assertIn("grepInvert: /@desktop-only/", mobile[: mobile.index("use:")])
+
+    def test_both_tags_are_used_by_prod_auth_specs(self):
+        used = "\n".join(p.read_text(encoding="utf-8") for p in self._specs())
+        for tag in ("@desktop-only", "@mobile-only"):
+            self.assertIn(tag, used)
+
+    def test_runtime_skips_left_in_specs_are_baselined_or_env_unset(self):
+        """Every test.skip(true|!configured…) must be one of the two env-unset
+        shapes (inert run) or a baselined data-dependent skip."""
+        import json
+
+        baseline = json.loads(self._BASELINE.read_text(encoding="utf-8"))
+        baselined_files = {e["file"] for e in baseline["entries"]}
+        offenders = []
+        for path in self._specs():
+            src = path.read_text(encoding="utf-8")
+            for m in re.finditer(r"\btest\.skip\(\s*([^,]+),", src):
+                cond = m.group(1).strip()
+                if cond == "!configured()":
+                    continue  # PROD_ORIGIN unset -> inert run
+                if cond == "true" and path.name in baselined_files:
+                    continue
+                offenders.append(f"{path.name}: test.skip({cond}, …)")
+        self.assertEqual(
+            offenders,
+            [],
+            "A new runtime skip in a prod-auth spec must be recorded in "
+            "tests/e2e/prod-auth-skip-baseline.json (or removed).\n" + "\n".join(offenders),
+        )
+
+    def test_baseline_entries_resolve_to_real_specs_and_titles(self):
+        import json
+
+        doc = json.loads(self._BASELINE.read_text(encoding="utf-8"))
+        self.assertTrue(doc["entries"], "baseline has no entries")
+        for e in doc["entries"]:
+            spec = self._DIR / e["file"]
+            self.assertTrue(spec.exists(), f"{e['file']} is gone")
+            leaf = e["title"].split(" > ")[-1]
+            self.assertIn(
+                leaf, spec.read_text(encoding="utf-8"), f"{e['title']} no longer in {e['file']}"
+            )
+            self.assertTrue(all(p in {"prod-desktop", "prod-mobile"} for p in e["projects"]))
+            self.assertNotIn("@desktop-only", e["title"])
+            self.assertNotIn("@mobile-only", e["title"])
+
+    def test_reporter_reuses_the_one_engine_and_enforces_floor_and_inert(self):
+        src = self._REPORTER.read_text(encoding="utf-8")
+        self.assertIn('require("./skip-accounting.js")', src)
+        self.assertIn("prod-auth-skip-baseline.json", src)
+        self.assertIn(
+            "evaluateSkips", src + (E2E_DIR / "skip-accounting.js").read_text(encoding="utf-8")
+        )
+        self.assertIn('{ status: "failed" }', src)
+        self.assertIn("PROD-AUTH SUITE INERT", src)
+        self.assertIn("DEFAULT_MIN_PASSED", src)
+        self.assertNotIn("function evaluateSkips", src, "a second accounting engine")
+
+    def test_ci_runs_the_reporter_unit_test(self):
+        wf = (REPO_ROOT / ".github" / "workflows" / "e2e.yml").read_text(encoding="utf-8")
+        self.assertIn("tests/e2e/prod-auth-safe-reporter.test.js", wf)
+
+
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

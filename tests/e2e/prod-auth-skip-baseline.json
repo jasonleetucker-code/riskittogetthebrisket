@@ -1,0 +1,20 @@
+{
+  "_comment": "Reviewed baseline of DELIBERATE skips in the production-auth suite (X-CI item 3). Read by tests/e2e/skip-accounting.js (the same engine as the main E2E suite's skip-baseline.json) from prod-auth-safe-reporter.js, and ONLY for a run with PROD_ORIGIN and PROD_SESSION_COOKIE_FILE configured: an unlisted skip fails the run by name; an entry that no longer skips fails as stale (except unsupported-environment). Project-only gating is NOT listed here: it is an @desktop-only / @mobile-only title tag filtered by the projects' grepInvert in prod-auth.config.js. A run WITHOUT credentials (every spec skips on the unset-env fixture) is reported as INERT by the reporter and is not accounted here. `title` is the describe/test path joined by ' > '; `projects` are Playwright project names. Both entries below are conditional on the PRODUCTION CLOCK, not on the test host, so they are filed as unsupported-environment: category data-dependent would fail as stale on every run where the production week does not trigger the skip, which is most runs.",
+  "version": 1,
+  "entries": [
+    {
+      "file": "w1-16-game-day.spec.js",
+      "title": "W1-16: the owner's Game Day experience (production) > W1-28: the most recent COMPLETED week reaches FINAL and links its recap",
+      "projects": ["prod-desktop", "prod-mobile"],
+      "category": "unsupported-environment",
+      "reason": "Skips (annotated, never silently passed) only while production's NFL clock is on week 1, when no completed week exists to prove the FINAL contract on. Production state, not a defect: from week 2 on the test runs and this entry is expected not to skip."
+    },
+    {
+      "file": "w1-16-game-day.spec.js",
+      "title": "W1-16: the owner's Game Day experience (production) > provenance travels with the numbers",
+      "projects": ["prod-desktop", "prod-mobile"],
+      "category": "unsupported-environment",
+      "reason": "Skips only while /api/matchup/intel answers 409 (a week in progress), when the pregame lineage panel is not the question. Production state, not a defect: outside a live week the test runs and this entry is expected not to skip."
+    }
+  ]
+}

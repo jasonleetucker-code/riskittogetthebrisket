@@ -20,13 +20,13 @@
  * Read-only: `GET /api/data?view=array` (the full contract minus the
  * legacy `players` dict), the same data every board surface reads.
  */
-const { test, expect, getJson, annotate, desktopOnly } = require("./helpers");
+const { test, expect, getJson, annotate } = require("./helpers");
 
 const PICK_YEAR = /^(20\d{2})\b/;
 
 test.describe("#1442 pick lifecycle on production", () => {
-  test("2026 retired, 2027-2029 present, no 2030", async ({ prodPage: page }, testInfo) => {
-    desktopOnly(test, testInfo); // one read of one contract; the phone adds nothing
+  test("@desktop-only 2026 retired, 2027-2029 present, no 2030", async ({ prodPage: page }, testInfo) => {
+    // one read of one contract; the phone adds nothing
     const { status, body } = await getJson(page, "/api/data?view=array", { timeoutMs: 90_000 });
     expect(status, "/api/data?view=array must serve the session").toBe(200);
 
