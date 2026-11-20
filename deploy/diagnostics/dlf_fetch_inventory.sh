@@ -135,6 +135,13 @@ fi
 "${PY}" -c 'import bs4, curl_cffi; print("deps : bs4", bs4.__version__, "curl_cffi", curl_cffi.__version__)' 2>&1 || echo "deps : import FAILED"
 
 # ------------------------------------------------------------------ 6 --
+hdr "[5b] per-board states recorded by the timer (box-local, not committed)"
+if [[ -f "${WORK_DIR}/dlf_board_states.json" ]]; then
+  cat "${WORK_DIR}/dlf_board_states.json"
+else
+  echo "no ${WORK_DIR}/dlf_board_states.json yet (written by the first timer run after #2275)"
+fi
+
 hdr "[6] per-board dry run (runner's fetch_dlf.py, no CSV written)"
 set +e
 (

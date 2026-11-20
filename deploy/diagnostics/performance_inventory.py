@@ -419,6 +419,8 @@ STAGE_PATTERNS = {
         "login_failed": r"\[DLF\] login failed: .+",
         "board_fetch_failed": r"\[DLF\] (?:dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp|dlfValuesSfTep) fetch failed: .+",
         "board_refused": r"\[DLF\] (?:dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp|dlfValuesSfTep): .+\.  Preserving last-good CSV, NOT overwriting .+\.",
+        "board_states_failed": r"\[dlf-fetch\]\[ERR\] could not record per-board states \(non-fatal\)",
+        "board_states_unreadable": r"\[dlf-board-states\] unreadable run file: [A-Za-z]{1,40}",
         "no_board_written": r"\[dlf-fetch\]\[ERR\] fetch_dlf\.py exited [0-9]{1,3} and wrote no board - keeping previous CSVs / stamps; will retry on next timer fire\.",
         "partial_commit": r"\[dlf-fetch\]\[ERR\] fetch_dlf\.py exited [0-9]{1,3}; committing only the boards it wrote: (?:dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp|dlfValuesSfTep)(?: (?:dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp|dlfValuesSfTep))*",
     },

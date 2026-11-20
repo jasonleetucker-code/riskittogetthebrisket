@@ -702,8 +702,8 @@ def _empty_board_reason(html: str | None, cfg: dict | None = None) -> tuple[str,
         )
     return (
         "parse_failed",
-        "rankings table names experts but carries <10 readable rows "
-        f"({ranking_tables[:4]} as (rows, experts))",
+        "rankings table carries <10 readable rows "
+        f"({ranking_tables[:4]} as (rows, expert columns))",
     )
 
 
@@ -736,6 +736,10 @@ def _page_class_year(html: str | None) -> int | None:
     if not m:
         return None
     title = " ".join(m.group(1).split())
+    # A title naming two different years ("Rookie Rankings 2026 | 2027 Class
+    # Preview") cannot say which class the rows are: no year, fail closed.
+    if len(set(re.findall(r"\b(20\d\d)\b", title))) > 1:
+        return None
     # "2026 Rookie Superflex Rankings ...", "2026 Dynasty Rookie Rankings",
     # "Rookie Rankings: 2027 Class" -- the year within 40 characters of
     # "rookie", on either side.
@@ -922,6 +926,8 @@ def _probe_page(html: str) -> list[str]:
     for script in soup.find_all("script", src=True):
         parts = urlparse(str(script.get("src") or ""))
         host = parts.hostname
+        if parts.scheme not in ("", "http", "https") or not parts.path.startswith("/"):
+            continue  # data:/blob: sources carry script text, not a path
         if host and host != _PROBE_HOST and not host.endswith("." + _PROBE_HOST):
             continue  # off-host, including protocol-relative //cdn paths
         path = parts.path
@@ -929,7 +935,8 @@ def _probe_page(html: str) -> list[str]:
             srcs.append(path[-90:])
     if srcs:
         lines.append(f"script_srcs={srcs[:15]}")
-    rest = sorted(set(re.findall(r"/wp-json/[A-Za-z0-9_/-]{2,80}", html)))
+    # Namespace only (``/wp-json/wp/v2``): a full route can carry a user slug.
+    rest = sorted(set(re.findall(r"/wp-json/[A-Za-z0-9_-]{1,40}(?:/v[0-9]{1,2})?", html)))
     if rest:
         lines.append(f"rest_paths={rest[:12]}")
     for si, script in enumerate(soup.find_all("script")):
@@ -1112,7 +1119,8 @@ def main() -> int:
         help=(
             "Write a JSON object {board_key: {state, reason}} for every board this "
             f"run processed; states: {', '.join(BOARD_STATES)}.  Lets the prod "
-            "push record WHY a board did not refresh.  Not written by --dry-run."
+            "push record WHY a board did not refresh.  A dry run records no "
+            "board state (the file holds {})."
         ),
     )
     parser.add_argument(

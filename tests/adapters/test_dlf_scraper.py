@@ -555,6 +555,9 @@ def test_page_class_year_tolerates_title_wording(dlf_module):
         ("2026 rookie superflex rankings", 2026),
     ):
         assert dlf_module._page_class_year(page(title)) == year, title
+    # Two different years: the title cannot say which class the rows are.
+    assert dlf_module._page_class_year(page("Rookie Rankings 2026 | 2027 Class Preview")) is None
+    assert dlf_module._page_class_year(page("2026 Rookie Rankings (2026 update)")) == 2026
     # A year far from the word "rookie" is not a class year: fail closed.
     assert (
         dlf_module._page_class_year(
@@ -615,6 +618,24 @@ def test_probe_prints_no_script_text_and_drops_off_host_script_paths(dlf_module)
     assert "cdn.example.test" not in out and out.count("table.js") == 1
     assert "player.js" not in out
     assert "a1b2c3d4e5" not in out and "jtucker" not in out and "?ver" not in out
+
+
+def test_probe_drops_data_uri_scripts_and_prints_rest_namespaces_only(dlf_module):
+    import base64
+
+    body = base64.b64encode(
+        b"var t={name:'jtucker',nonce:'a1b2c3d4e5f6'}; // dlf rank table"
+    ).decode()
+    html = f"""<html><body>
+    <script src="data:text/javascript;base64,{body}"></script>
+    <script src="blob:https://dynastyleaguefootball.com/0f3c-rank"></script>
+    <script src="dlf-rank/relative-no-slash.js"></script>
+    <link rel="https://api.w.org/" href="/wp-json/wp/v2/users/jtucker-42">
+    </body></html>"""
+    out = "\n".join(dlf_module._probe_page(html))
+    assert "script_srcs" not in out
+    assert body[-40:] not in out and "jtucker" not in out
+    assert "rest_paths=['/wp-json/wp/v2']" in out
 
 
 def test_probe_fetches_each_url_once_and_reports_where_it_landed(dlf_module, capsys):
@@ -843,3 +864,16 @@ def test_main_refuses_the_next_rookie_class(dlf_module, monkeypatch, tmp_path):
     )
     assert code == 2 and states["dlfRookieSf"]["state"] == "refused" and written == []
     assert not (tmp_path / "out" / "rookie.csv").exists()
+
+
+def test_push_script_keeps_board_states_box_local_and_clears_stale_outputs():
+    """The board-state file names a paid vendor (tracked-exposure guard), so it
+    stays in the box work dir; and a fetcher that dies early must not leave
+    the previous run's manifest to be read as this run's."""
+    repo = Path(__file__).resolve().parents[2]
+    text = (repo / "deploy" / "dlf_fetch_and_push.sh").read_text(encoding="utf-8")
+    assert 'rm -f "${MANIFEST}" "${BOARD_STATES_RUN}"' in text
+    assert 'BOARD_STATES_FILE="${WORK_DIR}/dlf_board_states.json"' in text
+    assert "data/scrape_state/dlf_board_states.json" not in text
+    # States are merged before the "wrote no board" exit.
+    assert text.index("dlf_board_states.py merge") < text.index("and wrote no board")

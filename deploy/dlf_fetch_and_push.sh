@@ -105,7 +105,15 @@ log "running scripts/fetch_dlf.py"
 # still exits non-zero so the failure stays visible in the journal.
 MANIFEST="${WORK_DIR}/dlf_written.json"
 BOARD_STATES_RUN="${WORK_DIR}/dlf_board_states.run.json"
-rm -f "${BOARD_STATES_RUN}"
+# Per-board states (written / refused / vendor_empty / parse_failed / ...) are
+# box-local: the file names a paid vendor, and tracking it would grow the
+# repository's vendor-data exposure, an owner decision
+# (docs/security/DATA_EXPOSURE_DECISION_BRIEF_2026-11-18.md).  Read it with
+# deploy/diagnostics/dlf_fetch_inventory.sh.
+BOARD_STATES_FILE="${WORK_DIR}/dlf_board_states.json"
+# Both run outputs are removed first: a fetcher that dies before writing them
+# must not leave the previous run's manifest to be read as this run's.
+rm -f "${MANIFEST}" "${BOARD_STATES_RUN}"
 FETCH_RC=0
 "${VENV_PYTHON}" scripts/fetch_dlf.py --written-manifest "${MANIFEST}" \
   --board-states "${BOARD_STATES_RUN}" || FETCH_RC=$?
@@ -119,6 +127,13 @@ for key in "${WRITTEN_RAW[@]}"; do
     WRITTEN+=("${key}")
   fi
 done
+# Recorded before any early exit, so a run where every board failed still says why.
+# ``since`` is kept while a board's state is unchanged.
+if [[ -s "${BOARD_STATES_RUN}" ]]; then
+  "${VENV_PYTHON}" scripts/dlf_board_states.py merge \
+    --run "${BOARD_STATES_RUN}" --out "${BOARD_STATES_FILE}" || \
+    err "could not record per-board states (non-fatal)"
+fi
 if [[ "${FETCH_RC}" -ne 0 && "${#WRITTEN[@]}" -eq 0 ]]; then
   err "fetch_dlf.py exited ${FETCH_RC} and wrote no board - keeping previous CSVs / stamps; will retry on next timer fire."
   exit 1
@@ -126,7 +141,7 @@ fi
 # A board the vendor published empty (state ``vendor_empty``, measured on the
 # rookie boards 2026-11-20) is still a non-zero exit: deciding that an empty
 # board is an expected seasonal state belongs to src/sources/seasonal_policy.py
-# and is an owner decision.  The per-board state file below records the label.
+# and is an owner decision.  The per-board state file above records the label.
 if [[ "${FETCH_RC}" -ne 0 ]]; then
   err "fetch_dlf.py exited ${FETCH_RC}; committing only the boards it wrote: ${WRITTEN[*]}"
 else
@@ -196,16 +211,7 @@ done
 # Existing paths only: a board that has never been written (dlfValuesSfTep
 # before its first successful capture) has no CSV yet, and one missing
 # pathspec would abort the whole add — and with it every healthy board.
-# Per-board state (written / refused / vendor_empty / parse_failed / ...).
-# ``since`` is carried over while a board's state is unchanged, so the file
-# changes only when a state or its reason changes (a written board's row
-# count, say), never merely because another run happened.
-if [[ -s "${BOARD_STATES_RUN}" ]]; then
-  "${VENV_PYTHON}" scripts/dlf_board_states.py merge \
-    --run "${BOARD_STATES_RUN}" --out data/scrape_state/dlf_board_states.json || \
-    err "could not record per-board states (non-fatal)"
-fi
-OWNED_PATHS=(data/scrape_state/dlf_last_success data/scrape_state/dlf_board_states.json CSVs/site_raw/dlfValuesSfTepPicks.csv)
+OWNED_PATHS=(data/scrape_state/dlf_last_success CSVs/site_raw/dlfValuesSfTepPicks.csv)
 for key in dlfSf dlfIdp dlfRookieSf dlfRookieIdp dlfValuesSfTep; do
   OWNED_PATHS+=("CSVs/site_raw/${key}.csv" "data/scrape_state/${key}_last_success")
 done

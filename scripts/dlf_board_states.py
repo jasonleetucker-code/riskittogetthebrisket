@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Persist and read the DLF per-board refresh states.
 
-``merge``: fold one fetch run's ``--board-states`` output into the committed
-``data/scrape_state/dlf_board_states.json``.  A board keeps its ``since`` while
-its state is unchanged, so the file changes only when a state or its
-reason changes, never merely because another run happened.
+``merge``: fold one fetch run's ``--board-states`` output into the box-local
+``/var/lib/dlf-fetch/dlf_board_states.json`` (never committed: the path names a
+paid vendor).  A board keeps its ``since`` while its state is unchanged, so the
+file changes only when a state or its reason changes.
 
-``report``: print one line per board (state, since, reason) for CI and the
-staleness reports.  Exit 0 always; it reports, it does not judge.
+``report``: print one line per board (state, since, reason) for the on-box DLF
+diagnostics.  Exit 0 always; it reports, it does not judge.
 """
 
 from __future__ import annotations
@@ -58,7 +58,7 @@ def main(argv: list[str] | None = None) -> int:
     m.add_argument("--run", type=Path, required=True)
     m.add_argument("--out", type=Path, required=True)
     r = sub.add_parser("report")
-    r.add_argument("--path", type=Path, default=Path("data/scrape_state/dlf_board_states.json"))
+    r.add_argument("--path", type=Path, default=Path("/var/lib/dlf-fetch/dlf_board_states.json"))
     args = ap.parse_args(argv)
     if args.cmd == "merge":
         try:
