@@ -728,3 +728,242 @@ def test_no_workflow_inlines_a_tesseract_apt_install():
             if "apt-get" in line and "install" in line and "tesseract" in line:
                 offenders.append(f"{path.name}: {line.strip()}")
     assert offenders == []
+
+
+# ── Playwright mode (CI-1d) ──────────────────────────────────────────
+#
+# Playwright 1.64.1 (the version package-lock.json pins; read from
+# playwright-core/lib/coreBundle.js and run locally) answers
+# `install-deps --dry-run <browsers>` by running `apt-get install -s` and
+# printing "Missing system dependencies (N):" + two-space-indented sorted
+# package names with exit 1, or "All system dependencies are installed." with
+# exit 0.  A failing simulation (stale lists) is an Error with exit 1 and no
+# header.  The fake below reproduces those three shapes.
+
+MISSING_OUTPUT = "Missing system dependencies (3):\n  libgbm1\n  libwoff1\n  libxkbcommon0\n"
+INSTALLED_OUTPUT = "All system dependencies are installed.\n"
+
+_FAKE_PLAYWRIGHT = r"""#!/usr/bin/env bash
+echo "playwright $*" >> "$STATE/pw_calls"
+case "$1" in
+  install-deps)
+    # Scripted answers win; otherwise model Playwright: missing until the apt
+    # install ran, then installed (unless a library is still missing).
+    if [[ -e "$STATE/pw_dry_output" ]]; then
+      cat "$STATE/pw_dry_output"; exit "$(cat "$STATE/pw_dry_rc")"
+    fi
+    if [[ -e "$STATE/installed" && ! -e "$STATE/pw_still_missing" ]]; then
+      cat "$STATE/pw_installed_output"; exit 0
+    fi
+    cat "$STATE/pw_missing_output"; exit 1;;
+  install)
+    exit "$(cat "$STATE/pw_install_rc" 2>/dev/null || echo 0)";;
+esac
+exit 99
+"""
+
+
+@pytest.fixture
+def pw(runner, tmp_path):
+    fake = tmp_path / "bin" / "fake-playwright"
+    fake.write_text(_FAKE_PLAYWRIGHT, encoding="utf-8")
+    fake.chmod(0o755)
+    state = runner["state"]
+    (state / "healthy").touch()
+    (state / "pw_missing_output").write_text(MISSING_OUTPUT, encoding="utf-8")
+    (state / "pw_installed_output").write_text(INSTALLED_OUTPUT, encoding="utf-8")
+
+    def run(*browsers: str):
+        return runner["run"]("--playwright", *browsers, env={"PLAYWRIGHT_CMD": str(fake)})
+
+    def pw_calls() -> list[str]:
+        path = state / "pw_calls"
+        return path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+
+    def script(output: str, rc: int) -> None:
+        (state / "pw_dry_output").write_text(output, encoding="utf-8")
+        (state / "pw_dry_rc").write_text(str(rc), encoding="utf-8")
+
+    return {**runner, "pw_run": run, "pw_calls": pw_calls, "script": script}
+
+
+def _apt_install_words(calls: list[str]) -> list[str]:
+    return next(c for c in calls if "--no-download" in c.split()).split()
+
+
+def test_playwright_missing_packages_go_through_the_verified_install_in_order(pw):
+    result = pw["pw_run"]("chromium", "webkit")
+    assert result.returncode == 0, result.stdout + result.stderr
+    # One update, the same resolve -> download -> no-network install as every
+    # other caller, with exactly the packages Playwright's own dry-run named.
+    assert _verbs(pw["calls"]()) == ["update", "resolve", "download", "install"]
+    words = _apt_install_words(pw["calls"]())
+    assert words[-3:] == ["libgbm1", "libwoff1", "libxkbcommon0"]
+    # dry-run -> (apt) -> browsers only -> dry-run proving nothing is missing.
+    assert [c.split(" ", 1)[1] for c in pw["pw_calls"]()] == [
+        "install-deps --dry-run chromium webkit",
+        "install chromium webkit",
+        "install-deps --dry-run chromium webkit",
+    ]
+    assert "--with-deps" not in "".join(pw["pw_calls"]())
+    assert pw["downloads"]() == sorted(DEBS)
+
+
+def test_playwright_with_nothing_missing_installs_browsers_without_apt_install(pw):
+    pw["script"](INSTALLED_OUTPUT, 0)
+    result = pw["pw_run"]("chromium")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _verbs(pw["calls"]()) == ["update"]
+    assert [c.split(" ", 1)[1] for c in pw["pw_calls"]()] == [
+        "install-deps --dry-run chromium",
+        "install chromium",
+        "install-deps --dry-run chromium",
+    ]
+
+
+def test_playwright_upgrade_that_adds_a_library_fails_loudly_after_the_install(pw):
+    (pw["state"] / "pw_still_missing").touch()
+    result = pw["pw_run"]("chromium")
+    assert result.returncode == 1
+    assert "Playwright dependencies still missing" in result.stdout
+    assert "libgbm1" in result.stdout
+
+
+def test_playwright_browser_download_failure_is_a_failure(pw):
+    (pw["state"] / "pw_install_rc").write_text("1", encoding="utf-8")
+    result = pw["pw_run"]("chromium")
+    assert result.returncode == 1
+    assert "Playwright browser install failed" in result.stdout
+
+
+@pytest.mark.parametrize(
+    ("output", "rc"),
+    [
+        # a failing `apt-get install -s` (stale lists): Playwright throws
+        ("Failed to install browser dependencies\nE: Unable to locate package libgtk-4-1\n", 1),
+        # header count disagrees with the list
+        ("Missing system dependencies (4):\n  libgbm1\n  libwoff1\n", 1),
+        # header with an empty list
+        ("Missing system dependencies (0):\n", 1),
+        # trailing noise after the list
+        ("Missing system dependencies (1):\n  libgbm1\nsomething else\n", 1),
+        # a package name that is not a package name
+        ("Missing system dependencies (1):\n  libgbm1;rm\n", 1),
+        # exit 0 without the all-installed sentence
+        ("", 0),
+        ("Missing system dependencies (1):\n  libgbm1\n", 0),
+        # all-installed sentence with a failing exit code
+        (INSTALLED_OUTPUT, 1),
+        # any other exit code
+        (MISSING_OUTPUT, 2),
+    ],
+)
+def test_playwright_unexpected_dry_run_output_is_never_read_as_nothing_to_do(pw, output, rc):
+    pw["script"](output, rc)
+    result = pw["pw_run"]("chromium")
+    assert result.returncode == 1, result.stdout
+    assert "Playwright dependency check unusable" in result.stdout
+    # It never proceeds to an install or to the browsers.
+    assert _verbs(pw["calls"]()) == ["update"]
+    assert all("playwright install " not in c for c in pw["pw_calls"]())
+
+
+def test_playwright_with_an_unreachable_index_installs_nothing(pw):
+    (pw["state"] / "healthy").unlink()
+    (pw["state"] / "update_failures_left").write_text("99", encoding="utf-8")
+    result = pw["pw_run"]("chromium")
+    assert result.returncode == 1
+    assert "index unreachable; nothing installed, nothing skipped" in result.stdout
+    assert pw["pw_calls"]() == []
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["--playwright"],
+        ["--playwright", "--resolve"],
+        ["--playwright", "chromium; rm"],
+        ["--playwright", "Chromium"],
+    ],
+)
+def test_playwright_usage_errors(runner, args):
+    assert runner["run"](*args).returncode == 2
+
+
+PLAYWRIGHT_STEPS = {
+    ("e2e.yml", "e2e"): (
+        "Install Playwright browsers + system deps (chromium, webkit)",
+        "--playwright chromium webkit",
+    ),
+    ("prod-e2e-smoke.yml", "smoke"): (
+        "Install Playwright chromium",
+        "--playwright chromium",
+    ),
+    ("v1-authenticated-verification.yml", "verify"): None,
+}
+
+
+def _code_lines(run: str) -> str:
+    return "\n".join(line for line in run.splitlines() if not line.lstrip().startswith("#"))
+
+
+def _playwright_runs():
+    """Every (workflow, job, step) whose run script mentions Playwright installs."""
+    found = []
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        for job_id, job in (doc.get("jobs") or {}).items():
+            for step in job.get("steps") or []:
+                run = _code_lines(str(step.get("run") or ""))
+                if (
+                    re.search(r"playwright\s+install\b", run)
+                    or "install_apt_packages.sh --playwright" in run
+                ):
+                    found.append((path.name, job_id, step))
+    return found
+
+
+@pytest.mark.parametrize(
+    "workflow", ["e2e.yml", "prod-e2e-smoke.yml", "v1-authenticated-verification.yml"]
+)
+def test_playwright_workflows_use_the_shared_installer_and_never_with_deps(workflow):
+    steps = [(j, s) for w, j, s in _playwright_runs() if w == workflow]
+    assert steps, workflow
+    for _job_id, step in steps:
+        run = _code_lines(step["run"])
+        assert "bash scripts/ci/install_apt_packages.sh --playwright chromium" in run
+        assert not re.search(r"npx playwright install\b", run), "browsers come from the installer"
+        assert "continue-on-error" not in step
+        assert 0 < step["timeout-minutes"] <= 60
+
+
+def test_no_workflow_uses_with_deps_or_a_bare_install_deps():
+    offenders = []
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line.lstrip().startswith("#"):
+                continue
+            if "--with-deps" in line or re.search(r"playwright\s+install-deps", line):
+                offenders.append(f"{path.name}: {line.strip()}")
+    assert offenders == []
+
+
+def test_e2e_installs_both_browsers_in_one_step():
+    job = _job("e2e.yml", "e2e")
+    name, flag = PLAYWRIGHT_STEPS[("e2e.yml", "e2e")]
+    step = _named(job, name)
+    assert f"bash scripts/ci/install_apt_packages.sh {flag}" in step["run"]
+    assert step["timeout-minutes"] == 20
+    installs = [
+        s
+        for s in job["steps"]
+        if re.search(r"playwright\s+install\b|--playwright", _code_lines(str(s.get("run", ""))))
+    ]
+    assert installs == [step], "one step installs both engines"
+
+
+def test_prod_smoke_installs_through_the_shared_installer():
+    name, flag = PLAYWRIGHT_STEPS[("prod-e2e-smoke.yml", "smoke")]
+    step = _named(_job("prod-e2e-smoke.yml", "smoke"), name)
+    assert f"bash scripts/ci/install_apt_packages.sh {flag}" in step["run"]
+    assert step["timeout-minutes"] == 20

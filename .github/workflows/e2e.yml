@@ -184,22 +184,20 @@ jobs:
           npm install --no-audit --no-fund
           npm --prefix frontend install --no-audit --no-fund
 
-      - name: Install Playwright chromium (test runner only)
+      # One step, one apt update + one verified install (CI-1d) for both
+      # engines.  WebKit is the engine every iPhone browser uses.  Chromium
+      # cannot stand in for it: a measured WebKit-only defect class (fetches
+      # that a navigation cancels are reported as uncaught page errors) and
+      # the phone smoke specs that used to skip off WebKit both lived here,
+      # unexercised, while the iPhone projects were "local only".  The
+      # installer asks Playwright which system packages these browsers need
+      # and fails if any are still missing afterwards.
+      - name: Install Playwright browsers + system deps (chromium, webkit)
+        timeout-minutes: 20
         shell: bash
         run: |
           set -Eeuo pipefail
-          npx playwright install --with-deps chromium
-
-      - name: Install Playwright webkit (iPhone projects)
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          # WebKit is the engine every iPhone browser uses.  Chromium cannot
-          # stand in for it: a measured WebKit-only defect class (fetches that
-          # a navigation cancels are reported as uncaught page errors) and
-          # the phone smoke specs that used to skip off WebKit both lived
-          # here, unexercised, while the iPhone projects were "local only".
-          npx playwright install --with-deps webkit
+          bash scripts/ci/install_apt_packages.sh --playwright chromium webkit
 
       - name: Validate route measurement predicates
         shell: bash
