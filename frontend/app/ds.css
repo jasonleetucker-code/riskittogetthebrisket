@@ -1356,8 +1356,10 @@ th[aria-sort="ascending"] .ds-table__sort-glyph {
     min-height: 44px;
     min-width: 44px;
   }
+  /* min-width too: a one-column header ("#") measured 19px wide. */
   .ds-table__sort {
     min-height: 44px;
+    min-width: 44px;
   }
   .ds-panel__disclosure {
     min-height: 44px;
@@ -1382,5 +1384,40 @@ th[aria-sort="ascending"] .ds-table__sort-glyph {
      as margin so the slop lands in empty space, not on the sibling. */
   .ds-table__sort + .ds-infotip {
     margin-left: 10px;
+  }
+
+  /* ── Below the 24px AA floor (X-MOBILE-TOUCH) ─────────────────────────
+     Measured at 390px by tests/e2e/specs/mobile-target-size.spec.js; the
+     rest are ratcheted in tests/e2e/mobile-target-baseline.json.
+
+     Player names are the most-tapped target on the board, /edge and
+     /rosters, and measured 14.6-17.4px tall.  Padding grows the hit box;
+     the equal negative margin cancels it in layout, so no row or line
+     moves (an inline box's vertical padding never moved it anyway; an
+     inline-block / flex item's margin box stays the same height).  The
+     focus ring follows the larger box.  /draft's nominate name button is
+     the same control under a page-local class.  Tag-qualified so the
+     page modules' single-class resets (`padding: 0`, injected later)
+     cannot win on order. */
+  a.ds-player-name,
+  button.ds-player-name,
+  button.draft-nbt-name {
+    padding-block: 5px;
+    margin-block: -5px;
+  }
+  /* Legacy page controls on /draft (tag filter tabs and per-row tag chips
+     at 22px, the check / radio labels at 16-19px) and the /rankings news
+     chips (18px): lift them to the AA floor.  Their full 44px migration
+     belongs to UI Lane 6. */
+  .draft-tag-tab,
+  .draft-tag-chip,
+  .draft-check,
+  .draft-radio {
+    min-height: 24px;
+  }
+  a.rankings-chip {
+    min-height: 24px;
+    min-width: 24px;
+    justify-content: center;
   }
 }
