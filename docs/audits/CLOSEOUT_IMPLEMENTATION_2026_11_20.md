@@ -196,6 +196,8 @@ The reconciliation comes from the read-only understand pass (`wf_285342a1-685`),
 | #2281 | T14 Next 16.4.6 | me | independent review (same) |
 | #2282 | X-HERMETIC, X-YEAR-BOUNDARY, CI-4b, T3 advisory gates, X-SMOKE | evidence-tooling agent | independent review (same) |
 | #2283 | CI-1c verified apt cache | CI-1c agent | review queued |
+| #2284 | WebKit service-worker E2E flake (root cause: the test left "/" before its `register()` reached WebKit's SW server; WebKit then drops the job and the registration never gets a worker) | SW agent | review queued |
+| #2285 | wave-1 frontend hardening (CSV injection, retryable failure states, sub-24px ratchet) | wave-1 agent; PR opened by me after the workflow died (one `ds.css` discipline failure fixed) | review in workflow `wf_5eaf751c-c6c` |
 | #2271 | Node 22 lanes (HOLD) | me | E2E re-run once (WebKit service-worker flake, not Node 22); owner installs Node ≥22.12 |
 | (branch) | X-ROSTER-FRESHNESS measurement | me | committed `2e2188d22`; SLO rule added after #2280, then PR |
 
@@ -208,6 +210,17 @@ The reconciliation comes from the read-only understand pass (`wf_285342a1-685`),
   first attempt with a registration that has no worker (E2E run 44744152284, as in 2026-11-19's STAB-9 runs). A
   worker is root-causing it on branch `claude/serene-shannon-7lsrm9-sw-flake`; skipping or retrying it is not
   acceptable.
+
+**2026-11-20 14:20–18:20 UTC: session paused.** The usage limit was hit, and the container restarted several times.
+That stopped the wave-1 workflow and the first review workflow. On resume:
+- #2275 was fully green, but its release candidate refused because 96 build-consumed data changes on `main` were
+  missing from its head (HEAD-FREEZE). `main` was merged in once (`455d50159`) and the release candidate re-dispatched.
+- #2282 had a real blocker: its new TE-skew fixture carried 22 paid-vendor files and 204 owner-id-like fields into
+  this public repository, and the exposure guard refused it. That fixture was removed (`7fad4fb79`). The test reads
+  its allowlisted archive again; pinning it needs the owner's exposure decision or a vendor-free fixture.
+- **Possible real-Safari issue (found by #2284, not fixed):** a page that does a full navigation right after mount
+  can strand its service-worker registration for the session. HomeClient's standalone-PWA redirect to `/auction` is
+  one such path. Recorded as a follow-up for a WebKit device check.
 
 ## Integration log
 
