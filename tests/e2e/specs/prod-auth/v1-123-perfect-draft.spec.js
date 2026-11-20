@@ -15,10 +15,10 @@
  * production contract. Live Sleeper sync is explicitly pinned off so this
  * spec can never start polling a real draft.
  *
- * Desktop only (matches the local source spec's `desktopOnly` gate) — the
+ * Desktop only (the @desktop-only tag on the describe) — the
  * panel is a wide data-table surface not designed for the 390px viewport.
  */
-const { test, expect, prodUrl, getJson, desktopOnly, annotate } = require("./helpers");
+const { test, expect, prodUrl, getJson, annotate } = require("./helpers");
 
 const LEAGUE = "dynasty_main";
 const WORKSPACE_KEY = `next_draft_board_v1__${LEAGUE}`;
@@ -85,8 +85,7 @@ async function expectNoBadValueTokens(page, scopeSelector) {
   expect(bad, `cells with NaN/undefined under ${scopeSelector}`).toEqual([]);
 }
 
-test.describe("V1-123 Phase 1: Perfect Draft (production)", () => {
-  test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
+test.describe("@desktop-only V1-123 Phase 1: Perfect Draft (production)", () => {
 
   test("recommends a buyable combination of real rookies on production", async ({
     prodPage: page,

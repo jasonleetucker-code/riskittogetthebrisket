@@ -357,3 +357,176 @@ test("failureSignal is always inside the declared vocabulary and absent on passe
 test("startedAt is a UTC ISO instant when Playwright supplies one", () => {
   assert.equal(signalFor("expect(a).toBe(b)").startedAt, "2026-10-21T07:50:07.000Z");
 });
+
+// ---------------------------------------------------------------------------
+// X-CI item 3: skip accounting, the minimum-passed floor and the inert case.
+// ---------------------------------------------------------------------------
+const reporterModule = require("./prod-auth-safe-reporter.js");
+const { evaluateRun, minPassedFloor, DEFAULT_MIN_PASSED } = reporterModule;
+
+function rec(file, project, title, skipped) {
+  return { file, project, title, skipped };
+}
+const BASELINE = {
+  entries: [
+    {
+      file: "w1-16-game-day.spec.js",
+      title: "d > known",
+      projects: ["prod-desktop"],
+      category: "unsupported-environment",
+      reason: "r",
+    },
+  ],
+};
+function run(over) {
+  return evaluateRun({
+    configured: true,
+    listOnly: false,
+    passed: 108,
+    runStatus: "passed",
+    collected: [rec("a.spec.js", "prod-desktop", "t", false)],
+    baseline: BASELINE,
+    minPassed: 100,
+    ...over,
+  });
+}
+
+test("a credentialed run with every skip baselined and enough passes is valid", () => {
+  const v = run({
+    collected: [
+      rec("a.spec.js", "prod-desktop", "t", false),
+      rec("w1-16-game-day.spec.js", "prod-desktop", "d > known", true),
+    ],
+  });
+  assert.equal(v.failed, false);
+  assert.deepEqual(v.problems, []);
+});
+
+test("an UNEXPECTED skip fails a credentialed run and is named", () => {
+  const v = run({ collected: [rec("a.spec.js", "prod-desktop", "surprise", true)] });
+  assert.equal(v.failed, true);
+  assert.equal(v.skipReport.unexpected[0].title, "surprise");
+  assert.match(v.problems.join(), /unexpected skip/);
+});
+
+test("a STALE baseline entry (it ran) fails; unsupported-environment staleness is only a note", () => {
+  const stale = run({
+    baseline: { entries: [{ ...BASELINE.entries[0], category: "data-dependent" }] },
+    collected: [rec("w1-16-game-day.spec.js", "prod-desktop", "d > known", false)],
+  });
+  assert.equal(stale.failed, true);
+  assert.match(stale.problems.join(), /stale/);
+  const hostDependent = run({ collected: [rec("w1-16-game-day.spec.js", "prod-desktop", "d > known", false)] });
+  assert.equal(hostDependent.failed, false);
+  assert.equal(hostDependent.skipReport.hostDependentStale.length, 1);
+});
+
+test("the floor: zero passed always fails, fewer than the floor fails, a failed run is left to its failures", () => {
+  assert.match(run({ passed: 0 }).problems.join(), /zero tests passed/);
+  assert.match(run({ passed: 99 }).problems.join(), /only 99 tests passed \(floor 100\)/);
+  assert.equal(run({ passed: 100 }).failed, false);
+  assert.equal(run({ passed: 0, runStatus: "failed" }).failed, false);
+});
+
+test("an all-skipped credentialed run is not green: every skip is unexpected and zero passed", () => {
+  const collected = [rec("a.spec.js", "prod-desktop", "x", true), rec("a.spec.js", "prod-mobile", "x", true)];
+  const v = run({ passed: 0, collected });
+  assert.equal(v.failed, true);
+  assert.equal(v.skipReport.unexpected.length, 2);
+  assert.match(v.problems.join(), /zero tests passed/);
+});
+
+test("without credentials the run is INERT: loud, not a failure, and never accounted", () => {
+  const v = run({ configured: false, passed: 0, collected: [rec("a.spec.js", "prod-desktop", "x", true)] });
+  assert.equal(v.inert, true);
+  assert.equal(v.failed, false);
+  assert.equal(v.skipReport, null);
+});
+
+test("--list collects without running and is neither inert nor failed", () => {
+  const v = run({ listOnly: true, passed: 0 });
+  assert.equal(v.listOnly, true);
+  assert.equal(v.failed, false);
+});
+
+test("the floor override can never go below 1", () => {
+  assert.equal(minPassedFloor({}), DEFAULT_MIN_PASSED);
+  assert.equal(minPassedFloor({ PROD_AUTH_MIN_PASSED: "0" }), DEFAULT_MIN_PASSED);
+  assert.equal(minPassedFloor({ PROD_AUTH_MIN_PASSED: "-3" }), DEFAULT_MIN_PASSED);
+  assert.equal(minPassedFloor({ PROD_AUTH_MIN_PASSED: "7" }), 7);
+});
+
+function onEndWithEnv(env, suiteTests, passedCount, status = "passed") {
+  const saved = {};
+  for (const k of Object.keys(env)) {
+    saved[k] = process.env[k];
+    if (env[k] === undefined) delete process.env[k];
+    else process.env[k] = env[k];
+  }
+  let returned;
+  const out = withReporter((r) => {
+    r.onBegin(
+      {},
+      {
+        allTests: () =>
+          suiteTests.map((t) => ({
+            titlePath: () => ["", t.project, t.file, ...t.title.split(" > ")],
+            outcome: () => (t.skipped ? "skipped" : "expected"),
+          })),
+      },
+    );
+    for (let i = 0; i < passedCount; i++) {
+      r.onTestEnd(fakeTest(`t${i}`), { status: "passed", duration: 1, errors: [], annotations: [] });
+    }
+    returned = r.onEnd({ status });
+  });
+  for (const k of Object.keys(saved)) {
+    if (saved[k] === undefined) delete process.env[k];
+    else process.env[k] = saved[k];
+  }
+  return { ...out, returned };
+}
+
+test("onEnd: a credentialed run that passed nothing returns status failed; the report records counts only", () => {
+  const { report, returned, stdout } = onEndWithEnv(
+    { PROD_ORIGIN: "https://example.invalid", PROD_SESSION_COOKIE_FILE: "/x/cookie" },
+    [{ project: "prod-desktop", file: "a.spec.js", title: "x", skipped: true }],
+    0,
+  );
+  assert.deepEqual(returned, { status: "failed" });
+  assert.equal(report.integrity.failed, true);
+  assert.equal(report.integrity.inert, false);
+  assert.equal(report.integrity.unexpectedSkips, 1);
+  assert.match(stdout, /PROD-AUTH RUN INVALID/);
+  assert.ok(!stdout.includes(COOKIE));
+});
+
+test("onEnd: with no credentials the run prints the INERT banner and returns nothing", () => {
+  const { report, returned, stdout } = onEndWithEnv(
+    { PROD_ORIGIN: undefined, PROD_SESSION_COOKIE_FILE: undefined },
+    [{ project: "prod-desktop", file: "a.spec.js", title: "x", skipped: true }],
+    0,
+  );
+  assert.equal(returned, undefined);
+  assert.equal(report.integrity.inert, true);
+  assert.match(stdout, /PROD-AUTH SUITE INERT/);
+});
+
+test("onEnd: a healthy credentialed run (enough passes, nothing skipped) is left green", () => {
+  const { returned, report } = onEndWithEnv(
+    { PROD_ORIGIN: "https://example.invalid", PROD_SESSION_COOKIE_FILE: "/x/cookie", PROD_AUTH_MIN_PASSED: "3" },
+    [{ project: "prod-desktop", file: "a.spec.js", title: "x", skipped: false }],
+    3,
+  );
+  assert.equal(returned, undefined);
+  assert.equal(report.integrity.failed, false);
+});
+
+test("the committed prod-auth baseline is valid and lists no project gating", () => {
+  const { loadBaseline } = require("./skip-accounting.js");
+  const doc = loadBaseline(reporterModule.PROD_AUTH_BASELINE_PATH);
+  for (const e of doc.entries) {
+    assert.ok(e.projects.every((p) => p.startsWith("prod-")), e.title);
+    assert.ok(!/@desktop-only|@mobile-only/.test(e.title), "project gating is a tag, never a baseline entry");
+  }
+});

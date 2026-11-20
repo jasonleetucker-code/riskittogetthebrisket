@@ -122,6 +122,10 @@ module.exports = defineConfig({
   projects: [
     {
       name: "prod-desktop",
+      // `@mobile-only` = a phone-viewport check (390px layout, bottom nav,
+      // overflow) that a 1366px viewport cannot add evidence to.  Filtered at
+      // collection, never collected-then-skipped.
+      grepInvert: /@mobile-only/,
       use: {
         browserName: "chromium",
         viewport: { width: 1366, height: 768 },
@@ -133,7 +137,9 @@ module.exports = defineConfig({
       // check that a 390px viewport cannot add evidence to. Filtered here,
       // at collection, rather than collected-then-skipped: a skip inflates
       // the run's skip count without saying anything about production.
-      // (Older specs still gate with helpers.js::desktopOnly; both work.)
+      // This is the ONLY project-gating mechanism: the old helpers.js
+      // desktopOnly/mobileOnly test.skip() gates were removed because every
+      // skip they produced inflated the run's skip count with non-signal.
       grepInvert: /@desktop-only/,
       use: {
         browserName: "chromium",

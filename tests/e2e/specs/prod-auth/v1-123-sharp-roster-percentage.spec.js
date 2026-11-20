@@ -13,13 +13,12 @@
  * (not a hand-rolled `<table>`), and the empty-state copy is backend-
  * driven (`classifyEmptyState`) rather than a fixed string on the page.
  */
-const { test, expect, prodUrl, annotate, desktopOnly } = require("./helpers");
+const { test, expect, prodUrl, annotate } = require("./helpers");
 
 test.describe("V1-123 Phase 2: /market/sharp-roster-percentage renders its own fetch (production)", () => {
-  test("Sharp Roster Percentage matches GET /api/sharp/roster-percentage field-for-field", async ({
+  test("@desktop-only Sharp Roster Percentage matches GET /api/sharp/roster-percentage field-for-field", async ({
     prodPage: page,
   }, testInfo) => {
-    desktopOnly(test, testInfo);
     test.setTimeout(180_000);
 
     const responsePromise = page.waitForResponse(
