@@ -10,7 +10,8 @@ import FlexComparison from "./sections/FlexComparison";
 import ComparisonCharts from "./sections/Charts";
 import YearByYear from "./sections/YearByYear";
 import Methodology from "./sections/Methodology";
-import { Panel } from "@/components/ds";
+import { FailureState } from "@/components/ds";
+import { classifyContractFailure } from "@/lib/contract-failure";
 
 const TABS = [
   { key: "summary", label: "Summary" },
@@ -23,7 +24,10 @@ const TABS = [
 export default function LeagueComparisonPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // A CLASSIFIED failure ({kind, code, message, retryable}), never the raw
+  // thrown text: a degraded backend, an outage and a dropped connection read
+  // differently, and a 403 offers no retry.
+  const [failure, setFailure] = useState(null);
   const [tab, setTab] = useState("summary");
   const [method, setMethod] = useState("improved"); // "improved" | "legacy"
   const [refreshing, setRefreshing] = useState(false);
@@ -31,19 +35,35 @@ export default function LeagueComparisonPage() {
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
     else setLoading(true);
-    setError(null);
+    setFailure(null);
     try {
       const url = refresh
         ? "/api/league-comparison?refresh=1"
         : "/api/league-comparison";
-      const res = await fetch(url, { cache: "no-store" });
-      const body = await res.json();
+      let res;
+      try {
+        res = await fetch(url, { cache: "no-store" });
+      } catch {
+        // No response at all: the request never reached a server.
+        setFailure(classifyContractFailure(null, null));
+        return;
+      }
+      // A proxy's HTML error page is not JSON; the status still classifies.
+      const body = await res.json().catch(() => null);
       if (!res.ok) {
-        throw new Error(body?.detail || body?.error || `HTTP ${res.status}`);
+        setFailure(classifyContractFailure(res.status, body));
+        return;
+      }
+      if (!body || typeof body !== "object") {
+        setFailure({
+          kind: "no_data",
+          code: "",
+          message: "The server answered without a comparison.",
+          retryable: true,
+        });
+        return;
       }
       setData(body);
-    } catch (err) {
-      setError(err?.message || String(err));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -86,21 +106,12 @@ export default function LeagueComparisonPage() {
         </div>
       )}
 
-      {error && !loading && (
-        <Panel>
-          <p className="text-red" style={{ fontWeight: 600 }}>
-            League comparison unavailable
-          </p>
-          <p className="muted text-sm" style={{ marginTop: 6 }}>{error}</p>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            style={{ marginTop: 12 }}
-            onClick={() => load(false)}
-          >
-            Retry
-          </button>
-        </Panel>
+      {failure && !loading && (
+        <FailureState
+          failure={failure}
+          onRetry={() => load(false)}
+          context="league comparison"
+        />
       )}
 
       {data && !loading && (

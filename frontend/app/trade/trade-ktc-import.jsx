@@ -8,7 +8,8 @@
  * Pure presentation, moved verbatim — no trade math lives here.
  */
 
-import { Banner, Button, Input, Panel } from "@/components/ds";
+import { Button, Input, Panel } from "@/components/ds";
+import TradeToolErrorBanner from "@/components/arbitrage/TradeToolErrorBanner";
 import styles from "./trade.module.css";
 
 // ── KTC import ────────────────────────────────────────────────────────
@@ -56,11 +57,10 @@ export function KtcImportPanel({
       <p className={styles.suggestMeta} style={{ marginTop: "var(--space-2)" }}>
         Unknown KTC IDs and players we can&apos;t match by name are reported here.
       </p>
-      {error ? (
-        <Banner tone="negative" title="Import failed">
-          {error}
-        </Banner>
-      ) : null}
+      {/* `error` is a classified request failure, or a plain sentence for the
+          page's own input checks.  "Try again" re-sends the same URL; it is
+          withheld for a refusal that would answer the same way. */}
+      <TradeToolErrorBanner failure={error} title="Import failed" onRetry={onSubmit} />
     </Panel>
   );
 }

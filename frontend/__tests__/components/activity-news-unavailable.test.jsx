@@ -150,6 +150,9 @@ describe("ActivityPage trade feed source", () => {
     mockUseNews.mockReturnValue(HEALTHY);
     mockFetchPublicSection.mockRejectedValue(new Error("public league offline"));
     render(<ActivityPage />);
-    expect(await screen.findByText("Couldn't load data")).toBeInTheDocument();
+    // A classified FailureState (league-activity-failure-retry.test.jsx pins
+    // the retry), never an empty feed.
+    expect(await screen.findByText(/— league activity$/)).toBeInTheDocument();
+    expect(screen.queryByText("No activity in this view")).toBeNull();
   });
 });
