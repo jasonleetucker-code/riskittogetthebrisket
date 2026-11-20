@@ -426,6 +426,47 @@ def test_a_missing_unit_is_unknown(tmp_path):
     assert out["renewalNtfyConfigured"] is None
 
 
+@pytest.mark.parametrize(
+    ("value", "state", "configured"),
+    [
+        (_TOPIC, "ok", True),
+        ("", "unset", False),
+        ("http://ntfy.sh/private-topic-xyz", "rejected_scheme", False),
+        ("https://u:p@ntfy.sh/private-topic-xyz", "rejected_userinfo", False),
+    ],
+)
+def test_routing_says_why_the_webhook_is_off(tmp_path, value, state, configured):
+    out = _routing(tmp_path, f"NOTIFY_WEBHOOK_URL={value}\n")
+    assert out["ntfyState"] == state and out["ntfyConfigured"] is configured
+    projected = H.public_projection({"mode": "health", "alertRouting": out})
+    assert projected["alertRouting"]["ntfyState"] == state
+    assert "redacted" not in projected
+    assert "private-topic" not in json.dumps(projected)
+
+
+def test_unreadable_env_has_no_state(tmp_path):
+    out = H.alert_routing_section(tmp_path / "missing", {}, lambda u, p: {})
+    assert out["ntfyState"] is None
+
+
+@pytest.mark.parametrize(
+    ("value", "configured"),
+    [
+        ("HTTPS://ntfy.sh/private-topic-xyz", False),  # the one validator: lower-case scheme
+        ("https://u:p@ntfy.sh/private-topic-xyz", False),
+        ("http://127.0.0.1:8080/relay", True),  # what owner_notify itself would send to
+    ],
+)
+def test_dropins_are_judged_by_the_one_validator(tmp_path, value, configured):
+    props = {
+        "dynasty-signals-auth-renew.service": {
+            "LoadState": "loaded",
+            "Environment": f"NOTIFY_WEBHOOK_URL={value}",
+        }
+    }
+    assert _routing(tmp_path, "", props)["renewalNtfyConfigured"] is configured
+
+
 def test_routing_never_leaks_the_topic_through_the_projection(tmp_path):
     props = {
         "riskit-uptime.service": {

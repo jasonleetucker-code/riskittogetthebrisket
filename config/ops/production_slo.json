@@ -24,6 +24,11 @@
     "maxBoardAgeHours": 18,
     "maxStalePrivateSources": 0
   },
+  "alerting": {
+    "_comment": "Box-side owner-alert health, read from /api/status (src/utils/owner_alerts.py, src/api/ops_alerts.py). maxConsecutiveDeliveryFailures: attempted deliveries that failed in a row in the running process (a box with no channel configured attempts nothing). maxAlertSweepAgeHours: the daily dynasty-signal-alerts sweep (15:00 UTC, up to 5 min jitter) carries every ops, source-staleness and backup-coverage alert; 30 h = one missed day plus slack, so one late run does not page.",
+    "maxConsecutiveDeliveryFailures": 3,
+    "maxAlertSweepAgeHours": 30
+  },
   "history": {
     "runsPerPage": 100
   }

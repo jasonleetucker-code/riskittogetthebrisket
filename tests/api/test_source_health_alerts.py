@@ -279,3 +279,159 @@ def test_a_measured_content_alert_keeps_its_wording():
     )
     assert alert.age_is_lower_bound is False
     assert "last seen 2026-09-17T12:00:00Z" in sha._format_body([alert])
+
+
+# ── delivery spends the cooldown, a decision does not (2026-11-20) ─────────
+# The 72 h window used to be stamped BEFORE delivery and never rolled back, so
+# a sweep with no channel (or a failing one) silenced the source for three days,
+# and an undelivered recovery was lost for good.  ``ops_alerts`` has followed
+# the delivered-only rule since audit F-20; these pin the same rule here.
+
+
+def _stale():
+    return {"ktc": {"lastFetched": _iso(30)}}
+
+
+def _fresh():
+    return {"ktc": {"lastFetched": _iso(1)}}
+
+
+class _Channel:
+    """A delivery callable that records calls and returns scripted results."""
+
+    def __init__(self, *results):
+        self.results = list(results)
+        self.calls: list[str] = []
+
+    def __call__(self, to, subject, body):
+        self.calls.append(subject)
+        result = self.results.pop(0) if self.results else True
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+
+def _sweep(kv, health, channel=None, to="owner-channel"):
+    return sha.check_and_alert(
+        health,
+        delivery=channel,
+        to_email=to if channel is not None else None,
+        kv_path=kv,
+        cooldown_hours=72,
+    )
+
+
+def _entry(kv, src="ktc"):
+    return user_kv.get_user_state("_system_source_health", path=kv)["sourceHealthAlertState"][src]
+
+
+def _seed(kv, entry, src="ktc"):
+    def _apply(state):
+        state["sourceHealthAlertState"] = {src: entry}
+
+    user_kv.mutate_user_state("_system_source_health", _apply, path=kv)
+
+
+@pytest.mark.parametrize(
+    "first",
+    [None, False, RuntimeError("ntfy down")],
+    ids=["unconfigured", "returns_false", "raises"],
+)
+def test_an_undelivered_alert_spends_no_cooldown(kv, first):
+    if first is None:
+        summary = _sweep(kv, _stale())  # no channel at all
+        assert summary["deliveryConfigured"] is False
+    else:
+        summary = _sweep(kv, _stale(), _Channel(first))
+        assert summary["deliveryConfigured"] is True
+    assert summary["stale"] == 1 and summary["delivered"] == 0
+    assert "lastDeliveredAt" not in _entry(kv)
+
+    working = _Channel(True)
+    summary = _sweep(kv, _stale(), working)
+    assert summary["skipped_cooldown"] == 0
+    assert summary["delivered"] == 1 and len(working.calls) == 1
+    assert _entry(kv)["lastDeliveredAt"]
+
+    # Once DELIVERED, the window holds.
+    again = _Channel(True)
+    summary = _sweep(kv, _stale(), again)
+    assert summary["skipped_cooldown"] == 1 and again.calls == []
+
+
+def test_an_undelivered_recovery_is_retried_until_delivered(kv):
+    _sweep(kv, _stale(), _Channel(True))  # the owner is told: stale
+    summary = _sweep(kv, _fresh(), _Channel(False))
+    assert summary["recovered"] == 1 and summary["delivered"] == 0
+    assert _entry(kv)["currentlyStale"] is True, "an undelivered recovery stays pending"
+
+    working = _Channel(True)
+    summary = _sweep(kv, _fresh(), working)
+    assert summary["recovered"] == 1 and summary["delivered"] == 1
+    assert working.calls == ["[Brisket Ops] 1 source recovered"]
+    assert _entry(kv)["currentlyStale"] is False
+
+    later = _Channel(True)
+    assert _sweep(kv, _fresh(), later)["recovered"] == 0 and later.calls == []
+
+
+def test_an_episode_nobody_was_told_about_ends_silently(kv):
+    _sweep(kv, _stale())  # stale, but no channel: the owner never heard
+    channel = _Channel(True)
+    summary = _sweep(kv, _fresh(), channel)
+    assert summary["recovered"] == 0 and channel.calls == []
+    assert _entry(kv)["currentlyStale"] is False
+
+
+def test_legacy_last_alerted_at_still_suppresses_after_upgrade(kv):
+    """State written before 2026-11-20 carries only ``lastAlertedAt``: it keeps
+    suppressing what it suppressed, so an upgrade is not a burst."""
+    _seed(kv, {"currentlyStale": True, "lastAlertedAt": time.time() - 3600, "hoursStale": 30.0})
+    channel = _Channel(True)
+    summary = _sweep(kv, _stale(), channel)
+    assert summary["skipped_cooldown"] == 1 and channel.calls == []
+
+    # ...and a legacy episode still earns its recovery notice.
+    summary = _sweep(kv, _fresh(), channel)
+    assert summary["recovered"] == 1 and len(channel.calls) == 1
+
+
+def test_an_expired_legacy_window_fires_and_is_replaced_by_a_delivery_stamp(kv):
+    old = time.time() - 80 * 3600
+    _seed(kv, {"currentlyStale": True, "lastAlertedAt": old})
+    _sweep(kv, _stale(), _Channel(False))  # a failed re-alert keeps the old stamp
+    assert _entry(kv)["lastAlertedAt"] == old
+    _sweep(kv, _stale(), _Channel(True))  # ...so the next sweep retries and delivers
+    entry = _entry(kv)
+    assert "lastAlertedAt" not in entry and entry["lastDeliveredAt"] > old
+
+
+def test_a_failed_re_alert_keeps_the_previous_delivery(kv):
+    """An undelivered re-alert must not erase when the owner was last told."""
+    delivered_at = time.time() - 80 * 3600
+    _seed(kv, {"currentlyStale": True, "lastDeliveredAt": delivered_at})
+    _sweep(kv, _stale(), _Channel(False))
+    assert _entry(kv)["lastDeliveredAt"] == delivered_at
+    assert "sendingAt" not in _entry(kv), "the in-flight claim is released"
+
+
+def test_an_in_flight_claim_blocks_a_second_sender(kv):
+    _seed(kv, {"currentlyStale": True, "sendingAt": time.time() - 5})
+    channel = _Channel(True)
+    summary = _sweep(kv, _stale(), channel)
+    assert summary["skipped_in_flight"] == 1 and channel.calls == []
+
+
+def test_an_abandoned_claim_expires(kv):
+    _seed(kv, {"currentlyStale": True, "sendingAt": time.time() - 3600})
+    assert _sweep(kv, _stale(), _Channel(True))["delivered"] == 1
+
+
+def test_nothing_configured_is_one_warning_per_sweep(kv, caplog):
+    import logging
+
+    health = {"ktc": {"lastFetched": _iso(30)}, "dlfSf": {"lastFetched": _iso(30)}}
+    with caplog.at_level(logging.WARNING, logger="src.api.source_health_alerts"):
+        _sweep(kv, health)
+    lines = [r.getMessage() for r in caplog.records if "no owner alert channel" in r.getMessage()]
+    assert len(lines) == 1 and "2 notice(s)" in lines[0]

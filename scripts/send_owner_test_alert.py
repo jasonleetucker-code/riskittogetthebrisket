@@ -7,9 +7,11 @@ and the alert-sweep timer load -- and POSTs a test message per alert class, so
 the owner can confirm on the phone that every class arrives.  Delivery to the
 ntfy server is reported here; actual RECEIPT can only be confirmed by the owner.
 
-Output is public (a workflow log): booleans and class names only.  The webhook
-URL is never printed.  Exit codes: 0 every push accepted; 1 at least one push
-failed; 3 no owner push channel configured (nothing sent).
+Output is public (a workflow log): booleans, class names and the webhook's
+validation state (``ok`` / ``unset`` / ``rejected_<reason>``, from
+``owner_notify.validate``).  The webhook URL is never printed.  Exit codes: 0
+every push accepted; 1 at least one push failed; 3 no owner push channel
+configured, or the configured value was rejected (nothing sent).
 """
 
 from __future__ import annotations
@@ -44,8 +46,11 @@ def run(app_dir: Path, *, transport: owner_notify.Transport | None = None) -> tu
     env = H._env_file(Path(app_dir) / ".env")  # noqa: SLF001 - shared parser
     out: dict = {"mode": "notify_test", "envFileReadable": env is not None}
     url = (env or {}).get(owner_notify.WEBHOOK_ENV, "").strip()
-    configured = bool(url) and owner_notify._allowed(url)  # noqa: SLF001
+    # The ONE validator; its answer is a state + reason code, never the value.
+    state = owner_notify.validate(url)
+    configured = state == owner_notify.STATE_OK
     out["configured"] = {"ntfy": configured}
+    out["ntfyState"] = owner_notify.public_state(state)
     if not configured:
         out["sent"] = {key: None for key, _ in TEST_CLASSES}
         return out, 3
@@ -56,6 +61,9 @@ def run(app_dir: Path, *, transport: owner_notify.Transport | None = None) -> tu
             title,
             BODY,
             push=lambda s, b: owner_notify.send(s, b, url=url, transport=transport),
+            # Not the server: never write its user_kv store (/api/status
+            # alertDelivery) from this out-of-process operator run.
+            persist=False,
         )
         sent[key] = result["ntfy"]
     out["sent"] = sent
