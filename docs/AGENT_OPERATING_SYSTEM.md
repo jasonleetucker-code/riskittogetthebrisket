@@ -113,13 +113,21 @@ When that contract reaches 30/30, stop the launch-completion campaign and fall b
 Goal: the most verified progress per unit of model usage, not the most agents. Binding on every model.
 Product requirements, safety rules and owner gates are unchanged; mandatory verification is never skipped to save usage.
 
-1. **Concurrency:** one coordinator plus at most **four** concurrent workers (owner 2026-10-26, raising the
-   2026-10-25 limit of two); coding work done by the coordinator counts toward the four. Four is a ceiling, not a
-   target: each worker must own a distinct, non-overlapping deliverable. Never launch 10–20 simultaneous
-   research or engineering agents or large fan-out workflows. Delegate only a concrete, independently executable
-   deliverable; release the agent when it delivers. Do not delegate what one deterministic command verifies.
-   (Measured 2026-10-25: one fan-out audit workflow spent ~8.8M subagent tokens across 150 agents before a usage
-   limit stopped it with 30 finished; three other workflows spent ~4.7M with zero finished agents.)
+1. **Concurrency: no fixed cap; size the team to the work** (owner 2026-11-20, removing the 2026-10-26 limit of
+   four workers; history: two on 2026-10-25, four on 2026-10-26).
+   - Run one worker per genuinely independent, dependency-ready deliverable that has its own files, branch and
+     claim. Use as many as the dependency graph actually supports — no more — and fewer when the work is
+     sequential or touches shared files.
+   - "Use the correct amount, don't go crazy": the number is decided by the work, not by a quota. More workers
+     is never a goal in itself, and an idle or speculative worker is waste.
+   - Each worker must own a distinct, non-overlapping deliverable. Delegate only a concrete, independently
+     executable unit; release the agent when it delivers. Do not delegate what one deterministic command verifies.
+   - Still not allowed: open-ended fan-outs (dozens of research or audit agents, "one agent per file" sweeps)
+     without an owner request for that scale. Before going past about eight concurrent workers, state the
+     count and why each one is independent.
+   - (Measured 2026-10-25, why the guardrail stays: one fan-out audit workflow spent ~8.8M subagent tokens across
+     150 agents before a usage limit stopped it with 30 finished; three other workflows spent ~4.7M with zero
+     finished agents.)
 2. **Model routing:** cheapest sufficient model and effort — Haiku for search, classification, extraction and
    mechanical edits; Sonnet for routine coding, debugging, tests and PR preparation; Opus only for hard
    architecture, mathematics, security-sensitive reasoning or unresolved complex defects. Low/medium effort by
@@ -148,9 +156,8 @@ launch, deployment, security, spending, access or destructive-action gates.
 1. **Dispatch independent units concurrently.** Inspect main, open PRs,
    current execution authority, `docs/WORK_CLAIMS.md`, active completion
    contracts, shared-file owners and dependency overlap. Run independent
-   units concurrently within the usage limit in "Usage efficiency" above
-   (at most **four** concurrent workers, owner 2026-10-26; the earlier 3–5
-   target is superseded), each
+   units concurrently, sized by the "Usage efficiency" rule above (no fixed
+   cap since owner 2026-11-20: one worker per independent deliverable), each
    on its own Git worktree/branch with disjoint file/defect claims. Coordinate
    shared canonical interfaces centrally; never invent agents, have multiple
    writers to one branch/file, or do unauthorized work to occupy a worker.

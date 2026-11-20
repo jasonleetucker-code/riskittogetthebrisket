@@ -15,6 +15,19 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
+## Added 2026-11-20 — Remove the fixed agent cap
+
+Owner instruction 2026-11-20 (chat): "Let's remove the max agents we use for now. We don't have to go crazy with
+it. But we can use the correct amount." Process only; it authorizes no implementation
+(`docs/EXECUTION_PLAN.md` remains the sole implementation-authorization record).
+
+- The fixed limit of four concurrent workers (owner 2026-10-26) is removed. Supersedes that limit; the 2026-10-25
+  usage-efficiency goals (verified progress per unit of usage, model routing, no rediscovery) stay.
+- Size the team to the work: one worker per genuinely independent, dependency-ready deliverable with its own files
+  and claim; no speculative or open-ended fan-out without an owner request for that scale.
+- Recorded in `docs/AGENT_OPERATING_SYSTEM.md` §3 "Usage efficiency" item 1, with pointers in
+  `ASSISTANT_COORDINATION.md` and `docs/EXECUTION_PLAN.md`. Status: DONE when that change merges.
+
 ## Added 2026-11-19 — Production stabilization, operational hardening and final closeout
 
 Owner directive 2026-11-19 (chat, "PRODUCTION STABILIZATION, OPERATIONAL HARDENING & FINAL CLOSEOUT"), following the
