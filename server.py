@@ -1395,7 +1395,7 @@ def _reconcile_orphaned_running_state() -> None:
         )
         scrape_status["running"] = False
         # NOT ``stalled``/``hung``.  Both were set here and both were
-        # dead assignments: ``_scrape_status_payload`` calls this
+        # dead assignments: ``_reconcile_scrape_status`` calls this
         # reconciler and then immediately evaluates ``_is_scrape_stalled()``,
         # which returns False once ``running`` is False, and the else
         # branch resets ``stalled`` and ``hung`` to False three lines
@@ -1922,6 +1922,23 @@ def _record_heap_snapshot(
         return {"written": False}
 
 
+SCRAPE_STATUS_WATCH_INTERVAL_SEC = int(os.getenv("SCRAPE_STATUS_WATCH_INTERVAL_SEC", "60"))
+
+
+async def scrape_status_watchdog_loop() -> None:
+    """Detect orphaned and stalled scrapes without waiting for a reader.
+
+    Detection used to happen inside ``GET /api/health`` / ``/api/status``
+    (X-HEALTH).  One in-memory tick a minute; the stall threshold is 15 min.
+    """
+    while True:
+        await asyncio.sleep(max(10, SCRAPE_STATUS_WATCH_INTERVAL_SEC))
+        try:
+            _reconcile_scrape_status()
+        except Exception as exc:  # noqa: BLE001 - a watchdog must keep ticking
+            log.warning("scrape status watchdog tick failed: %s", exc)
+
+
 async def heap_report_loop() -> None:
     """Periodic heap snapshots (WA-17): what the backend's memory is made of
     between scrapes, so a climb toward ``MemoryHigh`` can be attributed from
@@ -2174,7 +2191,18 @@ async def _run_scraper_off_loop(scraper, worker_id: str, timeout: float):
         raise
 
 
-def _scrape_status_payload() -> dict:
+def _scrape_status_is_orphaned() -> bool:
+    """Status says a scrape is running but nobody holds the run lock."""
+    return bool(scrape_status.get("running")) and not scrape_run_lock.locked()
+
+
+def _reconcile_scrape_status() -> None:
+    """The MUTATING half of scrape status: reset an orphaned run, record a
+    newly detected stall once.  Runs on ``scrape_status_watchdog_loop`` and
+    before a run starts, never on a read (X-HEALTH, 2026-11-20): an anonymous
+    ``GET /api/health`` or ``/api/status`` used to do this, so a reader could
+    write the durable telemetry line and flip in-memory state.
+    """
     _reconcile_orphaned_running_state()
     stalled = _is_scrape_stalled()
     was_stalled = bool(scrape_status.get("stalled"))
@@ -2199,7 +2227,35 @@ def _scrape_status_payload() -> dict:
         scrape_status["stalled"] = False
     _sync_scrape_alias_fields()
 
+
+def _scrape_status_payload() -> dict:
+    """The READ-ONLY view of scrape status, for every reader.
+
+    Mutates nothing and writes nothing.  It shows what
+    :func:`_reconcile_scrape_status` would record (an orphaned run reads
+    ``interrupted``, a stalled one ``stalled``) so a reader never waits for
+    the watchdog tick to see the truth; the tick makes it durable.
+    """
     payload = dict(scrape_status)
+    if _scrape_status_is_orphaned():
+        # Same verdict the reconciler records (see
+        # ``_reconcile_orphaned_running_state``); its times are this read's.
+        now = _utc_now_iso()
+        payload.update(
+            running=False,
+            interrupted=True,
+            interrupted_at=now,
+            finished_at=now,
+            current_step="stale_state_reset",
+            current_source=None,
+        )
+        stalled = False
+    else:
+        stalled = _is_scrape_stalled()
+    payload["hung"] = stalled
+    payload["stalled"] = stalled
+    payload["is_running"] = bool(payload.get("running"))
+    payload["last_error"] = payload.get("error")
     payload["stall_threshold_sec"] = SCRAPE_STALL_SECONDS
     payload["run_timeout_sec"] = SCRAPE_RUN_TIMEOUT_SECONDS
     # Audit O-1: ops_alerts._check_scrape_rate reads
@@ -4761,6 +4817,7 @@ async def lifespan(app: FastAPI):
     uptime_task = asyncio.create_task(uptime_watchdog_loop())
     backup_watchdog_task = asyncio.create_task(backup_watchdog_loop())
     heap_report_task = asyncio.create_task(heap_report_loop())
+    scrape_status_watch_task = asyncio.create_task(scrape_status_watchdog_loop())
     # Rookie auction room runtime (closes, bots, heartbeat, outage pause).
     # Correctness never depends on it — every command settles what is due
     # first — and a failure here must never block the site from starting.
@@ -4816,6 +4873,7 @@ async def lifespan(app: FastAPI):
     uptime_task.cancel()
     backup_watchdog_task.cancel()
     heap_report_task.cancel()
+    scrape_status_watch_task.cancel()
     if auction_task is not None:
         auction_task.cancel()
     log.info("Server shutting down")
@@ -6845,9 +6903,9 @@ async def get_status():
     production 2026-11-12: this handler took 14-18 s per call, and while it
     ran an unrelated ``/api/leagues`` request (0.45 s alone) waited 15.9 s,
     so every status poll froze the whole site.  ``_scrape_status_payload``
-    stays on the loop: it is in-memory, and it check-then-sets
-    ``scrape_status`` (the once-only stall event), which every other caller
-    also does from the loop.
+    stays on the loop: it is an in-memory, read-only view (X-HEALTH); the
+    stall event and orphan reset are recorded by
+    ``scrape_status_watchdog_loop``.
     """
     status_payload = _scrape_status_payload()
     content = await run_in_threadpool(_public_status_body, status_payload)
@@ -7236,7 +7294,9 @@ async def get_health():
 def _health_content() -> tuple[int, dict]:
     """``(status code, FULL /api/health content)``.  PRIVATE: see ``get_health``.
 
-    Side-effect free: reading health never sends an alert.
+    Side-effect free: reading health never sends an alert, writes no
+    telemetry and changes no scrape state (``_scrape_status_payload`` is a
+    read-only view since X-HEALTH, 2026-11-20).
     """
     status_payload = _scrape_status_payload()
 
