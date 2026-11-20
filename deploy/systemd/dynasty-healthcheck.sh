@@ -51,6 +51,12 @@
 #   HEALTH_PYSPY_TIMEOUT   default 8 (seconds; SIGTERM at this point,
 #                          SIGKILL HEALTH_PYSPY_KILL_AFTER seconds later)
 #   HEALTH_PYSPY_KILL_AFTER default 2 (seconds)
+#   NOTIFY_WEBHOOK_URL     default unset — OPTIONAL owner push (ntfy topic;
+#                          treat as a secret, never logged).  When set, each
+#                          RESTART sends exactly one POST (same transport as
+#                          deploy/monitoring/uptime_check.sh).  Unset = the
+#                          restart is log-only, nothing external is contacted.
+#   HEALTH_NOTIFY_TIMEOUT  default 10 (seconds)
 
 set -Eeuo pipefail
 
@@ -60,7 +66,11 @@ HEALTH_FAIL_THRESHOLD="${HEALTH_FAIL_THRESHOLD:-3}"
 HEALTH_CURL_TIMEOUT="${HEALTH_CURL_TIMEOUT:-25}"
 HEALTH_STATE_DIR="${HEALTH_STATE_DIR:-${RUNTIME_DIRECTORY:-/run/dynasty-healthcheck}}"
 
+NOTIFY_WEBHOOK_URL="${NOTIFY_WEBHOOK_URL:-}"
+HEALTH_NOTIFY_TIMEOUT="${HEALTH_NOTIFY_TIMEOUT:-10}"
+
 FAIL_FILE="${HEALTH_STATE_DIR}/consecutive-failures"
+NOTIFIED_FILE="${HEALTH_STATE_DIR}/restart-notified"
 DEGRADED_FILE="${HEALTH_STATE_DIR}/degraded"
 
 log() { printf '[healthcheck] %s\n' "$*"; }
@@ -276,6 +286,27 @@ pyspy_dump() {
     return 0
 }
 
+# One owner push per restart episode, never one per probe.  The marker is
+# written only after a push was DELIVERED (a failed push is retried on the
+# next threshold crossing) and is cleared as soon as the backend answers
+# again, so the next outage notifies afresh.  The URL is never printed:
+# failures log a reason class only.  Never fails the watchdog.
+notify_restart() {
+    [[ -n "${NOTIFY_WEBHOOK_URL}" ]] || return 0
+    [[ ! -f "${NOTIFIED_FILE}" ]] || return 0
+    local rc=0
+    curl -fsS --max-time "${HEALTH_NOTIFY_TIMEOUT}" -X POST \
+        -d "[dynasty-healthcheck] restarting ${HEALTH_SERVICE}.service after ${failures} consecutive liveness failures at $(date -u +%FT%TZ)" \
+        "${NOTIFY_WEBHOOK_URL}" >/dev/null 2>&1 || rc=$?
+    if (( rc == 0 )); then
+        : > "${NOTIFIED_FILE}" 2>/dev/null || true
+        log "restart push delivered"
+    else
+        log "WARN: restart push failed (reason=curl_exit_${rc})"
+    fi
+    return 0
+}
+
 # LIVENESS probe: no -f — any HTTP status is proof of life.  rc != 0
 # means curl got no usable HTTP response (connection refused, timeout,
 # empty reply, ...) and only that counts as a liveness failure.
@@ -291,6 +322,7 @@ if (( rc == 0 )); then
         log "recovered: ${HEALTH_URL} responding again after ${prev} liveness failure(s)"
     fi
     printf '0\n' > "${FAIL_FILE}"
+    rm -f "${NOTIFIED_FILE}"
 
     if [[ "${http_code}" == "503" ]]; then
         if [[ ! -f "${DEGRADED_FILE}" ]]; then
@@ -318,6 +350,7 @@ log "threshold reached — restarting ${HEALTH_SERVICE}.service"
 # destroys them.
 cgroup_snapshot "pre-restart" || true
 pyspy_dump || true
+notify_restart
 # Clear any tripped StartLimit state first, otherwise restart is a no-op
 # on a unit systemd has given up on.
 systemctl reset-failed "${HEALTH_SERVICE}.service" 2>/dev/null || true

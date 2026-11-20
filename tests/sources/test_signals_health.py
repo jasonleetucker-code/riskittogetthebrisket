@@ -418,12 +418,26 @@ def test_dropin_units_report_push_presence(tmp_path):
     out = _routing(tmp_path, "", props)
     assert out["uptimeProbeNtfyConfigured"] is True
     assert out["renewalNtfyConfigured"] is False
+    assert out["healthcheckNtfyConfigured"] is None  # not loaded in this fixture
+
+
+def test_healthcheck_dropin_reports_push_presence(tmp_path):
+    props = {
+        "dynasty-healthcheck.service": {
+            "LoadState": "loaded",
+            "Environment": f"HEALTH_SERVICE=dynasty NOTIFY_WEBHOOK_URL={_TOPIC}",
+        }
+    }
+    assert _routing(tmp_path, "", props)["healthcheckNtfyConfigured"] is True
+    assert H.PUSH_DROPIN_UNITS["healthcheckNtfyConfigured"] == "dynasty-healthcheck.service"
+    assert "alertRouting.healthcheckNtfyConfigured" in H.PUBLIC_PATHS
 
 
 def test_a_missing_unit_is_unknown(tmp_path):
     out = _routing(tmp_path, "", {"riskit-uptime.service": {"LoadState": "not-found"}})
     assert out["uptimeProbeNtfyConfigured"] is None
     assert out["renewalNtfyConfigured"] is None
+    assert out["healthcheckNtfyConfigured"] is None
 
 
 @pytest.mark.parametrize(
