@@ -1,5 +1,10 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+> **Worker count — owner 2026-11-20.** The fixed cap on concurrent workers is removed; size the team to the work
+> (`docs/AGENT_OPERATING_SYSTEM.md` §3 "Usage efficiency" item 1). Dated campaign sections below that say "at most
+> 4 concurrent editing workers" record the rule in force at the time and are superseded on that one point. Process
+> only: this authorizes no feature.
+
 ## Production stabilization and final closeout — owner, 2026-11-19
 
 **AUTHORIZED NOW.** Intake STAB-1 … STAB-12 (`docs/OWNER_REQUESTED_TODO.md`); live tracker
@@ -533,8 +538,8 @@ Each mathematical change ships behind its own flag. A change that fails validati
 
 **PROCESS ONLY, NOT NEW FEATURE AUTHORIZATION.** The authorized work in
 §0 should be built by independent workers in isolated branches/worktrees,
-within the Agent OS §3 "Usage efficiency" limit (at most four concurrent workers,
-owner 2026-10-26; supersedes the earlier 3–5 target), instead of
+sized by the Agent OS §3 "Usage efficiency" rule (no fixed worker cap since owner
+2026-11-20: one worker per independent deliverable, no speculative fan-out), instead of
 serializing behind unrelated full CI. Keep L0/L1 checks during coding,
 full required L2 at each PR integration boundary, and strict L3 at the
 existing release boundary. The **exclusive Integration Authority** may
