@@ -94,22 +94,30 @@ logline "${LINE}"
 
 # ── State-change notification (optional, operator-configured) ────────
 PREV="$(cat "${STATE_FILE}" 2>/dev/null || echo UP)"
-printf '%s\n' "${STATUS}" > "${STATE_FILE}" 2>/dev/null || true
 
+# Returns non-zero when a configured channel failed to deliver.
 notify() {
-    local msg="$1"
+    local msg="$1" rc=0
     if [[ -n "${NOTIFY_WEBHOOK_URL}" ]]; then
         curl -fsS --max-time 10 -X POST -d "${msg}" "${NOTIFY_WEBHOOK_URL}" >/dev/null 2>&1 \
-            || logline "${NOW} WARN notify-webhook failed"
+            || { logline "${NOW} WARN notify-webhook failed"; rc=1; }
     fi
     if [[ -n "${NOTIFY_CMD}" ]]; then
         printf '%s\n' "${msg}" | ${NOTIFY_CMD} >/dev/null 2>&1 \
-            || logline "${NOW} WARN notify-cmd failed"
+            || { logline "${NOW} WARN notify-cmd failed"; rc=1; }
     fi
+    return "${rc}"
 }
 
+# The state is recorded only AFTER the push succeeded (or when none is
+# needed): a failed push leaves the old state, so the next run still sees
+# the transition and retries instead of losing the alert for good.
 if [[ "${STATUS}" != "${PREV}" ]]; then
-    notify "[riskit-uptime] ${PREV} -> ${STATUS} at ${NOW}: ${RESULTS[*]}"
+    if notify "[riskit-uptime] ${PREV} -> ${STATUS} at ${NOW}: ${RESULTS[*]}"; then
+        printf '%s\n' "${STATUS}" > "${STATE_FILE}" 2>/dev/null || true
+    fi
+else
+    printf '%s\n' "${STATUS}" > "${STATE_FILE}" 2>/dev/null || true
 fi
 
 exit "${FAILED}"
