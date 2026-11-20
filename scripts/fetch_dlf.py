@@ -765,6 +765,75 @@ def _probe_page(html: str) -> list[str]:
     return lines
 
 
+#: Quoted literals the script probe may print verbatim: URL paths, and
+#: identifiers that contain an underscore or a hyphen (action names, column
+#: keys).  WordPress nonces are 10 hex characters with neither, so they can
+#: never match; every other literal prints as ``<str:N>``.
+_SAFE_LITERAL = None
+
+
+def _sanitize_script_window(text: str) -> str:
+    """One script excerpt with every non-structural literal redacted."""
+    import re
+
+    global _SAFE_LITERAL
+    if _SAFE_LITERAL is None:
+        _SAFE_LITERAL = re.compile(
+            r"^(?:/[\w./-]{0,120}|[a-z][a-z0-9]*(?:[_-][a-z0-9]+)+|[a-z]{1,8}|GET|POST)$"
+        )
+
+    def _lit(m: "re.Match[str]") -> str:
+        q, body = m.group(1), m.group(2)
+        val = body
+        for host in ("https://dynastyleaguefootball.com", "http://dynastyleaguefootball.com"):
+            if val.startswith(host):
+                val = val[len(host) :] or "/"
+        if "?" in val:
+            val = val.split("?", 1)[0] + "?<query>"
+        return (
+            f"{q}{val}{q}"
+            if _SAFE_LITERAL.match(val.replace("?<query>", ""))
+            else f"{q}<str:{len(body)}>{q}"
+        )
+
+    out = re.sub(r"(['\"])((?:(?!\1)[^\\\n]|\\.){0,400})\1", _lit, text)
+    out = re.sub(r"\b[A-Za-z0-9]{16,}\b", "<tok>", out)
+    return " ".join(out.split())
+
+
+def _probe_script_lines(html: str) -> list[str]:
+    """How a client-rendered DLF table gets its rows: sanitized init excerpts.
+
+    For scripts that build the rankings DataTable, print up to four 600-char
+    windows around the table / ajax configuration, with every string literal
+    redacted unless it is a URL path or an identifier with ``_`` / ``-``
+    (see :data:`_SAFE_LITERAL`).  Never cookies, never nonces, never values.
+    """
+    try:
+        from bs4 import BeautifulSoup
+    except ImportError:
+        return []
+    lines: list[str] = []
+    needles = ("avgTable", "DataTable(", "dlf_rankings", "ajax", "wp-json", "admin-ajax")
+    for si, script in enumerate(BeautifulSoup(html, "html.parser").find_all("script")):
+        text = script.string or script.get_text() or ""
+        if not any(n in text for n in ("avgTable", "DataTable(", "dlf_rankings")):
+            continue
+        src = str(script.get("src") or "")
+        lines.append(f"script[{si}] bytes={len(text)} src_path={src.split('?', 1)[0][-80:]!r}")
+        starts: list[int] = []
+        for n in needles:
+            i = text.find(n)
+            while i != -1 and len(starts) < 12:
+                if all(abs(i - j) > 600 for j in starts):
+                    starts.append(i)
+                i = text.find(n, i + 1)
+        for i in sorted(starts)[:4]:
+            lo = max(0, i - 150)
+            lines.append(f"  window@{i}: {_sanitize_script_window(text[lo : lo + 600])}")
+    return lines
+
+
 def _probe_response_lines(session, url: str) -> list[str]:
     """Where a URL actually lands: HTTP status, final path and redirect chain.
 
@@ -818,6 +887,8 @@ def _probe(session, url: str) -> int:
         return 1
     print(f"[DLF] probe {url}")
     for line in _probe_response_lines(session, url):
+        print(f"  {line}")
+    for line in _probe_script_lines(html):
         print(f"  {line}")
     for line in _probe_page(html):
         print(f"  {line}")
