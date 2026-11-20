@@ -108,12 +108,24 @@ BOARDS: dict[str, dict[str, str]] = {
         "out": "CSVs/site_raw/dlfRookieSf.csv",
         "label": "Rookie Superflex",
         "min_rows": 40,
+        # The draft class this board feeds, declared rather than inferred
+        # (2026-11-20).  The contract joins these rows by name onto players
+        # Sleeper marks as first-year, with no class check of its own, so a
+        # page that silently moved to the NEXT class would attach college
+        # names to whoever shares them.  ``_rookie_class_verdict`` refuses
+        # to overwrite the CSV when the page names another class or when
+        # the rows stop carrying NFL teams.  Changing class is a reviewed
+        # edit of these two keys, never a side effect of a scrape.
+        "rookie_class_year": 2026,
+        "rookie_class_stage": "drafted",
     },
     "dlfRookieIdp": {
         "url": "https://dynastyleaguefootball.com/dynasty-rookie-idp-rankings/",
         "out": "CSVs/site_raw/dlfRookieIdp.csv",
         "label": "Rookie IDP",
         "min_rows": 20,  # smallest board; pre-NFL-draft class ~29 rows
+        "rookie_class_year": 2026,
+        "rookie_class_stage": "drafted",
     },
     # DLF's native offensive VALUE moved off the rankings boards to the Trade
     # Analyzer Values page (owner directive 2026-09-24).  Probed on the
@@ -613,11 +625,87 @@ def _values_summary(rows: list[dict]) -> list[str]:
     return lines
 
 
-def _board_verdict(cfg: dict, rows: list[dict]) -> tuple[bool, str]:
+#: NFL team abbreviations DLF prints in the Team column once a class is
+#: drafted (plus common alternates and FA for undrafted signings).  A college
+#: name in that column means a class that has not been drafted yet.
+_NFL_TEAM_CODES = frozenset(
+    {
+        "ARI", "ATL", "BAL", "BUF", "CAR", "CHI", "CIN", "CLE", "DAL", "DEN", "DET",
+        "GB", "GNB", "HOU", "IND", "JAX", "JAC", "KC", "KAN", "LV", "LVR", "LAC",
+        "LAR", "LA", "MIA", "MIN", "NE", "NWE", "NO", "NOR", "NYG", "NYJ", "PHI",
+        "PIT", "SF", "SFO", "SEA", "TB", "TAM", "TEN", "WAS", "WSH", "FA",
+    }
+)  # fmt: skip
+
+#: Share of team-carrying rows that must name an NFL team for a board
+#: declared ``rookie_class_stage: drafted``.  The committed 2026 boards sit at
+#: 57/61 and 31/31 (2026-11-20); an incoming class sits near 0.
+_DRAFTED_TEAM_SHARE_FLOOR = 0.8
+
+
+def _page_class_year(html: str | None) -> int | None:
+    """The rookie class a DLF page names in its <title>, e.g. 2026 for
+    "2026 Rookie Superflex Rankings For Dynasty Fantasy Football - DLF"."""
+    import re
+
+    if not html:
+        return None
+    m = re.search(r"<title[^>]*>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
+    if not m:
+        return None
+    y = re.search(r"\b(20[2-4]\d)\s+Rookie\b", m.group(1), re.IGNORECASE)
+    return int(y.group(1)) if y else None
+
+
+def _drafted_team_share(rows: list[dict]) -> float | None:
+    """Share of rows with a Team cell that name an NFL team (None: no cells)."""
+    teams = [str(r.get("team") or "").strip().upper() for r in rows]
+    teams = [t for t in teams if t]
+    if not teams:
+        return None
+    return sum(1 for t in teams if t in _NFL_TEAM_CODES) / len(teams)
+
+
+def _rookie_class_verdict(cfg: dict, rows: list[dict], html: str | None) -> tuple[bool, str]:
+    """Is this the rookie class the board is declared to carry?  Fails closed.
+
+    No-op for boards without ``rookie_class_year``.  Otherwise the page title
+    must name exactly that class (a page that names none cannot be verified),
+    and a board declared ``drafted`` must carry NFL teams in its Team column.
+    """
+    expected = cfg.get("rookie_class_year")
+    if not expected:
+        return True, "ok"
+    year = _page_class_year(html)
+    if year is None:
+        return False, (
+            f"page title names no rookie class year; cannot verify it is the "
+            f"configured {expected} class"
+        )
+    if year != int(expected):
+        return False, (
+            f"page is the {year} rookie class but this board is configured for "
+            f"{expected}; switching classes is a reviewed config change "
+            f"(rookie_class_year / rookie_class_stage in BOARDS), never a scrape"
+        )
+    if cfg.get("rookie_class_stage") == "drafted":
+        share = _drafted_team_share(rows)
+        if share is None:
+            return False, "no Team cells parsed; cannot verify the drafted class"
+        if share < _DRAFTED_TEAM_SHARE_FLOOR:
+            return False, (
+                f"only {share:.0%} of rows name an NFL team; expected the drafted "
+                f"{expected} class (≥{_DRAFTED_TEAM_SHARE_FLOOR:.0%})"
+            )
+    return True, "ok"
+
+
+def _board_verdict(cfg: dict, rows: list[dict], html: str | None = None) -> tuple[bool, str]:
     """Would a real run write this board?  ``(ok, reason)``.
 
     The ONE place the per-board write guards live, shared by the real run and
     ``--dry-run`` so a diagnostic reports exactly the decision production makes.
+    Rookie boards also pass :func:`_rookie_class_verdict` (needs the page html).
     """
     min_rows = int(cfg.get("min_rows") or 30)
     if len(rows) < min_rows:
@@ -625,7 +713,7 @@ def _board_verdict(cfg: dict, rows: list[dict]) -> tuple[bool, str]:
             f"parsed only {len(rows)} rows — expected ≥{min_rows} (aligned with "
             "the downstream contract floor); partial/degraded scrape"
         )
-    return True, "ok"
+    return _rookie_class_verdict(cfg, rows, html)
 
 
 def _native_value_note(cfg: dict, rows: list[dict]) -> str | None:
@@ -1083,7 +1171,7 @@ def main() -> int:
             print(f"[DLF] WARN: no rows extracted for {key}", file=sys.stderr)
             exit_code = max(exit_code, 1)
             continue
-        ok, reason = _board_verdict(cfg, rows)
+        ok, reason = _board_verdict(cfg, rows, html)
         if args.dry_run:
             # Evidence only: what the real run WOULD decide, from the same
             # verdict function, plus the table headers the parser saw.  Used by

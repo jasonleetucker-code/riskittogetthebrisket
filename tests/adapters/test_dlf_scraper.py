@@ -501,3 +501,98 @@ def test_values_board_failure_does_not_block_rank_boards(dlf_module):
     for key in ("dlfSf", "dlfIdp", "dlfRookieSf", "dlfRookieIdp"):
         assert dlf_module.BOARDS[key].get("kind") is None
         assert not dlf_module.BOARDS[key].get("require_native_value")
+
+
+# ── rookie class guard (2026-11-20) ───────────────────────────────────
+#
+# Synthetic shapes only (never captured vendor HTML).  Probed on the box
+# 2026-11-20 (DLF diagnostics 44737613322): both rookie pages are titled
+# "2026 Rookie … Rankings For Dynasty Fantasy Football - DLF" and render an
+# empty ``table#avgTable`` that a DataTable script fills client-side.
+
+
+def _rookie_page(title_year: str | None) -> str:
+    title = (
+        f"{title_year} Rookie Superflex Rankings For Dynasty Fantasy Football - DLF"
+        if title_year
+        else "Rookie Rankings - DLF"
+    )
+    return f"<html><head><title>{title}</title></head><body></body></html>"
+
+
+def _rows(teams: list[str]) -> list[dict]:
+    return [{"name": f"Player {i}", "avg": str(i), "team": t} for i, t in enumerate(teams, 1)]
+
+
+def test_rookie_boards_declare_their_class(dlf_module):
+    for key in ("dlfRookieSf", "dlfRookieIdp"):
+        cfg = dlf_module.BOARDS[key]
+        assert cfg["rookie_class_year"] == 2026
+        assert cfg["rookie_class_stage"] == "drafted"
+    # Non-rookie boards carry no class and are never class-gated.
+    for key in ("dlfSf", "dlfIdp"):
+        assert "rookie_class_year" not in dlf_module.BOARDS[key]
+
+
+def test_page_class_year_reads_the_title(dlf_module):
+    assert dlf_module._page_class_year(_rookie_page("2026")) == 2026
+    assert dlf_module._page_class_year(_rookie_page("2027")) == 2027
+    assert dlf_module._page_class_year(_rookie_page(None)) is None
+    assert dlf_module._page_class_year("") is None
+    assert dlf_module._page_class_year(None) is None
+
+
+def test_class_guard_accepts_the_configured_drafted_class(dlf_module):
+    cfg = dlf_module.BOARDS["dlfRookieSf"]
+    rows = _rows(["ARI", "LV", "NYJ", "KC", "FA"] * 10)
+    assert dlf_module._board_verdict(cfg, rows, _rookie_page("2026")) == (True, "ok")
+
+
+def test_class_guard_refuses_the_next_class(dlf_module):
+    """A page that moved on to the 2027 class must not overwrite the 2026 CSV."""
+    cfg = dlf_module.BOARDS["dlfRookieSf"]
+    rows = _rows(["ARI"] * 50)
+    ok, reason = dlf_module._board_verdict(cfg, rows, _rookie_page("2027"))
+    assert not ok and "2027 rookie class" in reason and "configured for 2026" in reason
+
+
+def test_class_guard_fails_closed_without_a_title_year(dlf_module):
+    cfg = dlf_module.BOARDS["dlfRookieIdp"]
+    ok, reason = dlf_module._board_verdict(cfg, _rows(["ARI"] * 30), _rookie_page(None))
+    assert not ok and "names no rookie class year" in reason
+    # The real run always passes the html; a call without it cannot verify.
+    ok, _ = dlf_module._board_verdict(cfg, _rows(["ARI"] * 30))
+    assert not ok
+
+
+def test_class_guard_refuses_college_teams_on_a_drafted_board(dlf_module):
+    """Same title year, but the rows are an undrafted class (college teams)."""
+    cfg = dlf_module.BOARDS["dlfRookieSf"]
+    rows = _rows(["Notre Dame", "Indiana", "Ohio State", "Alabama", "LSU"] * 10)
+    ok, reason = dlf_module._board_verdict(cfg, rows, _rookie_page("2026"))
+    assert not ok and "name an NFL team" in reason
+    ok, reason = dlf_module._board_verdict(cfg, _rows([""] * 50), _rookie_page("2026"))
+    assert not ok and "no Team cells" in reason
+
+
+def test_row_floor_is_checked_before_the_class(dlf_module):
+    cfg = dlf_module.BOARDS["dlfRookieSf"]
+    ok, reason = dlf_module._board_verdict(cfg, _rows(["ARI"] * 5), _rookie_page("2026"))
+    assert not ok and reason.startswith("parsed only 5 rows")
+
+
+def test_probe_script_lines_redact_nonces_and_values(dlf_module):
+    html = """<html><script>
+    var cfg = {"ajax_url":"https://dynastyleaguefootball.com/wp-admin/admin-ajax.php","nonce":"a1b2c3d4e5"};
+    jQuery('#avgTable').DataTable({ ajax: { url: cfg.ajax_url, type: 'POST',
+      data: function(d){ d.action = 'dlf_get_rankings'; d.nonce = cfg.nonce; d.token = 'Zx9Qw8Er7Ty6Ui5Op4As3'; } } });
+    </script></html>"""
+    out = "\n".join(dlf_module._probe_script_lines(html))
+    assert "/wp-admin/admin-ajax.php" in out and "dlf_get_rankings" in out
+    assert "a1b2c3d4e5" not in out and "Zx9Qw8Er7Ty6Ui5Op4As3" not in out
+    assert "dynastyleaguefootball.com" not in out
+    # Scripts that do not build a rankings table are not printed at all.
+    assert (
+        dlf_module._probe_script_lines("<html><script>var x = 'secret-value';</script></html>")
+        == []
+    )
