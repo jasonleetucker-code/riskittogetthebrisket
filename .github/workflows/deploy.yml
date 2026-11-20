@@ -112,6 +112,12 @@ concurrency:
   group: production-deploy
   cancel-in-progress: false
 
+# Least privilege by default (T13, 2026-11-20).  Every job but ``validate``
+# already declares its own grant, which overrides this; ``validate`` only
+# checks out, builds and uploads an artifact, so read is all it needs.
+permissions:
+  contents: read
+
 jobs:
   # One immutable target (owner decision C, 2026-10-01). The requested ref is
   # resolved ONCE here to a full commit SHA; validate, the guard, the box command
