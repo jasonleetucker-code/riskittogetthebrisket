@@ -293,11 +293,14 @@ def test_every_step_that_pushes_receives_the_secret_and_a_checkout_precedes_it()
     assert seen >= 8
 
 
-def test_the_health_job_checks_out_only_the_script():
+def test_the_health_job_checks_out_only_the_script_and_the_validator():
     doc = yaml.safe_load((WORKFLOWS / "health-check.yml").read_text(encoding="utf-8"))
     first = doc["jobs"]["health"]["steps"][0]
     assert "actions/checkout" in first["uses"]
-    assert first["with"]["sparse-checkout"] == "scripts/notify_owner.sh"
+    assert first["with"]["sparse-checkout"].split() == [
+        "scripts/notify_owner.sh",
+        "src/utils/owner_notify.py",
+    ]
 
 
 def test_every_tracker_push_is_tied_to_its_issue():
@@ -341,3 +344,39 @@ def test_the_script_discards_curl_stderr():
 def test_the_script_is_valid_bash():
     cp = subprocess.run(["bash", "-n", str(SCRIPT)], capture_output=True, text=True)
     assert cp.returncode == 0, cp.stderr
+
+
+def test_a_rejected_url_is_named_by_reason_code_and_never_echoed(box):
+    for value, reason in (
+        ("https://user:pw@ntfy.example.invalid/private-topic-x", "userinfo"),
+        ("HTTPS://ntfy.example.invalid/private-topic-x", "scheme"),
+    ):
+        cp = box.run("Title X", "Body Y", url=value)
+        assert cp.returncode == 2, cp.stdout
+        assert f"rejected ({reason})" in cp.stdout
+        assert box.pushes() == []
+        assert "private-topic" not in cp.stdout + cp.stderr
+
+
+def test_without_the_validator_file_the_https_test_still_applies(box):
+    """health-check.yml carries the validator; the other workflows' sparse
+    checkouts hold only this script and must keep working."""
+    lone = box.dir / "lone" / "scripts"
+    lone.mkdir(parents=True)
+    shutil.copy(SCRIPT, lone / "notify_owner.sh")
+    env = {
+        "PATH": f"{box.bin}{os.pathsep}{os.environ['PATH']}",
+        "CURL_LOG": str(box.curl_log),
+        "TMPDIR": str(box.dir),
+        "NOTIFY_WEBHOOK_URL": "http://ntfy.example.invalid/private-topic-x",
+    }
+    cp = subprocess.run(
+        ["bash", str(lone / "notify_owner.sh"), "T", "B"],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        cwd=box.dir,
+    )
+    assert cp.returncode == 2 and "rejected (scheme)" in cp.stdout
+    assert "private-topic" not in cp.stdout + cp.stderr

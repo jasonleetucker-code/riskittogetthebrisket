@@ -19,8 +19,10 @@
 #       no pending push on the issue.
 #   1   the POST failed (DNS, TLS, non-2xx, the 10 s timeout), or the issue
 #       could not be read for --retry-pending.
-#   2   NOTIFY_WEBHOOK_URL is set but is not an https:// URL.  Refused: the
-#       topic name IS the secret, and plain http would send it in clear.
+#   2   NOTIFY_WEBHOOK_URL is set but rejected (src/utils/owner_notify.py's
+#       validator when the checkout carries it, else "not https://").  Refused:
+#       the topic name IS the secret, and plain http would send it in clear.
+#       The reason is a code (scheme, userinfo, ...), never the value.
 #   64  usage error.
 #
 # --issue N           the rolling tracker issue this push announces.  When the
@@ -148,9 +150,28 @@ if [[ "$mode" == "retry" ]]; then
   echo "#${issue} carries an undelivered owner push; retrying"
 fi
 
+# THE webhook validator is src/utils/owner_notify.py (``--check``: exit 0 ok,
+# 1 rejected, 3 unset).  It is stdlib-only and run BY PATH under ``-I``, so a
+# checkout that carries just that one file (health-check.yml's sparse checkout)
+# can judge the value.  A checkout without it (the other pushing workflows'
+# sparse checkouts) or without python3 keeps the old https:// test.  Either way
+# the answer is a reason CODE, never any part of the value.
+validator="$(dirname "${BASH_SOURCE[0]}")/../src/utils/owner_notify.py"
+reject_reason=""
+if [[ -f "$validator" ]] && command -v python3 >/dev/null 2>&1; then
+  check_rc=0
+  check_out="$(python3 -I "$validator" --check 2>&1 >/dev/null)" || check_rc=$?
+  if [[ "$check_rc" == "1" ]]; then
+    reject_reason="${check_out##*rejected:}"
+    [[ "$reject_reason" =~ ^[a-z_]+$ ]] || reject_reason="unknown"
+  fi
+elif [[ "$url" != https://* ]]; then
+  reject_reason="scheme"
+fi
+
 rc=0
-if [[ "$url" != https://* ]]; then
-  echo "::error title=Owner push misconfigured::NOTIFY_WEBHOOK_URL is set but is not an https:// URL; '${title}' was NOT sent"
+if [[ -n "$reject_reason" ]]; then
+  echo "::error title=Owner push misconfigured::NOTIFY_WEBHOOK_URL is set but rejected (${reject_reason}); '${title}' was NOT sent"
   rc=2
 else
   # A header cannot carry a line break: one would end the header early.

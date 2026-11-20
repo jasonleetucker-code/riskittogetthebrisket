@@ -138,3 +138,33 @@ def test_the_server_logs_the_warnings_and_does_not_refuse():
     assert "_startup_guards.alert_channel_warnings(os.environ)" in text
     block = text[text.index("_startup_guards.alert_channel_warnings(os.environ)") :][:200]
     assert "log.warning" in block and "raise" not in block
+
+
+def test_deploy_sh_copies_the_validator_into_the_same_private_dir():
+    """The pre-flight stages startup_guards.py in a ``mktemp -d``; the validator
+    must sit beside it (the only place the lone copy loads it from), and both
+    are removed again by name, never recursively."""
+    text = (ROOT / "deploy/deploy.sh").read_text(encoding="utf-8")
+    body = text[text.index("check_box_env_guards() {") :]
+    body = body[: body.index("\n}\n")]
+    assert 'git show "${TARGET_REV}:src/utils/owner_notify.py" > "${tmp}/owner_notify.py"' in body
+    assert body.index("owner_notify.py") < body.index("--check-env-file")
+    assert 'rm -f -- "${tmp}/startup_guards.py" "${tmp}/owner_notify.py"' in body
+    assert "rm -rf" not in body
+
+
+def test_the_staged_pair_judges_the_webhook_end_to_end(tmp_path):
+    """Exactly what deploy.sh stages: the two files, alone, in a private dir."""
+    staged = tmp_path / "staged"
+    staged.mkdir()
+    shutil.copy(ROOT / "src/api/startup_guards.py", staged / "startup_guards.py")
+    shutil.copy(ROOT / "src/utils/owner_notify.py", staged / "owner_notify.py")
+    env = tmp_path / ".env"
+    env.write_text(
+        "JASON_LOGIN_PASSWORD=real-pw-9x\nNOTIFY_WEBHOOK_URL=https://u:p@ntfy.sh/private-topic-x\n",
+        encoding="utf-8",
+    )
+    proc = _preflight(staged / "startup_guards.py", env, tmp_path)
+    assert proc.returncode == 0, proc.stderr
+    assert "rejected (userinfo)" in proc.stderr
+    assert "private-topic" not in proc.stderr + proc.stdout
