@@ -2,14 +2,14 @@
  "schema_version": 1,
  "sources": {
   "draftSharksRosIdp": {
-   "content_hash": "bee94d033cbf4d6a425133fb276897c2529705d2ff86af6fbfaa115faa9b6e1a",
+   "content_hash": "86e4ded55184d2c7ccba1832ff9cf0e963014cf7c313de27b846807220b218b8",
    "first_observed_at": "2026-10-27T21:04:59.562675+00:00",
-   "last_content_change": "2026-11-20T03:49:49.801274+00:00"
+   "last_content_change": "2026-11-20T22:04:16.238747+00:00"
   },
   "draftSharksRosSf": {
-   "content_hash": "05a5714fb1b991fd31c1e93b43ea9572d6540a0669feb032d2e719a128b6b594",
+   "content_hash": "c94e379a470542644f65a2a4d413cf988b55685dc406cba9158c11abf3807147",
    "first_observed_at": "2026-10-26T21:17:54.002733+00:00",
-   "last_content_change": "2026-11-20T13:43:42.285999+00:00"
+   "last_content_change": "2026-11-20T22:04:16.025949+00:00"
   },
   "fantasyProsRosIdp": {
    "content_hash": "2f7f8afb9cfcca348b4a8ac202739b1798c1cc1e0c4f96e21c2f53c9f8cd1518",
@@ -17,19 +17,19 @@
    "last_content_change": "2026-11-16T07:23:24.100937+00:00"
   },
   "fantasyProsRosOverall": {
-   "content_hash": "dab197a76841e496fcac46a0deb779309e229ac6da1bdf70510912383425dcde",
+   "content_hash": "0ac249998715cac7a49cf197835476951e4cdecea24b217c025b6645ab9fc070",
    "first_observed_at": "2026-10-26T21:17:54.415564+00:00",
-   "last_content_change": "2026-11-20T13:43:42.949653+00:00"
+   "last_content_change": "2026-11-20T22:04:16.374244+00:00"
   },
   "fantasyProsRosSf": {
-   "content_hash": "94348e4e3ba529be9f93c478a428c417b67dcaa884a30f0fc685a6510eefda23",
+   "content_hash": "764abdd4fb2aea2cb29315ca2c5d4f09cb363f7f9730ad1b6083c53131559d14",
    "first_observed_at": "2026-10-26T21:17:53.892751+00:00",
-   "last_content_change": "2026-11-19T22:33:36.250874+00:00"
+   "last_content_change": "2026-11-20T22:04:15.991539+00:00"
   },
   "ffc2qbAdp": {
-   "content_hash": "7f69ab3fa1b9f1ceada86d19c5f310d3243068755d4fb31358826f19c4efac87",
+   "content_hash": "2ac95a908d01f480c342530b7a618db7457f5d7f74e12638637894e5ef44371c",
    "first_observed_at": "2026-10-26T21:17:55.045271+00:00",
-   "last_content_change": "2026-11-11T02:21:38.591575+00:00"
+   "last_content_change": "2026-11-20T22:04:17.011499+00:00"
   }
  }
 }
