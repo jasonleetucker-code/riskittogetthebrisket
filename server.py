@@ -348,20 +348,41 @@ PRIVATE_APP_ALLOWED_USERNAMES = frozenset(
     if u.strip()
 )
 
-# Rate limit: max 1 email per hour to avoid spam on repeated failures
-_last_alert_time = 0
+# Re-alert cooldown, PER ALERT CLASS (``key``).  One global window used to let a
+# delivered uptime alert silence a stale-backup alert, and swallowed "Uptime
+# recovered" whenever it came within an hour of the failure it resolved.
 ALERT_COOLDOWN_SEC = 3600
+#: Alert classes -- every ``send_alert`` caller passes one of these as ``key``.
+ALERT_KEY_UPTIME = "uptime"
+ALERT_KEY_UPTIME_RECOVERY = "uptime_recovery"
+ALERT_KEY_SCRAPE_FAILURE = "scrape_failure"
+ALERT_KEY_PARTIAL_SCRAPE = "partial_scrape"
+ALERT_KEY_DISK_LOW = "disk_low"
+ALERT_KEY_BACKUP_STALE = "backup_stale"
+ALERT_KEY_GENERAL = "general"
+#: Recovery class -> the class it resolves.  A recovery is EXEMPT from the
+#: cooldown (sent whenever its condition clears), and delivering it re-arms the
+#: class it resolves so the next incident is announced at once.
+ALERT_RECOVERY_KEYS = {ALERT_KEY_UPTIME_RECOVERY: ALERT_KEY_UPTIME}
+#: ``key -> epoch of the last DELIVERED alert`` (an undelivered one sets nothing).
+_last_alert_time_by_key: dict[str, float] = {}
+#: ``key -> epoch`` of the last "no channel configured" warning (rate-limited).
+_alert_unconfigured_logged_at: dict[str, float] = {}
 # Every SMTP socket operation is bounded.  The same 15 s ``_deliver_email_smtp``
 # already uses; ``smtplib``'s default is NO timeout.
 ALERT_SMTP_TIMEOUT_SEC = 15
-# At most one alert delivery in flight.  Also guards ``_last_alert_time``,
-# which the delivery thread writes.
+# At most one delivery in flight PER CLASS (bounded by the number of keys).
+# The lock also guards the two dicts above, which the delivery thread writes.
 _alert_lock = threading.Lock()
-_alert_in_flight = False
+_alerts_in_flight: set[str] = set()
 
 
-def send_alert(subject: str, body: str):
-    """Send an email alert in the background. Fails silently if not configured.
+def send_alert(subject: str, body: str, *, key: str = ALERT_KEY_GENERAL):
+    """Send an owner alert in the background (push first, e-mail fallback).
+
+    ``key`` names the alert CLASS (``ALERT_KEY_*``): the one-hour cooldown and
+    the one-in-flight rule apply per class, so one class never silences
+    another.  A recovery class (``ALERT_RECOVERY_KEYS``) is never cooled down.
 
     Never blocks the caller on the network.  Two callers run ON the event
     loop — ``backup_watchdog_loop`` (stale backups) and ``uptime_watchdog_loop``
@@ -374,43 +395,62 @@ def send_alert(subject: str, body: str):
     send never set the cooldown, so every trigger tried again.  Pinned by
     ``tests/api/test_send_alert_off_loop.py``.
 
-    Delivery runs on a daemon thread with a bounded timeout.  While one is
-    in flight a second alert is dropped (logged), not queued: the first
-    either succeeds, after which the cooldown would suppress the second
-    anyway, or fails against the same unreachable server.
+    Delivery runs on a daemon thread with a bounded timeout.  While one alert
+    of a class is in flight a second of the SAME class is dropped (logged), not
+    queued: the first either succeeds, after which the cooldown would suppress
+    the second anyway, or fails against the same unreachable server.  Other
+    classes are unaffected.
     """
-    global _alert_in_flight
-
     # Owner push (ntfy, NOTIFY_WEBHOOK_URL) first, e-mail as fallback -- the one
     # routing every server alert uses (src/utils/owner_alerts.py, STAB-2).  Only
-    # when NEITHER channel is configured is there nothing to do.
+    # when NEITHER channel is configured is there nothing to do -- and that is
+    # SAID (rate-limited per class), never a silent return.
+    now = time.time()
     if not _email_alerts_configured() and not _owner_push_configured():
+        with _alert_lock:
+            last_logged = _alert_unconfigured_logged_at.get(key)
+            should_log = last_logged is None or now - last_logged >= ALERT_COOLDOWN_SEC
+            if should_log:
+                _alert_unconfigured_logged_at[key] = now
+        if should_log:
+            log.warning(
+                "Alert NOT sent (%s): no owner alert channel is configured "
+                "(NOTIFY_WEBHOOK_URL or ALERT_*): %s",
+                key,
+                subject,
+            )
         return
 
-    now = time.time()
     with _alert_lock:
-        if now - _last_alert_time < ALERT_COOLDOWN_SEC:
-            log.info(f"Alert suppressed (cooldown): {subject}")
+        last_delivered = _last_alert_time_by_key.get(key)
+        cooled = (
+            key not in ALERT_RECOVERY_KEYS
+            and last_delivered is not None
+            and now - last_delivered < ALERT_COOLDOWN_SEC
+        )
+        if cooled:
+            log.info("Alert suppressed (cooldown, %s): %s", key, subject)
             return
-        if _alert_in_flight:
-            log.info(f"Alert suppressed (another alert is being sent): {subject}")
+        if key in _alerts_in_flight:
+            log.info("Alert suppressed (one %s alert is being sent): %s", key, subject)
             return
-        _alert_in_flight = True
+        _alerts_in_flight.add(key)
     try:
         threading.Thread(
             target=_deliver_alert,
-            args=(subject, body, now),
+            args=(subject, body, now, key),
             name="alert-smtp",
             daemon=True,
         ).start()
     except Exception as e:  # noqa: BLE001 — alerting never raises into its caller
         with _alert_lock:
-            _alert_in_flight = False
+            _alerts_in_flight.discard(key)
         log.error(f"Failed to start alert delivery: {e}")
 
 
 def _email_alerts_configured() -> bool:
-    return bool(ALERT_ENABLED and ALERT_FROM and ALERT_PASSWORD)
+    # ALERT_TO too: an e-mail with no recipient is not a channel.
+    return bool(ALERT_ENABLED and ALERT_TO and ALERT_FROM and ALERT_PASSWORD)
 
 
 def _owner_push_configured() -> bool:
@@ -419,51 +459,46 @@ def _owner_push_configured() -> bool:
     return _owner_notify.webhook_url() is not None
 
 
-def _deliver_alert(subject: str, body: str, attempted_at: float) -> None:
-    """Delivery half of :func:`send_alert` (push first, then SMTP).  Runs on the
-    ``alert-smtp`` thread, so neither channel can block the event loop."""
-    global _last_alert_time, _alert_in_flight
+def _deliver_alert(
+    subject: str, body: str, attempted_at: float, key: str = ALERT_KEY_GENERAL
+) -> None:
+    """Delivery half of :func:`send_alert`.  Runs on the ``alert-smtp`` thread,
+    so no channel can block the event loop.
 
+    Routed through ``owner_alerts.deliver`` -- push first, then
+    ``_deliver_email_smtp`` (587 STARTTLS, then 465) -- so this path and the
+    alert sweeps share ONE routing and ONE delivery-health record.  Only a
+    DELIVERED alert starts its class's cooldown; a failed one is retried on the
+    next trigger."""
     try:
-        from src.utils import owner_notify as _owner_notify
+        from src.utils import owner_alerts as _owner_alerts
 
-        if _owner_notify.send(f"[Dynasty Server] {subject}", body):
+        delivered = _owner_alerts.deliver(
+            ALERT_TO or None,
+            f"[Dynasty Server] {subject}",
+            body,
+            email=_deliver_email_smtp if _email_alerts_configured() else None,
+        )
+        if delivered:
             with _alert_lock:
-                _last_alert_time = attempted_at
-            log.info(f"Alert pushed to the owner channel: {subject}")
-            return
-        if not _email_alerts_configured():
-            log.error(f"Alert NOT delivered (push failed, e-mail not configured): {subject}")
-            return
-        msg = MIMEMultipart()
-        msg["From"] = ALERT_FROM
-        msg["To"] = ALERT_TO
-        msg["Subject"] = f"[Dynasty Server] {subject}"
-
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        html = f"""
-        <div style="font-family:monospace;font-size:14px;padding:16px;">
-            <h2 style="color:#ff4060;">⚠ Dynasty Server Alert</h2>
-            <p><strong>Time:</strong> {timestamp}</p>
-            <p><strong>Issue:</strong> {subject}</p>
-            <hr>
-            <pre style="background:#1a1a2e;color:#e2e8f8;padding:12px;border-radius:8px;overflow-x:auto;">{body}</pre>
-        </div>
-        """
-        msg.attach(MIMEText(html, "html"))
-
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=ALERT_SMTP_TIMEOUT_SEC) as server:
-            server.login(ALERT_FROM, ALERT_PASSWORD)
-            server.send_message(msg)
-
-        with _alert_lock:
-            _last_alert_time = attempted_at
-        log.info(f"Alert sent: {subject}")
-    except Exception as e:
-        log.error(f"Failed to send alert email: {e}")
+                _last_alert_time_by_key[key] = attempted_at
+                resolved = ALERT_RECOVERY_KEYS.get(key)
+                if resolved is not None:
+                    # The incident is over and the owner was told: the next
+                    # one is a new incident, announced without waiting.
+                    _last_alert_time_by_key.pop(resolved, None)
+            log.info("Alert delivered (%s): %s", key, subject)
+        else:
+            log.error(
+                "Alert NOT delivered (%s): every configured owner channel failed: %s",
+                key,
+                subject,
+            )
+    except Exception as e:  # noqa: BLE001 — alerting never raises
+        log.error(f"Failed to deliver alert ({key}): {e}")
     finally:
         with _alert_lock:
-            _alert_in_flight = False
+            _alerts_in_flight.discard(key)
 
 
 # ── PATHS ───────────────────────────────────────────────────────────────
@@ -506,6 +541,13 @@ else:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 log = logging.getLogger("dynasty-server")
+
+# Owner-alert settings that will not deliver -- a NOTIFY_WEBHOOK_URL the one
+# validator rejects, half-configured e-mail, or (production) no channel at all.
+# Logged once, as a WARNING: alerts are optional, so this never refuses a start
+# the way _STARTUP_REFUSALS does.  Names and reason codes only, never a value.
+for _alert_channel_warning in _startup_guards.alert_channel_warnings(os.environ):
+    log.warning("Alert channel: %s", _alert_channel_warning)
 
 # ── STATE ───────────────────────────────────────────────────────────────
 # In-memory cache of latest scrape data
@@ -4277,6 +4319,7 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                         "The server continues serving last-known-good data.\n"
                         "Some sites may be down or blocking the scraper."
                     ),
+                    key=ALERT_KEY_PARTIAL_SCRAPE,
                 )
                 # Audit O-2: this used to call _mark_scrape_success, filing a
                 # REFUSED scrape as a successful one — so the 24h success
@@ -4305,6 +4348,7 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                         "Scrape data was loaded into memory but NOT written to disk.\n"
                         "Please free disk space on the server."
                     ),
+                    key=ALERT_KEY_DISK_LOW,
                 )
 
             # Mirror fresh scraper-owned site_raw CSVs from the DATA_DIR
@@ -4437,6 +4481,7 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             send_alert(
                 f"Scrape failed: {type(e).__name__}",
                 f"Error: {e}\n\nDuration: {elapsed:.1f}s\n\n{error_trace[-1500:]}",
+                key=ALERT_KEY_SCRAPE_FAILURE,
             )
             return None
         finally:
@@ -4496,6 +4541,7 @@ async def uptime_watchdog_loop():
                 send_alert(
                     "Uptime recovered",
                     f"Recovered successfully.\nURL: {UPTIME_CHECK_URL}\nChecked at: {now_iso}\nStatus: {status_code}",
+                    key=ALERT_KEY_UPTIME_RECOVERY,
                 )
         else:
             uptime_status["consecutive_failures"] += 1
@@ -4514,6 +4560,7 @@ async def uptime_watchdog_loop():
                         f"Last error: {error}\n"
                         f"Checked at: {now_iso}"
                     ),
+                    key=ALERT_KEY_UPTIME,
                 )
 
         await asyncio.sleep(max(30, UPTIME_CHECK_INTERVAL_SEC))
@@ -4528,8 +4575,9 @@ from src.api.backup_health import STALE_AFTER_HOURS as BACKUP_STALE_ALERT_HOURS 
 def _alert_if_backups_stale() -> bool:
     """Send the stale-backup e-mail when the newest backup is missing/old.
 
-    Delivery goes through ``send_alert`` (global cooldown + one in flight),
-    so repeated ticks cannot spam.  Returns whether an alert was requested.
+    Delivery goes through ``send_alert`` (per-class cooldown + one in flight,
+    class ``backup_stale``), so repeated ticks cannot spam and no other alert
+    class can silence this one.  Returns whether an alert was requested.
     """
     backup_health = _backup_freshness()
     _bage = backup_health.get("newestBackupAgeHours")
@@ -4544,6 +4592,7 @@ def _alert_if_backups_stale() -> bool:
             f"{backup_health.get('dbCount')}). Expected a fresh backup within 24h "
             f"from riskit-backup.timer (02:00 UTC). Check "
             f"deploy/backup_user_kv.sh and /var/log/riskit-backup.log.",
+            key=ALERT_KEY_BACKUP_STALE,
         )
         return True
     return False
@@ -6936,6 +6985,12 @@ def _status_content(status_payload: dict | None = None) -> dict:
         # without mutating it; the per-source private list is stripped for
         # anonymous callers by ``public_diagnostics``.
         "freshness_slo": _freshness_slo_block(),
+        # Owner-alert delivery health and the alert sweep's age: booleans, ISO
+        # timestamps, a count and a number -- no address, no webhook.  Read
+        # from outside by scripts/check_production_slo.py, because a box that
+        # cannot reach its owner (or whose sweep stopped) cannot report it.
+        "alertDelivery": _alert_delivery_block(),
+        "alertSweepAgeHours": _alert_sweep_age_hours(),
         "backup_health": _backup_freshness(),
         "uptime": uptime_status,
         "has_data": latest_contract_data is not None,
@@ -7004,6 +7059,32 @@ def _freshness_slo_block() -> dict:
     except Exception as exc:  # noqa: BLE001
         log.warning("freshness_slo block failed: %s", exc)
         return {"schemaVersion": "freshness-slo.v1", "state": "unknown", "error": "unavailable"}
+
+
+def _alert_delivery_block() -> dict:
+    """``alertDelivery`` for ``/api/status`` (``owner_alerts.delivery_health``):
+    ``ntfyConfigured`` / ``emailConfigured`` / ``lastDeliveredAt`` /
+    ``lastFailedAt`` / ``consecutiveFailures``, recorded in this process's
+    memory.  Never raises."""
+    try:
+        from src.utils import owner_alerts as _owner_alerts
+
+        return _owner_alerts.delivery_health()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("alertDelivery block failed: %s", exc)
+        return {"error": "unavailable"}
+
+
+def _alert_sweep_age_hours() -> float | None:
+    """Hours since the daily alert sweep last finished; ``None`` = never
+    recorded or unreadable (unknown, never 0).  Never raises."""
+    try:
+        from src.api import ops_alerts as _ops
+
+        return _ops.alert_sweep_age_hours()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("alert sweep age unavailable: %s", exc)
+        return None
 
 
 def _feature_flag_snapshot_safe() -> dict:
@@ -18779,14 +18860,20 @@ async def test_alert(request: Request):
         return session_or_err
     result = await run_in_threadpool(_owner_alert_test)
     if not any(result["configured"].values()):
+        ntfy_state = str(result.get("ntfyState") or "")
+        hint = (
+            "Set NOTIFY_WEBHOOK_URL (ntfy) and/or ALERT_ENABLED, ALERT_TO, ALERT_FROM, "
+            "ALERT_PASSWORD in the box .env, then restart the service."
+        )
+        if ntfy_state.startswith("rejected:"):
+            # Set but refused by the one validator: say so, by reason code only.
+            hint = (
+                f"NOTIFY_WEBHOOK_URL is set but rejected ({ntfy_state.split(':', 1)[1]}): "
+                "it must be a plain https:// URL with no spaces or embedded credentials. " + hint
+            )
         return JSONResponse(
             status_code=400,
-            content={
-                "error": "no_alert_channel_configured",
-                **result,
-                "hint": "Set NOTIFY_WEBHOOK_URL (ntfy) and/or ALERT_ENABLED, ALERT_TO, ALERT_FROM, "
-                "ALERT_PASSWORD in the box .env, then restart the service.",
-            },
+            content={"error": "no_alert_channel_configured", **result, "hint": hint},
         )
     ok = any(bool(v) for v in result["delivered"].values())
     return JSONResponse(status_code=200 if ok else 502, content=result)
@@ -21314,13 +21401,20 @@ def _deliver_owner_alert(to: str, subject: str, body: str) -> bool:
 def _owner_alert_test() -> dict:
     """Send one test message on EVERY configured channel (operator check).
 
-    Booleans only: no address or webhook URL leaves the process."""
+    Booleans plus ``ntfyState`` (``ok`` / ``unset`` / ``rejected:<reason>``, the
+    one validator's answer, so "set but rejected" does not read as "unset").
+    No address or webhook URL leaves the process."""
     from src.utils import owner_alerts as _owner_alerts
 
-    email = _deliver_email_smtp if (_email_alerts_configured() and ALERT_TO) else None
+    email = _deliver_email_smtp if _email_alerts_configured() else None
+    ntfy_state = _owner_alerts.ntfy_state()
     configured = {"ntfy": _owner_push_configured(), "email": email is not None}
     if not any(configured.values()):
-        return {"configured": configured, "delivered": {"ntfy": None, "email": None}}
+        return {
+            "configured": configured,
+            "ntfyState": ntfy_state,
+            "delivered": {"ntfy": None, "email": None},
+        }
     delivered = _owner_alerts.deliver_each(
         ALERT_TO or None,
         "Risk It test alert",
@@ -21328,7 +21422,7 @@ def _owner_alert_test() -> dict:
         "If you can read this, owner alerts reach you.",
         email=email,
     )
-    return {"configured": configured, "delivered": delivered}
+    return {"configured": configured, "ntfyState": ntfy_state, "delivered": delivered}
 
 
 def _deliver_email_smtp(to: str, subject: str, body: str) -> bool:
@@ -22457,6 +22551,18 @@ async def run_signal_alerts(request: Request):
         log.warning("signals auth notice failed: %s", exc)
         result["signalsAuthNotice"] = {"error": type(exc).__name__}
 
+    # Dead-man's switch: every alert above depends on this sweep running, and a
+    # sweep that never runs cannot say so.  Stamp its END; /api/status publishes
+    # the age (``alertSweepAgeHours``) and the external SLO check breaches on it.
+    try:
+        from src.api import ops_alerts as _ops_sweep
+
+        await run_in_threadpool(_ops_sweep.record_sweep)
+        result["sweepRecorded"] = True
+    except Exception as exc:  # noqa: BLE001
+        log.warning("alert sweep stamp failed: %s", exc)
+        result["sweepRecorded"] = False
+
     return JSONResponse(content=result, headers={"Cache-Control": "no-store"})
 
 
@@ -23398,12 +23504,18 @@ def main() -> None:
     the ``__main__`` guard at the top of the file)."""
     import uvicorn
 
+    # Channels only: the banner lands in the journal, so it names no address
+    # and no webhook (it used to print the first 20 characters of ALERT_TO).
+    alert_channels = (
+        f"ntfy {'on' if _owner_push_configured() else 'off'}, "
+        f"e-mail {'on' if _email_alerts_configured() else 'off'}"
+    )
     print()
     print("  ╔═══════════════════════════════════════════╗")
     print("  ║   Dynasty Trade Calculator — Server       ║")
     print(f"  ║   Dashboard: http://localhost:{PORT:<13}║")
     print(f"  ║   Scrape interval: {SCRAPE_INTERVAL_HOURS}h{' ' * 21}║")
-    print(f"  ║   Alerts: {'ON → ' + ALERT_TO[:20] if ALERT_ENABLED else 'OFF':<30}║")
+    print(f"  ║   Alerts: {alert_channels:<30}║")
     print("  ╚═══════════════════════════════════════════╝")
     print()
 

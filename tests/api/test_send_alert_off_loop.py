@@ -41,7 +41,9 @@ _PROMPT_SECONDS = 2.0
 
 
 class _BlockingSMTP:
-    """Stands in for ``smtplib.SMTP_SSL``: the constructor (the connect) hangs."""
+    """Stands in for ``smtplib.SMTP`` (587) and ``smtplib.SMTP_SSL`` (465): the
+    constructor (the connect) hangs.  Delivery goes through the one e-mail
+    owner, ``server._deliver_email_smtp``, which tries 587 STARTTLS first."""
 
     instances: list[dict] = []
     release = threading.Event()
@@ -59,6 +61,9 @@ class _BlockingSMTP:
     def __exit__(self, *exc):
         return False
 
+    def starttls(self, *_a, **_k):
+        return None
+
     def login(self, *_a):
         return None
 
@@ -75,11 +80,12 @@ def _alerting(monkeypatch):
     monkeypatch.setattr(server, "ALERT_FROM", "alerts@example.invalid")
     monkeypatch.setattr(server, "ALERT_TO", "ops@example.invalid")
     monkeypatch.setattr(server, "ALERT_PASSWORD", "not-a-real-password")
-    monkeypatch.setattr(server, "_last_alert_time", 0)
-    # raising=False so a revert to the unfixed code fails on BEHAVIOUR below,
-    # not on this fixture.
-    monkeypatch.setattr(server, "_alert_in_flight", False, raising=False)
+    monkeypatch.setattr(server, "_last_alert_time_by_key", {})
+    monkeypatch.setattr(server, "_alerts_in_flight", set())
+    monkeypatch.setattr(server, "_alert_unconfigured_logged_at", {})
+    monkeypatch.setattr(server.smtplib, "SMTP", _BlockingSMTP)
     monkeypatch.setattr(server.smtplib, "SMTP_SSL", _BlockingSMTP)
+    monkeypatch.delenv("NOTIFY_WEBHOOK_URL", raising=False)
     yield
     # Never leave a delivery thread parked on the event.
     _BlockingSMTP.release.set()
@@ -99,6 +105,15 @@ def _wait_for(predicate, timeout=5.0):
 
 def _delivery_threads():
     return [t for t in threading.enumerate() if t.name == "alert-smtp"]
+
+
+def _attempts():
+    """One delivery attempt = one 587 connect (465 is only the fallback)."""
+    return [i for i in _BlockingSMTP.instances if i["port"] == 587]
+
+
+def _in_flight(key=server.ALERT_KEY_GENERAL):
+    return key in server._alerts_in_flight
 
 
 def test_caller_returns_while_the_smtp_connect_is_stuck():
@@ -125,23 +140,46 @@ def test_only_one_delivery_in_flight():
     assert len(_BlockingSMTP.instances) == 1
 
 
+def test_one_in_flight_is_per_class_and_still_off_the_loop():
+    """A stuck uptime alert must not drop a stale-backup alert on the floor."""
+    started = time.monotonic()
+    server.send_alert("uptime", "body", key=server.ALERT_KEY_UPTIME)
+    server.send_alert("backups", "body", key=server.ALERT_KEY_BACKUP_STALE)
+    assert time.monotonic() - started < _PROMPT_SECONDS
+    assert _wait_for(lambda: len(_attempts()) == 2)
+    server.send_alert("uptime again", "body", key=server.ALERT_KEY_UPTIME)
+    time.sleep(0.1)
+    assert len(_attempts()) == 2, "the same class stays one-in-flight"
+
+
 def test_success_sets_the_cooldown():
     _BlockingSMTP.release.set()
     server.send_alert("first", "body")
-    assert _wait_for(lambda: server._last_alert_time > 0 and not server._alert_in_flight)
+    assert _wait_for(
+        lambda: server._last_alert_time_by_key.get(server.ALERT_KEY_GENERAL) and not _in_flight()
+    )
     server.send_alert("second", "body")
     time.sleep(0.1)
-    assert len(_BlockingSMTP.instances) == 1, "the cooldown should suppress the second alert"
+    assert len(_attempts()) == 1, "the cooldown should suppress the second alert"
+
+
+def test_email_tries_587_before_465():
+    """One e-mail owner (``_deliver_email_smtp``): 587 STARTTLS, then 465."""
+    _BlockingSMTP.fail = True
+    _BlockingSMTP.release.set()
+    server.send_alert("first", "body")
+    assert _wait_for(lambda: len(_BlockingSMTP.instances) == 2 and not _in_flight())
+    assert [i["port"] for i in _BlockingSMTP.instances] == [587, 465]
 
 
 def test_failure_releases_the_slot_and_leaves_no_cooldown():
     _BlockingSMTP.fail = True
     _BlockingSMTP.release.set()
     server.send_alert("first", "body")
-    assert _wait_for(lambda: len(_BlockingSMTP.instances) == 1 and not server._alert_in_flight)
-    assert server._last_alert_time == 0
+    assert _wait_for(lambda: len(_attempts()) == 1 and not _in_flight())
+    assert server._last_alert_time_by_key == {}
     server.send_alert("second", "body")
-    assert _wait_for(lambda: len(_BlockingSMTP.instances) == 2)
+    assert _wait_for(lambda: len(_attempts()) == 2)
 
 
 def test_unconfigured_alerting_starts_nothing(monkeypatch):
