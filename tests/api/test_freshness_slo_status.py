@@ -165,11 +165,15 @@ def test_public_status_serves_numbers_and_withholds_source_names(planted):
     assert slo["privateSourcesStale"] == 1
     assert slo["privateSourceDetail"] == "withheld"
     assert "signalsSf" not in json.dumps(slo)
+    # Moves with signed-in users' private analyses: operator-only.
+    assert slo["rosterUnverifiableTrades"] == "withheld"
+    assert "rosterState" in slo  # the roster verdict itself stays public
 
 
 def test_admin_content_carries_the_per_source_detail(planted):
     """``/api/admin/diagnostics`` serves ``_status_content`` unredacted."""
     slo = server._status_content()["freshness_slo"]
+    assert slo["rosterUnverifiableTrades"] != "withheld"
     assert slo["privateSourceDetail"][0]["source"] == "signalsSf"
     assert slo["privateSourceDetail"][0]["ageHours"] == 380.0
 

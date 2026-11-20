@@ -363,14 +363,12 @@ def rule_roster_age(snap: Snapshot, cfg: Mapping[str, Any]) -> Result:
             "status_block_absent: /api/status has no freshness_slo block",
         )
     if "rosterState" not in slo:
-        return Result(
-            name,
-            DATA,
-            UNKNOWN,
-            None,
-            None,
-            "status_field_absent: the deployed build does not publish rosterState",
+        why = (
+            f"status_block_error: the box could not compute freshness_slo ({slo.get('error')})"
+            if slo.get("error")
+            else "status_field_absent: the deployed build does not publish rosterState"
         )
+        return Result(name, DATA, UNKNOWN, None, None, why)
     state, source = slo.get("rosterState"), slo.get("rosterSource")
     age, limit = _number(slo.get("rosterAgeHours")), _number(slo.get("rosterMaxAgeHours"))
     if state == "current" and age is not None:

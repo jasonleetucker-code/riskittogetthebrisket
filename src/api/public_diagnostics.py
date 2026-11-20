@@ -399,9 +399,13 @@ def public_status_payload(
     slo = out.get("freshness_slo")
     if isinstance(slo, Mapping):
         # Aggregate numbers are public; which private sources are stale is
-        # operator-only (served by the admin diagnostics route).
-        slo = {k: v for k, v in slo.items() if k != "privateSourceDetail"}
-        slo["privateSourceDetail"] = "withheld"
+        # operator-only (served by the admin diagnostics route).  So is the
+        # count of refused team-attributed trades: it moves with signed-in
+        # users' private analyses, so an anonymous poller could time them.
+        withheld = ("privateSourceDetail", "rosterUnverifiableTrades")
+        slo = {k: v for k, v in slo.items() if k not in withheld}
+        for key in withheld:
+            slo[key] = "withheld"
         out["freshness_slo"] = slo
     return _finish(out, environ)
 

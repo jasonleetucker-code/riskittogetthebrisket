@@ -441,3 +441,15 @@ def test_a_build_without_roster_fields_is_unknown_with_a_reason():
     r = slo.rule_roster_age(snap(freshness_slo=block), CFG)
     assert r.status == slo.UNKNOWN and "status_field_absent" in r.detail
     assert slo.rule_roster_age(snap(freshness_slo=None), CFG).status == slo.UNKNOWN
+
+
+def test_the_roster_rule_is_evaluated_by_the_scheduled_check():
+    assert slo.rule_roster_age in slo.RULES
+    results = {r.rule for r in slo.evaluate(snap(), CFG)}
+    assert "data_freshness.roster_age_hours" in results
+
+
+def test_a_box_side_freshness_error_is_named_not_blamed_on_an_old_build():
+    block = {"schemaVersion": "freshness-slo.v1", "state": "unknown", "error": "unavailable"}
+    r = slo.rule_roster_age(snap(freshness_slo=block), CFG)
+    assert r.status == slo.UNKNOWN and "status_block_error" in r.detail
