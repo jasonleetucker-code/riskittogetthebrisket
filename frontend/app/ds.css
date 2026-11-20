@@ -1396,28 +1396,13 @@ th[aria-sort="ascending"] .ds-table__sort-glyph {
      moves (an inline box's vertical padding never moved it anyway; an
      inline-block / flex item's margin box stays the same height).  The
      focus ring follows the larger box.  /draft's nominate name button is
-     the same control under a page-local class.  Tag-qualified so the
-     page modules' single-class resets (`padding: 0`, injected later)
-     cannot win on order. */
+     the same control under a page-local class (lifted in draft.css; this
+     file holds .ds-* classes only).  Tag-qualified so the page modules'
+     single-class resets (`padding: 0`, injected later) cannot win on
+     order. */
   a.ds-player-name,
-  button.ds-player-name,
-  button.draft-nbt-name {
+  button.ds-player-name {
     padding-block: 5px;
     margin-block: -5px;
-  }
-  /* Legacy page controls on /draft (tag filter tabs and per-row tag chips
-     at 22px, the check / radio labels at 16-19px) and the /rankings news
-     chips (18px): lift them to the AA floor.  Their full 44px migration
-     belongs to UI Lane 6. */
-  .draft-tag-tab,
-  .draft-tag-chip,
-  .draft-check,
-  .draft-radio {
-    min-height: 24px;
-  }
-  a.rankings-chip {
-    min-height: 24px;
-    min-width: 24px;
-    justify-content: center;
   }
 }

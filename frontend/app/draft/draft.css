@@ -1331,3 +1331,24 @@
 .draft-nbt-list > .draft-nbt-row {
   min-width: max-content;
 }
+
+/* ── Below the 24px AA floor on touch / narrow screens (X-MOBILE-TOUCH) ──
+   Same media condition as ds.css's coarse-pointer block; measured at 390px
+   by tests/e2e/specs/mobile-target-size.spec.js.  The nominate name button
+   gets ds-player-name's hit-box lift (padding grows the hit box, the equal
+   negative margin keeps layout still).  The tag filter tabs and per-row
+   tag chips (22px) and the check / radio labels (16-19px) are lifted to
+   the AA floor; their full 44px migration belongs to UI Lane 6.  Placed
+   last in this file so it follows the single-class rules above. */
+@media (pointer: coarse), (max-width: 480px) {
+  button.draft-nbt-name {
+    padding-block: 5px;
+    margin-block: -5px;
+  }
+  .draft-tag-tab,
+  .draft-tag-chip,
+  .draft-check,
+  .draft-radio {
+    min-height: 24px;
+  }
+}

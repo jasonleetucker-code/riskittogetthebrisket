@@ -2463,6 +2463,17 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   padding: 1px 5px;
 }
 
+/* X-MOBILE-TOUCH: the /rankings news chips measured 18px at 390px; lift them
+   to the 24px AA floor on touch / narrow screens (ds.css's coarse-pointer
+   condition).  Their full 44px migration belongs to UI Lane 6. */
+@media (pointer: coarse), (max-width: 480px) {
+  a.rankings-chip {
+    min-height: 24px;
+    min-width: 24px;
+    justify-content: center;
+  }
+}
+
 .rankings-row-quarantined td {
   opacity: 0.55;
 }
