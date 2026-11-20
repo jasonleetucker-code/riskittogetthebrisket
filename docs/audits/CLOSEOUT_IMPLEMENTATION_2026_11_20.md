@@ -39,7 +39,7 @@ EXTERNAL BLOCKER · VERIFIED NOT NEEDED. A status is set only from evidence.
 
 | # | Priority / task | Status | Root cause | Implementation | PR → commit | Tests / CI | Production verification | Blocker | Next action |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | P0 DLF rookie boards | PR OPEN | Vendor publishes no rookie rankings since 2026-11-17 22:27 UTC: same RankingEngine table, 0 rows, 0 expert columns (Superflex: 287 rows, 6 experts). Not a parser defect. | `vendor_empty` state + exit 4; last-good kept; per-board state file; fail-closed rookie class guard; better probe | #2275 | 261 targeted tests | pending deploy: box journal + `dlf_board_states.json` | owner decision on the stale `dlfRookieSf` vote (§1) | review → release candidate → merge → deploy → verify |
+| 1 | P0 DLF rookie boards | PR OPEN | Vendor publishes no rookie rankings since 2026-11-17 22:27 UTC: same RankingEngine table, 0 rows, 0 expert columns (Superflex: 287 rows, 6 experts). Not a parser defect. | `vendor_empty` label (rookie boards only; run still exits 1); last-good kept; per-board state file; fail-closed rookie class guard; dead shell guard fixed; probe trimmed | #2275 | 223 targeted tests; first review's B1, B2 and I1–I4 addressed, re-review running | pending deploy: box journal + `dlf_board_states.json` | owner decision on the stale `dlfRookieSf` vote (§1) | re-review → release candidate → merge → deploy → verify |
 | 2 | P1 alert delivery | IN PROGRESS | No owner channel; plus code gaps (wave 1) | wave 1 alerts-box + alerts-workflows | — | — | — | owner: ntfy topic and secret | integrate wave 1 |
 | 3 | P1 branch protection | OWNER ACTION REQUIRED | Live ruleset 19976839 has no required checks | dry run re-verified 2026-11-20; apply attempted | — | `test_main_protection_ruleset.py` 6/6 | the API write was refused (§3) | owner runs the script | — |
 | 4 | P1 Signals | OWNER ACTION REQUIRED | Session `reconnect_required` (probe 44532781512) | — | — | — | 4/4 private sources stale | owner reconnect on own computer, then provision | verify after reconnect |
@@ -76,7 +76,11 @@ EXTERNAL BLOCKER · VERIFIED NOT NEEDED. A status is set only from evidence.
 fabricated.
 
 **What the system does after #2275:**
-- Names the state (`vendor_empty`).
+- Labels the state (`vendor_empty`) in the per-board state file and the journal. It is a label only: the run
+  still exits 1. Deciding that an empty board is an expected seasonal state belongs to
+  `src/sources/seasonal_policy.py`, which today declares only `flockFantasySfRookies`. Under the owner decision of
+  2026-10-03, any other empty board fails closed. The first version of #2275 exited 4 and treated the empty board as
+  "not a failure". Review rejected that as a second owner of the same question.
 - Keeps the last-good 2026-class CSVs. Understand pass: 91 of 92 rows join to first-year players, so the CSVs are the
   drafted 2026 class.
 - Leaves the stamps alone, so the data age stays honest.
@@ -93,9 +97,14 @@ source that still votes stays red.
 | A. Wait | Vote decays automatically; CI red until about 12-18 or until DLF republishes | Gradually, by the existing curve |
 | B. Hold the `dlfRookieSf` vote now, plus an `acknowledgedFetchOutages` entry | The watchdog reports DEGRADED instead of red; the 2026 rookies keep `dlfSf` evidence (40 of 61 overlap) | Yes: one frozen vote is removed from about 61 rookie rows now |
 | C. When DLF publishes the 2027 class | A reviewed `rookie_class_year`/`stage` change plus a methodology decision on incoming-class votes | Yes, by decision |
+| D. Declare a seasonal policy for the DLF rookie boards | A `config/sources/seasonal_policy_v1.json` entry plus an HTML empty signature in `src/sources/seasonal_policy.py`: an empty board becomes `seasonally_inactive`, casts no vote, and the watchdog reports it verified rather than stale | Yes: the frozen vote stops while DLF publishes nothing |
 
-Recommendation: **B**. The board is frozen, not merely slow, and a frozen vote at decaying weight is noise. This is
-a source-voting change, so it is yours to approve.
+Recommendation: **B now, D if this recurs every off-season.** The board is frozen, not merely slow, and a frozen
+vote at decaying weight is noise. Both are source-voting changes, so they are yours to approve.
+
+**Public diagnostics logs checked.** Runs 44740383578 and 44742643782 printed sanitized script excerpts. Their public
+logs hold only generic page JavaScript (follow/unfollow handlers, a position filter) and column headers: no nonce,
+cookie, member name or token. #2275 removes that printing anyway.
 
 ## §3 Branch protection — what happened
 
