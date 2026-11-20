@@ -1,0 +1,32 @@
+{
+  "description": "Reviewed sub-24px (WCAG 2.5.8 AA floor) interactive targets per route at 390px, read by tests/e2e/specs/mobile-target-size.spec.js. On a project listed in recordedOn, a signature this list does not hold FAILS that route's test (by more than the spec's 1px tolerance); a listed signature a run did not see is reported as stale (annotation, never a failure) so the list only shrinks. A project not in recordedOn (WebKit mobile-390 until its CI run is folded in) reports its new signatures without failing. Signatures carry no text: tag + first classes (CSS-module hash dropped) + type/role, anchored to the nearest classed ancestor. Every entry is known debt, not an approval: /rankings' watch star (17x13) and value button (34x15) are page-module controls (app/rankings/board.module.css) and the /market/sharp-people header links (17px) are page-local links; each belongs to its route's UI Lane 6 migration.",
+  "recordedOn": [
+    "mobile-chromium"
+  ],
+  "routes": {
+    "/trade": [],
+    "/rankings": [
+      "button.board_resetButton.board_watchStar[type=button]",
+      "button.board_resetButton.board_valueButton[type=button]"
+    ],
+    "/draft": [],
+    "/arbitrage": [],
+    "/angle": [],
+    "/edge": [],
+    "/market/sharp-people": [
+      "div.ds-panel__body > a"
+    ],
+    "/market/sharp-roster-percentage": [],
+    "/market/sharp-tracker": [],
+    "/market/trade-database": [],
+    "/auction": [],
+    "/auction/join": [],
+    "/auction/notifications": [],
+    "/waivers": [],
+    "/league": [],
+    "/settings": [],
+    "/rosters": [],
+    "/game-day": [],
+    "/players/[playerId]": []
+  }
+}

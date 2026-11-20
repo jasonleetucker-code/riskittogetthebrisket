@@ -27,7 +27,8 @@ import {
   EmptyState,
   PlayerImage,
 } from "@/components/ui";
-import { PlayerNameButton, canonicalPlayerId } from "@/components/ds";
+import { FailureState, PlayerNameButton, canonicalPlayerId } from "@/components/ds";
+import { failureForDisplay } from "@/lib/contract-failure";
 import {
   fmtNumber,
   fmtPoints,
@@ -313,7 +314,7 @@ export default function ComparePlayersPage() {
 }
 
 function ComparePageBody() {
-  const { rows, loading, error } = useDynastyData();
+  const { rows, loading, error, failure, retry } = useDynastyData();
   const settings = useSettings();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -348,7 +349,17 @@ function ComparePageBody() {
   const row2 = useMemo(() => findRow(rows, p2), [rows, p2]);
 
   if (loading) return <LoadingState message="Loading player pool…" />;
-  if (error) return <EmptyState title="Error" message={error} />;
+  if (error) {
+    // A failure is not an absence: classified, with the contract's refetch.
+    return (
+      <FailureState
+        failure={failureForDisplay(failure, error)}
+        onRetry={retry}
+        context="player pool"
+        variant="block"
+      />
+    );
+  }
 
   return (
     <section>

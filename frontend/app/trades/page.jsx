@@ -3,12 +3,14 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useApp } from "@/components/AppShell";
+import { failureForDisplay } from "@/lib/contract-failure";
 import { useSettings } from "@/components/useSettings";
 import {
   Badge,
   Banner,
   DataTable,
   EmptyState,
+  FailureState,
   Field,
   Input,
   Movement,
@@ -640,7 +642,7 @@ function CombinedSection({ combined, teamA, teamB }) {
 // ── Page ──────────────────────────────────────────────────────────────
 
 export default function TradesPage() {
-  const { rows, rawData, loading, error } = useApp();
+  const { rows, rawData, loading, error, failure, retry } = useApp();
   const { settings } = useSettings();
   const [teamFilter, setTeamFilter] = useState("");
   const [teamFilterB, setTeamFilterB] = useState("");
@@ -739,9 +741,13 @@ export default function TradesPage() {
           <SkeletonTable rows={6} columns={4} />
         </Panel>
       ) : error ? (
-        <Banner tone="negative" title="Couldn't load trade data">
-          {error}
-        </Banner>
+        // Classified, with the contract's own refetch: a degraded backend,
+        // an outage and a timeout read differently and can be retried.
+        <FailureState
+          failure={failureForDisplay(failure, error)}
+          onRetry={retry}
+          context="trade data"
+        />
       ) : !hasTrades ? (
         <Panel>
           <EmptyState

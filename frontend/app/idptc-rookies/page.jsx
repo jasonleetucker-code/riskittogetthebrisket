@@ -9,6 +9,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useApp } from "@/components/AppShell";
 import { PlayerNameButton } from "@/components/ds";
+import { csvLine } from "@/lib/csv-cell";
 
 // ── /idptc-rookies — Combined IDPTC + KTC rookie board ───────────────
 // Linked from /more → Lab.  Lists every player flagged ``rookie`` in
@@ -22,11 +23,6 @@ import { PlayerNameButton } from "@/components/ds";
 
 const TOP_N = 120; // generous soft cap; current universe ~85 rookies
 const BLURBS_URL = "/idptc-rookies-blurbs.json";
-
-function csvEscape(s) {
-  const str = String(s ?? "");
-  return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
-}
 
 function downloadFile(filename, content, mime) {
   const blob = new Blob([content], { type: mime });
@@ -46,15 +42,10 @@ function fmtVal(v) {
 
 function downloadCsv(rows) {
   const header = "Rank,Name,Pos,KTC Value,IDPTC Value,Fantasy Blurb";
+  // Every cell through the one CSV owner (lib/csv-cell): names and blurbs are
+  // formula-neutralized, values stay numbers.
   const lines = rows.map((r, i) =>
-    [
-      i + 1,
-      csvEscape(r.name),
-      csvEscape(r.pos),
-      r.ktc || "",
-      r.idptc || "",
-      csvEscape(r.blurb || ""),
-    ].join(","),
+    csvLine([i + 1, r.name, r.pos, r.ktc || "", r.idptc || "", r.blurb || ""]),
   );
   downloadFile(
     `dynasty-rookie-board-${rows.length}.csv`,
