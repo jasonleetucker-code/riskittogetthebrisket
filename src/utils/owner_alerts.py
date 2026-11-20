@@ -295,20 +295,30 @@ def _persist(delivered: bool, stamp: float, memory: HealthRecord | None) -> Heal
     return written.get("record")
 
 
-def _read_stored() -> HealthRecord | None:
-    """The stored record; ``None`` when there is none or it cannot be read.
-    Read-only: a missing store is answered ``None`` without creating it."""
+def _read_stored_with_state() -> tuple[HealthRecord | None, str]:
+    """``(stored record, state)``: state is ``"recorded"``, ``"none"`` (the box
+    has never attempted a delivery: nothing to read) or ``"unreadable"``.
+    Read-only: a missing store is answered without creating it."""
     try:
         path = _store_path()
         if not path.is_file():
-            return None
+            return None, "none"
         from src.api import user_kv  # noqa: PLC0415
 
         state = user_kv.get_user_state(HEALTH_STATE_USER, path=path)
     except Exception as exc:  # noqa: BLE001 - a diagnostic never raises
         _LOGGER.warning("owner-alert delivery health unreadable (%s)", type(exc).__name__)
-        return None
-    return _coerce_record(state.get(HEALTH_STATE_KEY))
+        return None, "unreadable"
+    raw = state.get(HEALTH_STATE_KEY)
+    if raw is None:
+        return None, "none"
+    record = _coerce_record(raw)
+    return record, ("recorded" if record is not None else "unreadable")
+
+
+def _read_stored() -> HealthRecord | None:
+    """The stored record; ``None`` when there is none or it cannot be read."""
+    return _read_stored_with_state()[0]
 
 
 def _record(delivered: bool, *, now: float | None = None, persist: bool = True) -> None:
@@ -335,10 +345,12 @@ def delivery_health(env: Mapping[str, str] | None = None) -> dict[str, bool | in
     """``/api/status`` ``alertDelivery``: which channels exist and how delivery
     has gone -- the stored record merged with this process's own.  Booleans,
     ISO timestamps (``None`` = never) and a count (``None`` = no attempt is
-    recorded, or the record is unreadable: unknown, never 0) -- no address,
-    no URL, no subject."""
+    recorded, or the record is unreadable: never published as 0) -- no
+    address, no URL, no subject.  ``deliveryRecord`` says which:
+    ``"recorded"``, ``"none"`` (no delivery has ever been attempted, so none
+    has failed -- every attempt is persisted) or ``"unreadable"``."""
     channels = channels_configured(env)
-    stored = _read_stored()
+    stored, stored_state = _read_stored_with_state()
     with _HEALTH_LOCK:
         record = _merge(stored, _HEALTH["record"])
     if record is None:
@@ -348,6 +360,7 @@ def delivery_health(env: Mapping[str, str] | None = None) -> dict[str, bool | in
             "lastDeliveredAt": None,
             "lastFailedAt": None,
             "consecutiveFailures": None,
+            "deliveryRecord": "unreadable" if stored_state == "unreadable" else "none",
         }
     return {
         "ntfyConfigured": channels["ntfy"],
@@ -355,6 +368,7 @@ def delivery_health(env: Mapping[str, str] | None = None) -> dict[str, bool | in
         "lastDeliveredAt": _iso(record["lastDeliveredEpoch"]),
         "lastFailedAt": _iso(record["lastFailedEpoch"]),
         "consecutiveFailures": record["consecutiveFailures"],
+        "deliveryRecord": "recorded",
     }
 
 

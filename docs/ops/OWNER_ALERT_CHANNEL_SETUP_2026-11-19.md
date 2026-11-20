@@ -43,9 +43,11 @@ and `ALERT_TO` is not set. Every production alert reached no one, except the Git
     persists in the server's user store, beside the sweep stamp. Failures add up across sweeps and restarts
     until a delivery succeeds. Writing the record is best-effort: if the store fails, the alert is still sent,
     the server logs the error class, and it reports its own in-process count.
-  - **No record is unknown, not 0.** Until the box records a delivery attempt, `consecutiveFailures` is `null`
-    and the SLO rule reports `alert_delivery_failing` as UNKNOWN ("no owner-alert delivery attempt is
-    recorded"). That includes the first deploy that ships this. To record one at once, send `POST
+  - **No record is never published as 0.** Until the box records a delivery attempt, `consecutiveFailures` is
+    `null`, and `deliveryRecord` says why: `none` (no delivery has ever been attempted; every attempt is
+    persisted, so none has failed) or `unreadable`. The SLO rule `alert_delivery_failing` is OK with no channel
+    configured ("nothing can fail here"), OK with a channel and `none` ("no delivery has been attempted yet"),
+    and UNKNOWN only when the record is unreadable or not reported. To record an attempt at once, send `POST
     /api/test-alert` (admin). The `notify-test` probe mode does not record anything: it runs outside the server
     and never writes the server's store.
 
@@ -120,6 +122,8 @@ tests and by the "A REAL alert" row.
   - Each uptime outage you were told about gets exactly one "Uptime recovered", even inside the hour. A
     recovery is never held back by a cooldown.
   - You get no recovery for an outage you were never told about.
+  - Which outages you were told about is kept in the server's memory. After a restart or deploy, an outage
+    announced before it gets no "Uptime recovered", and its next failure may be announced again.
   - A recovery does not reset the uptime cooldown. If the check flaps, you get at most one failure and one
     recovery per hour (2026-11-20 review: resetting it sent 8 pushes an hour at the default 5-minute check
     interval and 80 at the 30-second minimum).

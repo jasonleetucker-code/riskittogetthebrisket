@@ -359,22 +359,46 @@ def rule_alert_delivery(snap: Snapshot, cfg: Mapping[str, Any]) -> Result:
     if not isinstance(block, Mapping):
         return Result(name, ALERTING, UNKNOWN, None, limit, "alertDelivery is not an object")
     failures = block.get("consecutiveFailures")
+    channels = {k: block.get(k) for k in ("ntfyConfigured", "emailConfigured")}
+    no_channel = not any(v is True for v in channels.values())
     if failures is None and "consecutiveFailures" in block:
-        # The box has no delivery attempt on record (persisted since
-        # 2026-11-20): unknown, never "0 failures".
+        record = block.get("deliveryRecord")
+        if no_channel:
+            # Nothing is configured, so nothing is attempted and nothing can
+            # fail: the rule is satisfied, whatever the record says.
+            return Result(
+                name,
+                ALERTING,
+                OK,
+                {"consecutiveFailures": None, "deliveryRecord": record, **channels},
+                limit,
+                "no owner alert channel is configured on the box, so nothing can fail here",
+            )
+        if record == "none":
+            # The box persists every attempt (since 2026-11-20), so "no record"
+            # is a measured zero attempts -- not a missing value.
+            return Result(
+                name,
+                ALERTING,
+                OK,
+                {"consecutiveFailures": None, "deliveryRecord": record, **channels},
+                limit,
+                "a channel is configured and no delivery has been attempted yet, so none has failed",
+            )
         return Result(
             name,
             ALERTING,
             UNKNOWN,
             None,
             limit,
-            "no owner-alert delivery attempt is recorded on the box (unknown, not 0)",
+            "the box's owner-alert delivery record is "
+            + ("unreadable" if record == "unreadable" else "not reported")
+            + " (unknown, not 0)",
         )
     if not isinstance(failures, int) or isinstance(failures, bool):
         return Result(
             name, ALERTING, UNKNOWN, None, limit, "alertDelivery.consecutiveFailures not measured"
         )
-    channels = {k: block.get(k) for k in ("ntfyConfigured", "emailConfigured")}
     measured = {"consecutiveFailures": failures, **channels}
     if failures >= limit:
         return Result(
@@ -387,7 +411,7 @@ def rule_alert_delivery(snap: Snapshot, cfg: Mapping[str, Any]) -> Result:
             f"(last failure {block.get('lastFailedAt')}, last success {block.get('lastDeliveredAt')})",
         )
     detail = ""
-    if not any(v is True for v in channels.values()):
+    if no_channel:
         detail = "no owner alert channel is configured on the box, so nothing can fail here"
     return Result(name, ALERTING, OK, measured, limit, detail)
 

@@ -95,12 +95,7 @@ def test_unmeasurable_delivery_is_unknown_never_ok(alerting):
     assert rules(snap(alerting))[DELIVERY].status == slo.UNKNOWN
 
 
-@pytest.mark.parametrize("channels", [(True, False), (False, False)])
-def test_no_delivery_on_record_is_unknown_and_says_so(channels):
-    """The box publishes ``consecutiveFailures: null`` when no attempt is
-    recorded (owner_alerts persists the record since 2026-11-20): UNKNOWN with
-    a reason, never "0 failures" -- with or without a channel configured."""
-    ntfy, email = channels
+def _no_attempt(ntfy, email, record):
     block = delivery(
         ntfyConfigured=ntfy,
         emailConfigured=email,
@@ -108,9 +103,32 @@ def test_no_delivery_on_record_is_unknown_and_says_so(channels):
         lastFailedAt=None,
         consecutiveFailures=None,
     )
-    r = rules(snap({"alertDelivery": block}))[DELIVERY]
-    assert r.status == slo.UNKNOWN and r.measured is None
-    assert "no owner-alert delivery attempt is recorded" in r.detail
+    if record is not None:
+        block["deliveryRecord"] = record
+    return rules(snap({"alertDelivery": block}))[DELIVERY]
+
+
+@pytest.mark.parametrize("record", ["none", "unreadable", None])
+def test_no_channel_configured_is_ok_whatever_the_record(record):
+    """Production today: no channel, so nothing is attempted and nothing can
+    fail.  The rule must not turn the scheduled health check red forever
+    (2026-11-20 re-review: an UNKNOWN here exited 3 on every cron run)."""
+    r = _no_attempt(False, False, record)
+    assert r.status == slo.OK and "no owner alert channel" in r.detail
+    assert r.measured["consecutiveFailures"] is None  # published as unknown, never 0
+
+
+def test_a_configured_channel_with_no_attempt_yet_is_ok_and_says_so():
+    """The box persists every attempt, so ``deliveryRecord: none`` is a
+    measured zero attempts: nothing has failed."""
+    r = _no_attempt(True, False, "none")
+    assert r.status == slo.OK and "no delivery has been attempted yet" in r.detail
+
+
+@pytest.mark.parametrize(("record", "why"), [("unreadable", "unreadable"), (None, "not reported")])
+def test_an_unreadable_or_unreported_record_with_a_channel_is_unknown(record, why):
+    r = _no_attempt(True, False, record)
+    assert r.status == slo.UNKNOWN and r.measured is None and why in r.detail
 
 
 @pytest.mark.parametrize(

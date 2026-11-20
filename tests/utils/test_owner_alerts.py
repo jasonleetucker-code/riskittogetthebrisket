@@ -164,13 +164,15 @@ def test_nothing_configured_attempts_nothing_and_counts_nothing(health, monkeypa
     assert A.deliver(None, "s", "b") is False
     assert A.deliver(A.OWNER_CHANNEL, "s", "b", email=lambda *a: True) is False
     assert A.deliver_each(None, "s", "b") == {"ntfy": None, "email": None}
-    # No attempt is recorded anywhere: the count is UNKNOWN, never 0.
+    # No attempt is recorded anywhere: the count is never published as 0, and
+    # the record says why it is absent.
     assert _health() == {
         "ntfyConfigured": False,
         "emailConfigured": False,
         "lastDeliveredAt": None,
         "lastFailedAt": None,
         "consecutiveFailures": None,
+        "deliveryRecord": "none",
     }
 
 
@@ -217,6 +219,26 @@ def _restart():
 
 def _fail_once():
     assert A.deliver(None, "s", "b", push=lambda s, b: False) is False
+
+
+def test_delivery_record_says_none_recorded_or_unreadable(store, monkeypatch):
+    """``deliveryRecord`` separates "never attempted" from "cannot read the
+    record": the SLO rule passes the first and reports the second unknown."""
+    assert _health()["deliveryRecord"] == "none"
+    _fail_once()
+    assert _health()["deliveryRecord"] == "recorded"
+    _restart()
+    assert _health()["deliveryRecord"] == "recorded"  # read back from the store
+
+    def _boom(*a, **k):
+        raise OSError("store down")
+
+    from src.api import user_kv
+
+    _restart()
+    monkeypatch.setattr(user_kv, "get_user_state", _boom)
+    out = _health()
+    assert out["deliveryRecord"] == "unreadable" and out["consecutiveFailures"] is None
 
 
 def test_the_record_survives_a_restart(store):
