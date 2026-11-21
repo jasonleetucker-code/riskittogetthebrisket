@@ -295,3 +295,38 @@ def test_notify_test_backend_check_against_the_real_route(monkeypatch, tmp_path,
     report, passed = T.backend_producer_check(env, post=post)
     assert passed is False and report["state"] == "not_configured"
     assert report["ntfyState"] == "unset"
+
+
+# -- the owner test-alert budget (review 2026-11-21) -------------------------------
+def test_authorized_test_alerts_share_one_bounded_budget(monkeypatch):
+    """One producers request can send a push per producer per channel, so
+    authorized requests together are capped (5 per 10 min); past the cap the
+    answer is 429 and nothing is sent."""
+    sent: list[str] = []
+    monkeypatch.setattr(
+        server,
+        "_owner_alert_producer_test",
+        lambda: sent.append("x")
+        or {"producers": {"ops": {"delivered": True, "reason": "delivered"}}},
+    )
+    codes = [_post().status_code for _ in range(server._TEST_ALERT_CAPACITY + 2)]
+    assert codes[: server._TEST_ALERT_CAPACITY] == [200] * server._TEST_ALERT_CAPACITY
+    assert codes[server._TEST_ALERT_CAPACITY :] == [429, 429]
+    assert len(sent) == server._TEST_ALERT_CAPACITY, "a refused request sends nothing"
+    with TestClient(server.app) as c:
+        res = c.post("/api/test-alert")
+    assert res.status_code == 429 and int(res.headers["Retry-After"]) >= 1
+
+
+def test_refused_callers_never_spend_the_owner_budget(monkeypatch):
+    monkeypatch.setattr(server, "_is_authenticated", lambda r: False)
+    with TestClient(server.app) as c:
+        for _ in range(server._TEST_ALERT_CAPACITY * 2):
+            assert c.post("/api/test-alert?producers=1").status_code == 401
+    monkeypatch.setattr(server, "_is_authenticated", lambda r: True)
+    monkeypatch.setattr(
+        server,
+        "_owner_alert_producer_test",
+        lambda: {"producers": {"ops": {"delivered": True, "reason": "delivered"}}},
+    )
+    assert _post().status_code == 200

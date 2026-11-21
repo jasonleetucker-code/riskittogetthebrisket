@@ -18999,6 +18999,33 @@ async def trigger_scrape(request: Request, background_tasks: BackgroundTasks):
     )
 
 
+# Owner test alerts reach a phone: at most this many authorized requests per
+# window, for every caller together (one producers request can send up to one
+# push per producer per channel).  Charged only AFTER auth, so a caller who is
+# refused cannot spend the owner's budget.
+_TEST_ALERT_CAPACITY = 5
+_TEST_ALERT_WINDOW_S = 600.0
+_TEST_ALERT_LIMITER = None
+
+
+def _test_alert_rate_limited() -> tuple[bool, int]:
+    global _TEST_ALERT_LIMITER
+    from src.api import rate_limit as _rl
+
+    if _TEST_ALERT_LIMITER is None:
+        _TEST_ALERT_LIMITER = _rl.KeyedLimiter("owner-test-alert", max_keys=10)
+    return _TEST_ALERT_LIMITER.charge(
+        [
+            _rl.KeyedCharge(
+                key="owner-test-alert",
+                capacity=_TEST_ALERT_CAPACITY,
+                window_seconds=_TEST_ALERT_WINDOW_S,
+                ceiling=True,
+            )
+        ]
+    )
+
+
 @app.post("/api/test-alert")
 async def test_alert(request: Request):
     """Send one test alert on every configured owner channel and report, per
@@ -19015,7 +19042,9 @@ async def test_alert(request: Request):
     Auth: an allowlisted admin session, OR the ``SIGNAL_ALERT_CRON_TOKEN``
     bearer verified by ``_signal_alert_cron_bearer_ok`` (the box's notify-test
     uses it to test the RUNNING process).  Anything else is refused exactly as
-    before: no session 401 ``auth_required``, a non-allowlisted session 403."""
+    before: no session 401 ``auth_required``, a non-allowlisted session 403.
+    Authorized requests share one budget (``_TEST_ALERT_CAPACITY`` per
+    ``_TEST_ALERT_WINDOW_S``); past it the answer is 429 and nothing is sent."""
     # W22-F007: sends outbound messages — operator-grade, so it gates
     # on the admin allowlist, not on session presence.
     if not _signal_alert_cron_bearer_ok(request):
@@ -19026,6 +19055,13 @@ async def test_alert(request: Request):
         session_or_err = _require_admin_session(request)
         if isinstance(session_or_err, JSONResponse):
             return session_or_err
+    limited, retry_after = _test_alert_rate_limited()
+    if limited:
+        return JSONResponse(
+            status_code=429,
+            content={"error": "rate_limited", "retryAfterSeconds": retry_after},
+            headers={"Retry-After": str(retry_after), "Cache-Control": "no-store"},
+        )
     producers = (request.query_params.get("producers") or "").strip().lower()
     if producers in ("1", "true", "yes", "on"):
         report = await run_in_threadpool(_owner_alert_producer_test)
