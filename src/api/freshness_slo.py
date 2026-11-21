@@ -128,8 +128,14 @@ def board_freshness_metrics(
     *,
     now: datetime | None = None,
     private_availability: Mapping[str, Mapping[str, Any]] | None = None,
+    roster_refusals: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """The ``freshness_slo`` block of ``/api/status``.  Never raises on shape."""
+    """The ``freshness_slo`` block of ``/api/status``.  Never raises on shape.
+
+    ``roster_refusals`` is ``trade_ledger.roster_refusal_counts()`` (passed
+    in, so this stays a pure function of its arguments); ``None`` reports
+    the counts as unknown.
+    """
     now = now or datetime.now(timezone.utc)
     rows = contract.get("playersArray") if isinstance(contract, Mapping) else None
     rows = [r for r in rows if isinstance(r, Mapping)] if isinstance(rows, list) else []
@@ -158,6 +164,13 @@ def board_freshness_metrics(
 
     private = private_source_staleness(contract, private_availability)
     measured = bool(rows) and bool(top)
+    try:
+        from src.api.roster_freshness import roster_age
+
+        rosters = roster_age(dict(contract) if isinstance(contract, Mapping) else None, now=now)
+    except Exception:  # noqa: BLE001 - a diagnostic must not raise
+        rosters = {"state": "unknown", "source": None, "ageHours": None, "maxAgeHours": None}
+    refusals = roster_refusals if isinstance(roster_refusals, Mapping) else {}
     return {
         "schemaVersion": SCHEMA_VERSION,
         "state": "measured" if measured else "unknown",
@@ -176,4 +189,15 @@ def board_freshness_metrics(
         "privateSourcesUnknown": private["unknown"],
         # Per-source names: admin diagnostics only (stripped for anonymous callers).
         "privateSourceDetail": private["detail"],
+        # The default league's rosters (the contract's own ``sleeper`` block),
+        # judged by the one owner, ``roster_freshness.roster_age``.
+        "rosterState": rosters["state"],
+        "rosterSource": rosters["source"],
+        "rosterAgeHours": rosters["ageHours"],
+        "rosterMaxAgeHours": rosters["maxAgeHours"],
+        # Team-attributed trades this process could not verify because the
+        # rosters were not current (T12's revisit trigger).  None = not reported.
+        "rosterUnverifiableTrades": (
+            {k: refusals.get(k) for k in ("stale", "unknown", "since")} if refusals else None
+        ),
     }
