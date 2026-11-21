@@ -36,7 +36,7 @@ import re
 import threading
 from collections import OrderedDict
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Literal, Mapping, Sequence
 
@@ -246,6 +246,26 @@ def build_trade_snapshot(
         rosters_as_of=fresh.get("asOf"),
         id_to_player=id_to_player,
     )
+
+
+#: Team-attributed trades whose ownership could not be verified because the
+#: rosters were not current, since this process started (X-ROSTER-FRESHNESS).
+#: In memory only; reported in ``/api/status`` ``freshness_slo``.
+_ROSTER_REFUSALS = {"stale": 0, "unknown": 0}
+_ROSTER_REFUSALS_SINCE = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+_ROSTER_REFUSALS_LOCK = threading.Lock()
+
+
+def _count_roster_refusal(state: str) -> None:
+    key = "stale" if state == "stale" else "unknown"
+    with _ROSTER_REFUSALS_LOCK:
+        _ROSTER_REFUSALS[key] += 1
+
+
+def roster_refusal_counts() -> dict[str, Any]:
+    """``{"stale", "unknown", "since"}``: ledgers validated with non-current rosters."""
+    with _ROSTER_REFUSALS_LOCK:
+        return {**_ROSTER_REFUSALS, "since": _ROSTER_REFUSALS_SINCE}
 
 
 _MEMO: "OrderedDict[tuple[Any, ...], TradeSnapshot]" = OrderedDict()
@@ -526,6 +546,7 @@ def validate_ledger(
     not_owned: list[str] = []
     if snap.rosters_state != "current":
         unverifiable = [a for a, _f, _t, _p in parsed]
+        _count_roster_refusal(snap.rosters_state)
     else:
         for aid, frm, _to, (kind, _ref) in parsed:
             frm_i = int(frm)

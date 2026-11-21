@@ -229,6 +229,23 @@ ALERT_PASSWORD = os.getenv("ALERT_PASSWORD") or os.getenv("GMAIL_APP_PASSWORD", 
 # force a full alert send.
 SIGNAL_ALERT_CRON_TOKEN = os.getenv("SIGNAL_ALERT_CRON_TOKEN", "").strip()
 
+
+def _signal_alert_cron_bearer_ok(request) -> bool:
+    """``True`` when the request carries ``Authorization: Bearer
+    <SIGNAL_ALERT_CRON_TOKEN>``.  The ONE verifier of that token
+    (``/api/signal-alerts/run``, ``/api/custom-alerts/run``,
+    ``/api/test-alert``): a constant-time byte compare, and an unset token
+    never authorizes (not even an empty bearer)."""
+    if not SIGNAL_ALERT_CRON_TOKEN:
+        return False
+    header = (request.headers.get("authorization") or "").strip()
+    if not header.lower().startswith("bearer "):
+        return False
+    presented = header.split(None, 1)[1].strip()
+    # Constant-time compare to avoid timing leaks.
+    return _startup_guards.constant_time_equals(presented, SIGNAL_ALERT_CRON_TOKEN)
+
+
 # ── SCRAPE SCHEDULER ───────────────────────────────────────────────────
 # The lifespan starts a scrape 3 s after boot and then every
 # SCRAPE_INTERVAL_HOURS.  Production default True.  A scrape executes
@@ -420,7 +437,7 @@ def send_alert(subject: str, body: str, *, key: str = ALERT_KEY_GENERAL):
     # when NEITHER channel is configured is there nothing to do -- and that is
     # SAID (rate-limited per class), never a silent return.
     now = time.time()
-    if not _email_alerts_configured() and not _owner_push_configured():
+    if not _send_alert_channels_configured():
         with _alert_lock:
             last_logged = _alert_unconfigured_logged_at.get(key)
             should_log = last_logged is None or now - last_logged >= ALERT_COOLDOWN_SEC
@@ -485,6 +502,33 @@ def _owner_push_configured() -> bool:
     return _owner_notify.webhook_url() is not None
 
 
+def _send_alert_channels_configured() -> bool:
+    """Whether :func:`send_alert` has any channel at all (push or e-mail)."""
+    return _email_alerts_configured() or _owner_push_configured()
+
+
+def _send_alert_title(subject: str) -> str:
+    """The title every :func:`send_alert` notice is delivered under."""
+    return f"[Dynasty Server] {subject}"
+
+
+def _route_send_alert(title: str, body: str, *, record: bool = True) -> bool:
+    """:func:`send_alert`'s routing, ONE call: owner push first, then
+    ``_deliver_email_smtp`` -- the routing every server alert uses
+    (``owner_alerts.deliver``).  Touches no cooldown, in-flight or incident
+    state (that is :func:`_deliver_alert`'s); ``record=False`` also keeps it out
+    of the delivery-health record (the producer test)."""
+    from src.utils import owner_alerts as _owner_alerts
+
+    return _owner_alerts.deliver(
+        ALERT_TO or None,
+        title,
+        body,
+        email=_deliver_email_smtp if _email_alerts_configured() else None,
+        record=record,
+    )
+
+
 def _deliver_alert(
     subject: str, body: str, attempted_at: float, key: str = ALERT_KEY_GENERAL
 ) -> None:
@@ -498,14 +542,7 @@ def _deliver_alert(
     recovery, opens its incident); a failed one is retried on the next trigger.
     A delivered recovery closes the incident and leaves the cooldown alone."""
     try:
-        from src.utils import owner_alerts as _owner_alerts
-
-        delivered = _owner_alerts.deliver(
-            ALERT_TO or None,
-            f"[Dynasty Server] {subject}",
-            body,
-            email=_deliver_email_smtp if _email_alerts_configured() else None,
-        )
+        delivered = _route_send_alert(_send_alert_title(subject), body)
         if delivered:
             with _alert_lock:
                 _last_alert_time_by_key[key] = attempted_at
@@ -3894,7 +3931,7 @@ def load_from_disk() -> dict | None:
             str(runtime_path),
             produced_at=runtime_data.get("scrapeTimestamp"),
         )
-        log.info(f"Loaded cached data from {runtime_path.name} " f"({runtime_count} players)")
+        log.info(f"Loaded cached data from {runtime_path.name} ({runtime_count} players)")
         return runtime_data
 
     if checkout_data is not None:
@@ -5170,6 +5207,12 @@ _SELF_AUTHED_API_EXACT = frozenset(
         # cookie gate so the systemd timer's curl call hits the
         # endpoint's own bearer check.
         "/api/custom-alerts/run",
+        # The owner-alert test (STAB-2): an allowlisted admin session OR the
+        # same SIGNAL_ALERT_CRON_TOKEN bearer (``_signal_alert_cron_bearer_ok``),
+        # so the box's notify-test can exercise the RUNNING process.  The
+        # handler refuses an anonymous caller with the same 401
+        # ``auth_required`` the cookie gate gave it, and a guest with 403.
+        "/api/test-alert",
         # E2E test-session bootstrap — handles its own bearer-token auth.
         # Returns 404 unless E2E_TEST_MODE + matching bearer secret are
         # both set, so having it bypass the session gate doesn't leak
@@ -5213,6 +5256,17 @@ def _is_public_api_path(path: str) -> bool:
         if path == prefix or path.startswith(prefix + "/"):
             return True
     return False
+
+
+def _auth_required_response() -> JSONResponse:
+    """The cookie gate's 401 -- also returned by a self-authed route that falls
+    back to the session check (``/api/test-alert``), so a caller without the
+    route's bearer is refused exactly as the gate would refuse it."""
+    return JSONResponse(
+        status_code=401,
+        content={"error": "auth_required", "message": "Sign-in required."},
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.middleware("http")
@@ -5262,11 +5316,7 @@ async def _private_api_gate(request: Request, call_next):
             )
     if path.startswith("/api/") and not _is_public_api_path(path):
         if not _is_authenticated(request):
-            return JSONResponse(
-                status_code=401,
-                content={"error": "auth_required", "message": "Sign-in required."},
-                headers={"Cache-Control": "no-store"},
-            )
+            return _auth_required_response()
     return await call_next(request)
 
 
@@ -7156,7 +7206,16 @@ def _freshness_slo_block() -> dict:
         except Exception as exc:  # noqa: BLE001
             log.warning("private source availability unreadable: %s", exc)
             private = None
-        return _fs.board_freshness_metrics(latest_contract_data, private_availability=private)
+        try:
+            from src.trade.trade_ledger import roster_refusal_counts
+
+            refusals = roster_refusal_counts()
+        except Exception as exc:  # noqa: BLE001
+            log.warning("roster refusal counts unreadable: %s", exc)
+            refusals = None
+        return _fs.board_freshness_metrics(
+            latest_contract_data, private_availability=private, roster_refusals=refusals
+        )
     except Exception as exc:  # noqa: BLE001
         log.warning("freshness_slo block failed: %s", exc)
         return {"schemaVersion": "freshness-slo.v1", "state": "unknown", "error": "unavailable"}
@@ -18949,6 +19008,36 @@ async def trigger_scrape(request: Request, background_tasks: BackgroundTasks):
     )
 
 
+# Owner test alerts reach a phone, so authorized requests from every caller
+# together draw on one token bucket (one producers request can send up to one
+# push per producer per channel): a burst of ``_TEST_ALERT_CAPACITY``, then one
+# more every ``_TEST_ALERT_WINDOW_S / _TEST_ALERT_CAPACITY`` seconds (2 minutes).
+# Worst case from a full bucket is about 2 x capacity in one window.  Charged
+# only AFTER auth, so a caller who is refused cannot spend the owner's budget;
+# a request that then finds no channel (400) has still spent its token.
+_TEST_ALERT_CAPACITY = 5
+_TEST_ALERT_WINDOW_S = 600.0
+_TEST_ALERT_LIMITER = None
+
+
+def _test_alert_rate_limited() -> tuple[bool, int]:
+    global _TEST_ALERT_LIMITER
+    from src.api import rate_limit as _rl
+
+    if _TEST_ALERT_LIMITER is None:
+        _TEST_ALERT_LIMITER = _rl.KeyedLimiter("owner-test-alert", max_keys=10)
+    return _TEST_ALERT_LIMITER.charge(
+        [
+            _rl.KeyedCharge(
+                key="owner-test-alert",
+                capacity=_TEST_ALERT_CAPACITY,
+                window_seconds=_TEST_ALERT_WINDOW_S,
+                ceiling=True,
+            )
+        ]
+    )
+
+
 @app.post("/api/test-alert")
 async def test_alert(request: Request):
     """Send one test alert on every configured owner channel and report, per
@@ -18956,12 +19045,49 @@ async def test_alert(request: Request):
 
     Booleans only -- no address or webhook URL is returned.  Delivery is
     synchronous here (an operator is waiting for the answer) and bounded by each
-    channel's own timeout (ntfy 5 s, SMTP 15 s per port)."""
+    channel's own timeout (ntfy 5 s, SMTP 15 s per port).
+
+    ``?producers=1`` instead sends one ``[TEST]`` notice through EACH real alert
+    producer (``_owner_alert_producer_test``) and answers per producer: 200 when
+    every producer delivered, 400 when none has a channel, else 502.
+
+    Auth: an allowlisted admin session, OR the ``SIGNAL_ALERT_CRON_TOKEN``
+    bearer verified by ``_signal_alert_cron_bearer_ok`` (the box's notify-test
+    uses it to test the RUNNING process).  Anything else is refused exactly as
+    before: no session 401 ``auth_required``, a non-allowlisted session 403.
+    Authorized requests share one token bucket (a burst of
+    ``_TEST_ALERT_CAPACITY``, refilling over ``_TEST_ALERT_WINDOW_S``); past it
+    the answer is 429 and nothing is sent."""
     # W22-F007: sends outbound messages — operator-grade, so it gates
     # on the admin allowlist, not on session presence.
-    session_or_err = _require_admin_session(request)
-    if isinstance(session_or_err, JSONResponse):
-        return session_or_err
+    if not _signal_alert_cron_bearer_ok(request):
+        # No bearer: exactly the two checks that applied before the route was
+        # self-authed -- the cookie gate's, then the admin allowlist.
+        if not _is_authenticated(request):
+            return _auth_required_response()
+        session_or_err = _require_admin_session(request)
+        if isinstance(session_or_err, JSONResponse):
+            return session_or_err
+    limited, retry_after = _test_alert_rate_limited()
+    if limited:
+        return JSONResponse(
+            status_code=429,
+            content={"error": "rate_limited", "retryAfterSeconds": retry_after},
+            headers={"Retry-After": str(retry_after), "Cache-Control": "no-store"},
+        )
+    producers = (request.query_params.get("producers") or "").strip().lower()
+    if producers in ("1", "true", "yes", "on"):
+        report = await run_in_threadpool(_owner_alert_producer_test)
+        outcomes = [r.get("delivered") for r in report["producers"].values()]
+        if all(o is None for o in outcomes):
+            status_code = 400
+        elif all(o is True for o in outcomes):
+            status_code = 200
+        else:
+            status_code = 502
+        return JSONResponse(
+            status_code=status_code, content=report, headers={"Cache-Control": "no-store"}
+        )
     result = await run_in_threadpool(_owner_alert_test)
     if not any(result["configured"].values()):
         ntfy_state = str(result.get("ntfyState") or "")
@@ -20038,14 +20164,7 @@ async def run_custom_alerts(request: Request):
 
     Same bearer-token auth model as ``/api/signal-alerts/run``.
     """
-    cron_auth_ok = False
-    if SIGNAL_ALERT_CRON_TOKEN:
-        header = (request.headers.get("authorization") or "").strip()
-        if header.lower().startswith("bearer "):
-            presented = header.split(None, 1)[1].strip()
-            if _startup_guards.constant_time_equals(presented, SIGNAL_ALERT_CRON_TOKEN):
-                cron_auth_ok = True
-    if not cron_auth_ok:
+    if not _signal_alert_cron_bearer_ok(request):
         session = _get_auth_session(request)
         if not session or session.get("auth_method") != "password":
             return JSONResponse(
@@ -21495,11 +21614,13 @@ def _owner_alert_recipient() -> str | None:
     return _owner_alerts.recipient(ALERT_TO)
 
 
-def _deliver_owner_alert(to: str, subject: str, body: str) -> bool:
-    """Owner push (ntfy) first, e-mail fallback -- the sweeps' delivery callable."""
+def _deliver_owner_alert(to: str, subject: str, body: str, *, record: bool = True) -> bool:
+    """Owner push (ntfy) first, e-mail fallback -- the sweeps' delivery callable.
+    ``record=False`` keeps the attempt out of the delivery-health record (the
+    producer test)."""
     from src.utils import owner_alerts as _owner_alerts
 
-    return _owner_alerts.deliver(to, subject, body, email=_deliver_email_smtp)
+    return _owner_alerts.deliver(to, subject, body, email=_deliver_email_smtp, record=record)
 
 
 def _owner_alert_test() -> dict:
@@ -21527,6 +21648,100 @@ def _owner_alert_test() -> dict:
         email=email,
     )
     return {"configured": configured, "ntfyState": ntfy_state, "delivered": delivered}
+
+
+def _signals_notice_channels() -> dict:
+    """The Signals reconnect notice's channels, as ``deliver_reconnect_notice``
+    keyword arguments: the owner's ntfy webhook first, SMTP as fallback.  One
+    definition for the daily sweep and the producer test."""
+    from src.utils import owner_notify as _owner_notify
+
+    return {
+        "channels": [("ntfy", _owner_notify.channel())],
+        "delivery": _deliver_email_smtp if ALERT_TO else None,
+        "to_email": ALERT_TO or None,
+    }
+
+
+#: ``POST /api/test-alert?producers=1``: the real alert producers, in send order.
+OWNER_ALERT_PRODUCERS = ("opsAlerts", "sourceHealthAlerts", "sendAlert", "signalsReconnectNotice")
+#: Every ``reason`` a producer result can carry.
+OWNER_ALERT_PRODUCER_REASONS = frozenset(
+    {"delivered", "all_channels_failed", "not_configured", "producer_error"}
+)
+
+
+def _producer_test_result(send: Callable[[], bool | None]) -> dict:
+    """One producer's answer: ``delivered`` (``None`` = no channel configured for
+    it -- "not configured", never "failed") and a reason code.  A producer that
+    raises reports its exception CLASS only: a message could carry a URL."""
+    try:
+        delivered = send()
+    except Exception as exc:  # noqa: BLE001 - a test never raises into its caller
+        return {"delivered": False, "reason": "producer_error", "errorClass": type(exc).__name__}
+    if delivered is None:
+        return {"delivered": None, "reason": "not_configured"}
+    return {
+        "delivered": bool(delivered),
+        "reason": "delivered" if delivered else "all_channels_failed",
+    }
+
+
+def _owner_alert_producer_test() -> dict:
+    """Send one ``[TEST]`` notice through EACH real alert producer's formatting
+    and delivery path, synchronously (operator check, ``?producers=1``).
+
+    * ``opsAlerts`` -- ``ops_alerts.format_ops_email`` + the sweep's delivery
+      callable (``_deliver_owner_alert``) and recipient;
+    * ``sourceHealthAlerts`` -- the staleness sweep's formatters, same delivery;
+    * ``sendAlert`` -- ``send_alert``'s title and routing (``_route_send_alert``);
+    * ``signalsReconnectNotice`` -- ``format_reconnect_notice`` on the sweep's
+      own channels, first success wins.
+
+    Touches no cooldown, in-flight, incident, episode or delivery-health state:
+    nothing here can silence, delay or fake a real alert, or move
+    ``alertDelivery``.  Booleans and reason codes only -- no address, no URL."""
+    from src.api import ops_alerts as _ops
+    from src.api import source_health_alerts as _sha
+    from src.sources import signals_auth as _signals_auth
+    from src.utils import owner_alerts as _owner_alerts
+
+    recipient = _owner_alert_recipient()
+
+    def _sweep_producer(fmt: Callable[[], tuple[str, str]]) -> Callable[[], bool | None]:
+        def _send() -> bool | None:
+            subject, body = fmt()
+            if not recipient:
+                return None
+            return _deliver_owner_alert(recipient, subject, body, record=False)
+
+        return _send
+
+    def _send_alert_producer() -> bool | None:
+        subject, body = _owner_alerts.mark_test(
+            _send_alert_title("Server alert producer test (no condition fired)"),
+            "An operator check of send_alert's title and owner routing (uptime, stale "
+            "backups, scrape failures, low disk).  No cooldown was read or written.",
+        )
+        if not _send_alert_channels_configured():
+            return None
+        return _route_send_alert(subject, body, record=False)
+
+    def _signals_producer() -> bool | None:
+        return _signals_auth.send_test_reconnect_notice(**_signals_notice_channels())["delivered"]
+
+    sends: dict[str, Callable[[], bool | None]] = {
+        "opsAlerts": _sweep_producer(_ops.format_test_notice),
+        "sourceHealthAlerts": _sweep_producer(_sha.format_test_notice),
+        "sendAlert": _send_alert_producer,
+        "signalsReconnectNotice": _signals_producer,
+    }
+    return {
+        "mode": "producers",
+        "configured": {"ntfy": _owner_push_configured(), "email": _email_alerts_configured()},
+        "ntfyState": _owner_alerts.ntfy_state(),
+        "producers": {name: _producer_test_result(sends[name]) for name in OWNER_ALERT_PRODUCERS},
+    }
 
 
 def _deliver_email_smtp(to: str, subject: str, body: str) -> bool:
@@ -22303,15 +22518,7 @@ async def run_signal_alerts(request: Request):
     # sufficient on its own.  Failure mode: if no session AND no token
     # (or token mismatch), reject.  Short-circuit the token check
     # before touching cookies so an unset token can never authorize.
-    cron_auth_ok = False
-    if SIGNAL_ALERT_CRON_TOKEN:
-        header = (request.headers.get("authorization") or "").strip()
-        if header.lower().startswith("bearer "):
-            presented = header.split(None, 1)[1].strip()
-            # Constant-time compare to avoid timing leaks.
-            if _startup_guards.constant_time_equals(presented, SIGNAL_ALERT_CRON_TOKEN):
-                cron_auth_ok = True
-    if not cron_auth_ok:
+    if not _signal_alert_cron_bearer_ok(request):
         session = _get_auth_session(request)
         if not session or session.get("auth_method") != "password":
             return JSONResponse(
@@ -22641,16 +22848,11 @@ async def run_signal_alerts(request: Request):
     try:
         from src.sources import signals_auth as _signals_auth
 
-        from src.utils import owner_notify as _owner_notify
-
         # Off the event loop: it takes a file lock and may send ntfy/SMTP.
         # The owner's ntfy webhook (NOTIFY_WEBHOOK_URL, the same path the uptime
         # probe uses) first; SMTP only as fallback.  One notice per episode.
         result["signalsAuthNotice"] = await run_in_threadpool(
-            _signals_auth.deliver_reconnect_notice,
-            channels=[("ntfy", _owner_notify.channel())],
-            delivery=_deliver_email_smtp if ALERT_TO else None,
-            to_email=ALERT_TO or None,
+            _signals_auth.deliver_reconnect_notice, **_signals_notice_channels()
         )
     except Exception as exc:  # noqa: BLE001
         log.warning("signals auth notice failed: %s", exc)

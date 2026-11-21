@@ -499,6 +499,67 @@ def test_an_unjudgeable_pass_does_not_recover_a_firing_alert(tmp_path):
     assert summary["recovered"] == 2 and sent
 
 
+# -- the state backup's age (COV-BACKUP) ---------------------------------------------
+def _age_generation(tmp_path: Path, hours: float) -> None:
+    gen = _make_generation(tmp_path / "state", artifacts=_all_artifacts())
+    os.utime(gen, (NOW - hours * HOUR, NOW - hours * HOUR))
+
+
+def test_a_stale_state_backup_is_an_alert_row_and_the_stale_category(tmp_path):
+    (tmp_path / "data").mkdir()
+    _age_generation(tmp_path, bh.STALE_AFTER_HOURS + 4.0)
+    block = bh.alert_rows(_detail(tmp_path))
+    assert block["stateChecked"] is True
+    (row,) = [r for r in block["rows"] if r["kind"] == "state_backup"]
+    assert row["ageHours"] == bh.STALE_AFTER_HOURS + 4.0
+    assert row["staleAfterHours"] == bh.STALE_AFTER_HOURS
+    assert row["newestGeneration"] == "2026-11-09"
+    alerts = ops_alerts._check_backup_coverage(block)
+    assert [a.category for a in alerts] == ["backup_state_stale"]
+
+
+def test_a_state_backup_at_the_threshold_is_fresh_and_judged(tmp_path):
+    (tmp_path / "data").mkdir()
+    _age_generation(tmp_path, bh.STALE_AFTER_HOURS)
+    block = bh.alert_rows(_detail(tmp_path))
+    assert block["stateChecked"] is True
+    assert not [r for r in block["rows"] if r["kind"] == "state_backup"]
+
+
+def test_an_unreadable_state_root_is_unknown_never_stale_never_fresh(tmp_path, monkeypatch):
+    (tmp_path / "data").mkdir()
+    _age_generation(tmp_path, bh.STALE_AFTER_HOURS + 100.0)
+    blocked = os.path.normpath(str(tmp_path / "state"))
+    real = bh._listdir
+
+    def deny(path):
+        if os.path.normpath(path) == blocked:
+            raise PermissionError(13, "Permission denied", path)
+        return real(path)
+
+    monkeypatch.setattr(bh, "_listdir", deny)
+    block = bh.alert_rows(_detail(tmp_path))
+    assert block["stateChecked"] is False
+    assert not [r for r in block["rows"] if r["kind"] == "state_backup"]
+
+
+@pytest.mark.parametrize("case", ["no_generation", "future_generation", "probe_error"])
+def test_an_unjudgeable_state_backup_age_is_unknown(tmp_path, monkeypatch, case):
+    (tmp_path / "data").mkdir()
+    if case == "future_generation":
+        gen = _make_generation(tmp_path / "state", date="2026-11-09")
+        os.utime(gen, (NOW + 48 * HOUR, NOW + 48 * HOUR))  # a wrong clock, not fresh
+    elif case == "probe_error":
+
+        def boom(**_kw):
+            raise RuntimeError("exploded")
+
+        monkeypatch.setattr(bh, "state_backup_health", boom)
+    block = bh.alert_rows(_detail(tmp_path))
+    assert block["stateChecked"] is False
+    assert not [r for r in block["rows"] if r["kind"] == "state_backup"]
+
+
 # -- a deleted ledger is not "absent by design" ------------------------------------
 def _two_generations(tmp_path: Path, *, older_has: tuple[str, ...]) -> None:
     """Newest generation holds game_day only; an older one holds ``older_has``."""

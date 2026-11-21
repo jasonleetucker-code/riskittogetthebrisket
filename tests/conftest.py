@@ -418,6 +418,11 @@ def _reset_overlay_content_memos():
             memo = getattr(srv, name, None)
             if isinstance(memo, dict):
                 memo.clear()
+        # The owner test-alert budget is process-global too (5 per 10 min):
+        # one test's requests must not spend the next test's.
+        limiter = getattr(srv, "_TEST_ALERT_LIMITER", None)
+        if limiter is not None:
+            limiter.reset()
     yield
 
 

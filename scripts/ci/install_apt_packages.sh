@@ -6,6 +6,26 @@
 # Usage:
 #   bash scripts/ci/install_apt_packages.sh --resolve <package> [<package> ...]
 #   bash scripts/ci/install_apt_packages.sh <package> [<package> ...]
+#   bash scripts/ci/install_apt_packages.sh --playwright <browser> [<browser> ...]
+#
+# `--playwright` (CI-1d) replaces `npx playwright install --with-deps`, which
+# runs its own `apt-get update` + unverified, uncached, uncapped install.  After
+# the update phase (with the STAB-10 repair) it asks Playwright itself what the
+# requested browsers need: `playwright install-deps --dry-run <browsers>` runs
+# `apt-get install -s` and prints `Missing system dependencies (N):` with the
+# simulated `Inst` packages (the full transitive set; exit 1), or `All system
+# dependencies are installed.` (exit 0).  Those packages go through the same
+# verified install below -- no copy of Playwright's package table lives here,
+# so a Playwright upgrade that needs a new library just works -- then
+# `playwright install <browsers>` fetches the browsers only, and a final
+# dry-run must report everything installed or the script exits 1.  Anything
+# else from the dry-run (another exit code, no recognised header, a count that
+# disagrees with the list) is a hard failure, never "nothing to install".
+# Seam: PLAYWRIGHT_CMD (default `npx --no playwright`: the project's own
+# pinned Playwright, never a download of whatever npm serves today -- npx
+# fails instead when the local install is missing).  PW_DRY_TIMEOUT (120 s)
+# and PW_INSTALL_TIMEOUT (420 s) bound the two Playwright calls, so a hang
+# ends with a named error below the caller's step cap.
 #
 # The ONE copy of the CI apt install: PR Validation, Release Candidate and the
 # Deploy Production hard gate all call it.  Nothing here skips the install or
@@ -84,15 +104,34 @@
 set -Eeuo pipefail
 
 usage() {
-  echo "usage: $0 [--resolve] <package> [<package> ...]" >&2
+  echo "usage: $0 [--resolve] <package> [<package> ...] | $0 --playwright <browser> [<browser> ...]" >&2
 }
 
 MODE=install
+PLAYWRIGHT=0
+BROWSERS=()
 if [[ "${1:-}" == "--resolve" ]]; then
   MODE=resolve
   shift
+elif [[ "${1:-}" == "--playwright" ]]; then
+  PLAYWRIGHT=1
+  shift
+  for arg in "$@"; do
+    if [[ ! "${arg}" =~ ^[a-z][a-z0-9-]*$ ]]; then
+      echo "not a Playwright browser name: ${arg}" >&2
+      usage
+      exit 2
+    fi
+    BROWSERS+=("${arg}")
+  done
+  set --
+  if (( ${#BROWSERS[@]} == 0 )); then
+    echo "--playwright needs at least one browser" >&2
+    usage
+    exit 2
+  fi
 fi
-if (( $# == 0 )); then
+if (( ! PLAYWRIGHT && $# == 0 )); then
   usage
   exit 2
 fi
@@ -105,6 +144,11 @@ for arg in "$@"; do
 done
 
 PACKAGES=("$@")
+PLAYWRIGHT_CMD="${PLAYWRIGHT_CMD:-npx --no playwright}"
+PW_DRY_TIMEOUT="${PW_DRY_TIMEOUT:-120}"
+PW_INSTALL_TIMEOUT="${PW_INSTALL_TIMEOUT:-420}"
+PW_INDEX_FRESH=0
+PW_STATE=""
 APT_ETC_DIR="${APT_ETC_DIR:-/etc/apt}"
 OS_RELEASE_FILE="${OS_RELEASE_FILE:-/etc/os-release}"
 UBUNTU_KEYRING="${UBUNTU_KEYRING:-/usr/share/keyrings/ubuntu-archive-keyring.gpg}"
@@ -370,6 +414,112 @@ cache_key_prefix() {
   printf 'apt-debs-v1-%s-%s-' "${codename}" "${arch}"
 }
 
+
+# ── Playwright mode (CI-1d) ─────────────────────────────────────────
+
+# Parse `playwright install-deps --dry-run`.  Sets PW_STATE to "missing"
+# (PACKAGES filled) or "installed" (PACKAGES emptied); anything else is an
+# ::error and a non-zero return.
+playwright_dry_run() {
+  local out rc=0 line count="" header_seen=0 listed=()
+  # shellcheck disable=SC2086
+  out="$(timeout --kill-after=15 "${PW_DRY_TIMEOUT}" ${PLAYWRIGHT_CMD} install-deps --dry-run "${BROWSERS[@]}" 2>&1)" || rc=$?
+  if (( rc == 124 || rc == 137 )); then
+    annotate error "Playwright dependency check timed out" \
+      "playwright install-deps --dry-run ${BROWSERS[*]} did not finish within ${PW_DRY_TIMEOUT}s and was stopped. Nothing was skipped."
+    return 1
+  fi
+  if (( rc == 0 )) && grep -qxF 'All system dependencies are installed.' <<<"${out}"; then
+    PW_STATE=installed
+    PACKAGES=()
+    return 0
+  fi
+  if (( rc == 1 )); then
+    while IFS= read -r line; do
+      if [[ "${line}" =~ ^Missing\ system\ dependencies\ \(([0-9]+)\):$ ]]; then
+        header_seen=1
+        count="${BASH_REMATCH[1]}"
+      elif (( header_seen == 1 )) && [[ "${line}" =~ ^\ \ ([a-z0-9][a-z0-9+.:-]*)$ ]]; then
+        listed+=("${BASH_REMATCH[1]}")
+      elif (( header_seen )) && [[ -n "${line}" ]]; then
+        header_seen=2
+      fi
+    done <<<"${out}"
+    if (( header_seen == 1 )) && (( count > 0 && ${#listed[@]} == count )); then
+      PW_STATE=missing
+      PACKAGES=("${listed[@]}")
+      return 0
+    fi
+  fi
+  annotate error "Playwright dependency check unusable" \
+    "playwright install-deps --dry-run ${BROWSERS[*]} exited ${rc} with output this script does not recognise (expected 'All system dependencies are installed.' with exit 0, or 'Missing system dependencies (N):' with N matching the listed packages and exit 1). Nothing was skipped. Output: $(printf '%s' "${out}" | head -c 2000)"
+  return 1
+}
+
+# Update (with the STAB-10 repair), then ask Playwright what is missing.
+playwright_index_and_dry_run() {
+  local attempt
+  for attempt in $(seq 1 "${ATTEMPTS}"); do
+    ATTEMPT="${attempt}"
+    if run_update; then
+      UPDATED=1
+      if ! has_ubuntu_index && [[ "${restored}" == 0 ]]; then
+        restored=1
+        if restore_ubuntu_sources; then
+          run_update || true
+        fi
+      fi
+      if has_ubuntu_index; then
+        playwright_dry_run || exit 1
+        PW_INDEX_FRESH=1
+        return 0
+      fi
+      echo "::warning::apt attempt ${attempt}/${ATTEMPTS}: apt holds no Ubuntu archive index"
+    fi
+    if (( attempt < ATTEMPTS )); then
+      echo "::warning::apt attempt ${attempt}/${ATTEMPTS} failed; retrying in $((attempt * SLEEP_UNIT))s"
+      sleep $((attempt * SLEEP_UNIT))
+    fi
+  done
+  PACKAGES=("the system packages for Playwright ${BROWSERS[*]}")
+  fail_resolve
+}
+
+# Browsers only, then the proof that nothing Playwright needs is missing.
+playwright_finish() {
+  local rc=0
+  # shellcheck disable=SC2086
+  timeout --kill-after=15 "${PW_INSTALL_TIMEOUT}" ${PLAYWRIGHT_CMD} install "${BROWSERS[@]}" || rc=$?
+  if (( rc == 124 || rc == 137 )); then
+    echo "::error title=Playwright browser install timed out::playwright install ${BROWSERS[*]} did not finish within ${PW_INSTALL_TIMEOUT}s and was stopped; nothing skipped."
+    exit 1
+  fi
+  if (( rc != 0 )); then
+    echo "::error title=Playwright browser install failed::playwright install ${BROWSERS[*]} exited ${rc}; nothing skipped."
+    exit 1
+  fi
+  # An unusable or timed-out final check has already said so; only a check
+  # that parsed and still lists packages names them (PACKAGES is that list,
+  # never the packages the earlier pass installed).
+  if ! playwright_dry_run; then
+    exit 1
+  fi
+  if [[ "${PW_STATE}" != installed ]]; then
+    echo "::error title=Playwright dependencies still missing::after the install, playwright install-deps --dry-run ${BROWSERS[*]} still lists: ${PACKAGES[*]:-unknown} (a Playwright upgrade may have added a library). Nothing was skipped."
+    exit 1
+  fi
+  echo "Playwright ${BROWSERS[*]}: browsers installed, all system dependencies present."
+}
+
+if (( PLAYWRIGHT )); then
+  playwright_index_and_dry_run
+  if [[ "${PW_STATE}" == installed ]]; then
+    echo "Playwright ${BROWSERS[*]}: no system packages missing; skipping the apt install."
+    playwright_finish
+    exit 0
+  fi
+fi
+
 if [[ "${MODE}" == resolve ]]; then
   resolve_index
   prefix="$(cache_key_prefix)"
@@ -388,15 +538,18 @@ fi
 # the mirror); the download list is recomputed from apt's own root-owned index
 # rather than read back from a file the cache restore could have touched.
 reuse_index=0
-if [[ -r "${RESOLVED_MARKER}" ]] && grep -qxF "packages=${PACKAGES[*]}" "${RESOLVED_MARKER}"; then
+if [[ "${PW_INDEX_FRESH}" == 1 ]] ||
+  { [[ -r "${RESOLVED_MARKER}" ]] && grep -qxF "packages=${PACKAGES[*]}" "${RESOLVED_MARKER}"; }; then
   missing="$(packages_without_candidate)"
   if [[ -z "${missing}" ]] && write_manifest; then
     reuse_index=1
     UPDATED=1
-    resolved_digest="$(sed -n 's/^digest=//p' "${RESOLVED_MARKER}")"
-    if [[ "$(manifest_digest)" != "${resolved_digest}" ]]; then
-      annotate warning "apt download list changed" \
-        "the download list differs from the one --resolve keyed the cache on; every cached file is still verified against the current index."
+    if [[ "${PW_INDEX_FRESH}" != 1 ]]; then
+      resolved_digest="$(sed -n 's/^digest=//p' "${RESOLVED_MARKER}")"
+      if [[ "$(manifest_digest)" != "${resolved_digest}" ]]; then
+        annotate warning "apt download list changed" \
+          "the download list differs from the one --resolve keyed the cache on; every cached file is still verified against the current index."
+      fi
     fi
   fi
 fi
@@ -509,4 +662,7 @@ mv -- "${SAVE_DIR}" "${QUARANTINE}"
 emit_output saved "${saved}"
 emit_output reused "${reused}"
 echo "Installed: ${PACKAGES[*]} (${reused} .deb file(s) from the verified cache, ${saved} verified file(s) staged for the cache save)"
+if (( PLAYWRIGHT )); then
+  playwright_finish
+fi
 exit 0

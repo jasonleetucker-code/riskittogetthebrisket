@@ -28,6 +28,18 @@ import pytest
 from fastapi.testclient import TestClient
 
 import server
+from src.api import rate_limit
+
+
+@pytest.fixture(autouse=True)
+def _fresh_site_rate_limit():
+    """``/api/test-alert`` is on the self-authed public list, so every request
+    is also charged to the site-wide per-IP bucket, which TestClient shares
+    across tests (one ``testclient`` peer).  Start each test with it full so a
+    result never depends on how many public requests earlier tests made."""
+    rate_limit.reset_for_tests()
+    yield
+    rate_limit.reset_for_tests()
 
 
 @pytest.fixture(autouse=True)
@@ -263,3 +275,107 @@ def test_test_alert_undelivered_is_502(monkeypatch):
     with TestClient(server.app, raise_server_exceptions=True) as c:
         res = c.post("/api/test-alert")
     assert res.status_code == 502
+
+
+# ── POST /api/test-alert: the SIGNAL_ALERT_CRON_TOKEN bearer (E2E-TEST) ─────
+# The box's notify-test calls the RUNNING backend with the cron bearer, so the
+# route is self-authed: admin session OR the bearer, verified by the ONE
+# verifier ``/api/signal-alerts/run`` uses.  Everything else is refused exactly
+# as before (anonymous 401 ``auth_required``, a guest 403 ``admin_required``).
+
+_CRON = "configured-cron-token"
+
+
+def _stub_cron_environment(monkeypatch, sent, *, token=_CRON):
+    _stub_alert_environment(monkeypatch, sent)
+    monkeypatch.setattr(server, "SIGNAL_ALERT_CRON_TOKEN", token)
+
+    def _fake_producers():
+        sent.append(("producers", ""))
+        return {
+            "mode": "producers",
+            "producers": {"opsAlerts": {"delivered": True, "reason": "delivered"}},
+        }
+
+    monkeypatch.setattr(server, "_owner_alert_producer_test", _fake_producers)
+
+
+def _post_test_alert(path="/api/test-alert", headers=None):
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        return c.post(path, headers=headers or {})
+
+
+def test_test_alert_cron_bearer_without_a_session_sends(monkeypatch):
+    sent: list[tuple[str, str]] = []
+    _stub_cron_environment(monkeypatch, sent)
+    res = _post_test_alert(headers={"Authorization": f"Bearer {_CRON}"})
+    assert res.status_code == 200, res.text
+    assert sent == [("Risk It test alert", "")]
+
+
+def test_test_alert_cron_bearer_runs_the_producer_test(monkeypatch):
+    sent: list[tuple[str, str]] = []
+    _stub_cron_environment(monkeypatch, sent)
+    res = _post_test_alert(
+        "/api/test-alert?producers=1", headers={"Authorization": f"Bearer {_CRON}"}
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["mode"] == "producers"
+    assert sent == [("producers", "")]
+
+
+def test_test_alert_admin_session_runs_the_producer_test(monkeypatch):
+    sent: list[tuple[str, str]] = []
+    _stub_cron_environment(monkeypatch, sent)
+    _authed_admin(monkeypatch)
+    res = _post_test_alert("/api/test-alert?producers=1")
+    assert res.status_code == 200, res.text
+    assert sent == [("producers", "")]
+
+
+@pytest.mark.parametrize("path", ["/api/test-alert", "/api/test-alert?producers=1"])
+@pytest.mark.parametrize(
+    "header", [None, "Bearer wrong-token", f"Bearer {_CRON}x", _CRON, f"Basic {_CRON}"]
+)
+def test_test_alert_anonymous_or_wrong_bearer_is_401_and_never_sends(monkeypatch, path, header):
+    sent: list[tuple[str, str]] = []
+    _stub_cron_environment(monkeypatch, sent)
+    res = _post_test_alert(path, headers={"Authorization": header} if header else None)
+    assert res.status_code == 401, res.text
+    # Byte for byte the cookie gate's refusal, as before the route was self-authed.
+    assert res.json() == {"error": "auth_required", "message": "Sign-in required."}
+    assert res.headers.get("cache-control") == "no-store"
+    assert sent == []
+
+
+def test_test_alert_wrong_bearer_with_a_guest_session_is_403(monkeypatch):
+    sent: list[tuple[str, str]] = []
+    _stub_cron_environment(monkeypatch, sent)
+    _authed_guest(monkeypatch)
+    res = _post_test_alert(
+        "/api/test-alert?producers=1", headers={"Authorization": "Bearer wrong-token"}
+    )
+    assert res.status_code == 403
+    assert res.json().get("error") == "admin_required"
+    assert sent == []
+
+
+@pytest.mark.parametrize("header", ["Bearer ", "Bearer x", "Bearer"])
+def test_test_alert_unset_cron_token_never_authorizes(monkeypatch, header):
+    sent: list[tuple[str, str]] = []
+    _stub_cron_environment(monkeypatch, sent, token="")
+    res = _post_test_alert(headers={"Authorization": header})
+    assert res.status_code == 401
+    assert sent == []
+
+
+def test_the_cron_token_has_one_verifier():
+    """``/api/test-alert`` reuses the signal-alert sweep's verifier; no route
+    compares the cron token itself."""
+    import inspect
+    from pathlib import Path
+
+    text = Path(server.__file__).read_text(encoding="utf-8")
+    assert text.count("constant_time_equals(presented, SIGNAL_ALERT_CRON_TOKEN)") == 1
+    for handler in (server.test_alert, server.run_signal_alerts, server.run_custom_alerts):
+        assert "_signal_alert_cron_bearer_ok(request)" in inspect.getsource(handler)

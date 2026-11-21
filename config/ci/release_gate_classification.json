@@ -491,10 +491,7 @@
     "e2e.yml::e2e::Generate test session secret": {
       "category": "blocking"
     },
-    "e2e.yml::e2e::Install Playwright chromium (test runner only)": {
-      "category": "blocking"
-    },
-    "e2e.yml::e2e::Install Playwright webkit (iPhone projects)": {
+    "e2e.yml::e2e::Install Playwright browsers + system deps (chromium, webkit)": {
       "category": "blocking"
     },
     "e2e.yml::e2e::Install backend dependencies": {
