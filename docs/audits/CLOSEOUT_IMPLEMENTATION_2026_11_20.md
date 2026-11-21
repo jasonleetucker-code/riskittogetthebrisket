@@ -84,23 +84,38 @@ fabricated.
 - Keeps the last-good 2026-class CSVs. Understand pass: 91 of 92 rows join to first-year players, so the CSVs are the
   drafted 2026 class.
 - Leaves the stamps alone, so the data age stays honest.
-- Records each board's state in `data/scrape_state/dlf_board_states.json`.
+- Records each board's state in the box-local `/var/lib/dlf-fetch/dlf_board_states.json` (never committed; read by
+  `dlf-diagnostics.yml`).
 - Refuses any page from another class until an owner-approved config change.
 
 **Owner decision needed: the stale `dlfRookieSf` vote.** `dlfRookieIdp` is already vote-held. The v1 freshness curve
-decays `dlfRookieSf` (expected interval 80 h): STALE about 2026-11-27, QUARANTINED (no vote) about 2026-12-18. Until
-then, scheduled-refresh's DLF assertion and the staleness watchdog stay red. That is the deliberate rule: a stale
-source that still votes stays red.
+decays `dlfRookieSf` (expected interval 80 h): STALE about 2026-11-27, QUARANTINED (no vote) about 2026-12-18.
 
-| Option | Effect | Values change? |
-|---|---|---|
-| A. Wait | Vote decays automatically; CI red until about 12-18 or until DLF republishes | Gradually, by the existing curve |
-| B. Hold the `dlfRookieSf` vote now, plus an `acknowledgedFetchOutages` entry | The watchdog reports DEGRADED instead of red; the 2026 rookies keep `dlfSf` evidence (40 of 61 overlap) | Yes: one frozen vote is removed from about 61 rookie rows now |
-| C. When DLF publishes the 2027 class | A reviewed `rookie_class_year`/`stage` change plus a methodology decision on incoming-class votes | Yes, by decision |
-| D. Declare a seasonal policy for the DLF rookie boards | A `config/sources/seasonal_policy_v1.json` entry plus an HTML empty signature in `src/sources/seasonal_policy.py`: an empty board becomes `seasonally_inactive`, casts no vote, and the watchdog reports it verified rather than stale | Yes: the frozen vote stops while DLF publishes nothing |
+**Two separate red checks, measured 2026-11-21** (scheduled-refresh run 44861373134, health check 44878386225):
+- `Assert DLF freshness` reads the aggregate `dlf_last_success`, which `deploy/dlf_fetch_and_push.sh` writes only on a
+  fully clean run. `fetch_dlf.py` exits 1 while the rookie boards are empty (the #2275 review decision), so the stamp
+  has stayed at 2026-11-17 22:27 (77 h on 2026-11-21).
+- The staleness watchdog flags `dlfRookieSf` / `dlfRookieIdp` 77 h stale.
+- Together they make every scheduled refresh since 2026-11-19 03:50 fail (7 runs), which is the `pipeline.refresh`
+  BREACH on the production SLO. Data still flows: the refresh commits and pushes before these assertions run, and the
+  box's own scrape keeps the served board fresh (board age 0.14 h on 2026-11-21).
 
-Recommendation: **B now, D if this recurs every off-season.** The board is frozen, not merely slow, and a frozen
-vote at decaying weight is noise. Both are source-voting changes, so they are yours to approve.
+| Option | Watchdog | `Assert DLF freshness` (refresh job) | Values change? |
+|---|---|---|---|
+| A. Wait | red | red until DLF republishes rookie rankings (the 12-18 quarantine ends the vote, not this assertion) | Gradually, by the existing curve |
+| B. Hold the `dlfRookieSf` vote now, plus an `acknowledgedFetchOutages` entry | DEGRADED (the entry is honoured only while the source votes on no row, at most 14 days per entry) | still red until DLF republishes: the entry is read only by the watchdog | Yes: one frozen vote is removed from about 61 rookie rows now; the 2026 rookies keep `dlfSf` evidence (40 of 61 overlap) |
+| C. When DLF publishes the 2027 class | — | — | A reviewed `rookie_class_year`/`stage` change plus a methodology decision on incoming-class votes |
+| D. Declare a seasonal policy for the DLF rookie boards | verified, not stale | green once implemented: a declared empty board stops failing the run (the fetcher returns the seasonal state instead of 1), so the aggregate stamp advances | Yes: the frozen vote stops while DLF publishes nothing |
+
+D needs a `config/sources/seasonal_policy_v1.json` entry, an HTML empty signature in `src/sources/seasonal_policy.py`
+and the fetcher's seasonal exit path (`flockFantasySfRookies` is the existing example); it is code plus a
+source-voting decision.
+
+Recommendation (revised 2026-11-21): **D.** It is the only option that is accurate (the board is empty, not failing),
+keeps CI honest (green only because a declared state is verified, not because a check was quieted), stops treating
+frozen data as a vote, and recovers on its own when DLF publishes again (the signature no longer matches). B alone
+removes the vote but leaves the refresh job red. Both are source-voting changes, so they are yours to approve. Until
+you decide, `pipeline.refresh` stays BREACH on every scheduled health check.
 
 **Public diagnostics logs checked.** Runs 44740383578 and 44742643782 printed sanitized script excerpts. Their public
 logs hold only generic page JavaScript (follow/unfollow handlers, a position filter) and column headers: no nonce,
