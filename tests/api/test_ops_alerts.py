@@ -326,3 +326,148 @@ def test_a_failed_delivery_is_logged_and_retried(kv, caplog):
         data_age_hours=100.0, delivery=lambda *a: True, to_email="a@b.com", kv_path=kv
     )
     assert s2["fired"] == 1 and s2["delivered"] is True
+
+
+# ── COV-BACKUP: a state backup that stopped producing generations ──────────
+
+_STALE_STATE_ROW = {
+    "kind": "state_backup",
+    "state": "stale",
+    "ageHours": 61.5,
+    "staleAfterHours": 36.0,
+    "newestGeneration": "2026-11-17",
+}
+
+
+def _backup_block(rows, *, state_checked=True):
+    return {
+        "rows": list(rows),
+        "ledgersChecked": True,
+        "offboxChecked": True,
+        "proofChecked": True,
+        "stateChecked": state_checked,
+    }
+
+
+@pytest.mark.parametrize(
+    ("failed", "must", "must_not"),
+    [
+        (["riskit-state-backup.service"], "the last run failed", "is not in the failed state"),
+        ([], "is not in the failed state", "the last run failed"),
+        (["riskit-uptime.service"], "is not in the failed state", "the last run failed"),
+        (None, "If riskit-state-backup.service is not in the failed state", "the last run failed"),
+    ],
+)
+def test_stale_state_backup_text_never_contradicts_the_failed_unit_alert(failed, must, must_not):
+    """Review 2026-11-20: the text always said no unit was failed, while a failed
+    nightly is also reported as a failed unit in the same message."""
+    (a,) = oa._check_backup_coverage(_backup_block([_STALE_STATE_ROW]), failed)  # noqa: SLF001
+    assert must in a.detail and must_not not in a.detail
+
+
+def test_a_failed_nightly_yields_two_consistent_alerts_in_one_sweep(tmp_path):
+    sent = []
+    oa.check_and_alert(
+        backup_coverage=_backup_block([_STALE_STATE_ROW]),
+        failed_units=["riskit-state-backup.service"],
+        delivery=lambda to, subj, body: sent.append(body) or True,
+        to_email="ops@example.invalid",
+        kv_path=tmp_path / "kv.sqlite",
+    )
+    (body,) = sent
+    assert "riskit-state-backup.service is in the failed state" in body
+    assert "the last run failed" in body and "no unit is in the failed state" not in body
+
+
+def test_stale_state_backup_row_names_age_threshold_and_category():
+    (a,) = oa._check_backup_coverage(_backup_block([_STALE_STATE_ROW]))  # noqa: SLF001
+    assert a.category == oa.BACKUP_STATE_STALE_CATEGORY == "backup_state_stale"
+    assert a.severity == "warning"
+    assert "62 h old" in a.title
+    assert "36.0 h" in a.detail and "2026-11-17" in a.detail
+    assert "riskit-state-backup.timer" in a.detail
+
+
+def test_stale_state_backup_fires_once_then_cools_down_then_recovers(kv):
+    sent: list[tuple[str, str]] = []
+
+    def _send(to, subj, body):
+        sent.append((subj, body))
+        return True
+
+    s1 = oa.check_and_alert(
+        backup_coverage=_backup_block([_STALE_STATE_ROW]),
+        delivery=_send,
+        to_email="a@b.com",
+        kv_path=kv,
+    )
+    assert s1["fired"] == 1 and s1["categories"] == ["backup_state_stale"]
+    assert len(sent) == 1 and "State backup is stale" in sent[0][1]
+    # Still stale: inside the delivered cooldown, nothing is sent again.
+    s2 = oa.check_and_alert(
+        backup_coverage=_backup_block([_STALE_STATE_ROW]),
+        delivery=_send,
+        to_email="a@b.com",
+        kv_path=kv,
+    )
+    assert s2["fired"] == 0 and len(sent) == 1
+    # Judged fresh again: exactly one recovery notice.
+    s3 = oa.check_and_alert(
+        backup_coverage=_backup_block([]), delivery=_send, to_email="a@b.com", kv_path=kv
+    )
+    assert s3["recovered"] == 1 and len(sent) == 2
+    assert "backup_state_stale resolved" in sent[1][1]
+    s4 = oa.check_and_alert(
+        backup_coverage=_backup_block([]), delivery=_send, to_email="a@b.com", kv_path=kv
+    )
+    assert s4["recovered"] == 0 and len(sent) == 2
+
+
+def test_unknown_state_backup_age_neither_fires_nor_recovers(kv):
+    sent: list[str] = []
+
+    def _send(to, subj, body):
+        sent.append(body)
+        return True
+
+    # Unjudgeable from the start: no row, so nothing fires.
+    s0 = oa.check_and_alert(
+        backup_coverage=_backup_block([], state_checked=False),
+        delivery=_send,
+        to_email="a@b.com",
+        kv_path=kv,
+    )
+    assert s0["fired"] == 0 and sent == []
+    # Stale, delivered.
+    oa.check_and_alert(
+        backup_coverage=_backup_block([_STALE_STATE_ROW]),
+        delivery=_send,
+        to_email="a@b.com",
+        kv_path=kv,
+    )
+    assert len(sent) == 1
+    # The root became unreadable (or the probe failed, or no pass ran at all):
+    # UNKNOWN, so no recovery notice and no fresh alert.
+    for unknown in (_backup_block([], state_checked=False), None):
+        s = oa.check_and_alert(
+            backup_coverage=unknown, delivery=_send, to_email="a@b.com", kv_path=kv
+        )
+        assert s["recovered"] == 0 and s["fired"] == 0
+    assert len(sent) == 1
+
+
+def test_an_undelivered_stale_backup_alert_spends_no_cooldown(kv):
+    s1 = oa.check_and_alert(
+        backup_coverage=_backup_block([_STALE_STATE_ROW]),
+        delivery=lambda *a: False,
+        to_email="a@b.com",
+        kv_path=kv,
+    )
+    assert s1["fired"] == 1 and s1["delivered"] is False
+    s2 = oa.check_and_alert(
+        backup_coverage=_backup_block([_STALE_STATE_ROW]),
+        delivery=lambda *a: True,
+        to_email="a@b.com",
+        kv_path=kv,
+    )
+    assert s2["fired"] == 1 and s2["delivered"] is True

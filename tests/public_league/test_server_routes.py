@@ -42,6 +42,17 @@ class PublicLeagueRouteTests(unittest.TestCase):
         )
         cls.client = TestClient(app)
 
+    def setUp(self) -> None:
+        from src.api import rate_limit
+
+        # Public routes share a per-client budget (60/min, 1000/h) across the
+        # whole test process: every earlier public request in the same CI
+        # shard spends it.  Neither inherit nor leak it (the sibling memo
+        # tests do the same).  Release candidate 44900047845, shard 4: both
+        # section tests answered 429 after the shard's earlier files.
+        rate_limit.reset_for_tests()
+        self.addCleanup(rate_limit.reset_for_tests)
+
     def test_full_contract_returns_expected_shape(self) -> None:
         r = self.client.get("/api/public/league?refresh=1")
         self.assertEqual(r.status_code, 200)
