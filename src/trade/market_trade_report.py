@@ -176,6 +176,125 @@ def attach_league_maturity(
         }
 
 
+#: ``leagueMaturity.basis`` for readings resolved by
+#: :func:`league_maturity_resolver`.
+MATURITY_BASIS_PERSISTED_CHAIN = "persisted_previous_league_id_chain"
+
+
+def load_maturity_chain(
+    *,
+    intel_ledger_path: Path | None = None,
+    own_league_store_path: Path | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """``(chain, state)``: the ``previous_league_id`` chain index the box
+    ALREADY holds, read ``mode=ro`` from the intel ledger (``leagues`` +
+    capture tables, ``intel.ledger.load_league_chain``) and the own-league
+    format store (``own_league_format_capture.load_league_chain``).  No
+    network call, no crawl: a season no crawl stored stays absent.
+
+    The own-league store wins for a league both hold (it is fetched straight
+    from ``/league/{id}`` and kept indefinitely).  ``state`` is counts and
+    labels only -- never an id or a path.  A store that cannot be read is a
+    state, never a failed build."""
+    from src.intel import ledger as intel_ledger  # noqa: PLC0415
+    from src.trade import own_league_format_capture as olfc  # noqa: PLC0415
+
+    chain: dict[str, Any] = {}
+    intel_state = "intel_ledger_missing"
+    intel_hops = 0
+    try:
+        ipath = Path(intel_ledger_path) if intel_ledger_path else intel_ledger.default_path()
+    except Exception as exc:  # noqa: BLE001
+        ipath, intel_state = None, f"ledger_path_unresolvable:{type(exc).__name__}"
+    if ipath is not None and ipath.exists():
+        try:
+            conn = sqlite3.connect(f"file:{ipath.as_posix()}?mode=ro", uri=True)
+            try:
+                intel_chain = intel_ledger.load_league_chain(conn)
+            finally:
+                conn.close()
+        except sqlite3.DatabaseError as exc:
+            intel_state = f"intel_ledger_unreadable:{type(exc).__name__}"
+        else:
+            chain.update(intel_chain)
+            intel_hops = len(intel_chain)
+            intel_state = "available" if intel_chain else "empty"
+    try:
+        own_chain, own_state = olfc.load_league_chain(own_league_store_path)
+    except Exception as exc:  # noqa: BLE001 — a store fault never fails the build
+        own_chain, own_state = {}, f"own_league_format_store_unreadable:{type(exc).__name__}"
+    chain.update(own_chain)
+    return chain, {
+        "intelLedger": intel_state,
+        "intelLedgerHops": intel_hops,
+        "ownLeagueStore": own_state,
+        "ownLeagueStoreHops": len(own_chain),
+        "hops": len(chain),
+    }
+
+
+def _maturity_league_id(g: Mapping[str, Any]) -> str | None:
+    """The trade's own Sleeper season-league, or ``None`` (no chain to walk)."""
+    if str(g.get("host") or "") != "sleeper":
+        return None
+    lid = str(g.get("hostLeagueId") or "").strip()
+    if lid:
+        return lid
+    fe = g.get("formatEvidence")
+    if isinstance(fe, Mapping):
+        # An own-league trade recorded before the event carried its league id:
+        # normalize already resolved its season-league over the chain.
+        return str(fe.get("seasonLeagueId") or "").strip() or None
+    return None
+
+
+def _hook_reading(m: Any) -> dict[str, Any]:
+    """One ``LeagueMaturity`` as the hook's reading.  MISSING IS NEVER ZERO: a
+    start league no store holds, or a lower bound of zero ("at least 0" says
+    nothing), is ``unknown`` with no count."""
+    from src.intel import league_filter as lf  # noqa: PLC0415
+
+    if not m.walked:
+        return {"completedSeasons": None, "certainty": ev.MATURITY_UNKNOWN}
+    if m.state == lf.MATURITY_EXACT:
+        return {"completedSeasons": m.completed_seasons, "certainty": ev.MATURITY_EXACT}
+    if m.completed_seasons <= 0:
+        return {"completedSeasons": None, "certainty": ev.MATURITY_UNKNOWN}
+    return {"completedSeasons": m.completed_seasons, "certainty": ev.MATURITY_LOWER_BOUND}
+
+
+def league_maturity_resolver(chain: Mapping[str, Any]) -> MaturityResolver:
+    """The :data:`MaturityResolver` over a persisted chain index (see
+    :func:`load_maturity_chain`).  Maturity itself is decided by its one
+    owner, ``league_filter.resolve_league_maturity``, under both readings;
+    this only maps the answer onto the hook.  A non-Sleeper trade, or one with
+    no season-league, returns ``None`` (both readings ``unknown``).  It reads
+    nothing but ``host`` / ``hostLeagueId`` / ``formatEvidence``, so it cannot
+    change which trades are kept or grouped."""
+    from src.intel import league_filter as lf  # noqa: PLC0415
+
+    successors = lf.successor_index(chain)
+    memo: dict[str, dict[str, Any]] = {}
+
+    def resolve(g: Mapping[str, Any]) -> Mapping[str, Any] | None:
+        lid = _maturity_league_id(g)
+        if lid is None:
+            return None
+        if lid not in memo:
+            pit = lf.resolve_league_maturity(lid, chain, reading=lf.READING_POINT_IN_TIME)
+            now = lf.resolve_league_maturity(
+                lid, chain, reading=lf.READING_LEAGUE_LEVEL, successors=successors
+            )
+            memo[lid] = {
+                "pointInTime": _hook_reading(pit),
+                "asOfBuild": _hook_reading(now),
+                "basis": MATURITY_BASIS_PERSISTED_CHAIN,
+            }
+        return memo[lid]
+
+    return resolve
+
+
 def _jsonable_group(g: Mapping[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in g.items() if not k.startswith("_")}
 

@@ -803,6 +803,73 @@ def prune(
     return removed
 
 
+# ── league season chain (read-only, for league maturity) ─────────────
+
+
+def load_league_chain(conn: sqlite3.Connection) -> dict[str, Any]:
+    """``{league_id: league_filter.ChainHop}`` from what this ledger ALREADY
+    holds -- the ``previous_league_id`` link, season and type that discovery
+    stored in ``leagues``, plus the latest observed status (and type / season
+    fallbacks) from the league-format capture tables in the same file.
+
+    Read-only (safe on a ``mode=ro`` connection); ``{}`` when the table is
+    absent.  It makes no network call and walks nothing: a predecessor no
+    crawl ever stored is simply absent, so a maturity walk stops there as a
+    lower bound.
+
+    A row whose ``previous_league_id`` column is NULL is LEFT OUT: discovery
+    stores Sleeper's ``"0"`` terminator verbatim, while the Insider ingest
+    writes leagues with no link at all, so NULL means "link never stated", not
+    "no predecessor" -- reading it as a terminator would turn unknown into an
+    exact count.
+    """
+    import json  # noqa: PLC0415
+
+    from src.intel.league_filter import ChainHop, predecessor_league_id  # noqa: PLC0415
+    from src.sharp import league_format_capture as lfc  # noqa: PLC0415 — imports this module
+
+    try:
+        rows = conn.execute(
+            "SELECT league_id, season, previous_league_id, settings_json FROM leagues"
+        ).fetchall()
+    except sqlite3.OperationalError as exc:
+        if "no such table" in str(exc).lower():
+            return {}
+        raise
+    facts = lfc.load_league_facts(conn)
+    out: dict[str, Any] = {}
+    for lid, season, prev, settings_json in rows:
+        lid = str(lid or "").strip()
+        if not lid or prev is None or str(prev).strip() == "":
+            continue
+        try:
+            settings = json.loads(settings_json) if settings_json else {}
+        except (TypeError, ValueError):
+            settings = {}
+        if not isinstance(settings, dict):
+            settings = {}
+        f = facts.get(lid) or {}
+        ltype = settings.get("type")
+        try:
+            ltype = int(ltype) if ltype is not None and not isinstance(ltype, bool) else None
+        except (TypeError, ValueError):
+            ltype = None
+        bb_raw = settings.get("bestBall")
+        try:
+            bb = None if bb_raw is None else int(bb_raw) == 1
+        except (TypeError, ValueError):
+            bb = None
+        out[lid] = ChainHop(
+            league_id=lid,
+            previous_league_id=predecessor_league_id({"previous_league_id": prev}),
+            season=(str(season).strip() if season is not None else "") or f.get("season"),
+            league_type=ltype if ltype is not None else f.get("leagueType"),
+            status=f.get("status"),
+            best_ball=bb if bb is not None else f.get("bestBall"),
+        )
+    return out
+
+
 # ── queries ──────────────────────────────────────────────────────────
 
 
