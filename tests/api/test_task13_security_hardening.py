@@ -73,7 +73,9 @@ def test_systemd_unit_sets_production_marker_after_env_file():
 
 
 # ── B: non-ASCII bearer must be a 401, not a 500 ─────────────────────────
-@pytest.mark.parametrize("path", ["/api/signal-alerts/run", "/api/custom-alerts/run"])
+@pytest.mark.parametrize(
+    "path", ["/api/signal-alerts/run", "/api/custom-alerts/run", "/api/test-alert"]
+)
 def test_non_ascii_bearer_is_401_not_500(monkeypatch, path):
     monkeypatch.setattr(server, "SIGNAL_ALERT_CRON_TOKEN", "configured-token")
     client = TestClient(server.app, raise_server_exceptions=False)
@@ -92,7 +94,9 @@ def test_constant_time_equals_semantics():
     assert not constant_time_equals("anything", "")
 
 
-@pytest.mark.parametrize("path", ["/api/signal-alerts/run", "/api/custom-alerts/run"])
+@pytest.mark.parametrize(
+    "path", ["/api/signal-alerts/run", "/api/custom-alerts/run", "/api/test-alert"]
+)
 def test_unset_cron_token_never_authorizes(monkeypatch, path):
     monkeypatch.setattr(server, "SIGNAL_ALERT_CRON_TOKEN", "")
     client = TestClient(server.app, raise_server_exceptions=False)

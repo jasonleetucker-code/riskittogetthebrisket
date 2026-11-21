@@ -18,10 +18,16 @@ and `ALERT_TO` is not set. Every production alert reached no one, except the Git
 - `health-check.yml` pushes to the same topic, read from the repo secret `NOTIFY_WEBHOOK_URL`. It pushes on a NEW
   health or SLO incident, a CHANGED breach set, and every recovery — never on every run.
 - Ways to verify:
-  - `POST /api/test-alert` (admin) reports per-channel delivery as booleans, plus `ntfyState`;
+  - `POST /api/test-alert` reports per-channel delivery as booleans, plus `ntfyState`. It accepts an
+    allowlisted admin session or, since 2026-11-20, the box's `SIGNAL_ALERT_CRON_TOKEN` bearer (the same
+    verifier as `/api/signal-alerts/run`). Without either it is refused as before: 401 `auth_required`, or
+    403 `admin_required` for a non-allowlisted session;
+  - `POST /api/test-alert?producers=1` (added 2026-11-20) sends one `[TEST]` notice through each real
+    alert producer of the RUNNING process (see "Producer test" below);
   - the Signals probe reports which channels the box has configured (`alertRouting.*`, booleans only, plus
     `ntfyState`);
-  - `signals-health-probe.yml` mode `notify-test` sends one labelled TEST push per alert class from the box.
+  - `signals-health-probe.yml` mode `notify-test` sends one labelled TEST push per alert class from the box,
+    runs the producer test against the local backend, and reports the push-capable drop-in units.
 - Added 2026-11-20 (alert delivery hardening):
   - **One validator.** `src/utils/owner_notify.py::validate` decides whether a `NOTIFY_WEBHOOK_URL` value is
     usable: lower-case `https://` with a host, or `http://` to loopback; no spaces, no `user:pass@`, no quotes.
@@ -48,8 +54,9 @@ and `ALERT_TO` is not set. Every production alert reached no one, except the Git
     persisted, so none has failed) or `unreadable`. The SLO rule `alert_delivery_failing` is OK with no channel
     configured ("nothing can fail here"), OK with a channel and `none` ("no delivery has been attempted yet"),
     and UNKNOWN only when the record is unreadable or not reported. To record an attempt at once, send `POST
-    /api/test-alert` (admin). The `notify-test` probe mode does not record anything: it runs outside the server
-    and never writes the server's store.
+    /api/test-alert` (admin). The `notify-test` probe mode does not record anything: its own pushes run outside
+    the server and never write the server's store, and the producer test it asks the backend for
+    (`?producers=1`) is kept out of the record on purpose.
 
 **What you need to do (about 10 minutes).** The topic name is a secret: anyone who knows it can read and post to it.
 Never paste it in chat, an issue or a commit.
@@ -94,16 +101,51 @@ Never paste it in chat, an issue or a commit.
 |---|---|---|
 | Box configuration | `signals-health-probe.yml` mode `health` | `alertRouting.ntfyConfigured` and `renewalNtfyConfigured` `true`, `alertRouting.ntfyState` `ok`; `uptimeProbeNtfyConfigured` `true` only if you installed the uptime probe (otherwise `null`) |
 | Box → phone path | `signals-health-probe.yml` mode `notify-test` | 5 labelled TEST pushes arrive. You confirm 5 |
+| Running backend → phone | the same `notify-test` run (`backend` block) | `backend.state` `ok`; `opsAlerts`, `sourceHealthAlerts`, `sendAlert` and `signalsReconnectNotice` each `delivered: true`. 4 more `[TEST]` notices arrive. You confirm 4 |
+| Drop-in units | the same `notify-test` run (`dropinUnits`) | each unit of `PUSH_DROPIN_UNITS`, spelled as an identifier (`riskit_uptime_service`): `true` = its own webhook is set and valid, `false` = loaded without one, `null` = not loaded or unreadable |
 | GitHub → phone | `health-check.yml` dispatch with `owner_push_test: true` | 1 TEST push arrives. You confirm 1 |
 | A REAL alert | the next daily alert sweep (`dynasty-signal-alerts`) | The real "Signals reconnect required" notice arrives, because the episode has been open since the session failed. The probe then shows `reconnectNoticeDelivered: true` |
 | Delivery health | `/api/status` after that sweep | `alertDelivery.lastDeliveredAt` set, `consecutiveFailures` `0`, `alertSweepAgeHours` below 30 |
 
 What the TEST pushes prove, and what they do not. The 5 box pushes are title-only messages sent with the `.env`
-URL by `scripts/send_owner_test_alert.py`. They prove that the box can reach your phone with that URL. They do not
-prove that each alert class is produced. Two of the five classes are not box alerts at all: deploy lag and the
-health/SLO alerts come from `health-check.yml` with the repo secret, and the GitHub row proves that path. The
-production paths that build the real box alerts (`send_alert`, the ops and staleness sweeps) are covered by unit
-tests and by the "A REAL alert" row.
+URL by `scripts/send_owner_test_alert.py`. They prove that the box can reach your phone with that URL. They do
+not prove that the running backend uses that URL: a backend that was never restarted after the `.env` edit
+still passes them. Two of the five classes are not box alerts at all: deploy lag and the health/SLO alerts come
+from `health-check.yml` with the repo secret, and the GitHub row proves that path.
+
+**Producer test (added 2026-11-20).** The same `notify-test` run then calls the LOCAL backend's
+`POST /api/test-alert?producers=1` with the `SIGNAL_ALERT_CRON_TOKEN` from `.env`. The backend sends one
+notice through each real producer, synchronously, with the channels the RUNNING process loaded:
+
+- `opsAlerts`: `ops_alerts.format_ops_email` and the sweep's delivery callable;
+- `sourceHealthAlerts`: the staleness sweep's formatters, same delivery;
+- `sendAlert`: `send_alert`'s `[Dynasty Server]` title and routing;
+- `signalsReconnectNotice`: `format_reconnect_notice` on the sweep's own channels (ntfy, then e-mail).
+
+Every title starts with `[TEST]` and every body opens with a line saying nothing fired. The test reads and
+writes no cooldown, in-flight, incident, Signals episode or delivery-health state, so it cannot silence, delay
+or fake a real alert, and it does not move `/api/status` `alertDelivery`. The response, and the probe's
+`backend` block, carry per-producer `delivered` (`true` / `false` / `null` = no channel for that producer) and a
+`reason` (`delivered`, `all_channels_failed`, `not_configured`, `producer_error` with the exception class). They
+never carry a URL, an address or the token. How to read `backend.state`:
+
+| `backend.state` | Meaning | Exit |
+|---|---|---|
+| `ok` | HTTP 200: every producer delivered | 0 |
+| `failed` | HTTP 502: at least one producer did not deliver (read its `reason`) | 1 |
+| `not_configured` | HTTP 400: the running process has no channel at all. If `.env` has the URL, the backend was not restarted after the edit (`sudo systemctl restart dynasty`) | 1 |
+| `refused` | HTTP 401/403: the running backend has a different token, or predates this change | 1 |
+| `rate_limited` | HTTP 429: the shared owner test-alert budget is spent (a burst of 5, then one more every 2 minutes, for every caller together). The backend is healthy and nothing was sent; run again after `retryAfterSeconds` | 1 |
+| `unreachable` | the backend did not answer on 127.0.0.1:8000 (`errorClass` says how) | 1 |
+| `token_absent` | `.env` has no `SIGNAL_ALERT_CRON_TOKEN`, so the check did not run. Nothing else fails | unchanged |
+
+Exit 3 still means the `.env` has no usable push URL (no `.env` push was sent); the producer test and the
+drop-in report run anyway. The production paths are also covered by unit tests
+(`tests/api/test_owner_alert_producers.py`) and by the "A REAL alert" row.
+
+**Not done: a weekly heartbeat.** A scheduled weekly producer test would push to your phone every week, so it
+needs your decision first. Nothing schedules the producer test today; it runs only when `notify-test` is
+dispatched or an admin calls the route.
 
 **Deduplication and recovery (unit-tested).**
 
