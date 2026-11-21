@@ -1,0 +1,245 @@
+{
+  "description": "CSV formula-injection parity cases. Read by tests/api/test_task13_security_hardening.py (Python owner src/public_league/csv_export.py) and frontend/__tests__/csv-cell.test.js (client owner frontend/lib/csv-cell.js); both must produce every expected value byte for byte. Numbers here are ones whose shortest text form is identical in both languages (no 1.0, no exponents).",
+  "neutralize": [
+    {
+      "input": "=1+1",
+      "expected": "'=1+1"
+    },
+    {
+      "input": "+cmd",
+      "expected": "'+cmd"
+    },
+    {
+      "input": "-2+3",
+      "expected": "'-2+3"
+    },
+    {
+      "input": "@SUM(A1)",
+      "expected": "'@SUM(A1)"
+    },
+    {
+      "input": "=HYPERLINK(\"http://x\",\"y\")",
+      "expected": "'=HYPERLINK(\"http://x\",\"y\")"
+    },
+    {
+      "input": "\t=1",
+      "expected": "'\t=1"
+    },
+    {
+      "input": "\r=1",
+      "expected": "'\r=1"
+    },
+    {
+      "input": "\tplain",
+      "expected": "'\tplain"
+    },
+    {
+      "input": "\rplain",
+      "expected": "'\rplain"
+    },
+    {
+      "input": " =1",
+      "expected": "' =1"
+    },
+    {
+      "input": "\n=1",
+      "expected": "'\n=1"
+    },
+    {
+      "input": "\u0000=1",
+      "expected": "'\u0000=1"
+    },
+    {
+      "input": "\u000b=1",
+      "expected": "'\u000b=1"
+    },
+    {
+      "input": "\f=1",
+      "expected": "'\f=1"
+    },
+    {
+      "input": "\ufeff=1",
+      "expected": "'\ufeff=1"
+    },
+    {
+      "input": "\u00a0=1",
+      "expected": "'\u00a0=1"
+    },
+    {
+      "input": " \n\t+1",
+      "expected": "' \n\t+1"
+    },
+    {
+      "input": "plain text",
+      "expected": "plain text"
+    },
+    {
+      "input": "",
+      "expected": ""
+    },
+    {
+      "input": "Josh Allen",
+      "expected": "Josh Allen"
+    },
+    {
+      "input": "a=b",
+      "expected": "a=b"
+    },
+    {
+      "input": "1-2",
+      "expected": "1-2"
+    },
+    {
+      "input": "   ",
+      "expected": "   "
+    },
+    {
+      "input": " \n",
+      "expected": " \n"
+    },
+    {
+      "input": "'=already-quoted",
+      "expected": "'=already-quoted"
+    },
+    {
+      "input": "=",
+      "expected": "'="
+    },
+    {
+      "input": "\u2003=1",
+      "expected": "\u2003=1"
+    },
+    {
+      "input": "\uff1d1",
+      "expected": "\uff1d1"
+    },
+    {
+      "input": "Team -Tank",
+      "expected": "Team -Tank"
+    },
+    {
+      "input": "-",
+      "expected": "'-"
+    }
+  ],
+  "cell": [
+    {
+      "input": -3.5,
+      "expected": "-3.5"
+    },
+    {
+      "input": -7,
+      "expected": "-7"
+    },
+    {
+      "input": 0.25,
+      "expected": "0.25"
+    },
+    {
+      "input": 0,
+      "expected": "0"
+    },
+    {
+      "input": 12,
+      "expected": "12"
+    },
+    {
+      "input": 9999,
+      "expected": "9999"
+    },
+    {
+      "input": -0.5,
+      "expected": "-0.5"
+    },
+    {
+      "input": true,
+      "expected": "true"
+    },
+    {
+      "input": false,
+      "expected": "false"
+    },
+    {
+      "input": null,
+      "expected": ""
+    },
+    {
+      "input": "plain text",
+      "expected": "plain text"
+    },
+    {
+      "input": "=1+1",
+      "expected": "'=1+1"
+    },
+    {
+      "input": "-",
+      "expected": "'-"
+    },
+    {
+      "input": "Bijan Robinson",
+      "expected": "Bijan Robinson"
+    },
+    {
+      "input": [
+        "=x",
+        "y"
+      ],
+      "expected": "'=x | y"
+    },
+    {
+      "input": [
+        1,
+        -2
+      ],
+      "expected": "1 | -2"
+    },
+    {
+      "input": [
+        -2,
+        1
+      ],
+      "expected": "'-2 | 1"
+    },
+    {
+      "input": [],
+      "expected": ""
+    },
+    {
+      "input": [
+        null,
+        true
+      ],
+      "expected": " | true"
+    },
+    {
+      "input": [
+        "a",
+        [
+          "=b",
+          "c"
+        ]
+      ],
+      "expected": "a | =b | c"
+    },
+    {
+      "input": {
+        "a": 1,
+        "b": "=x"
+      },
+      "expected": "a=1; b==x"
+    },
+    {
+      "input": {
+        "=k": 1
+      },
+      "expected": "'=k=1"
+    },
+    {
+      "input": {
+        "team": "-Tank",
+        "n": -3
+      },
+      "expected": "team=-Tank; n=-3"
+    }
+  ]
+}

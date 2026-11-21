@@ -63,7 +63,10 @@ describe("/trades header honesty", () => {
       error: "network exploded",
     });
     render(<TradesPage />);
-    expect(document.body.textContent).toMatch(/Couldn't load trade data/);
+    // The classified failure (FailureState) names what could not load and
+    // keeps the reason; see trades-failure-retry.test.jsx for the retry.
+    expect(document.body.textContent).toMatch(/trade data/);
+    expect(document.body.textContent).toMatch(/network exploded/);
     expect(document.body.textContent).not.toMatch(/0 trades in the last/);
   });
 

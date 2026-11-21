@@ -7,6 +7,7 @@ import {
   Button,
   DataTable,
   EmptyState,
+  FailureState,
   Field,
   PageHeader,
   Panel,
@@ -26,6 +27,7 @@ import {
   RISK_POSTURE_OPTIONS,
 } from "@/components/waivers/FaabRecommendation";
 import { useApp } from "@/components/AppShell";
+import { failureForDisplay } from "@/lib/contract-failure";
 import { useAuthContext } from "@/app/AppShellWrapper";
 import { useLeague } from "@/components/useLeague";
 import { useTeam } from "@/components/useTeam";
@@ -608,7 +610,10 @@ function AddablePanel({ rows, dropState }) {
 // ── Page ──────────────────────────────────────────────────────────────
 
 export default function WaiversPage() {
-  const { privateDataEnabled, rows, rawData } = useApp();
+  // `failure` / `retry`: the classified contract failure and the refetch that
+  // goes with it (useDynastyData via AppShell) — so a failed load reads as
+  // what it is (degraded, unavailable, timed out…) and can be retried.
+  const { privateDataEnabled, rows, rawData, failure: contractFailure, retry } = useApp();
   const { authenticated } = useAuthContext();
   const { selectedLeague } = useLeague();
   const { selectedTeam, loading: teamLoading } = useTeam();
@@ -658,7 +663,15 @@ export default function WaiversPage() {
         />
       );
     }
-    if (error) return <Banner tone="negative" title="Waiver analysis failed">{error}</Banner>;
+    if (error) {
+      return (
+        <FailureState
+          failure={failureForDisplay(contractFailure, error)}
+          onRetry={retry}
+          context="waiver analysis"
+        />
+      );
+    }
     if (leagueMismatch) {
       return (
         <EmptyState

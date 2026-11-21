@@ -13,6 +13,7 @@ import { arbitrageHref } from "@/lib/arbitrage-links";
 import { PICK_OWNERSHIP_UNAVAILABLE_LABEL } from "@/lib/pick-ownership";
 import { teamPickLabels } from "@/lib/trade-assets";
 import { Badge, Banner, Button, Field, Panel, Select } from "@/components/ds";
+import TradeToolErrorBanner from "@/components/arbitrage/TradeToolErrorBanner";
 import { SUGG_TYPES } from "./trade-sections";
 import styles from "./trade.module.css";
 
@@ -277,11 +278,10 @@ export function SuggestionsDesk({
           </p>
         ) : null}
 
-        {error ? (
-          <Banner tone="negative" title="Suggestions failed">
-            {error}
-          </Banner>
-        ) : null}
+        {/* `error` is a classified request failure (never a bare backend
+            code), or a plain sentence for the roster input check.  "Try
+            again" re-runs the same request. */}
+        <TradeToolErrorBanner failure={error} title="Suggestions failed" onRetry={onFetch} />
 
         {analysis ? (
           <div className={styles.suggestAnalysis}>

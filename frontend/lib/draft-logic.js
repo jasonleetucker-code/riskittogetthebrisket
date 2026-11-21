@@ -57,6 +57,7 @@
  */
 
 import { classifyPos } from "./dynasty-data.js";
+import { csvLine } from "./csv-cell.js";
 
 // ── Storage key ─────────────────────────────────────────────────────────
 export const DRAFT_STORAGE_KEY = "next_draft_board_v1";
@@ -2454,14 +2455,12 @@ export function computeDraftReview(workspace, stats) {
  */
 export function draftReviewToCsv(review) {
   if (!review) return "";
-  const esc = (v) => {
-    const s = String(v ?? "");
-    if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-    return s;
-  };
-  const lines = [review.csvHeader.join(",")];
+  // Team and manager names come from Sleeper: every cell goes through the one
+  // CSV owner (lib/csv-cell), which neutralizes spreadsheet formulas and
+  // leaves real numbers (paid, deltas) as numbers.
+  const lines = [csvLine(review.csvHeader)];
   for (const row of review.csvBody) {
-    lines.push(row.map(esc).join(","));
+    lines.push(csvLine(row));
   }
   return lines.join("\n");
 }
