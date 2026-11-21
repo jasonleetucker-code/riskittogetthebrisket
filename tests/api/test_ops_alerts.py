@@ -349,6 +349,36 @@ def _backup_block(rows, *, state_checked=True):
     }
 
 
+@pytest.mark.parametrize(
+    ("failed", "must", "must_not"),
+    [
+        (["riskit-state-backup.service"], "the last run failed", "is not in the failed state"),
+        ([], "is not in the failed state", "the last run failed"),
+        (["riskit-uptime.service"], "is not in the failed state", "the last run failed"),
+        (None, "If riskit-state-backup.service is not in the failed state", "the last run failed"),
+    ],
+)
+def test_stale_state_backup_text_never_contradicts_the_failed_unit_alert(failed, must, must_not):
+    """Review 2026-11-20: the text always said no unit was failed, while a failed
+    nightly is also reported as a failed unit in the same message."""
+    (a,) = oa._check_backup_coverage(_backup_block([_STALE_STATE_ROW]), failed)  # noqa: SLF001
+    assert must in a.detail and must_not not in a.detail
+
+
+def test_a_failed_nightly_yields_two_consistent_alerts_in_one_sweep(tmp_path):
+    sent = []
+    oa.check_and_alert(
+        backup_coverage=_backup_block([_STALE_STATE_ROW]),
+        failed_units=["riskit-state-backup.service"],
+        delivery=lambda to, subj, body: sent.append(body) or True,
+        to_email="ops@example.invalid",
+        kv_path=tmp_path / "kv.sqlite",
+    )
+    (body,) = sent
+    assert "riskit-state-backup.service is in the failed state" in body
+    assert "the last run failed" in body and "no unit is in the failed state" not in body
+
+
 def test_stale_state_backup_row_names_age_threshold_and_category():
     (a,) = oa._check_backup_coverage(_backup_block([_STALE_STATE_ROW]))  # noqa: SLF001
     assert a.category == oa.BACKUP_STATE_STALE_CATEGORY == "backup_state_stale"
