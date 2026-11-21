@@ -167,7 +167,10 @@ def test_public_status_serves_numbers_and_withholds_source_names(planted):
     assert "signalsSf" not in json.dumps(slo)
     # Moves with signed-in users' private analyses: operator-only.
     assert slo["rosterUnverifiableTrades"] == "withheld"
-    assert "rosterState" in slo  # the roster verdict itself stays public
+    # The roster verdict itself stays public: the production SLO check reads it
+    # from this anonymous projection (a "withheld" string would read UNKNOWN).
+    for key in ("rosterState", "rosterSource", "rosterAgeHours", "rosterMaxAgeHours"):
+        assert key in slo and slo[key] != "withheld", key
 
 
 def test_admin_content_carries_the_per_source_detail(planted):
@@ -176,6 +179,42 @@ def test_admin_content_carries_the_per_source_detail(planted):
     assert slo["rosterUnverifiableTrades"] != "withheld"
     assert slo["privateSourceDetail"][0]["source"] == "signalsSf"
     assert slo["privateSourceDetail"][0]["ageHours"] == 380.0
+
+
+def test_admin_content_carries_the_server_side_refusal_counter(planted):
+    """The server reads the counter from ``trade_ledger`` itself; pin that wiring
+    (a swallowed import error would otherwise publish ``None`` forever)."""
+    counts = {"stale": 2, "unknown": 5, "since": "2026-11-21T00:00:00+00:00"}
+    planted.setattr("src.trade.trade_ledger.roster_refusal_counts", lambda: dict(counts))
+    slo = server._status_content()["freshness_slo"]
+    assert slo["rosterUnverifiableTrades"] == counts
+
+
+def test_public_current_roster_verdict_reaches_the_production_slo_rule(planted):
+    """End to end: a current roster block on the box -> anonymous /api/status ->
+    ``scripts/check_production_slo.rule_roster_age`` answers OK, not UNKNOWN."""
+    import importlib.util
+    import sys
+
+    contract = dict(server.latest_contract_data)
+    fetched = datetime.now(timezone.utc).replace(microsecond=0)
+    contract["sleeper"] = {"rosterSource": "live", "rosterFetchedAt": fetched.isoformat()}
+    planted.setattr(server, "latest_contract_data", contract)
+    slo = json.loads(asyncio.run(server.get_status()).body)["freshness_slo"]
+    assert slo["rosterState"] == "current"
+
+    spec = importlib.util.spec_from_file_location(
+        "check_production_slo_e2e", _REPO / "scripts/check_production_slo.py"
+    )
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
+    try:
+        spec.loader.exec_module(mod)
+        snap = mod.Snapshot(now=datetime.now(timezone.utc), freshness_slo=slo)
+        result = mod.rule_roster_age(snap, {})
+    finally:
+        sys.modules.pop(spec.name, None)
+    assert result.status == mod.OK, result
 
 
 def test_status_without_a_contract_says_unknown_not_healthy(monkeypatch):
