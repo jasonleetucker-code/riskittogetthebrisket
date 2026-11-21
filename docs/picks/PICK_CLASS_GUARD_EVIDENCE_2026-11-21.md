@@ -331,10 +331,14 @@ differ slightly because the 2026 rookie ladder moved. The max movement there is
   * Effect: they shift the tether ladder for the slots after them.
   * Measured: 0 on all three boards.
   * Visibility: counted per reason on `pickClassTetherGuard.rookiePool`.
-* **An unpriced round-1–4 slot fails the build while the flag is ON.** If a
-  market stops publishing one slot of rounds 1–4, there is no approved slot
-  derivation for those rounds. The census then reports a structural error
-  rather than inventing a number.
+* **A round-1–4 slot with neither a slot market nor a tier market fails the
+  build while the flag is ON.** The census reports a structural error rather
+  than inventing a number. This needs both pick markets to lose the class's
+  tier for that round.
+* **A tier-priced slot has `direct_market_blend` provenance and no positive
+  source value of its own.** If such a slot ever carries no source value at
+  all, Check 5 flags it `no_valid_source_values`. A slot row only exists
+  because a vendor published it, so this does not happen in practice.
 * **The board keeps the 2027 tier rows suppressed** as aliases of the slots.
   That is unchanged from OFF; see §4c for the alternative.
 * **ON reopens audit W05-F006 in season** (single-vendor slot picks).
