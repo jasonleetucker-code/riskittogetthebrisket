@@ -60,7 +60,16 @@ no root.  It executes from the checkout, which is safe precisely
 because the process has no more privilege than the user who can edit
 that file.  The log still lands in `/var/log/riskit-uptime.log`
 because systemd opens the `StandardOutput=append:` target as root
-before dropping to `User=`; run-to-run state lives in `/var/tmp`.
+before dropping to `User=`.  Run-to-run state (the last status and one
+retry queue per notification channel) lives in `/var/lib/riskit-uptime`,
+a private directory (mode 0700) systemd creates for `User=` through
+`StateDirectory=`.  The script refuses a state directory it does not own
+or that others can write, and then uses its private default instead; from
+cron that default is `~/.local/state/riskit-uptime`.  Delivery is
+at-least-once: a message leaves the queue only when the channel accepted
+it (HTTP 2xx, or exit 0 from `NOTIFY_CMD`), so a run killed mid-delivery
+re-sends at most the one message it was sending.  Accepted is not read:
+nothing here confirms the owner saw it.
 
 ## Known limitation
 

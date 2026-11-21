@@ -21,8 +21,13 @@ ExecStart=/home/dynasty/trade-calculator/deploy/monitoring/uptime_check.sh
 StandardOutput=append:/var/log/riskit-uptime.log
 StandardError=append:/var/log/riskit-uptime.log
 Environment="LOG_FILE=/dev/stdout"
-# State must live somewhere the deploy user can write.
-Environment="STATE_FILE=/var/tmp/riskit-uptime.state"
+# Status and retry queues live in a PRIVATE directory systemd creates for
+# User= (/var/lib/riskit-uptime, mode 0700); the script reads it from
+# $STATE_DIRECTORY.  Never point STATE_FILE at a shared directory such as
+# /var/tmp: the script refuses one it does not own or that others can write.
+StateDirectory=riskit-uptime
+StateDirectoryMode=0700
+UMask=0077
 # The probe is log-only by default.  To enable notifications, add a
 # drop-in (`systemctl edit riskit-uptime.service`):
 #   [Service]

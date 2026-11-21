@@ -331,3 +331,103 @@ def test_uptime_queue_never_hands_a_planted_line_to_curl(box, tmp_path):
     assert msgs == ["[riskit-uptime] UP -> DOWN at earlier: probes"]
     assert "TOP-SECRET-CONTENT" not in box.push_log.read_text()
     assert _queue(box, "webhook") == []
+
+
+# -- queue storage hardening (2026-11-21 audit) ------------------------------------
+UPTIME_UNIT = ROOT / "deploy/monitoring/riskit-uptime.service"
+
+
+def test_uptime_refuses_a_shared_state_directory_and_uses_the_private_default(box, tmp_path):
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    shared.chmod(0o1777)  # like /var/tmp: sticky and world-writable
+    home = tmp_path / "home"
+    home.mkdir()
+    cp = box.run(
+        UPTIME, STATE_FILE=str(shared / "riskit-uptime.state"), HOME=str(home), **UPTIME_DOWN
+    )
+    assert "is not private" in (box.dir / "uptime.log").read_text()
+    private = home / ".local/state/riskit-uptime"
+    assert (private / "state").read_text().strip() == "DOWN"
+    assert oct(private.stat().st_mode & 0o777) == "0o700"
+    assert oct((private / "state").stat().st_mode & 0o777) == "0o600"
+    assert list(shared.iterdir()) == [], "nothing is written to the shared directory"
+    assert cp.returncode == 1
+
+
+def test_uptime_never_follows_a_symlinked_queue_file(box, tmp_path):
+    target = tmp_path / "victim.txt"
+    target.write_text("[riskit-uptime] FORGED -> line from a symlink target\n")
+    (box.dir / "uptime.state").write_text("UP\n")
+    (box.dir / "uptime.state.pending-webhook").symlink_to(target)
+    _uptime(box, up=False)
+    msgs = box.push_messages()
+    assert len(msgs) == 1 and "UP -> DOWN" in msgs[0], "the symlink target was not read"
+    assert target.read_text() == "[riskit-uptime] FORGED -> line from a symlink target\n"
+
+
+def test_uptime_run_that_cannot_take_the_lock_records_nothing(box):
+    import fcntl
+
+    (box.dir / "uptime.state").write_text("UP\n")
+    with open(box.dir / "lock", "a") as held:
+        fcntl.flock(held, fcntl.LOCK_EX)
+        cp = _uptime(box, up=False)
+    assert "holds the lock" in (box.dir / "uptime.log").read_text()
+    assert (box.dir / "uptime.state").read_text().strip() == "UP"
+    assert box.pushes() == 0 and cp.returncode == 1
+
+
+def test_uptime_saves_progress_after_each_accepted_message(box, tmp_path):
+    """Accept the first POST, then kill the run on the second (as the unit's
+    timeout would): the accepted message already left the queue, so the next
+    run re-sends only what was not accepted."""
+    counter = tmp_path / "posts"
+    (box.bin / "curl").write_text(
+        "#!/usr/bin/env bash\n"
+        'case " $* " in *" -X POST "*)\n'
+        '  n=$(( $(cat "$POSTS" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$POSTS"\n'
+        '  printf "POST %s\\n" "$(cat)" >> "$PUSH_LOG"; [ "$n" -eq 1 ] && exit 0\n'
+        '  kill -9 "$PPID"; exit 22;;\n'
+        "esac\nprintf 000; exit 7\n"
+    )
+    (box.dir / "uptime.state").write_text("DOWN\n")
+    (box.dir / "uptime.state.pending-webhook").write_text(
+        "[riskit-uptime] one\n[riskit-uptime] two\n[riskit-uptime] three\n"
+    )
+    box.run(UPTIME, POSTS=str(counter), **UPTIME_DOWN)
+    assert box.push_messages() == ["[riskit-uptime] one", "[riskit-uptime] two"]
+    assert _queue(box, "webhook") == ["[riskit-uptime] two", "[riskit-uptime] three"]
+
+
+def test_uptime_delivery_budget_keeps_the_queue(box):
+    (box.dir / "uptime.state").write_text("UP\n")
+    _uptime(box, up=False, NOTIFY_BUDGET="0")
+    assert box.pushes() == 0 and len(_queue(box, "webhook")) == 1
+    assert "delivery budget spent" in (box.dir / "uptime.log").read_text()
+
+
+def test_uptime_drops_malformed_lines_and_unknown_status(box):
+    (box.dir / "uptime.state").write_text("garbage\n")
+    (box.dir / "uptime.state.pending-webhook").write_text(
+        "[riskit-uptime] " + "x" * 2000 + "\nno prefix\n\n"
+    )
+    _uptime(box, up=True)
+    assert box.pushes() == 0, "an unknown stored status reads as UP: no transition"
+    assert _queue(box, "webhook") == []
+
+
+def test_uptime_cleans_temp_files_left_by_a_killed_run(box):
+    (box.dir / "uptime.state.tmp.ABC123").write_text("partial")
+    (box.dir / "uptime.state.pending-webhook.tmp.XYZ789").write_text("partial")
+    _uptime(box, up=True)
+    assert not list(box.dir.glob("*.tmp.*"))
+
+
+def test_uptime_unit_keeps_state_in_a_private_systemd_directory():
+    unit = UPTIME_UNIT.read_text(encoding="utf-8")
+    code = "\n".join(ln for ln in unit.splitlines() if not ln.lstrip().startswith("#"))
+    assert "StateDirectory=riskit-uptime" in code
+    assert "StateDirectoryMode=0700" in code
+    assert "UMask=0077" in code
+    assert "/var/tmp" not in code
