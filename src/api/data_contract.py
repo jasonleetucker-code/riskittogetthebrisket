@@ -10569,12 +10569,82 @@ def _derive_tep_multiplier_from_league(
     return max(_TEP_DERIVED_CLAMP_MIN, min(_TEP_DERIVED_CLAMP_MAX, derived))
 
 
+#: The feature flag that gates the rookie-class guard on the tether
+#: (``_anchor_current_year_picks_to_rookies``).  DEFAULT OFF and OWNER-HELD:
+#: turning it on moves canonical pick values
+#: (``docs/picks/PICK_CLASS_GUARD_EVIDENCE_2026-11-21.md``).
+PICK_CLASS_TETHER_GUARD_FLAG = "pick_class_tether_guard"
+
+#: Which owner decides "which draft class is this rookie", named on every
+#: stamp the guard writes.
+PICK_CLASS_IDENTITY_OWNER = "src/draft/rookie_auction/class_snapshot.py::class_identity"
+
+#: Which owner decides "which NFL season does this board's Sleeper metadata
+#: describe" (the ``observed_nfl_season`` the class owner requires).
+PICK_CLASS_OBSERVED_SEASON_OWNER = "src/bdvm/actuals.py::nfl_projection_season(boardDate)"
+
+#: Why a current-year slot pick was NOT tethered while the guard is on.
+TETHER_WITHHELD_NO_SAME_CLASS = "no_same_class_rookies"
+TETHER_WITHHELD_POOL_EXHAUSTED = "same_class_pool_exhausted"
+TETHER_WITHHELD_SEASON_UNKNOWN = "rookie_class_unprovable_observed_season_unknown"
+
+
+def _pick_class_tether_guard_enabled() -> bool:
+    """``pick_class_tether_guard`` (default OFF, owner-held)."""
+    from src.api import feature_flags as _ff_tether  # noqa: PLC0415
+
+    return _ff_tether.is_enabled("pick_class_tether_guard")
+
+
+def _observed_nfl_season_for_board(board_date: str | None) -> int | None:
+    """The NFL season this board's Sleeper metadata (``yearsExp``) describes.
+
+    The class owner (:data:`PICK_CLASS_IDENTITY_OWNER`) needs it and never
+    guesses it from the clock, so the caller states it: the board's OWN date
+    claim (``raw_payload["date"]``) through the repo's one "which NFL season
+    on this date" resolver, the same pairing ``src/waivers/drop_assessment.py``
+    uses to check ``yearsExp`` (``season_ref = nfl_projection_season(...)``).
+    Deterministic for a given board; ``None`` when the board states no
+    readable date — and then every rookie's class is UNPROVABLE, so the guard
+    tethers nothing (unknown never tethers).
+    """
+    text = str(board_date or "").strip()[:10]
+    if not text:
+        return None
+    try:
+        day = date.fromisoformat(text)
+    except ValueError:
+        return None
+    from src.bdvm.actuals import nfl_projection_season  # noqa: PLC0415
+
+    return int(nfl_projection_season(day))
+
+
 def _anchor_current_year_picks_to_rookies(
     players_array: list[dict[str, Any]],
     anchor_year: int,
+    *,
+    class_guard: bool = False,
+    observed_nfl_season: int | None = None,
+    guard_report: dict[str, Any] | None = None,
 ) -> int:
     """Override ``rankDerivedValue`` on slot-specific picks in ``anchor_year``
     so each pick inherits the value of its corresponding rookie.
+
+    **Rookie-class guard** (``class_guard``; flag ``pick_class_tether_guard``,
+    default OFF).  Off, the pool is every ``rookie`` row, whatever its draft
+    class — the incumbent behaviour, byte for byte.  On, a slot pick of year
+    ``Y`` is tethered only to rookies whose draft class is PROVEN to be ``Y``
+    by the class owner (:data:`PICK_CLASS_IDENTITY_OWNER`:
+    ``observed_nfl_season - yearsExp``, or an explicit ``eligibleDraftYear``).
+    The ``rookie`` boolean only says "zero NFL seasons today", so in season it
+    names the class that was JUST drafted (2027 Pick 1.01 tethered to a 2026
+    rookie — the residual risk named in
+    ``docs/picks/C1_U6_D2_UNSLOTTED_DRAFT_CLASS.md`` §5).  A slot with no
+    same-class rookie is NOT tethered: it keeps its market blend, and
+    :func:`_complete_future_pick_values` prices what no market priced.  Every
+    such slot is recorded in ``guard_report["withheldSlots"]`` with its reason,
+    so nothing goes unpriced silently.
 
     Rookie ordering is a merged list of offense + IDP rookies sorted by
     value descending.  Pick (round, slot) maps 1-indexed to rookie
@@ -10609,7 +10679,48 @@ def _anchor_current_year_picks_to_rookies(
         for r in players_array
         if r.get("assetClass") != "pick" and bool(r.get("rookie")) and _rookie_pool_value(r) > 0
     ]
-    if not rookies:
+    withheld_slots: dict[str, str] = {}
+    pool_exhausted_reason = TETHER_WITHHELD_POOL_EXHAUSTED
+    if class_guard:
+        # The class owner decides; nothing here re-derives a draft class.
+        from src.draft.rookie_auction.class_snapshot import class_identity  # noqa: PLC0415
+
+        same_class: list[dict[str, Any]] = []
+        other_class: dict[str, int] = {}
+        unprovable: dict[str, int] = {}
+        for r in rookies:
+            klass, basis = class_identity(r, observed_nfl_season=observed_nfl_season)
+            if klass is None:
+                unprovable[basis] = unprovable.get(basis, 0) + 1
+            elif int(klass) == int(anchor_year):
+                same_class.append(r)
+            else:
+                other_class[str(klass)] = other_class.get(str(klass), 0) + 1
+        if not same_class:
+            pool_exhausted_reason = (
+                TETHER_WITHHELD_SEASON_UNKNOWN
+                if observed_nfl_season is None
+                else TETHER_WITHHELD_NO_SAME_CLASS
+            )
+        if guard_report is not None:
+            guard_report.clear()
+            guard_report.update(
+                {
+                    "flag": PICK_CLASS_TETHER_GUARD_FLAG,
+                    "anchorYear": int(anchor_year),
+                    "observedNflSeason": observed_nfl_season,
+                    "observedNflSeasonOwner": PICK_CLASS_OBSERVED_SEASON_OWNER,
+                    "classIdentityOwner": PICK_CLASS_IDENTITY_OWNER,
+                    "rookiePool": {
+                        "considered": len(rookies),
+                        "sameClass": len(same_class),
+                        "otherClassByYear": dict(sorted(other_class.items())),
+                        "unprovableByReason": dict(sorted(unprovable.items())),
+                    },
+                }
+            )
+        rookies = same_class
+    if not rookies and not class_guard:
         return 0
     rookies.sort(
         key=lambda r: (
@@ -10634,6 +10745,8 @@ def _anchor_current_year_picks_to_rookies(
             continue
         idx = (rnd - 1) * league_size + (slot - 1)
         if idx >= len(rookies):
+            if class_guard:
+                withheld_slots[str(row.get("canonicalName") or "")] = pool_exhausted_reason
             continue
         anchor = rookies[idx]
         anchor_val = _rookie_pool_value(anchor)
@@ -10688,6 +10801,9 @@ def _anchor_current_year_picks_to_rookies(
             row["confidenceAxes"] = None
             row["confidenceReasons"] = None
         anchored += 1
+    if class_guard and guard_report is not None:
+        guard_report["tethered"] = anchored
+        guard_report["withheldSlots"] = dict(sorted(withheld_slots.items()))
     return anchored
 
 
@@ -10863,10 +10979,24 @@ def _complete_future_pick_values(
     synthetic_pick_derivations: Mapping[str, dict[str, Any]] | None = None,
     retired_years: Iterable[int] | None = None,
     horizon_end_year: int | None = None,
+    tether_guard: dict[str, Any] | None = None,
 ) -> dict[str, int]:
     """Guarantee a finite canonical value for every valid future pick
     through the horizon, and stamp provenance on EVERY pick row (C1-U6,
     manifest C1-PICK-01).
+
+    ``tether_guard`` is the rookie-class guard's report
+    (:func:`_anchor_current_year_picks_to_rookies`, flag
+    ``pick_class_tether_guard``); ``None`` (flag OFF) leaves this pass exactly
+    as it was.  With it, the CURRENT year's slot picks the guard refused to
+    tether are completed here too: a slot a pick market priced keeps that
+    blend; a slot no market prices (rounds 5-6) is derived from the
+    PREVIOUS slot in pick order by the same measured ``derivedRoundModel``
+    round step, spread evenly over the round's slots
+    (``factor = roundStep ** (1 / slotsPerRound)``), so a whole derived round
+    ends exactly one round step below the previous round's last slot and every
+    later pick is worth less than every earlier one.  Each refused slot's
+    provenance carries ``tetherWithheld`` with the reason.
 
     ``horizon_end_year`` is the board horizon
     (``pick_lifecycle.board_pick_horizon``, owner decision 2026-10-19); the
@@ -11214,6 +11344,85 @@ def _complete_future_pick_values(
             legacy["_canonicalConsensusRank"] = None
             legacy["sourceCount"] = 0
 
+    # ── 2b. Current-year slots the rookie-class guard refused to tether ──
+    #
+    # Flag OFF never reaches this (``tether_guard is None``).  With it ON and
+    # the current year slotted, a refused slot keeps whatever market blend it
+    # carries; a slot with no market at all (rounds 5-6 — no vendor prices
+    # them) is derived from the PREVIOUS slot in pick order.  Same approved
+    # ``derivedRoundModel`` round step as the tier rule above, spread evenly
+    # over the round's slots so the derived round is monotone and ends one
+    # round step below the previous round's last slot.  Deriving each slot
+    # from the SAME slot one round earlier (the tier rule's literal analogue)
+    # was rejected: on the 2026-11-21 board it priced 2027 Pick 5.01 above
+    # 2027 Pick 4.03..4.12, an earlier-is-worth-less inversion (F-1's class).
+    withheld_slots: dict[str, str] = (
+        dict(tether_guard.get("withheldSlots") or {}) if tether_guard is not None else {}
+    )
+    if tether_guard is not None and current_has_slots:
+        slots_by_round: dict[int, dict[int, dict[str, Any]]] = {}
+        for slot_name, slot_row in by_name.items():
+            slot_parsed = _parse_pick_slot(slot_name)
+            if slot_parsed is None or slot_parsed[0] != current_year:
+                continue
+            slots_by_round.setdefault(slot_parsed[1], {})[slot_parsed[2]] = slot_row
+        slots_per_round = max(
+            (max(slot_rows) for slot_rows in slots_by_round.values() if slot_rows), default=0
+        )
+        prev_name: str | None = None
+        prev_value: float | None = None
+        derived_slots: list[str] = []
+        for rnd in sorted(slots_by_round):
+            step = round_steps.get(str(rnd))
+            try:
+                step_f = None if step is None else max(0.05, min(1.0, float(step)))
+            except (TypeError, ValueError):
+                step_f = None
+            for slot in sorted(slots_by_round[rnd]):
+                row = slots_by_round[rnd][slot]
+                name = str(row.get("canonicalName") or "")
+                value_now = _finite_value(row)
+                if (
+                    value_now is None
+                    and name in withheld_slots
+                    and step_f is not None
+                    and prev_name is not None
+                    and prev_value is not None
+                    and slots_per_round > 0
+                ):
+                    factor = step_f ** (1.0 / slots_per_round)
+                    value = int(round(prev_value * factor))
+                    if value > 0:
+                        row["rankDerivedValue"] = value
+                        row["confidenceBucket"] = "low"
+                        row["confidenceLabel"] = (
+                            "Low — derived from the previous slot by the round step "
+                            "(no pick market, no same-class rookie)"
+                        )
+                        row["confidenceBasis"] = "derived_round_step"
+                        row["confidenceAxes"] = None
+                        row["confidenceReasons"] = None
+                        row["pickValueProvenance"] = {
+                            "class": "derived_round_step",
+                            "family": "canonical_rookie_ladder_round_step_v1",
+                            "classification": "PRIOR",
+                            "basis": prev_name,
+                            "factor": round(factor, 6),
+                            "appliedAs": "slot_continuation",
+                            "roundStep": round(step_f, 4),
+                            "slotsPerRound": slots_per_round,
+                        }
+                        _stamp_derived_pick_evidence(row, [prev_name], by_name)
+                        derived[name] = value
+                        derived_slots.append(name)
+                        legacy = players_by_name.get(row.get("legacyRef") or name)
+                        if isinstance(legacy, dict):
+                            legacy["rankDerivedValue"] = value
+                        value_now = float(value)
+                if value_now is not None:
+                    prev_name, prev_value = name, value_now
+        tether_guard["derivedSlots"] = len(derived_slots)
+
     # ── 3. Provenance on every remaining pick row ──
     for row in players_array:
         if row.get("assetClass") != "pick" or row.get("pickValueProvenance"):
@@ -11257,6 +11466,28 @@ def _complete_future_pick_values(
                 "class": "unavailable",
                 "reason": "no_market_evidence_and_no_derivation_basis",
             }
+
+    # ── 4. Rookie-class guard stamps (flag ON only) ──
+    if tether_guard is not None:
+        unpriced_withheld: list[str] = []
+        for name, reason in withheld_slots.items():
+            row = by_name.get(name)
+            if row is None:
+                continue
+            prov = row.get("pickValueProvenance")
+            if isinstance(prov, dict):
+                prov["tetherWithheld"] = {"reason": reason, "anchorYear": int(current_year)}
+            if _finite_value(row) is None:
+                unpriced_withheld.append(name)
+        for row in by_name.values():
+            prov = row.get("pickValueProvenance")
+            if not (isinstance(prov, dict) and prov.get("class") == "rookie_pool_tether"):
+                continue
+            parsed_slot = _parse_pick_slot(str(row.get("canonicalName") or ""))
+            if parsed_slot is not None and parsed_slot[0] == current_year:
+                prov["rookieClassYear"] = int(current_year)
+                prov["classIdentityOwner"] = PICK_CLASS_IDENTITY_OWNER
+        tether_guard["withheldUnpriced"] = sorted(unpriced_withheld)
     return derived
 
 
@@ -12362,6 +12593,7 @@ def _compute_unified_rankings(
     freshness_as_of: "datetime | None" = None,
     csv_root: "Path | None" = None,
     outlier_board_exclusions: Mapping[str, Sequence[str]] | None = None,
+    pick_class_guard_report: dict[str, Any] | None = None,
 ) -> dict[str, str]:
     """Compute a single unified ranking across all sources and positions.
 
@@ -15421,8 +15653,28 @@ def _compute_unified_rankings(
     #     ``_resolve_league_context`` (falls back to 12 when the Sleeper
     #     fetch is unavailable).  The compact-ranks pass below re-sorts
     #     by value so coherence holds.
+    #
+    #     Rookie-class guard (flag ``pick_class_tether_guard``, default OFF,
+    #     owner-held): ON tethers a slot of year Y only to rookies whose
+    #     draft class is proven to be Y; OFF is the incumbent pass, byte for
+    #     byte (the guard's arguments are not even passed).
     _anchor_year = current_rookie_draft_year()
-    _anchor_current_year_picks_to_rookies(players_array, _anchor_year)
+    _tether_guard_report: dict[str, Any] | None = None
+    if _pick_class_tether_guard_enabled():
+        _tether_guard_report = {}
+        _anchor_current_year_picks_to_rookies(
+            players_array,
+            _anchor_year,
+            class_guard=True,
+            observed_nfl_season=_observed_nfl_season_for_board(board_date),
+            guard_report=_tether_guard_report,
+        )
+    else:
+        _anchor_current_year_picks_to_rookies(players_array, _anchor_year)
+    if pick_class_guard_report is not None:
+        pick_class_guard_report.clear()
+        if _tether_guard_report is not None:
+            pick_class_guard_report.update(_tether_guard_report)
 
     # 2b') Complete future-pick values through the horizon (C1-U6,
     #      manifest C1-PICK-01): round-step derivation for the rounds no
@@ -15438,7 +15690,11 @@ def _compute_unified_rankings(
         synthetic_pick_derivation_map,
         retired_years=retired_pick_years,
         horizon_end_year=pick_horizon_end_year,
+        tether_guard=_tether_guard_report,
     )
+    if pick_class_guard_report is not None and _tether_guard_report is not None:
+        # Completion stamps what it derived for the withheld slots.
+        pick_class_guard_report.update(_tether_guard_report)
 
     # 2c) Stamp draft-day value projections on every pick row.
     #     Inverts the year-discount so the frontend can show "this
@@ -16503,6 +16759,11 @@ def build_api_data_contract(
         k for k, v in private_availability.items() if private_source_publishes_shadow(k, v)
     )
 
+    # Filled by the ranking pass ONLY while ``pick_class_tether_guard`` is ON;
+    # stays empty (and unstamped) otherwise, so a flag-OFF contract carries
+    # no new key.
+    pick_class_guard_report: dict[str, Any] = {}
+
     def _rank(
         outlier_board_exclusions: Mapping[str, Sequence[str]] | None = None,
     ) -> dict[str, str]:
@@ -16530,6 +16791,7 @@ def build_api_data_contract(
             freshness_as_of=freshness_as_of,
             csv_root=csv_root,
             outlier_board_exclusions=outlier_board_exclusions,
+            pick_class_guard_report=pick_class_guard_report,
         )
 
     # The disagreement-preserving outlier policy (default OFF) screens each
@@ -16977,6 +17239,21 @@ def build_api_data_contract(
         }
     if outlier_policy_stamp is not None:
         contract_payload["outlierPolicy"] = outlier_policy_stamp
+    if pick_class_guard_report:
+        # Rookie-class tether guard (flag ``pick_class_tether_guard``, default
+        # OFF, owner-held).  Stamped ONLY while the flag is on, so a flag-OFF
+        # contract is byte-identical; ``validate_api_data_contract`` reads it
+        # to extend the pick census to the current year's slot rows.  Per-slot
+        # reasons live on the rows (``pickValueProvenance.tetherWithheld``).
+        _guard_withheld = dict(pick_class_guard_report.get("withheldSlots") or {})
+        _guard_reasons: dict[str, int] = {}
+        for _reason in _guard_withheld.values():
+            _guard_reasons[_reason] = _guard_reasons.get(_reason, 0) + 1
+        contract_payload["pickClassTetherGuard"] = {
+            **{k: v for k, v in pick_class_guard_report.items() if k != "withheldSlots"},
+            "withheld": len(_guard_withheld),
+            "withheldReasons": dict(sorted(_guard_reasons.items())),
+        }
     if seasonal_policy_error:
         contract_payload["sourceSeasonalState"]["policyError"] = seasonal_policy_error
         contract_payload["sourceSeasonalState"]["basis"] = (
@@ -18249,6 +18526,27 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
             census_current_slotted = any(
                 (_parse_pick_slot(nm) or (None,))[0] == census_current for nm in pick_rows_by_name
             )
+            # Rookie-class tether guard ON (``pickClassTetherGuard`` stamped,
+            # flag ``pick_class_tether_guard``): the current year's slot picks
+            # are no longer all priced by the tether by construction, so each
+            # must carry a finite value with provenance — our completion pass
+            # owes every one of them a number.  The stamp is absent with the
+            # flag OFF, so this adds nothing to a flag-OFF board.
+            if census_current_slotted and isinstance(payload.get("pickClassTetherGuard"), dict):
+                for nm, row in sorted(pick_rows_by_name.items()):
+                    parsed_census_slot = _parse_pick_slot(nm)
+                    if parsed_census_slot is None or parsed_census_slot[0] != census_current:
+                        continue
+                    v = row.get("rankDerivedValue")
+                    if not (
+                        isinstance(v, (int, float))
+                        and not isinstance(v, bool)
+                        and math.isfinite(float(v))
+                        and float(v) > 0
+                    ):
+                        errors.append(f"pick_completeness_census:{nm}:missing_or_unpriced")
+                    elif not isinstance(row.get("pickValueProvenance"), dict):
+                        errors.append(f"pick_completeness_census:{nm}:no_provenance")
             census_first = census_current + 1 if census_current_slotted else census_current
             census_end = (
                 census_current + census_horizon

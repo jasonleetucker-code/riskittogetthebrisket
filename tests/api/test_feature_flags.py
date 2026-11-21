@@ -283,6 +283,12 @@ def test_every_flag_defaults_off_except_safe_additive():
         # a passing re-run: flipping it means moving this line, which
         # means writing down which measurement changed.  See ADR-023.
         "consensus_edge",
+        # Rookie-class guard on the current-year pick tether.  OWNER-HELD:
+        # it moves canonical pick values (measured in
+        # docs/picks/PICK_CLASS_GUARD_EVIDENCE_2026-11-21.md), so turning it on
+        # is the owner's decision; tests/api/test_pick_class_guard_hold_locked.py
+        # is the lock.
+        "pick_class_tether_guard",
         # DLF Values offense voting (D4).  HELD by the owner's decision of
         # 2026-10-20 ("Hold D4 for V2"): under the incumbent outlier filter it
         # newly drops other sources' valid votes on 12-13 offense rows (Theo

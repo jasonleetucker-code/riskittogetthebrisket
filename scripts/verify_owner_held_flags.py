@@ -1,9 +1,9 @@
 """Fail a deploy whose RUNNING process has an owner-held vote flag in the
 wrong state.
 
-The repository locks six owner-held flags by owner decision (three
-source-vote flags, one shadow-measurement flag, one dormant
-replacement-level flag and one dormant forced-drop flag):
+The repository locks seven owner-held flags (three source-vote flags, one
+shadow-measurement flag, one dormant replacement-level flag, one dormant
+forced-drop flag and one owner-reserved pick-tether flag):
 
 * ``dlf_offense_only_vote`` must be effectively **ON** -- the DLF IDP / DLF
   Rookie IDP vote hold (owner Option 3, 2026-10-20;
@@ -27,7 +27,12 @@ replacement-level flag and one dormant forced-drop flag):
 * ``forced_drop_cheapest_legal`` must be effectively **OFF** -- the
   forced-drop correctness fix (#1890): dormant merge approved, activation not
   authorized (owner decision 2026-10-21, LVA Package 1, item 3 "Keep
-  forced_drop_cheapest_legal OFF"; ``tests/api/test_forced_drop_hold_locked.py``).
+  forced_drop_cheapest_legal OFF"; ``tests/api/test_forced_drop_hold_locked.py``);
+* ``pick_class_tether_guard`` must be effectively **OFF** -- the rookie-class
+  guard on the current-year pick tether: it moves canonical pick values, so
+  activation is owner-reserved and no owner decision has authorized it
+  (2026-11-21, ``docs/picks/PICK_CLASS_GUARD_EVIDENCE_2026-11-21.md``;
+  ``tests/api/test_pick_class_guard_hold_locked.py``).
 
 A flag ABSENT from the snapshot fails closed, exactly as for D4: this check
 runs after the restart, against the process the deploy just started, and
@@ -114,6 +119,13 @@ OWNER_HELD_FLAGS: dict[str, tuple[bool, str, str]] = {
         "dormant; activation is the owner's separate decision after the box replay",
         "the cheapest-legal forced-drop selection is CHOOSING and CHARGING trade releases "
         "in production",
+    ),
+    "pick_class_tether_guard": (
+        False,
+        "owner-reserved activation (2026-11-21, docs/picks/PICK_CLASS_GUARD_EVIDENCE_"
+        "2026-11-21.md): the rookie-class guard on the current-year pick tether moves "
+        "canonical pick values, and no owner decision has authorized it",
+        "the rookie-class tether guard is REPRICING current-year slot picks in production",
     ),
 }
 
