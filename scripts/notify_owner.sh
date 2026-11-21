@@ -82,11 +82,31 @@ if [[ "$mode" == "retry" && -z "$issue" ]]; then
   usage
 fi
 
-url="${NOTIFY_WEBHOOK_URL:-}"
-# Surrounding whitespace (a badly pasted secret) is dropped here, as the
-# validator below drops it, so the value judged is the value sent.
-url="${url#"${url%%[![:space:]]*}"}"
-url="${url%"${url##*[![:space:]]}"}"
+# Surrounding whitespace (a badly pasted secret) is dropped here exactly as the
+# validator below drops it (Python's str.strip(): every str.isspace()
+# character, NBSP and the Unicode spaces included, as UTF-8 bytes), so the
+# value judged is the value sent.
+py_strip_chars=(
+  $'\t' $'\n' $'\v' $'\f' $'\r' $'\x1c' $'\x1d' $'\x1e' $'\x1f' ' '
+  $'\xc2\x85' $'\xc2\xa0' $'\xe1\x9a\x80'
+  $'\xe2\x80\x80' $'\xe2\x80\x81' $'\xe2\x80\x82' $'\xe2\x80\x83'
+  $'\xe2\x80\x84' $'\xe2\x80\x85' $'\xe2\x80\x86' $'\xe2\x80\x87'
+  $'\xe2\x80\x88' $'\xe2\x80\x89' $'\xe2\x80\x8a'
+  $'\xe2\x80\xa8' $'\xe2\x80\xa9' $'\xe2\x80\xaf' $'\xe2\x81\x9f' $'\xe3\x80\x80'
+)
+py_strip() {
+  local LC_ALL=C
+  local s="$1" w changed=1
+  while (( changed )); do
+    changed=0
+    for w in "${py_strip_chars[@]}"; do
+      if [[ -n "$s" && "$s" == "$w"* ]]; then s="${s#"$w"}"; changed=1; fi
+      if [[ -n "$s" && "$s" == *"$w" ]]; then s="${s%"$w"}"; changed=1; fi
+    done
+  done
+  printf '%s' "$s"
+}
+url="$(py_strip "${NOTIFY_WEBHOOK_URL:-}")"
 if [[ -z "$url" ]]; then
   echo "::notice title=Owner push not configured::NOTIFY_WEBHOOK_URL is unset; '${title}' was not sent"
   exit 0

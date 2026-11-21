@@ -220,8 +220,17 @@ def test_uptime_queue_is_bounded(box):
     (box.dir / "uptime.state").write_text("UP\n", encoding="utf-8")
     for i in range(15):
         _uptime(box, up=(i % 2 == 1), push_rc=22)
-    assert len(_queue(box, "webhook")) == 10
-    assert all("private-topic" not in m for m in _queue(box, "webhook"))
+    queue = _queue(box, "webhook")
+    assert len(queue) == 10
+    assert all("private-topic" not in m for m in queue)
+    # The OLDEST are dropped.  Runs alternate DOWN, UP, ... from UP, so the 15
+    # transitions alternate "UP -> DOWN", "DOWN -> UP", ...; the last ten start
+    # at the 6th ("DOWN -> UP") and end at the 15th ("UP -> DOWN").  Keeping the
+    # first ten instead would start and end the other way round.
+    assert "DOWN -> UP" in queue[0] and "UP -> DOWN" in queue[-1]
+    assert all(("UP -> DOWN" in m) == (i % 2 == 1) for i, m in enumerate(queue)), (
+        "in order, alternating"
+    )
 
 
 def test_uptime_drops_the_queue_of_a_channel_no_longer_configured(box):
@@ -290,9 +299,12 @@ def _corpus() -> list[str]:
     hosts = [
         "h.example", "localhost", "LOCALHOST", "127.0.0.1", "127.0.0.1.evil",
         "localhost.evil", "[::1]", "[::1", "::1", "", "[2001:db8::1]",
-        "[h.example]", "[127.0.0.1]", "h]x",
+        "[h.example]", "[127.0.0.1]", "h]x", "h[x", "a[::1]", "h[", "[",
     ]  # fmt: skip
-    ports = ["", ":80", ":", ":abc", ":99999", ":65535", ":0", ":00080", ":" + "9" * 21]
+    ports = [
+        "", ":80", ":", ":abc", ":99999", ":65535", ":0", ":00080", ":000443",
+        ":0000065535", ":0000065536", ":" + "9" * 21, ":+1",
+    ]  # fmt: skip
     paths = ["", "/t", "?q", "#f", "/x@y"]
     return ["".join(p) for p in itertools.product(schemes, seps, users, hosts, ports, paths)]
 
@@ -301,7 +313,9 @@ def test_restart_push_shell_check_matches_owner_notify_validate():
     """Review 2026-11-20 (second round): prefix globs let
     http://localhost.evil.example through.  Over a generated corpus the shell
     check now gives validate()'s exact answer, except that it refuses every
-    bracketed host other than [::1] (validate() accepts a valid IPv6 literal)."""
+    bracketed host other than [::1] (validate() accepts a valid IPv6 literal).
+    Round 3: a lone "[" after the first character was accepted (validate()
+    refuses it) and a zero-padded port was refused (validate() accepts it)."""
     from src.utils.owner_notify import validate
 
     corpus = _corpus()
@@ -311,6 +325,46 @@ def test_restart_push_shell_check_matches_owner_notify_validate():
         if "[" in value and "[::1]" not in value and shell == "malformed":
             continue  # the one deliberate difference: stricter, never looser
         assert shell == want, (value, shell, want)
+
+
+def _shell_strip(values: list[str]) -> list[str]:
+    """``py_strip`` from the healthcheck for every value (NUL-separated I/O)."""
+    script = HEALTH.read_text(encoding="utf-8")
+    fn = script[script.index("PY_STRIP_CHARS=(") : script.index("webhook_reject_reason() {")]
+    loop = '\nwhile IFS= read -r -d "" u; do py_strip "$u"; printf "%s\\0" "$PY_STRIPPED"; done'
+    out = subprocess.run(
+        ["bash", "-c", fn + loop],
+        input="\0".join(values).encode("utf-8") + b"\0",
+        capture_output=True,
+        timeout=120,
+    ).stdout.decode("utf-8")
+    parts = out.split("\0")[:-1]
+    assert len(parts) == len(values)
+    return parts
+
+
+def test_restart_push_strips_exactly_what_validate_strips():
+    """Round 3: bash's [[:space:]] left a trailing NBSP (or \\x1c-\\x1f) on the
+    value, so signals_health reported the channel configured while the watchdog
+    refused every push.  Every str.isspace() character, on either side."""
+    spaces = [chr(c) for c in range(0x110000) if chr(c).isspace()]
+    values = [URL + c for c in spaces] + [c + URL for c in spaces]
+    values += [" \u00a0\t" + URL + "\u3000\x1f\n", "\u00a0", "\u2028\u2029"]
+    values += [URL + "\u00a0x"]  # inside the value: kept (and then refused)
+    for value, stripped in zip(values, _shell_strip(values)):
+        assert stripped == value.strip(), repr(value)
+
+
+def test_the_github_push_strips_exactly_what_validate_strips():
+    text = (ROOT / "scripts/notify_owner.sh").read_text(encoding="utf-8")
+    fn = text[text.index("py_strip_chars=(") : text.index('url="$(py_strip')]
+    for value in [URL + "\u00a0", "\u2003" + URL + "\x1c", "\t" + URL + "\n"]:
+        out = subprocess.run(
+            ["bash", "-c", fn + '\npy_strip "$1"', "_", value],
+            capture_output=True,
+            timeout=30,
+        ).stdout.decode("utf-8")
+        assert out == value.strip(), repr(value)
 
 
 def test_restart_push_shell_check_is_never_looser_on_odd_bytes():
@@ -442,3 +496,109 @@ def test_uptime_unit_keeps_state_in_a_private_systemd_directory():
     assert "StateDirectoryMode=0700" in code
     assert "UMask=0077" in code
     assert "/var/tmp" not in code
+
+
+# -- delivery order and process hygiene (2026-11-21 delta review) ------------------
+def _cmd_logger(tmp_path: Path) -> tuple[Path, Path]:
+    log = tmp_path / "cmd.log"
+    cmd = tmp_path / "cmd.sh"
+    cmd.write_text(f'#!/usr/bin/env bash\ncat >> "{log}"\nexit 0\n', encoding="utf-8")
+    cmd.chmod(0o755)
+    return cmd, log
+
+
+def test_uptime_a_run_killed_during_the_webhook_send_still_alerts_the_cmd_channel(box, tmp_path):
+    """The status used to be recorded before the cmd queue held the new message,
+    so a run killed during the webhook POST lost the cmd alert for good."""
+    cmd, cmd_log = _cmd_logger(tmp_path)
+    killer = tmp_path / "killed_once"
+    (box.bin / "curl").write_text(
+        "#!/usr/bin/env bash\n"
+        'case " $* " in *" -X POST "*)\n'
+        '  body="$(cat)"; printf "POST %s\\n" "$body" >> "$PUSH_LOG"\n'
+        '  if [ ! -e "$KILLER" ]; then : > "$KILLER"; kill -9 "$PPID"; fi; exit 0;;\n'
+        'esac\nprintf \'%s\' "${PROBE_CODE:-000}"; exit "${PROBE_RC:-0}"\n',
+        encoding="utf-8",
+    )
+    (box.dir / "uptime.state").write_text("UP\n", encoding="utf-8")
+    box.run(UPTIME, NOTIFY_CMD=str(cmd), KILLER=str(killer), **UPTIME_DOWN)
+    assert killer.exists() and not cmd_log.exists(), "killed before the cmd send"
+    for _ in range(2):
+        box.run(UPTIME, NOTIFY_CMD=str(cmd), KILLER=str(killer), **UPTIME_DOWN)
+    assert "UP -> DOWN" in cmd_log.read_text(encoding="utf-8")
+    assert cmd_log.read_text(encoding="utf-8").count("UP -> DOWN") == 1
+    assert _queue(box, "cmd") == [] and _queue(box, "webhook") == []
+
+
+def test_uptime_a_process_left_by_notify_cmd_never_holds_the_lock(box, tmp_path):
+    pidfile = tmp_path / "child.pid"
+    cmd = tmp_path / "leaves_child.sh"
+    cmd.write_text(
+        f'#!/usr/bin/env bash\ncat >/dev/null\nsleep 30 &\necho $! > "{pidfile}"\nexit 0\n',
+        encoding="utf-8",
+    )
+    cmd.chmod(0o755)
+    (box.dir / "uptime.state").write_text("UP\n", encoding="utf-8")
+    try:
+        box.run(UPTIME, url=None, NOTIFY_CMD=str(cmd), **UPTIME_DOWN)
+        assert pidfile.exists()
+        box.run(UPTIME, url=None, NOTIFY_CMD=str(cmd), **UPTIME_UP)
+        log = (box.dir / "uptime.log").read_text(encoding="utf-8")
+        assert "holds the lock" not in log
+        assert (box.dir / "uptime.state").read_text(encoding="utf-8").strip() == "UP"
+    finally:
+        for line in pidfile.read_text(encoding="utf-8").split() if pidfile.exists() else []:
+            try:
+                os.kill(int(line), 9)
+            except (ProcessLookupError, ValueError):
+                pass
+
+
+def test_uptime_notify_cmd_is_killed_if_it_ignores_sigterm():
+    text = UPTIME.read_text(encoding="utf-8")
+    assert 'timeout -k 2 "${SEND_TIMEOUT}" ${NOTIFY_CMD}' in text
+    assert text.count("9>&-") >= 3, "no send inherits the lock descriptor"
+
+
+def test_uptime_upgrade_reads_the_legacy_status_once_without_a_warning(box, tmp_path):
+    legacy = tmp_path / "legacy-riskit-uptime.state"
+    legacy.write_text("DOWN\n", encoding="utf-8")
+    home = tmp_path / "home"
+    home.mkdir()
+    env = {"UPTIME_LEGACY_STATE_FILE": str(legacy), "STATE_FILE": str(legacy), "HOME": str(home)}
+    _uptime(box, up=True, **env)
+    msgs = box.push_messages()
+    assert len(msgs) == 1 and "DOWN -> UP" in msgs[0], "the recovery at upgrade is sent"
+    assert "not private" not in (box.dir / "uptime.log").read_text(encoding="utf-8")
+    private = home / ".local/state/riskit-uptime/state"
+    assert private.read_text(encoding="utf-8").strip() == "UP"
+    _uptime(box, up=True, **env)
+    assert box.pushes() == 1, "the legacy file is read only while no private status exists"
+
+
+def test_uptime_a_bad_budget_value_warns_and_uses_the_default(box):
+    (box.dir / "uptime.state").write_text("UP\n", encoding="utf-8")
+    cp = _uptime(box, up=False, NOTIFY_BUDGET="15s")
+    assert "NOTIFY_BUDGET is not a whole number" in (box.dir / "uptime.log").read_text(
+        encoding="utf-8"
+    )
+    assert box.pushes() == 1 and cp.returncode == 1
+
+
+def test_uptime_replaces_a_symlink_to_a_directory_instead_of_writing_into_it(box, tmp_path):
+    target = tmp_path / "elsewhere"
+    target.mkdir()
+    (box.dir / "uptime.state").symlink_to(target, target_is_directory=True)
+    _uptime(box, up=False)
+    state = box.dir / "uptime.state"
+    assert not state.is_symlink() and state.read_text(encoding="utf-8").strip() == "DOWN"
+    assert list(target.iterdir()) == []
+
+
+def test_uptime_unit_timeout_covers_probes_plus_delivery():
+    unit = UPTIME_UNIT.read_text(encoding="utf-8")
+    timeout = int(
+        next(ln for ln in unit.splitlines() if ln.startswith("TimeoutStartSec=")).split("=")[1]
+    )
+    # 3 probes x CURL_TIMEOUT 20 + NOTIFY_BUDGET 15 + one send (10 + 2 kill) + 1
+    assert 3 * 20 + 15 + 12 + 1 <= timeout

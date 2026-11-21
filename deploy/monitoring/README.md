@@ -65,11 +65,18 @@ retry queue per notification channel) lives in `/var/lib/riskit-uptime`,
 a private directory (mode 0700) systemd creates for `User=` through
 `StateDirectory=`.  The script refuses a state directory it does not own
 or that others can write, and then uses its private default instead; from
-cron that default is `~/.local/state/riskit-uptime`.  Delivery is
-at-least-once: a message leaves the queue only when the channel accepted
-it (HTTP 2xx, or exit 0 from `NOTIFY_CMD`), so a run killed mid-delivery
-re-sends at most the one message it was sending.  Accepted is not read:
-nothing here confirms the owner saw it.
+cron that default is `~/.local/state/riskit-uptime`.  The old shared
+default (`STATE_FILE=/var/tmp/riskit-uptime.state`, set by the unit before
+2026-11-21) is replaced silently, and its status is read once, so an outage
+in progress at the upgrade still gets its recovery message.  Each run queues
+a new transition on every configured channel BEFORE it records the status,
+then delivers.  Delivery is at-least-once: a message leaves the queue only
+when the channel accepted it (HTTP 2xx, or exit 0 from `NOTIFY_CMD`), so a
+run killed at any point loses nothing and re-sends at most the one message
+it was sending.  Each send is capped (10 s, then 2 s to kill a `NOTIFY_CMD`
+that ignores SIGTERM) and new sends start only during `NOTIFY_BUDGET`
+(15 s), which keeps a run inside the unit's `TimeoutStartSec=120`.
+Accepted is not read: nothing here confirms the owner saw it.
 
 ## Known limitation
 

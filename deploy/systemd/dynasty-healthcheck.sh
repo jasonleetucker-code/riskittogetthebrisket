@@ -300,6 +300,35 @@ pyspy_dump() {
 # value.  tests/deploy/test_alert_shell_pushes.py diffs it against validate()
 # over a generated corpus: identical answers, except a bracketed host other
 # than [::1], which this refuses.
+# owner_notify.validate() drops surrounding whitespace with Python's
+# str.strip(), i.e. every character str.isspace() accepts -- more than bash's
+# [[:space:]] (it also strips \x1c-\x1f, NBSP and the Unicode spaces).  The
+# same set, as UTF-8 byte sequences, so a value pasted with a trailing NBSP is
+# judged and sent exactly as the reporter judged it.
+PY_STRIP_CHARS=(
+    $'\t' $'\n' $'\v' $'\f' $'\r' $'\x1c' $'\x1d' $'\x1e' $'\x1f' ' '
+    $'\xc2\x85' $'\xc2\xa0' $'\xe1\x9a\x80'
+    $'\xe2\x80\x80' $'\xe2\x80\x81' $'\xe2\x80\x82' $'\xe2\x80\x83'
+    $'\xe2\x80\x84' $'\xe2\x80\x85' $'\xe2\x80\x86' $'\xe2\x80\x87'
+    $'\xe2\x80\x88' $'\xe2\x80\x89' $'\xe2\x80\x8a'
+    $'\xe2\x80\xa8' $'\xe2\x80\xa9' $'\xe2\x80\xaf' $'\xe2\x81\x9f' $'\xe3\x80\x80'
+)
+
+# py_strip <value>: sets PY_STRIPPED to the value without surrounding
+# str.isspace() characters.
+py_strip() {
+    local LC_ALL=C
+    local s="$1" w changed=1
+    while (( changed )); do
+        changed=0
+        for w in "${PY_STRIP_CHARS[@]}"; do
+            if [[ -n "${s}" && "${s}" == "${w}"* ]]; then s="${s#"${w}"}"; changed=1; fi
+            if [[ -n "${s}" && "${s}" == *"${w}" ]]; then s="${s%"${w}"}"; changed=1; fi
+        done
+    done
+    PY_STRIPPED="${s}"
+}
+
 webhook_reject_reason() {
     local LC_ALL=C
     local u="$1" scheme rest authority hostport host port
@@ -314,6 +343,11 @@ webhook_reject_reason() {
     fi
     hostport="${authority##*@}"
     port=""
+    # urlsplit refuses an authority with "[" but no "]", or the reverse.
+    if [[ "${authority}" == *\[* && "${authority}" != *\]* ]] \
+        || [[ "${authority}" == *\]* && "${authority}" != *\[* ]]; then
+        echo malformed; return
+    fi
     if [[ "${hostport}" == \[* ]]; then
         if [[ "${hostport}" != *\]* ]]; then echo malformed; return; fi
         host="${hostport#\[}"
@@ -328,7 +362,9 @@ webhook_reject_reason() {
             if [[ "${rest}" != :* ]]; then echo malformed; return; fi
             port="${rest#:}"
         fi
-    elif [[ "${hostport}" == *\]* ]]; then
+    elif [[ "${hostport}" == *[\[\]]* ]]; then
+        # A bracket anywhere but around the whole host: refused (urlsplit
+        # refuses most such values; refusing the rest fails safe).
         echo malformed; return
     elif [[ "${hostport}" == *:* ]]; then
         host="${hostport%%:*}"
@@ -337,7 +373,10 @@ webhook_reject_reason() {
         host="${hostport}"
     fi
     if [[ -n "${port}" ]]; then
-        if [[ ! "${port}" =~ ^[0-9]{1,5}$ ]] || (( 10#${port} > 65535 )); then
+        # As urlsplit: ASCII digits, leading zeros allowed, 0..65535.
+        if [[ ! "${port}" =~ ^[0-9]+$ ]]; then echo malformed; return; fi
+        port="${port#"${port%%[!0]*}"}"
+        if (( ${#port} > 5 )) || (( 10#${port:-0} > 65535 )); then
             echo malformed; return
         fi
     fi
@@ -354,9 +393,9 @@ webhook_reject_reason() {
 }
 
 notify_restart() {
-    local url="${NOTIFY_WEBHOOK_URL}" reason
-    url="${url#"${url%%[![:space:]]*}"}"
-    url="${url%"${url##*[![:space:]]}"}"
+    local url reason
+    py_strip "${NOTIFY_WEBHOOK_URL}"
+    url="${PY_STRIPPED}"
     [[ -n "${url}" ]] || return 0
     [[ ! -f "${NOTIFIED_FILE}" ]] || return 0
     reason="$(webhook_reject_reason "${url}")"
