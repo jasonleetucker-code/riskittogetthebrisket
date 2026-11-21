@@ -45,6 +45,10 @@ def healthy_slo(**over) -> dict:
         "privateSourcesProvisioned": 1,
         "privateSourcesStale": 0,
         "privateSourcesUnknown": 0,
+        "rosterState": "current",
+        "rosterSource": "live",
+        "rosterAgeHours": 1.1,
+        "rosterMaxAgeHours": 6.0,
     }
     base.update(over)
     return base
@@ -396,3 +400,56 @@ def test_workflow_runs_the_script_with_minimal_permissions_and_no_comment_per_ru
     assert "BREACH:" in body and "UNKNOWN-ONLY:" in body
     # A green run closes the tracker; an unmeasurable run does not.
     assert 'if [[ "${RC}" == "0" ]]' in body and "gh issue close" in body
+
+
+# -- default-league roster age (X-ROSTER-FRESHNESS) ---------------------------------
+def _roster(**over):
+    return slo.rule_roster_age(snap(freshness_slo=healthy_slo(**over)), CFG)
+
+
+def test_current_rosters_are_ok_with_the_box_budget_as_threshold():
+    r = _roster()
+    assert r.status == slo.OK and r.measured == 1.1 and r.threshold == 6.0
+    assert r.category == slo.DATA
+
+
+@pytest.mark.parametrize(
+    ("source", "age", "why"),
+    [
+        ("live", 7.5, "past its budget"),
+        ("last_good", 0.5, "restored the last-good block"),
+    ],
+)
+def test_stale_rosters_breach_and_say_why(source, age, why):
+    r = _roster(rosterState="stale", rosterSource=source, rosterAgeHours=age)
+    assert r.status == slo.BREACH and r.measured == age and why in r.detail
+
+
+def test_unknown_rosters_are_unknown_never_ok():
+    r = _roster(rosterState="unknown", rosterSource=None, rosterAgeHours=None)
+    assert r.status == slo.UNKNOWN and r.measured is None
+
+
+def test_current_without_an_age_is_unknown():
+    assert _roster(rosterAgeHours=None).status == slo.UNKNOWN
+
+
+def test_a_build_without_roster_fields_is_unknown_with_a_reason():
+    block = healthy_slo()
+    for key in ("rosterState", "rosterSource", "rosterAgeHours", "rosterMaxAgeHours"):
+        block.pop(key)
+    r = slo.rule_roster_age(snap(freshness_slo=block), CFG)
+    assert r.status == slo.UNKNOWN and "status_field_absent" in r.detail
+    assert slo.rule_roster_age(snap(freshness_slo=None), CFG).status == slo.UNKNOWN
+
+
+def test_the_roster_rule_is_evaluated_by_the_scheduled_check():
+    assert slo.rule_roster_age in slo.RULES
+    results = {r.rule for r in slo.evaluate(snap(), CFG)}
+    assert "data_freshness.roster_age_hours" in results
+
+
+def test_a_box_side_freshness_error_is_named_not_blamed_on_an_old_build():
+    block = {"schemaVersion": "freshness-slo.v1", "state": "unknown", "error": "unavailable"}
+    r = slo.rule_roster_age(snap(freshness_slo=block), CFG)
+    assert r.status == slo.UNKNOWN and "status_block_error" in r.detail

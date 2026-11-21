@@ -19,6 +19,7 @@
     "maxHoursSinceSuccess": 14
   },
   "dataFreshness": {
+    "_comment": "data_freshness.roster_age_hours has no number here on purpose: the box decides rosterState with src/api/roster_freshness.py against league_registry.SCORING_SNAPSHOT_MAX_AGE_HOURS (6 h, published as rosterMaxAgeHours), the same rule the N-team trade engine refuses on. Healthy roster age peaks near 2.1 h (docs/ops/ROSTER_FRESHNESS_MEASUREMENT_2026-11-18.md).",
     "maxTop200StaleShare": 0.1,
     "maxPricedWithheldShare": 0.1,
     "maxBoardAgeHours": 18,
