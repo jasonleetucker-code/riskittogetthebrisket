@@ -10587,6 +10587,11 @@ PICK_CLASS_OBSERVED_SEASON_OWNER = "src/bdvm/actuals.py::nfl_projection_season(b
 TETHER_WITHHELD_NO_SAME_CLASS = "no_same_class_rookies"
 TETHER_WITHHELD_POOL_EXHAUSTED = "same_class_pool_exhausted"
 TETHER_WITHHELD_SEASON_UNKNOWN = "rookie_class_unprovable_observed_season_unknown"
+#: No rookie is PROVEN to be the slot's class while some rookies' class cannot
+#: be proven at all -- e.g. pre-draft prospects the scraper marks ``_isRookie``
+#: with no ``yearsExp`` (February-April).  Distinct from "no same-class rookies"
+#: so an activation review can see that the pool was unprovable, not empty.
+TETHER_WITHHELD_UNPROVABLE = "no_provable_same_class_rookies"
 
 
 def _pick_class_tether_guard_enabled() -> bool:
@@ -10697,17 +10702,24 @@ def _anchor_current_year_picks_to_rookies(
             else:
                 other_class[str(klass)] = other_class.get(str(klass), 0) + 1
         if not same_class:
-            pool_exhausted_reason = (
-                TETHER_WITHHELD_SEASON_UNKNOWN
-                if observed_nfl_season is None
-                else TETHER_WITHHELD_NO_SAME_CLASS
-            )
+            if observed_nfl_season is None:
+                pool_exhausted_reason = TETHER_WITHHELD_SEASON_UNKNOWN
+            elif unprovable:
+                pool_exhausted_reason = TETHER_WITHHELD_UNPROVABLE
+            else:
+                pool_exhausted_reason = TETHER_WITHHELD_NO_SAME_CLASS
         if guard_report is not None:
             guard_report.clear()
             guard_report.update(
                 {
                     "flag": PICK_CLASS_TETHER_GUARD_FLAG,
                     "anchorYear": int(anchor_year),
+                    # The slot range the tether covers (rounds
+                    # 1.._ROOKIE_ANCHOR_ROUNDS x slots 1..leagueSize); the
+                    # flag-ON census checks exactly this range, never a
+                    # vendor slot the tether does not look at.
+                    "leagueSize": int(league_size),
+                    "anchorRounds": int(_ROOKIE_ANCHOR_ROUNDS),
                     "observedNflSeason": observed_nfl_season,
                     "observedNflSeasonOwner": PICK_CLASS_OBSERVED_SEASON_OWNER,
                     "classIdentityOwner": PICK_CLASS_IDENTITY_OWNER,
@@ -15696,8 +15708,12 @@ def _compute_unified_rankings(
     # the guard refuses to tether and no slot market prices (e.g. the IDP
     # Trade Calculator cutoff, owner 2026-10-07) can still be priced at its
     # tier's market blend instead of going unpriced.  OFF reads nothing.
+    # The flag is read ONCE for this build: the tier capture here and the
+    # guarded tether below must agree, or a reload between them could leave
+    # the tier fallback empty while the guard refuses every slot.
+    _pick_class_guard_on = _pick_class_tether_guard_enabled()
     _guard_tier_values: dict[str, float] = {}
-    if _pick_class_tether_guard_enabled():
+    if _pick_class_guard_on:
         _guard_tier_year = current_rookie_draft_year()
         for _tier_row in players_array:
             if _tier_row.get("assetClass") != "pick":
@@ -15733,7 +15749,7 @@ def _compute_unified_rankings(
     #     byte (the guard's arguments are not even passed).
     _anchor_year = current_rookie_draft_year()
     _tether_guard_report: dict[str, Any] | None = None
-    if _pick_class_tether_guard_enabled():
+    if _pick_class_guard_on:
         _tether_guard_report = {}
         _anchor_current_year_picks_to_rookies(
             players_array,
@@ -18606,10 +18622,26 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
             # must carry a finite value with provenance — our completion pass
             # owes every one of them a number.  The stamp is absent with the
             # flag OFF, so this adds nothing to a flag-OFF board.
-            if census_current_slotted and isinstance(payload.get("pickClassTetherGuard"), dict):
+            census_guard = payload.get("pickClassTetherGuard")
+            if census_current_slotted and isinstance(census_guard, dict):
+                # Exactly the slot range the tether covers (stamped by the
+                # guard): a vendor slot outside it was never tethered with
+                # the flag OFF either, so it is not this census's to own.
+                try:
+                    census_league_size = int(census_guard.get("leagueSize") or 0)
+                except (TypeError, ValueError):
+                    census_league_size = 0
+                try:
+                    census_rounds = int(census_guard.get("anchorRounds") or _ROOKIE_ANCHOR_ROUNDS)
+                except (TypeError, ValueError):
+                    census_rounds = _ROOKIE_ANCHOR_ROUNDS
                 for nm, row in sorted(pick_rows_by_name.items()):
                     parsed_census_slot = _parse_pick_slot(nm)
                     if parsed_census_slot is None or parsed_census_slot[0] != census_current:
+                        continue
+                    if not (1 <= parsed_census_slot[1] <= census_rounds):
+                        continue
+                    if census_league_size > 0 and parsed_census_slot[2] > census_league_size:
                         continue
                     v = row.get("rankDerivedValue")
                     if not (

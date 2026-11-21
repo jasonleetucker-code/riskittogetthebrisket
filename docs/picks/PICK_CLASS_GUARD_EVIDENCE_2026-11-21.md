@@ -135,6 +135,13 @@ The sha256 is taken over the full contract, serialised with
 The ON contracts hash to `bd2e3fa4…` (pinned), `9ffc9ff5…` (latest) and
 `0d4041bb…` (aug). They are expected to differ.
 
+**After the independent review (2026-11-21):** the guard stamp gained
+`leagueSize` and `anchorRounds`, so the flag-ON census checks exactly the slot
+range the tether covers. Every ON value is unchanged: pinned ON was re-measured,
+1.01 = 8323, 1.02 = 8013, 4.12 = 1352, 6.12 = 1150, and the census is clean.
+The ON hash moved because of those keys (pinned `37de006c…`). Flag OFF was
+re-measured at `e37aa9e8…`, still identical to `main`.
+
 All six branch builds (OFF and ON) were repeated after the tier fallback (§2,
 step 3) was added. Every hash came out the same. The fallback does not fire on
 these boards because IDPTC prices every round-1–4 slot.
@@ -317,20 +324,39 @@ differ slightly because the 2026 rookie ladder moved. The max movement there is
 
 ## 5. Residual risks (named, not fixed here)
 
-* **February–April.** `nfl_projection_season` turns to the new year on
-  February 1. If Sleeper still reports the just-finished class at
-  `years_exp == 0` until the NFL draft, those rookies read as the NEW class
-  during that window. They would be tethered to the new year's slots, which is
-  exactly today's behaviour, so it is no worse than OFF. No tracked archive
-  predates 2026-07-14, so Sleeper's roll timing could not be measured. The
-  repo already tolerates ±1 here (`drop_assessment.py`). A Sleeper
-  `/state/nfl` season captured into the payload would close it.
+* **February–April: the ON path is WORSE than OFF before the draft
+  (corrected after independent review, 2026-11-21).** The earlier text here
+  said "no worse than OFF". That was wrong.
+  * The scraper marks pre-draft "must-have" prospects `_isRookie` with no
+    `yearsExp` (`Dynasty Scraper.py`, the must-have prospect block). The class
+    owner `class_identity` reads them as **unprovable** and drops them from the
+    pool. In season there are none, and the 0 measured on all three boards
+    below comes only from July–November boards, which never reach that window.
+  * Board 2027-03-15, anchor 2027, Sleeper already rolled the 2026 class to
+    `yearsExp = 1`:
+    * OFF tethers the 2027 slots to the 2027 prospects (the right class);
+    * ON finds no provable same-class rookie and refuses all 72 slots, which
+      fall back to market, tier or derived values.
+  * Same board, Sleeper not yet rolled: OFF mixes prospects with the 2026
+    class; ON drops the prospects and tethers to the 2026 class only.
+  * The refusal now names the cause: `no_provable_same_class_rookies` when no
+    rookie is proven to be the slot's class while some are unprovable (it used
+    to read `no_same_class_rookies`).
+  * **Prerequisite for activation:** a canonical class for pre-draft prospects.
+    For example, the rookie board's configured class year, or an
+    `eligibleDraftYear` the scraper stamps on prospects it adds; `class_identity`
+    already honours an explicit `eligibleDraftYear`. Until one exists, ON must
+    not be active from February to the draft. This is not wired here.
+  * Sleeper's `yearsExp` roll timing could not be measured: no tracked archive
+    predates 2026-07-14. A Sleeper `/state/nfl` season captured into the
+    payload would also help.
 * **Unprovable rookies leave the pool when the flag is ON.**
-  * Who: rookies with no `yearsExp` and no `eligibleDraftYear` — for example
-    must-have prospects not yet in Sleeper's player database.
-  * Effect: they shift the tether ladder for the slots after them.
-  * Measured: 0 on all three boards.
-  * Visibility: counted per reason on `pickClassTetherGuard.rookiePool`.
+  * Who: rookies with no `yearsExp` and no `eligibleDraftYear`, for example the
+    must-have prospects above.
+  * Effect: in season they are absent (0 measured); pre-draft they can be the
+    whole incoming class (previous item).
+  * Visibility: counted per reason on `pickClassTetherGuard.rookiePool`, and the
+    withheld reason names it.
 * **A round-1–4 slot with neither a slot market nor a tier market fails the
   build while the flag is ON.** The census reports a structural error rather
   than inventing a number. This needs both pick markets to lose the class's

@@ -183,6 +183,27 @@ def test_observed_season_comes_from_the_board_date() -> None:
     assert dc._observed_nfl_season_for_board("2026-07-14") == 2026
     assert dc._observed_nfl_season_for_board(None) is None
     assert dc._observed_nfl_season_for_board("not a date") is None
+    # A board dated in another year must not read today's season off the
+    # clock: these only pass if the board's own date drives the resolver.
+    assert dc._observed_nfl_season_for_board("2028-03-01") == 2028
+    assert dc._observed_nfl_season_for_board("2028-01-31") == 2027
+    assert dc._observed_nfl_season_for_board("2031-09-15") == 2031
+
+
+def test_a_pool_with_no_provable_class_is_named_unprovable_not_empty() -> None:
+    """Pre-draft (Feb-Apr) the scraper marks prospects ``_isRookie`` with no
+    ``yearsExp``: none is PROVEN to be the slot's class.  The refusal says so,
+    rather than "no same-class rookies"."""
+    prospects = [_rookie(f"P{i:02d}", 9000 - 37 * i, years_exp=None) for i in range(1, 31)]
+    picks = _slot_picks(2027)
+    report: dict[str, Any] = {}
+    n = dc._anchor_current_year_picks_to_rookies(
+        prospects + picks, 2027, class_guard=True, observed_nfl_season=2027, guard_report=report
+    )
+    assert n == 0
+    assert report["rookiePool"]["unprovableByReason"] == {"unprovable:no_years_exp": 30}
+    assert set(report["withheldSlots"].values()) == {dc.TETHER_WITHHELD_UNPROVABLE}
+    assert report["leagueSize"] > 0 and report["anchorRounds"] == dc._ROOKIE_ANCHOR_ROUNDS
 
 
 # ── completion of refused slots, synthetic ────────────────────────────────
@@ -382,3 +403,25 @@ def test_the_census_catches_an_unpriced_current_slot_when_the_guard_is_on(monkey
     del board["pickClassTetherGuard"]
     errors = dc.validate_api_data_contract(board)["errors"]
     assert f"pick_completeness_census:{victim['canonicalName']}:missing_or_unpriced" not in errors
+
+
+def test_the_census_checks_only_the_slot_range_the_tether_covers(monkeypatch) -> None:
+    """A vendor slot beyond the tether's league size (or round range) was never
+    tethered, flag OFF or ON, so an unpriced one must not fail the ON build."""
+    board = copy.deepcopy(_board(True, monkeypatch))
+    year = board["currentDraftYear"]
+    guard = board["pickClassTetherGuard"]
+    extra = f"{year} Pick 1.{guard['leagueSize'] + 1:02d}"
+    template = next(
+        r for r in board["playersArray"] if r.get("canonicalName") == f"{year} Pick 1.01"
+    )
+    stray = copy.deepcopy(template)
+    stray.update(canonicalName=extra, displayName=extra, rankDerivedValue=None)
+    board["playersArray"].append(stray)
+    errors = dc.validate_api_data_contract(board)["errors"]
+    assert f"pick_completeness_census:{extra}:missing_or_unpriced" not in errors
+    # ...while an in-range slot is still owed a value.
+    victim = next(r for r in board["playersArray"] if r.get("canonicalName") == f"{year} Pick 2.03")
+    victim["rankDerivedValue"] = None
+    errors = dc.validate_api_data_contract(board)["errors"]
+    assert f"pick_completeness_census:{year} Pick 2.03:missing_or_unpriced" in errors
