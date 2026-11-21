@@ -19,8 +19,10 @@
 #       no pending push on the issue.
 #   1   the POST failed (DNS, TLS, non-2xx, the 10 s timeout), or the issue
 #       could not be read for --retry-pending.
-#   2   NOTIFY_WEBHOOK_URL is set but is not an https:// URL.  Refused: the
-#       topic name IS the secret, and plain http would send it in clear.
+#   2   NOTIFY_WEBHOOK_URL is set but rejected (src/utils/owner_notify.py's
+#       validator when the checkout carries it, else "not https://").  Refused:
+#       the topic name IS the secret, and plain http would send it in clear.
+#       The reason is a code (scheme, userinfo, ...), never the value.
 #   64  usage error.
 #
 # --issue N           the rolling tracker issue this push announces.  When the
@@ -80,7 +82,31 @@ if [[ "$mode" == "retry" && -z "$issue" ]]; then
   usage
 fi
 
-url="${NOTIFY_WEBHOOK_URL:-}"
+# Surrounding whitespace (a badly pasted secret) is dropped here exactly as the
+# validator below drops it (Python's str.strip(): every str.isspace()
+# character, NBSP and the Unicode spaces included, as UTF-8 bytes), so the
+# value judged is the value sent.
+py_strip_chars=(
+  $'\t' $'\n' $'\v' $'\f' $'\r' $'\x1c' $'\x1d' $'\x1e' $'\x1f' ' '
+  $'\xc2\x85' $'\xc2\xa0' $'\xe1\x9a\x80'
+  $'\xe2\x80\x80' $'\xe2\x80\x81' $'\xe2\x80\x82' $'\xe2\x80\x83'
+  $'\xe2\x80\x84' $'\xe2\x80\x85' $'\xe2\x80\x86' $'\xe2\x80\x87'
+  $'\xe2\x80\x88' $'\xe2\x80\x89' $'\xe2\x80\x8a'
+  $'\xe2\x80\xa8' $'\xe2\x80\xa9' $'\xe2\x80\xaf' $'\xe2\x81\x9f' $'\xe3\x80\x80'
+)
+py_strip() {
+  local LC_ALL=C
+  local s="$1" w changed=1
+  while (( changed )); do
+    changed=0
+    for w in "${py_strip_chars[@]}"; do
+      if [[ -n "$s" && "$s" == "$w"* ]]; then s="${s#"$w"}"; changed=1; fi
+      if [[ -n "$s" && "$s" == *"$w" ]]; then s="${s%"$w"}"; changed=1; fi
+    done
+  done
+  printf '%s' "$s"
+}
+url="$(py_strip "${NOTIFY_WEBHOOK_URL:-}")"
 if [[ -z "$url" ]]; then
   echo "::notice title=Owner push not configured::NOTIFY_WEBHOOK_URL is unset; '${title}' was not sent"
   exit 0
@@ -148,9 +174,28 @@ if [[ "$mode" == "retry" ]]; then
   echo "#${issue} carries an undelivered owner push; retrying"
 fi
 
+# THE webhook validator is src/utils/owner_notify.py (``--check``: exit 0 ok,
+# 1 rejected, 3 unset).  It is stdlib-only and run BY PATH under ``-I``, so a
+# checkout that carries just that one file (health-check.yml's sparse checkout)
+# can judge the value.  A checkout without it (the other pushing workflows'
+# sparse checkouts) or without python3 keeps the old https:// test.  Either way
+# the answer is a reason CODE, never any part of the value.
+validator="$(dirname "${BASH_SOURCE[0]}")/../src/utils/owner_notify.py"
+reject_reason=""
+if [[ -f "$validator" ]] && command -v python3 >/dev/null 2>&1; then
+  check_rc=0
+  check_out="$(python3 -I "$validator" --check 2>&1 >/dev/null)" || check_rc=$?
+  if [[ "$check_rc" == "1" ]]; then
+    reject_reason="${check_out##*rejected:}"
+    [[ "$reject_reason" =~ ^[a-z_]+$ ]] || reject_reason="unknown"
+  fi
+elif [[ "$url" != https://* ]]; then
+  reject_reason="scheme"
+fi
+
 rc=0
-if [[ "$url" != https://* ]]; then
-  echo "::error title=Owner push misconfigured::NOTIFY_WEBHOOK_URL is set but is not an https:// URL; '${title}' was NOT sent"
+if [[ -n "$reject_reason" ]]; then
+  echo "::error title=Owner push misconfigured::NOTIFY_WEBHOOK_URL is set but rejected (${reject_reason}); '${title}' was NOT sent"
   rc=2
 else
   # A header cannot carry a line break: one would end the header early.
