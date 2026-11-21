@@ -654,6 +654,7 @@ jobs:
           echo "Lane 4 remote exit: $rc"
 
       - name: Browser verification suite (prod-auth Playwright specs)
+        timeout-minutes: 50
         if: ${{ (github.event_name == 'workflow_run' || (inputs.suite != 'api' && inputs.suite != 'baseline')) && hashFiles('tests/e2e/prod-auth.config.js') != '' }}
         id: browser
         shell: bash
@@ -663,7 +664,17 @@ jobs:
         run: |
           set -Eeuo pipefail
           npm ci
-          npx playwright install chromium --with-deps
+          # This job checks out the DEPLOYED tree, which may predate the
+          # installer's --playwright mode, while this step comes from the
+          # workflow commit.  Read the installer from the workflow commit, as
+          # deploy.yml's tesseract steps do.
+          INSTALLER="${RUNNER_TEMP}/install_apt_packages.sh"
+          git fetch -q --no-tags --depth=1 origin "${GITHUB_SHA}" || true
+          git show "${GITHUB_SHA}:scripts/ci/install_apt_packages.sh" > "${INSTALLER}" || {
+            echo "::error title=Missing CI installer::scripts/ci/install_apt_packages.sh is not readable at the workflow commit ${GITHUB_SHA}."
+            exit 1
+          }
+          bash "${INSTALLER}" --playwright chromium
           rc=0
           npx playwright test --config tests/e2e/prod-auth.config.js 2>&1 | tee prod-auth-browser.txt || rc=$?
           echo "browser_exit=$rc" >> "$GITHUB_OUTPUT"
@@ -707,6 +718,7 @@ jobs:
           node-version: '22'
 
       - name: Collect authenticated route baseline
+        timeout-minutes: 50
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.suite == 'baseline' }}
         id: baseline
         shell: bash
@@ -720,7 +732,17 @@ jobs:
         run: |
           set -Eeuo pipefail
           npm ci
-          npx playwright install chromium --with-deps
+          # This job checks out the DEPLOYED tree, which may predate the
+          # installer's --playwright mode, while this step comes from the
+          # workflow commit.  Read the installer from the workflow commit, as
+          # deploy.yml's tesseract steps do.
+          INSTALLER="${RUNNER_TEMP}/install_apt_packages.sh"
+          git fetch -q --no-tags --depth=1 origin "${GITHUB_SHA}" || true
+          git show "${GITHUB_SHA}:scripts/ci/install_apt_packages.sh" > "${INSTALLER}" || {
+            echo "::error title=Missing CI installer::scripts/ci/install_apt_packages.sh is not readable at the workflow commit ${GITHUB_SHA}."
+            exit 1
+          }
+          bash "${INSTALLER}" --playwright chromium
           case "$BASELINE_ROUTE_SET" in
             core) routes=/rankings,/trade ;;
             league-game-day) routes=/league,/game-day ;;
