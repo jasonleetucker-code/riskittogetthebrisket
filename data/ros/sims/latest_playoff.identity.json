@@ -1,10 +1,10 @@
 {
-  "computedAt": "2026-11-21T03:35:54.546423+00:00",
-  "forecastSha256": "aff2959129722b96d797ad6f250a6d9ba41d1ca788b1839415ca8358b47298b3",
+  "computedAt": "2026-11-21T13:07:20.669703+00:00",
+  "forecastSha256": "a547e71e87fe3d96fef357cc95952d042925cf2e152dd2384ad5abb63620cda5",
   "inputs": {
     "contractGeneration": null,
-    "inputsSha256": "d80567b2c4defc61b72351b8780d983e71791a7c8ae675e6aea59b16fb27012c",
-    "leagueSnapshotGeneratedAt": "2026-11-21T03:35:52+00:00",
+    "inputsSha256": "25aa955c2ae98e31dd455cff9e6a890bafb3fc03a4e68ec235fef76bee8cb5c9",
+    "leagueSnapshotGeneratedAt": "2026-11-21T13:07:18+00:00",
     "leagueSnapshotScope": [
       "season",
       "league_id",
@@ -14,12 +14,12 @@
       "winners_bracket",
       "losers_bracket"
     ],
-    "leagueSnapshotSha256": "fec4d05864c45381266585b00ee450550b844615fff5a358f4e6f29cebfdfecc",
+    "leagueSnapshotSha256": "a48593de80f5ff2b3f11a3cd22ec180a599ceb9d548b0152032cdcdbf56ba2af",
     "pointsModelFallbackSha256": "67ee9153fce3166a2b8568add3a0af51479077d117b210fd90fa1bd03dc98f96",
     "pointsModelFileSha256": null,
     "pointsModelSource": "fallback-constants",
-    "rosAggregateSha256": "64a667f64141dace654e82d2d4d622a33acb28ad27503a806132dd0c9908427f",
-    "rosAggregatedAt": "2026-11-21T03:35:47.409119+00:00",
+    "rosAggregateSha256": "867bd4441e5a20d781275795e1325b3c50575f182d1d725b11e9e24de57fc030",
+    "rosAggregatedAt": "2026-11-21T13:07:16.214511+00:00",
     "teamStrengthFileFresh": true,
     "teamStrengthFileSha256": "30700d911e85d7fee4bad06f7b49b402682c0f6ad5faf433dd78ba327bc2da50"
   },
@@ -27,8 +27,8 @@
   "lastScoredWeek": 10,
   "leagueKey": "dynasty_main",
   "model": {
-    "codeSha": "0bb509486f094a30845d6dca0685aca961ab80e6",
-    "codeShaCapturedAt": "2026-11-21T03:35:45.394846+00:00",
+    "codeSha": "383a998672d9d8dd72600208a5a0890cee12843c",
+    "codeShaCapturedAt": "2026-11-21T13:07:14.669330+00:00",
     "codeShaSource": "refs/heads/main",
     "simParams": {
       "bestBall": true,
