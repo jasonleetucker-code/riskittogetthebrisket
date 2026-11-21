@@ -117,6 +117,29 @@ frozen data as a vote, and recovers on its own when DLF publishes again (the sig
 removes the vote but leaves the refresh job red. Both are source-voting changes, so they are yours to approve. Until
 you decide, `pipeline.refresh` stays BREACH on every scheduled health check.
 
+**Update, 2026-11-21 11:45 UTC: DLF republished both rookie boards at 04:27 UTC, so option A happened on its own.**
+From the committed state on `main` (`data/scrape_state/*` and `CSVs/site_raw/*`, written by the box timer):
+
+| Board | Rows | Content last changed | Fetch state since 04:27 UTC |
+|---|---|---|---|
+| `dlfSf` | 286 | 2026-11-20 22:27 | written every run |
+| `dlfIdp` | 181 | 2026-11-17 14:27 (vendor unchanged since) | written every run |
+| `dlfRookieSf` | 62 | **2026-11-21 04:27** (49 rows changed, 1 added; still the 2026 class) | written every run |
+| `dlfRookieIdp` | 31 | **2026-11-21 04:27** (12 rows changed; still the 2026 class) | written every run |
+| `dlfValuesSfTep` | 328 | 2026-11-20 18:27 | written every run |
+
+- The aggregate `dlf_last_success` advanced at 04:27, 06:27, 08:27 and 10:27 UTC (fully clean runs). The last failed
+  scheduled refresh (44861373134, 03:29 UTC) ran before that. The next scheduled refresh should pass `Assert DLF
+  freshness` and the staleness watchdog with no change, and `pipeline.refresh` should return to OK on the following
+  health check. Neither has run yet at the time of writing.
+- `dlfRookieSf`'s content clock restarted at 04:27, so the stale/quarantine dates above no longer apply.
+- #2275 worked as designed through the outage: the empty boards were labelled `vendor_empty`, the last-good CSVs were
+  kept, the stamps stayed honest, and the boards were written again as soon as the vendor published.
+- Recommendation now: **no action needed for this episode.** D remains the recommended answer if the vendor empties
+  the rookie boards again (for example between classes), so a declared seasonal state is verified rather than
+  failing every refresh. It stays an owner decision (source voting) and is not implemented here.
+- The diagnostics session-jar traceback (§1's last diagnostics runs) is fixed in #2291.
+
 **Public diagnostics logs checked.** Runs 44740383578 and 44742643782 printed sanitized script excerpts. Their public
 logs hold only generic page JavaScript (follow/unfollow handlers, a position filter) and column headers: no nonce,
 cookie, member name or token. #2275 removes that printing anyway.
@@ -367,4 +390,49 @@ That stopped the wave-1 workflow and the first review workflow. On resume:
     1 time in 17 locally on the PR head and 0 in 12 on `main`, and passed on the one allowed re-run.
   - #2291 (new): the DLF diagnostics session-jar traceback. The jar `fetch_dlf.py` writes is an object
     (`{"_comment_", "cookies"}`), so section [4] iterated key strings. Fixed to read the cookie list, print names and
-    domains only, never values.
+    domains only, never values.- **Production browser smoke** (`prod-e2e-smoke.yml` 44896117924, dispatched 10:49 UTC against build `76f9e117`): success.
+- **Third review round and delta reviews, 2026-11-21 (all fixed with regression tests).**
+  - Round 3 (`w4ioxktmw`: three lenses per PR, each finding put to refuters; 28 agents) confirmed seven findings, all NIT,
+    and refuted five. Three of the refuted five were against the pre-audit #2287 head (`/var/tmp` queues, no total time
+    bound) and are moot. The fourth, a 1-of-3 vote, said `/api/test-alert` requests are now also charged to the
+    site-wide per-IP bucket that TestClient shares across tests, so a test could flip to 429 depending on what ran
+    before it. It is a real latent order dependence (one refuter reproduced it), so it was fixed anyway.
+  - Delta reviews of the post-audit commits: #2288 APPROVE; #2290 APPROVE; #2291 APPROVE; #2287 CHANGES_REQUESTED, with
+    one IMPORTANT finding.
+  - #2287 (IMPORTANT, delta review): the uptime script recorded the new status before the cmd channel had queued the
+    transition, so a run killed during the webhook POST lost the cmd alert for good (reproduced with a stub curl that
+    kills its parent). Now every configured channel queues first, then the status is recorded, then delivery runs.
+    `test_uptime_a_run_killed_during_the_webhook_send_still_alerts_the_cmd_channel` fails if the order is reverted
+    (`16711767`; 1,699 related tests pass).
+  - #2287 NITs fixed:
+    - `timeout -k 2` on `NOTIFY_CMD`;
+    - no send inherits the lock descriptor (a child left behind used to hold every later run off; tested);
+    - runtime formula corrected and `TimeoutStartSec` raised 90 → 120 (worst case 88 s);
+    - `mv -T` (a symlink to a directory is replaced, not written into);
+    - the run works inside the checked directory with relative names;
+    - the old `/var/tmp` status is read once at upgrade when this user wrote it, so an outage in progress still gets its
+      recovery message;
+    - `NOTIFY_BUDGET` is validated;
+    - the shell URL check now strips exactly what `str.strip()` strips (NBSP and the Unicode spaces), accepts
+      zero-padded ports, and refuses a stray `[`, matching `validate()`, in both `dynasty-healthcheck.sh` and
+      `notify_owner.sh`;
+    - the queue test now fails if the newest messages are dropped instead of the oldest.
+  - #2287 not fixed (pre-existing, out of scope): the webhook URL is in curl's argv during a POST, readable by local
+    users through `/proc`, and `Environment=` drop-ins are readable through `systemctl show`. Follow-up: `curl
+    --config` plus `EnvironmentFile=` with mode 0600, in all three scripts.
+  - #2288: an unusable or timed-out final Playwright check no longer also prints "still missing" naming the packages
+    just installed (`165c76f8`).
+  - #2289 (`354ab408`): two tests could not fail. The public test now requires every roster field to be present and
+    not withheld, and a current roster block travels through anonymous `/api/status` to `rule_roster_age` = OK. The
+    admin test now pins the refusal counter the server reads itself. Both mutations fail.
+  - #2290 (`c82c0b57`): notify-test reports HTTP 429 as `rate_limited` with an integer `retryAfterSeconds` (documented);
+    the three test files that post the route start each test with the site bucket full; a wrong bearer (401) and a
+    signed-in non-admin (403) are pinned as spending nothing; the budget comment now describes the token bucket
+    accurately.
+  - #2291 (`7fe43842`): the jar listing is capped at 40; a non-string name or domain prints `<not a string>`; an
+    unreadable jar prints its error class only; odd expiries never raise.
+- **Train 1121.** Branch `claude/serene-shannon-7lsrm9-train-1121` at `2d8c90f6` (tree `4fca394d`): `main` `110d1f54`
+  (2 automated data commits past `76f9e117`, `data/` only, class C, integrated once) plus, in order, #2287 `16711767`,
+  #2288 `165c76f8`, #2289 `354ab408`, #2290 `c82c0b57`, #2291 `7fe43842`. No conflicts (`server.py` auto-merged the
+  #2289 and #2290 changes). None touches `config/coercion_baseline.json`. Release candidate 44899341283 and E2E
+  44899343711 (the E2E job installs its browsers through #2288's installer) dispatched 11:29 UTC.
