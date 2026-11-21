@@ -456,14 +456,19 @@ def _edge_for_suggestion(s: TradeSuggestion) -> tuple[str | None, str | None]:
                 "your side has lower pricing risk.",
             )
 
-    # High dispersion on what I'm giving = potential sell-high
+    # High dispersion on what I'm giving = potential sell-high: moving an asset
+    # whose price is uncertain while getting at least fair value back.  ``gap``
+    # is give minus receive (< 0 means I receive more, as above), so the edge
+    # applies only when gap <= 0; an overpay (gap > 0) is never a sell-high.
+    # Dispersion is not directional: it does not say which way the price will
+    # move, so the note claims no correction.
     if give_cvs and max(give_cvs) >= HIGH_DISPERSION_CV:
         seller = max(s.give, key=lambda p: p.dispersion_cv or 0)
-        if s.gap > 0:
+        if s.gap <= 0:
             return (
                 "market_premium",
                 f"Sources disagree on {seller.name} (CV {seller.dispersion_cv:.0%}) — "
-                f"selling before the market corrects down could be smart.",
+                f"you get at least fair value back for an asset whose price is uncertain.",
             )
 
     return (None, None)
