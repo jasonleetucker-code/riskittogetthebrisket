@@ -292,20 +292,64 @@ pyspy_dump() {
 # again, so the next outage notifies afresh.  The URL is never printed:
 # failures log a reason class only.  Never fails the watchdog.
 # The shell form of src/utils/owner_notify.validate (this root-owned copy has
-# no repo Python): surrounding whitespace dropped; lower-case https:// (or
-# http:// to loopback), no inner whitespace, no user:pass@, a host.  Prints a
-# reason CODE on refusal, never any part of the value.
+# no repo Python), checked in validate()'s own order: inner whitespace; any
+# byte outside printable ASCII or an unparsable port/[ipv6] (malformed); the
+# raw scheme must be lower-case https, or http to EXACTLY localhost /
+# 127.0.0.1 / [::1] (host compared lower-cased, as urlsplit does); no
+# user:pass@; a host.  Prints a reason CODE on refusal, never any part of the
+# value.  tests/deploy/test_alert_shell_pushes.py diffs it against validate()
+# over a generated corpus: identical answers, except a bracketed host other
+# than [::1], which this refuses.
 webhook_reject_reason() {
-    local u="$1" rest authority host
+    local LC_ALL=C
+    local u="$1" scheme rest authority hostport host port
     if [[ "${u}" =~ [[:space:]] ]]; then echo whitespace; return; fi
-    case "${u}" in
-        https://*) rest="${u#https://}" ;;
-        http://127.0.0.1*|http://localhost*|http://\[::1\]*) rest="${u#http://}" ;;
-        *) echo scheme; return ;;
-    esac
-    authority="${rest%%[/?#]*}"
+    if [[ "${u}" =~ [^[:graph:]] ]]; then echo malformed; return; fi
+    scheme="${u%%:*}"
+    authority=""
+    # As urlsplit: an authority exists only after a valid scheme and "//".
+    if [[ "${scheme}" =~ ^[A-Za-z][A-Za-z0-9+.-]*$ && "${u}" == "${scheme}://"* ]]; then
+        rest="${u#"${scheme}://"}"
+        authority="${rest%%[/?#]*}"
+    fi
+    hostport="${authority##*@}"
+    port=""
+    if [[ "${hostport}" == \[* ]]; then
+        if [[ "${hostport}" != *\]* ]]; then echo malformed; return; fi
+        host="${hostport#\[}"
+        host="${host%%\]*}"
+        # Stricter than validate() on purpose: the only bracketed host allowed
+        # is the loopback [::1] (validate() also accepts any valid IPv6
+        # literal; no ntfy webhook is a bare IPv6 address, and refusing one
+        # fails safe -- nothing is sent).
+        if [[ "${host}" != "::1" ]]; then echo malformed; return; fi
+        rest="${hostport#*\]}"
+        if [[ -n "${rest}" ]]; then
+            if [[ "${rest}" != :* ]]; then echo malformed; return; fi
+            port="${rest#:}"
+        fi
+    elif [[ "${hostport}" == *\]* ]]; then
+        echo malformed; return
+    elif [[ "${hostport}" == *:* ]]; then
+        host="${hostport%%:*}"
+        port="${hostport#*:}"
+    else
+        host="${hostport}"
+    fi
+    if [[ -n "${port}" ]]; then
+        if [[ ! "${port}" =~ ^[0-9]{1,5}$ ]] || (( 10#${port} > 65535 )); then
+            echo malformed; return
+        fi
+    fi
+    host="${host,,}"
+    if [[ "${scheme}" == "https" ]]; then
+        :
+    elif [[ "${scheme}" == "http" ]] && [[ "${host}" == "localhost" || "${host}" == "127.0.0.1" || "${host}" == "::1" ]]; then
+        :
+    else
+        echo scheme; return
+    fi
     if [[ "${authority}" == *@* ]]; then echo userinfo; return; fi
-    host="${authority%:*}"
     if [[ -z "${host}" ]]; then echo no_host; return; fi
 }
 

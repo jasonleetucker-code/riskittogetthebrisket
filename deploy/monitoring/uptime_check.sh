@@ -105,11 +105,16 @@ PREV="$(cat "${STATE_FILE}" 2>/dev/null || echo UP)"
 #   * a working channel never repeats a message because another one failed;
 #   * a channel that is no longer configured has its queue discarded.
 PENDING_MAX=10
+MSG_PREFIX="[riskit-uptime] "
 
 send_one() {
     local channel="$1" msg="$2"
     case "${channel}" in
-        webhook) curl -fsS --max-time 10 -X POST -d "${msg}" "${NOTIFY_WEBHOOK_URL}" >/dev/null 2>&1 ;;
+        # The body goes on stdin (@-), never as an argument: curl reads a -d
+        # value that starts with "@" as a FILE NAME, and queue lines come
+        # from a file in a shared directory.
+        webhook) printf '%s' "${msg}" | curl -fsS --max-time 10 -X POST --data-binary @- \
+                     "${NOTIFY_WEBHOOK_URL}" >/dev/null 2>&1 ;;
         cmd) printf '%s\n' "${msg}" | ${NOTIFY_CMD} >/dev/null 2>&1 ;;
         *) return 1 ;;
     esac
@@ -127,7 +132,10 @@ deliver_queue() {
         queue+=("${new}")
     fi
     for line in "${queue[@]}"; do
-        [[ -n "${line}" ]] || continue
+        # Replay only what this script queued: the queue sits in a shared
+        # directory (STATE_FILE defaults to /var/tmp), so anything else in it
+        # is dropped, never sent.
+        [[ "${line}" == "${MSG_PREFIX}"* ]] || continue
         # Stop at the first failure so the messages arrive in order.
         if (( failed == 0 )) && send_one "${channel}" "${line}"; then
             continue
@@ -146,7 +154,7 @@ deliver_queue() {
 
 NEW_MSG=""
 if [[ "${STATUS}" != "${PREV}" ]]; then
-    NEW_MSG="[riskit-uptime] ${PREV} -> ${STATUS} at ${NOW}: ${RESULTS[*]}"
+    NEW_MSG="${MSG_PREFIX}${PREV} -> ${STATUS} at ${NOW}: ${RESULTS[*]}"
 fi
 printf '%s\n' "${STATUS}" > "${STATE_FILE}" 2>/dev/null || true
 

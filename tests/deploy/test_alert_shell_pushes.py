@@ -29,7 +29,11 @@ CURL_STUB = r"""#!/usr/bin/env bash
 case " $* " in
   *" -X POST "*)
     msg=""; prev=""
-    for a in "$@"; do [[ "$prev" == "-d" ]] && msg="$a"; prev="$a"; done
+    for a in "$@"; do
+      if [[ "$prev" == "-d" ]]; then msg="$a"; fi
+      if [[ "$prev" == "--data-binary" && "$a" == "@-" ]]; then msg="$(cat)"; fi
+      prev="$a"
+    done
     printf 'POST %s\n' "${msg//$'\n'/ }" >> "$PUSH_LOG"
     exit "$(cat "$PUSH_RC_FILE" 2>/dev/null || echo 0)"
     ;;
@@ -235,6 +239,9 @@ def test_uptime_without_a_channel_still_records_state(box):
         ("https://user:pw@ntfy.example.invalid/private-topic-for-tests", "userinfo"),
         ("https://ntfy.example.invalid/private topic", "whitespace"),
         ("https:///private-topic-for-tests", "no_host"),
+        ("http://localhost.evil.example/private-topic-for-tests", "scheme"),
+        ("http://127.0.0.1.evil.example/private-topic-for-tests", "scheme"),
+        ("https://ntfy.example.invalid:99999/private-topic-for-tests", "malformed"),
     ],
 )
 def test_restart_push_refuses_the_urls_the_validator_refuses(box, url, reason):
@@ -247,29 +254,80 @@ def test_restart_push_refuses_the_urls_the_validator_refuses(box, url, reason):
     assert "private-topic" not in cp.stdout + cp.stderr
 
 
-def test_restart_push_shell_check_agrees_with_owner_notify_validate():
-    from src.utils.owner_notify import validate
-
-    cases = [
-        URL,
-        "  " + URL + "  ",
-        "http://127.0.0.1:8080/topic",
-        "http://ntfy.example.invalid/t",
-        "HTTPS://ntfy.example.invalid/t",
-        "https://u:p@ntfy.example.invalid/t",
-        "https://ntfy.example.invalid/a b",
-        "https:///t",
-    ]
+def _shell_reasons(values: list[str]) -> list[str]:
+    """``webhook_reject_reason`` for every value, in one bash process (``ok``
+    for an accepted value)."""
     script = HEALTH.read_text(encoding="utf-8")
     fn = script[script.index("webhook_reject_reason() {") : script.index("notify_restart() {")]
-    for raw in cases:
-        value = raw.strip()
-        shell = subprocess.run(
-            ["bash", "-c", fn + '\nwebhook_reject_reason "$1"', "_", value],
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
-        want = validate(raw)
-        assert (shell == "") == (want == "ok"), (raw, shell, want)
-        if want != "ok":
-            assert want == "rejected:" + shell, (raw, shell, want)
+    loop = (
+        '\nwhile IFS= read -r -d "" u; do r="$(webhook_reject_reason "$u")"; '
+        'printf "%s\\n" "${r:-ok}"; done'
+    )
+    out = subprocess.run(
+        ["bash", "-c", fn + loop],
+        input="\0".join(values) + "\0",
+        capture_output=True,
+        text=True,
+        timeout=120,
+    ).stdout.splitlines()
+    assert len(out) == len(values)
+    return out
+
+
+def _corpus() -> list[str]:
+    import itertools
+
+    schemes = ["https", "http", "HTTPS", "Http", "ftp", ""]
+    seps = ["://", ":/", ":"]
+    users = ["", "u@", "u:p@", "@"]
+    hosts = [
+        "h.example", "localhost", "LOCALHOST", "127.0.0.1", "127.0.0.1.evil",
+        "localhost.evil", "[::1]", "[::1", "::1", "", "[2001:db8::1]",
+        "[h.example]", "[127.0.0.1]", "h]x",
+    ]  # fmt: skip
+    ports = ["", ":80", ":", ":abc", ":99999", ":65535", ":0", ":00080", ":" + "9" * 21]
+    paths = ["", "/t", "?q", "#f", "/x@y"]
+    return ["".join(p) for p in itertools.product(schemes, seps, users, hosts, ports, paths)]
+
+
+def test_restart_push_shell_check_matches_owner_notify_validate():
+    """Review 2026-11-20 (second round): prefix globs let
+    http://localhost.evil.example through.  Over a generated corpus the shell
+    check now gives validate()'s exact answer, except that it refuses every
+    bracketed host other than [::1] (validate() accepts a valid IPv6 literal)."""
+    from src.utils.owner_notify import validate
+
+    corpus = _corpus()
+    for value, shell in zip(corpus, _shell_reasons(corpus)):
+        want = validate(value)
+        want = "ok" if want == "ok" else want.removeprefix("rejected:")
+        if "[" in value and "[::1]" not in value and shell == "malformed":
+            continue  # the one deliberate difference: stricter, never looser
+        assert shell == want, (value, shell, want)
+
+
+def test_restart_push_shell_check_is_never_looser_on_odd_bytes():
+    from src.utils.owner_notify import validate
+
+    odd = ["\x01", "\x7f", "\u00e9", "\u00a0", "\t", "\v", "%00", "\\", '"', "'"]
+    values = [f"https://h{c}.example/t" for c in odd] + [f"https://h.example/{c}t" for c in odd]
+    for value, shell in zip(values, _shell_reasons(values)):
+        if shell == "ok":
+            assert validate(value) == "ok", value
+
+
+def test_uptime_queue_never_hands_a_planted_line_to_curl(box, tmp_path):
+    """Review 2026-11-20 (second round): the queue sits in a shared directory,
+    and curl reads a -d value starting with "@" as a file name.  The body now
+    goes on stdin, and only lines this script queued are replayed."""
+    secret = tmp_path / "secret.txt"
+    secret.write_text("TOP-SECRET-CONTENT\n")
+    (box.dir / "uptime.state").write_text("DOWN\n")
+    (box.dir / "uptime.state.pending-webhook").write_text(
+        f"@{secret}\nnot ours\n[riskit-uptime] UP -> DOWN at earlier: probes\n"
+    )
+    _uptime(box, up=False)
+    msgs = box.push_messages()
+    assert msgs == ["[riskit-uptime] UP -> DOWN at earlier: probes"]
+    assert "TOP-SECRET-CONTENT" not in box.push_log.read_text()
+    assert _queue(box, "webhook") == []
