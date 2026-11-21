@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from src.api.roster_freshness import roster_freshness
+from src.api.roster_freshness import roster_age, roster_freshness
 
 NOW = datetime(2026, 10, 19, 21, 0, tzinfo=timezone.utc)
 REPO = Path(__file__).resolve().parents[2]
@@ -113,3 +113,32 @@ def test_scraper_stamps_every_branch_that_publishes_rosters():
     text = (REPO / "Dynasty Scraper.py").read_text(encoding="utf-8")
     assert text.count('_stamp_roster_source(SLEEPER_ROSTER_DATA, "live", 0.0)') == 2
     assert '_stamp_roster_source(SLEEPER_ROSTER_DATA, "last_good", _cache_age_h)' in text
+
+
+@pytest.mark.parametrize(
+    ("source", "age_h", "state"),
+    [("live", 1.5, "current"), ("live", 7.25, "stale"), ("last_good", 0.5, "stale")],
+)
+def test_roster_age_is_the_same_verdict_with_the_exact_age(source, age_h, state):
+    fetched = (NOW - timedelta(hours=age_h)).isoformat()
+    age = roster_age(_c(source, fetched), now=NOW)
+    assert age["state"] == roster_freshness(_c(source, fetched), now=NOW)["state"] == state
+    assert age["ageHours"] == round(age_h, 2)
+    assert age["fetchedAt"] == fetched and age["source"] == source
+    assert age["maxAgeHours"] == 6.0
+
+
+@pytest.mark.parametrize(
+    "contract",
+    [None, {}, {"sleeper": None}, _c(None, None), _c("live", None), _c("live", "not a date")],
+)
+def test_roster_age_unknown_carries_no_number(contract):
+    age = roster_age(contract, now=NOW)
+    assert age["state"] == "unknown"
+    assert age["ageHours"] is None and age["fetchedAt"] is None
+
+
+def test_advisor_shape_is_unchanged():
+    """The advisor and MCP spread roster_freshness into payloads: date only."""
+    out = roster_freshness(_c("live", (NOW - timedelta(hours=1)).isoformat()), now=NOW)
+    assert set(out) == {"state", "asOf", "source"}
