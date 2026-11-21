@@ -39,21 +39,21 @@ EXTERNAL BLOCKER · VERIFIED NOT NEEDED. A status is set only from evidence.
 
 | # | Priority / task | Status | Root cause | Implementation | PR → commit | Tests / CI | Production verification | Blocker | Next action |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | P0 DLF rookie boards | MERGED | Vendor publishes no rookie rankings since 2026-11-17 22:27 UTC: same RankingEngine table, 0 rows, 0 expert columns (Superflex: 287 rows, 6 experts). Not a parser defect. | `vendor_empty` label (rookie boards only; run still exits 1); last-good kept; per-board state file; fail-closed rookie class guard; dead shell guard fixed; probe trimmed | #2275 | 223 targeted tests; first review's B1, B2 and I1–I4 addressed, re-review running | pending deploy: box journal + `dlf_board_states.json` | owner decision on the stale `dlfRookieSf` vote (§1) | re-review → release candidate → merge → deploy → verify |
-| 2 | P1 alert delivery | IN PROGRESS | No owner channel; plus code gaps (wave 1) | wave 1 alerts-box + alerts-workflows | — | — | — | owner: ntfy topic and secret | integrate wave 1 |
+| 1 | P0 DLF rookie boards | VERIFIED COMPLETE (fix); OWNER DECISION (stale vote, §1) | Vendor publishes no rookie rankings since 2026-11-17 22:27 UTC: same RankingEngine table, 0 rows, 0 expert columns (Superflex: 287 rows, 6 experts). Not a parser defect. | `vendor_empty` label (rookie boards only; run still exits 1); last-good kept; box-local per-board state file; fail-closed rookie class guard; dead shell guard fixed | #2275 → `39e6c1d3` | release candidate 44796069769 green; deploy 44803655798 green | production build `39e6c1d3`; box state file 2026-11-20 20:27 UTC: both rookie boards `vendor_empty`, last-good 61/31 rows kept, dlfSf/dlfIdp/values `written` (diagnostics 44815264693) | owner: what to do with the frozen `dlfRookieSf` vote (options A–D) | owner decision |
+| 2 | P1 alert delivery | MERGED (code); OWNER ACTION REQUIRED (channel) | No owner channel; plus code gaps | alerts-box (#2280) and alerts-workflows (#2277) merged in train 1120; follow-ups #2287 (shell scripts, restart push), #2290 (stale-backup alert, producer test) | #2277 → `b44d5e43`, #2280 → `76f9e117`; PRs #2287, #2290 | train release candidate 44887684813 green on the exact merged tree | deploy of `76f9e117` running (2026-11-21 ~09:35 UTC) | owner: ntfy topic and secret | verify deploy; land #2287/#2290 |
 | 3 | P1 branch protection | OWNER ACTION REQUIRED | Live ruleset 19976839 has no required checks | dry run re-verified 2026-11-20; apply attempted | — | `test_main_protection_ruleset.py` 6/6 | the API write was refused (§3) | owner runs the script | — |
 | 4 | P1 Signals | OWNER ACTION REQUIRED | Session `reconnect_required` (probe 44532781512) | — | — | — | 4/4 private sources stale | owner reconnect on own computer, then provision | verify after reconnect |
 | 5 | P1 Node 22 | OWNER ACTION REQUIRED | Box runs Node 20 (system install) | #2271 to be refreshed against main | #2271 (HOLD) | — | — | owner installs Node ≥22.12 | refresh #2271 |
 | 6 | P1 off-box backups | OWNER ACTION REQUIRED | All generations on one disk | design + stale-copy alert (#2264, deployed) | — | — | `offbox_copy` row live, silent until configured | B2 approval and keys | backup-age alert work (wave 2) |
 | 7 | P2 credentials | OWNER ACTION REQUIRED | rotation is owner-only | inventory + `check_login_status.py` (#2263); `startup_guards.startup_refusals` refuses empty or placeholder `JASON_LOGIN_PASSWORD` | — | — | — | owner rotation | — |
 | 8 | P2 public-repo data | OWNER ACTION REQUIRED (decision) | policy | recommendation + guard gap closed (#2262) | — | — | — | owner decision | — |
-| 9 | P2 mobile / browser | IN PROGRESS | gaps in touch-target coverage | wave 1 frontend-hardening | — | — | — | physical iPhone checklist | — |
-| 10 | P2 Ubuntu apt | NOT STARTED | archive 503 / stalled mirror on 2026-11-19 | wave 2: verified `.deb` cache + Playwright deps through the installer | — | — | — | — | — |
+| 9 | P2 mobile / browser | MERGED | gaps in touch-target coverage | frontend-hardening (#2285): CSV neutralization, retryable failure states, sub-24px ratchet; WebKit SW test race fixed (#2284) | #2285 → `3d5e5cbb`, #2284 → `eb41b1dd` | train E2E 44803981544 green (both browsers) | deploy running | physical iPhone checklist (owner) | owner device check |
+| 10 | P2 Ubuntu apt | MERGED (CI-1c); PR OPEN (CI-1d) | archive 503 / stalled mirror on 2026-11-19 | CI-1c verified `.deb` cache for tesseract (#2283); CI-1d Playwright deps through the installer (#2288) | #2283 → `b3a8fa32`; PR #2288 | train release candidate green; #2288 targeted 709 passed | CI only | — | land #2288, dispatch E2E on main |
 | 11 | P2 zombie run 43096180672 | EXTERNAL BLOCKER | GitHub-side zombie: queued since 2026-11-11, 0 jobs | rechecked 2026-11-20: cancel answers HTTP 409 "has not been queued yet"; delete answered 403 on 2026-11-19 | — | — | deploy-in-flight guard ignores it as "never started" | GitHub support or owner UI | — |
-| 12 | P2 Sharp smoke token | IN PROGRESS / OWNER | honest "not measured" since T15 | wave 1: measure only after deploy commit | — | — | — | owner provisions `SHARP_SMOKE_TOKEN` | — |
+| 12 | P2 Sharp smoke token | MERGED (code); OWNER ACTION REQUIRED (token) | honest "not measured" since T15 | measure only after deploy commit; unverifiable is loud (#2277) | #2277 → `b44d5e43` | train release candidate green | — | owner provisions `SHARP_SMOKE_TOKEN` | — |
 | 13 | P2 2030 pick policy | OWNER ACTION REQUIRED (decision) | league window vs board horizon | prototype `d5b8161d` | — | — | — | decision before 2027-01-01 | — |
 | 14 | P2 data-only activation | EXTERNAL BLOCKER (time) | evidence bar not met | observer automatic since #2272 | — | — | 17 compared + live since | time; owner on counting rule | wave 2: aggregate dedup + live-only window |
-| 15 | §17 audit leftovers | IN PROGRESS | see §17 table | waves 1–2; #2278 (T13 deploy token); #2279 (X-HEALTH); CI-1c apt cache; #2233 closed as superseded | #2278, #2279 | targeted suites green (see PRs) | — | — | review → release candidate → merge |
+| 15 | §17 audit leftovers | MERGED (train 1120); PR OPEN (follow-ups) | see §17 table | train 1120: #2277, #2278, #2279, #2281, #2282, #2283, #2284, #2285, #2286, #2280; follow-ups #2287–#2290 | `main` `76f9e117` | release candidate 44887684813 + E2E 44803981544 green | deploy running | — | verify deploy; land follow-ups |
 
 ## §1 DLF rookie boards — evidence and decision
 
@@ -153,21 +153,21 @@ The reconciliation comes from the read-only understand pass (`wf_285342a1-685`),
 
 | Task | Status at intake | Route | Current |
 |---|---|---|---|
-| T1 Hermetic hard gate, skip budget | VERIFIED COMPLETE | evidence-tooling agent pins the two remaining archive-reading tests and adds a retention early warning (X-HERMETIC) | IN PROGRESS |
+| T1 Hermetic hard gate, skip budget | VERIFIED COMPLETE | evidence-tooling agent pins the two remaining archive-reading tests and adds a retention early warning (X-HERMETIC) | MERGED (#2282) |
 | T2 Freshness and deploy-lag SLO | VERIFIED COMPLETE | — | VERIFIED COMPLETE |
-| T3 Data delivery decoupled from the full gate | OWNER / time | evidence-tooling (CI-4b dedup, live-only window, specific advisory gates); activation stays the owner's | IN PROGRESS (code); EXTERNAL BLOCKER (time) |
+| T3 Data delivery decoupled from the full gate | OWNER / time | evidence-tooling (CI-4b dedup, live-only window, specific advisory gates); activation stays the owner's | MERGED (code, #2282); EXTERNAL BLOCKER (time) |
 | T4 Owner admin-action pack | OWNER ACTION REQUIRED | ledger rows 3, 6, 7 | OWNER ACTION REQUIRED |
-| T5 Year boundary 2026→2027 | VERIFIED COMPLETE | evidence-tooling adds future-clock instants and a failure tracker (X-YEAR-BOUNDARY) | IN PROGRESS |
+| T5 Year boundary 2026→2027 | VERIFIED COMPLETE | evidence-tooling adds future-clock instants and a failure tracker (X-YEAR-BOUNDARY) | MERGED (#2282) |
 | T6 Five UI-fix PRs | VERIFIED COMPLETE | — | VERIFIED COMPLETE |
-| T7 Trade and War Room smoke | VERIFIED COMPLETE | evidence-tooling: a stale `rostersState` becomes an explicit warning (X-SMOKE) | IN PROGRESS |
+| T7 Trade and War Room smoke | VERIFIED COMPLETE | evidence-tooling: a stale `rostersState` becomes an explicit warning (X-SMOKE) | MERGED (#2282) |
 | T8 Public-repo data exposure | OWNER ACTION REQUIRED (decision) | ledger row 8; #2275 deliberately adds no tracked vendor-named file | OWNER ACTION REQUIRED |
-| T9 Trade-flow resilience | VERIFIED COMPLETE | wave-1 frontend-hardening (service-worker / API failure recovery) | IN PROGRESS |
-| T10 Mobile ergonomics, 390 px | PARTIAL | wave-1 frontend-hardening (touch-target coverage and ratchet); a physical-device check is the owner's | IN PROGRESS |
+| T9 Trade-flow resilience | VERIFIED COMPLETE | wave-1 frontend-hardening (service-worker / API failure recovery) | MERGED (#2285) |
+| T10 Mobile ergonomics, 390 px | PARTIAL | wave-1 frontend-hardening (touch-target coverage and ratchet); a physical-device check is the owner's | MERGED (#2285); physical device check is the owner's |
 | T11 Signals restore | OWNER ACTION REQUIRED | ledger row 4, §4 | OWNER ACTION REQUIRED |
-| T12 Live roster refresh | VERIFIED NOT NEEDED (measure first) | X-ROSTER-FRESHNESS adds the measurement (after wave 1) | NOT STARTED |
-| T13 Security hardening | PARTIAL | `deploy.yml` top-level token grant plus a guard test for every workflow (#2278); `claude.yml` grant and SHA pin (wave-1 alerts-workflows #2277); CSV injection (frontend-hardening); health side effects (#2279) | PR OPEN |
-| T14 Next.js | VERIFIED COMPLETE (16.4.5) | superseded Dependabot #2233 closed 2026-11-20; 16.4.6 patch bump (after wave 1) | MERGED (16.4.5); 16.4.6 NOT STARTED |
-| T15 Permanent-red / vacuous-green checks | VERIFIED COMPLETE | remaining X-CI items: refresh assertion text (#2277); production-auth suite skip floor (queued); `pipeline.refresh` basis (after alerts-box) | IN PROGRESS |
+| T12 Live roster refresh | VERIFIED NOT NEEDED (measure first) | X-ROSTER-FRESHNESS adds the measurement (after wave 1) | PR OPEN (#2289) |
+| T13 Security hardening | PARTIAL | `deploy.yml` top-level token grant plus a guard test for every workflow (#2278); `claude.yml` grant and SHA pin (wave-1 alerts-workflows #2277); CSV injection (frontend-hardening); health side effects (#2279) | MERGED (#2277, #2278, #2279, #2285) |
+| T14 Next.js | VERIFIED COMPLETE (16.4.5) | superseded Dependabot #2233 closed 2026-11-20; 16.4.6 patch bump (after wave 1) | MERGED (16.4.6, #2281) |
+| T15 Permanent-red / vacuous-green checks | VERIFIED COMPLETE | remaining X-CI items: refresh assertion text (#2277); production-auth suite skip floor (queued); `pipeline.refresh` basis (after alerts-box) | MERGED (#2277, #2286) |
 | T16 Node 20 → 22 | OWNER ACTION REQUIRED | #2271 refreshed against main (`b9adf5dd`); held until Node ≥22.12 is on the box | OWNER ACTION REQUIRED |
 
 **Understand-pass items routed to units:**
@@ -189,17 +189,21 @@ The reconciliation comes from the read-only understand pass (`wf_285342a1-685`),
 |---|---|---|---|
 | #2275 | P0 DLF rookie boards | me; two independent reviews addressed | MERGED `39e6c1d3` (head `d6342a3c`, release candidate 44796069769 green); deploy 44803655798 |
 | #2276 | this record | me | merged last |
-| #2277 | wave-1 alerts-workflows | workflow `wf_094793f6-175` | approved; in train-1120 |
-| #2278 | T13 `deploy.yml` token | me | approved; in train-1120 |
-| #2279 | X-HEALTH | me | approved; in train-1120 |
-| #2280 | wave-1 alerts-box | workflow `wf_094793f6-175` | first review's 3 findings fixed (`29ad02ee4`); re-review's permanent-red finding fixed (`322685efb`), approved with one nit; in train-1120 |
-| #2281 | T14 Next 16.4.6 | me | approved; in train-1120 |
-| #2282 | X-HERMETIC, X-YEAR-BOUNDARY, CI-4b, T3 advisory gates, X-SMOKE | evidence-tooling agent | approved; in train-1120 |
-| #2283 | CI-1c verified apt cache | CI-1c agent | approved; in train-1120 |
-| #2284 | WebKit service-worker E2E flake (root cause: the test left "/" before its `register()` reached WebKit's SW server; WebKit then drops the job and the registration never gets a worker) | SW agent | approved; in train-1120 |
-| #2285 | wave-1 frontend hardening (CSV injection, retryable failure states, sub-24px ratchet) | wave-1 agent; PR opened by me after the workflow died (one `ds.css` discipline failure fixed) | approved; in train-1120 |
+| #2277 | wave-1 alerts-workflows | workflow `wf_094793f6-175` | MERGED `b44d5e43` (train 1120, 2026-11-21 09:22 UTC) |
+| #2278 | T13 `deploy.yml` token | me | MERGED `853a86c4` (train 1120, 2026-11-21 09:22 UTC) |
+| #2279 | X-HEALTH | me | MERGED `c8c9020a` (train 1120, 2026-11-21 09:22 UTC) |
+| #2280 | wave-1 alerts-box | workflow `wf_094793f6-175` | MERGED `76f9e117` (train 1120, 2026-11-21 09:22 UTC) |
+| #2281 | T14 Next 16.4.6 | me | MERGED `fcd39c33` (train 1120, 2026-11-21 09:22 UTC) |
+| #2282 | X-HERMETIC, X-YEAR-BOUNDARY, CI-4b, T3 advisory gates, X-SMOKE | evidence-tooling agent | MERGED `95d9b770` (train 1120, 2026-11-21 09:22 UTC) |
+| #2283 | CI-1c verified apt cache | CI-1c agent | MERGED `b3a8fa32` (train 1120, 2026-11-21 09:22 UTC) |
+| #2284 | WebKit service-worker E2E flake (root cause: the test left "/" before its `register()` reached WebKit's SW server; WebKit then drops the job and the registration never gets a worker) | SW agent | MERGED `eb41b1dd` (train 1120, 2026-11-21 09:22 UTC) |
+| #2285 | wave-1 frontend hardening (CSV injection, retryable failure states, sub-24px ratchet) | wave-1 agent; PR opened by me after the workflow died (one `ds.css` discipline failure fixed) | MERGED `3d5e5cbb` (train 1120, 2026-11-21 09:22 UTC) |
 | #2271 | Node 22 lanes (HOLD) | me | E2E re-run once (WebKit service-worker flake, not Node 22); owner installs Node ≥22.12 |
-| (branch) | X-ROSTER-FRESHNESS measurement + `data_freshness.roster_age_hours` | me | `claude/serene-shannon-7lsrm9-roster-slo` at `4bc0b1e1` (on train-1120); PR after the train lands |
+| #2286 | X-CI production-auth skip floor | me | MERGED `1e9dc3ac` (train 1120, 2026-11-21 09:22 UTC) |
+| #2287 | alert shell scripts (COV-CRITICAL push, uptime retry queues, validator-exact URL check) | worker + my review fixes | PR CI; third review round running |
+| #2288 | CI-1d Playwright deps through the installer | worker + my review fixes | PR CI; third review round running |
+| #2289 | X-ROSTER-FRESHNESS status fields and SLO rule | me | PR CI; third review round running |
+| #2290 | COV-BACKUP stale-state-backup alert, E2E-TEST producer test mode | worker + my review fix | PR CI; third review round running |
 
 **Findings made while integrating:**
 - COV-BACKUP's premise is stale. Production's public `/api/status` shows `stateBackup` healthy, evidence
@@ -270,3 +274,38 @@ That stopped the wave-1 workflow and the first review workflow. On resume:
     branch was reset to its pushed head `80785eb0e`, and the train was rebuilt in its own worktree.
   - A test written for #2280 pointed the store path at the test file. `user_kv` quarantined the file as a corrupt store.
     The file was restored before commit, and the test now uses the isolated per-test store.
+
+- **2026-11-20 20:04 UTC: #2275 deployed** (production `build.commit` `39e6c1d3`). The box-side proof came from the
+  20:27 UTC timer run (diagnostics 44815264693): `/var/lib/dlf-fetch/dlf_board_states.json` shows `dlfRookieSf` and
+  `dlfRookieIdp` as `vendor_empty` ("rankings table(s) with 0 rows and 0 expert columns"), the last-good CSVs kept
+  (61 and 31 rows), and `dlfSf` / `dlfIdp` / `dlfValuesSfTep` `written`. The traceback seen in both diagnostics logs
+  comes from the inventory script's own session-jar section (stderr interleaved), not from the timer: a
+  diagnostics-only follow-up.
+- **Train 1120 validation.** Release candidate 44807243040 and E2E 44803981544 passed on the train. Two data
+  refreshes then landed and were integrated once (`dbc1af5c`); release candidate 44815259917 passed. The session then
+  paused for the usage limit (about 21:00 UTC to 09:00 UTC), during which `main` moved 19 automated data commits
+  (data/, exports/, CSVs/, config/ only). They were integrated once more (`861f43dd`), and release candidate
+  44887684813 passed at 09:20 UTC, its plan step reporting "the validated tree IS the tree that will merge".
+- **2026-11-21 09:22 UTC: train 1120 merged**, in order #2284, #2277, #2278, #2279, #2281, #2282, #2283, #2285, #2286,
+  #2280, each squash with `expectedHeadSha`. `main` `76f9e117` has tree `c7eeccd0`, identical to the validated
+  candidate tree. Deploy 44889308459 (`b44d5e43`) is running and 44889347872 (`76f9e117`) is queued behind it; the
+  intermediate deploys were cancelled as stale, by design.
+- **#2280 late fix.** CI shard 2 on `322685ef` failed two status tests that pinned the old `alertDelivery` key set
+  (the re-reviewer had said that file read the block by key). Fixed in `a07b7d28` before the train merged.
+- **Follow-up PRs** (each reviewed adversarially, fixes applied, rebuilt on `main` by cherry-pick into `-v2` branches,
+  octopus-merged together cleanly with 194 cross-cutting tests green):
+  - #2287 alert shell scripts. Review round 1: a short outage whose push failed was lost entirely, and a failing
+    second channel made the working one repeat; fixed with per-channel queues. Round 2: a prefix-glob URL check let
+    `http://localhost.evil.example` through, and queue lines reached `curl -d` (an `@` value is read as a file); fixed
+    with a validator-exact shell check (45,360-URL differential corpus) and stdin bodies.
+  - #2288 CI-1d (Playwright deps through the installer); fixes: smoke step cap below the job's, V1 reads the installer
+    from the workflow commit.
+  - #2289 roster freshness SLO; fixes: refusal counter withheld from anonymous status, box error block named, rule
+    pinned in `RULES`.
+  - #2290 stale-state-backup alert and producer test mode; fix: the backup text no longer contradicts a failed-unit
+    alert in the same message.
+  A third review round over all four is running (`w4ioxktmw`).
+- **Process notes (2026-11-21).** One parallel test command ran two subshells from the main checkout instead of the
+  scratchpad, and its `git checkout` moved the main checkout to `roster-slo-v2`. Nothing was modified or pushed; the
+  checkout was restored to the closeout branch at once. Disk reached ~92% during reviews; finished worktrees were
+  removed after confirming each was clean and matched its pushed head.
