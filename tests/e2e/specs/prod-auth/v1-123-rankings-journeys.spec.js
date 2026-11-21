@@ -16,7 +16,7 @@
  * Read-only over the product: navigation, DOM reads, and one search
  * input fill — no mutating request is made.
  */
-const { test, expect, prodUrl, annotate, desktopOnly } = require("./helpers");
+const { test, expect, prodUrl, annotate } = require("./helpers");
 
 const SEL = {
   boardRow: ".ds-table-wrap table tbody tr.rankings-row-clickable",
@@ -164,7 +164,7 @@ test.describe("V1-123 Phase 1: rankings journeys (production)", () => {
     annotate(testInfo, "player-popup", "opened with Our Value + Source Breakdown, closed cleanly");
   });
 
-  test("global search ('/' shortcut) finds a player and opens their popup on production", async ({
+  test("@desktop-only global search ('/' shortcut) finds a player and opens their popup on production", async ({
     prodPage: page,
   }, testInfo) => {
     // .shell-search-btn lives in components/shell/TopBar.jsx — "the
@@ -175,7 +175,6 @@ test.describe("V1-123 Phase 1: rankings journeys (production)", () => {
     // run (33768425785): the other four interactions in this file
     // (sort/filter/search/popup) all passed on prod-mobile; only this
     // desktop-chrome-specific shortcut did not exist to find.
-    desktopOnly(test, testInfo);
     await gotoRankingsBoard(page);
     const names = await boardPlayerNames(page);
     const sample = names.find((n) => n.trim().split(/\s+/).length >= 2);

@@ -18,7 +18,7 @@
  * Runs on prod-mobile only (390x844, isMobile, hasTouch — configured at
  * the project level in prod-auth.config.js).
  */
-const { test, expect, prodUrl, annotate, mobileOnly } = require("./helpers");
+const { test, expect, prodUrl, annotate } = require("./helpers");
 
 const BOARD_ROW = ".ds-table-wrap table tbody tr.rankings-row-clickable";
 const MIN_HIT_PX = 24; // WCAG 2.5.8 AA — see mobile-touch-targets.spec.js header.
@@ -146,10 +146,9 @@ const SCAN_TYPE = (minPx) => {
 };
 
 test.describe("V1-109: mobile usability (390x844) on the deployed production site", () => {
-  test("/trade — the sticky verdict tray is not covered by the screenshot FAB", async ({
+  test("@mobile-only /trade — the sticky verdict tray is not covered by the screenshot FAB", async ({
     prodPage: page,
   }, testInfo) => {
-    mobileOnly(test, testInfo);
     await page.goto(prodUrl("/trade"), { waitUntil: "domcontentloaded" });
     // Two sides render by default (frontend/app/trade/page.jsx), so the
     // tray mounts on a cold load — no trade setup required. Non-vacuity:
@@ -169,10 +168,9 @@ test.describe("V1-109: mobile usability (390x844) on the deployed production sit
     ).toEqual([]);
   });
 
-  test("/rankings — each watchlist star's effective hit area is at least 24x24", async ({
+  test("@mobile-only /rankings — each watchlist star's effective hit area is at least 24x24", async ({
     prodPage: page,
   }, testInfo) => {
-    mobileOnly(test, testInfo);
     await page.goto(prodUrl("/rankings"), { waitUntil: "domcontentloaded" });
     await expect(page.locator(BOARD_ROW).first(), "rankings board should render rows").toBeVisible({
       timeout: 90_000,
@@ -211,10 +209,9 @@ test.describe("V1-109: mobile usability (390x844) on the deployed production sit
   });
 
   for (const route of ["/rankings", "/rosters", "/draft"]) {
-    test(`${route} — no visible text below 10px on production`, async ({
+    test(`@mobile-only ${route} — no visible text below 10px on production`, async ({
       prodPage: page,
     }, testInfo) => {
-      mobileOnly(test, testInfo);
       await page.goto(prodUrl(route), { waitUntil: "domcontentloaded" });
       if (route === "/rankings") {
         await expect(page.locator(BOARD_ROW).first()).toBeVisible({ timeout: 90_000 });

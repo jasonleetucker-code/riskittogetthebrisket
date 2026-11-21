@@ -37,6 +37,63 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { isPublishable } = require("./prod-auth-annotation-allowlist.js");
+// The ONE skip-accounting engine (STAB-8).  Reused as-is -- the prod-auth
+// suite differs only in its baseline file and its inert/floor rules below.
+const skipAccounting = require("./skip-accounting.js");
+
+const PROD_AUTH_BASELINE_PATH = path.join(__dirname, "prod-auth-skip-baseline.json");
+
+/**
+ * Minimum number of PASSED tests a credentialed run must produce.
+ *
+ * Skip accounting says every skip is a reviewed one; it cannot say the suite
+ * still RUNS.  A run whose collection quietly shrank (a grep that matches
+ * nothing, a config edit, an import that throws at load) would otherwise read
+ * "0 failed" green.  Declared, not derived: on 2026-11-20 the suite collected
+ * 134 (project, test) pairs of which, after project gating became title tags,
+ * 108 are collected and run (63 prod-desktop + 45 prod-mobile).  100 leaves
+ * room for a handful of removals; a change that drops more must edit this
+ * number on purpose, in review.  `PROD_AUTH_MIN_PASSED` overrides it (e.g. a
+ * deliberate single-spec rerun) but never below 1: zero passed is never a run.
+ */
+const DEFAULT_MIN_PASSED = 100;
+
+function minPassedFloor(env = process.env) {
+  const raw = Number.parseInt(String(env.PROD_AUTH_MIN_PASSED ?? ""), 10);
+  return Number.isFinite(raw) && raw >= 1 ? raw : DEFAULT_MIN_PASSED;
+}
+
+/** Same definition helpers.js::isConfigured uses: BOTH variables set. */
+function credentialsConfigured(env = process.env) {
+  return Boolean(env.PROD_ORIGIN && env.PROD_SESSION_COOKIE_FILE);
+}
+
+/**
+ * Pure verdict for a finished run.  Never reads or returns a value, only test
+ * identities (spec file, project, fixed title -- already published) and counts.
+ *
+ *  inert      credentials not configured: every spec skips by design (a local
+ *             run).  Reported loudly, never a failure -- and never a pass the
+ *             caller may mistake for evidence (`inert: true` in the report).
+ *  listOnly   `--list` collects without running; nothing to account.
+ *  otherwise  an unexpected skip, a stale baseline entry, or fewer than the
+ *             floor passed (always >= 1) FAILS the run.
+ */
+function evaluateRun({ configured, listOnly, passed, runStatus, collected, baseline, minPassed }) {
+  if (listOnly) return { inert: false, listOnly: true, failed: false, problems: [], skipReport: null };
+  if (!configured) return { inert: true, listOnly: false, failed: false, problems: [], skipReport: null };
+  const problems = [];
+  const skipReport = skipAccounting.evaluateSkips(collected, baseline);
+  if (skipReport.unexpected.length) problems.push(`${skipReport.unexpected.length} unexpected skip(s)`);
+  if (skipReport.stale.length) problems.push(`${skipReport.stale.length} stale skip-baseline entr(ies)`);
+  // Only when nothing else already failed the run: real failures are the
+  // story, and a red run needs no floor to be red.
+  if (runStatus === "passed" || runStatus === undefined) {
+    if (passed < 1) problems.push("zero tests passed");
+    else if (passed < minPassed) problems.push(`only ${passed} tests passed (floor ${minPassed})`);
+  }
+  return { inert: false, listOnly: false, failed: problems.length > 0, problems, skipReport };
+}
 
 const OUTPUT_FILE = path.join(__dirname, "prod-auth-results.json");
 const MAX_TITLE_CHARS = 300;
@@ -179,7 +236,12 @@ class ProdAuthSafeReporter {
     this.scrub = scrub;
     this.containsSecret = containsSecret;
     this.results = [];
+    this.rootSuite = null;
     this.startedAt = new Date().toISOString();
+  }
+
+  onBegin(_config, suite) {
+    this.rootSuite = suite || null;
   }
 
   printsToStdio() {
@@ -256,6 +318,8 @@ class ProdAuthSafeReporter {
       counts[r.status] = (counts[r.status] || 0) + 1;
       withheld += r.withheldCount;
     }
+    const passedCount = counts.passed || 0;
+    const verdict = this.verdict(result, passedCount);
     const report = {
       schema: "prod-auth-safe-report/v2",
       sanitized: true,
@@ -264,6 +328,15 @@ class ProdAuthSafeReporter {
       finishedAt: new Date().toISOString(),
       status: result.status,
       counts,
+      // Counts and booleans only.  `inert` = credentials were not configured,
+      // so this run proved nothing about production.
+      integrity: {
+        inert: verdict.inert,
+        failed: verdict.failed,
+        minPassed: minPassedFloor(),
+        unexpectedSkips: verdict.skipReport ? verdict.skipReport.unexpected.length : 0,
+        staleBaselineEntries: verdict.skipReport ? verdict.skipReport.stale.length : 0,
+      },
       annotationsWithheld: withheld,
       tests: this.results,
     };
@@ -273,10 +346,78 @@ class ProdAuthSafeReporter {
         .map(([k, v]) => `${v} ${k}`)
         .join(", ")} — run ${result.status}\n`,
     );
+    return this.announce(verdict, result);
+  }
+
+  /** Collected-test records for the skip accounting.  Titles only. */
+  collectedRecords() {
+    if (!this.rootSuite || typeof this.rootSuite.allTests !== "function") return null;
+    return this.rootSuite.allTests().map(skipAccounting.describeTest);
+  }
+
+  verdict(result, passed) {
+    const listOnly = process.argv.includes("--list");
+    const configured = credentialsConfigured();
+    let collected = [];
+    let baseline = { entries: [] };
+    if (configured && !listOnly) {
+      try {
+        collected = this.collectedRecords();
+        if (!collected) throw new Error("the run's collected suite is not available to the reporter");
+        baseline = skipAccounting.loadBaseline(PROD_AUTH_BASELINE_PATH);
+      } catch (err) {
+        // An unreadable baseline or suite must never read as "no skips".
+        return {
+          inert: false,
+          listOnly: false,
+          failed: true,
+          problems: [`skip accounting could not run: ${this.scrub(err && err.message, 300)}`],
+          skipReport: null,
+        };
+      }
+    }
+    return evaluateRun({
+      configured,
+      listOnly,
+      passed,
+      runStatus: result.status,
+      collected,
+      baseline,
+      minPassed: minPassedFloor(),
+    });
+  }
+
+  announce(verdict, result) {
+    const line = "═".repeat(72);
+    if (verdict.inert) {
+      process.stdout.write(
+        `\n${line}\nPROD-AUTH SUITE INERT: PROD_ORIGIN / PROD_SESSION_COOKIE_FILE not both set.\n` +
+          `Specs skip by design without credentials; this run proves NOTHING about production.\n${line}\n`,
+      );
+      return undefined;
+    }
+    if (verdict.listOnly) return undefined;
+    if (verdict.skipReport) {
+      const text = skipAccounting.formatReport(verdict.skipReport, {
+        baselinePath: "tests/e2e/prod-auth-skip-baseline.json",
+      });
+      if (text) process.stdout.write(`\n${line}\nPROD-AUTH SKIP ACCOUNTING\n${line}\n${text}\n${line}\n`);
+    }
+    if (!verdict.failed) return undefined;
+    process.stdout.write(
+      `\n${line}\nPROD-AUTH RUN INVALID -- THIS GREEN IS NOT TRUSTWORTHY: ${verdict.problems.join("; ")}\n${line}\n`,
+    );
+    // Playwright's supported way for a reporter to change the run outcome.
+    return result.status === "passed" ? { status: "failed" } : undefined;
   }
 }
 
 module.exports = ProdAuthSafeReporter;
 module.exports.errorClass = errorClass;
+module.exports.evaluateRun = evaluateRun;
+module.exports.minPassedFloor = minPassedFloor;
+module.exports.credentialsConfigured = credentialsConfigured;
+module.exports.DEFAULT_MIN_PASSED = DEFAULT_MIN_PASSED;
+module.exports.PROD_AUTH_BASELINE_PATH = PROD_AUTH_BASELINE_PATH;
 module.exports.failureSignal = failureSignal;
 module.exports.SIGNAL_NAMES = SIGNAL_NAMES;

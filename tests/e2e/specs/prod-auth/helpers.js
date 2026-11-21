@@ -108,21 +108,6 @@ function strengthText(v) {
   return Number.isFinite(n) ? Math.round(n).toLocaleString("en-US") : "—";
 }
 
-/** Gate a test to one of the two prod-auth projects. */
-function desktopOnly(test, testInfo) {
-  test.skip(
-    testInfo.project.name !== "prod-desktop",
-    "desktop-viewport check — runs on the prod-desktop project only",
-  );
-}
-
-function mobileOnly(test, testInfo) {
-  test.skip(
-    testInfo.project.name !== "prod-mobile",
-    "mobile-viewport check — runs on the prod-mobile project only",
-  );
-}
-
 /**
  * `prodPage` fixture: a page whose browser context carries the real
  * production session cookie, verified live against /api/auth/status
@@ -218,8 +203,6 @@ module.exports = {
   normName,
   fmtSigned,
   strengthText,
-  desktopOnly,
-  mobileOnly,
   DISCLOSURE_SELECTOR,
   readCellText,
 };

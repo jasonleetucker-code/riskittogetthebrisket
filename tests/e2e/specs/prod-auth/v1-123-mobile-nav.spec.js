@@ -11,15 +11,14 @@
  * the prod-desktop and prod-mobile projects — porting them again here
  * would be a duplicate, not new coverage.
  *
- * mobile-viewport only (prod-mobile project); skips cleanly on
- * prod-desktop via the shared mobileOnly() helper.
+ * mobile-viewport only (prod-mobile project); not collected on
+ * prod-desktop (the @mobile-only title tag + prod-desktop grepInvert).
  */
-const { test, expect, prodUrl, mobileOnly, annotate } = require("./helpers");
+const { test, expect, prodUrl, annotate } = require("./helpers");
 
 const BOARD_ROW = ".ds-table-wrap table tbody tr.rankings-row-clickable";
 
-test.describe("V1-123 Phase 1: mobile bottom navigation (production)", () => {
-  test.beforeEach(async ({}, testInfo) => mobileOnly(test, testInfo));
+test.describe("@mobile-only V1-123 Phase 1: mobile bottom navigation (production)", () => {
 
   test("bottom navigation is visible and navigates between tabs on production", async ({
     prodPage: page,

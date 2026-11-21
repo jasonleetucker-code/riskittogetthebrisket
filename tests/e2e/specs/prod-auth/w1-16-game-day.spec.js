@@ -45,8 +45,6 @@ const {
   prodUrl,
   getJson,
   annotate,
-  desktopOnly,
-  mobileOnly,
 } = require("./helpers");
 
 /**
@@ -432,14 +430,13 @@ test.describe("W1-16: the owner's Game Day experience (production)", () => {
     annotate(testInfo, "w1-16-anon-api", `HTTP ${res.status()}`);
   });
 
-  test("W1-25: the shell offers Game Day in the My Team group", async ({
+  test("@desktop-only W1-25: the shell offers Game Day in the My Team group", async ({
     prodPage: page,
   }, testInfo) => {
     // W1-25's navigation-shell clause. Asserted on the DEPLOYED shell
     // rather than by reading nav-model.js, because the row is about the
     // integrated shell and a source read cannot tell whether the built
     // bundle carries it.
-    desktopOnly(test, testInfo);
     await page.goto(prodUrl("/rankings"), { waitUntil: "domcontentloaded" });
     // Shell readiness: the same "authenticated UI is hydrated" signal
     // v1-131-nav-gating uses.
@@ -456,10 +453,9 @@ test.describe("W1-16: the owner's Game Day experience (production)", () => {
     annotate(testInfo, "w1-25-nav", `My Team → Game Day → ${href}`);
   });
 
-  test("usable at a phone viewport without horizontal scroll", async ({
+  test("@mobile-only usable at a phone viewport without horizontal scroll", async ({
     prodPage: page,
   }, testInfo) => {
-    mobileOnly(test, testInfo);
     const team = await resolveTeam(page);
     await page.goto(prodUrl(`/game-day?team=${encodeURIComponent(team)}`), {
       waitUntil: "domcontentloaded",

@@ -13,7 +13,6 @@ const {
   expect,
   getJson,
   annotate,
-  desktopOnly,
 } = require("./helpers");
 
 function nonblank(value) {
@@ -21,10 +20,9 @@ function nonblank(value) {
 }
 
 test.describe("V1-45: roster source reconciliation", () => {
-  test("contract publishes enough identity evidence to explain roster-capacity sizeBefore", async ({
+  test("@desktop-only contract publishes enough identity evidence to explain roster-capacity sizeBefore", async ({
     prodPage: page,
   }, testInfo) => {
-    desktopOnly(test, testInfo);
 
     const { status, body: contract } = await getJson(page, "/api/data?view=app");
     expect(status, "/api/data must serve the authenticated session").toBe(200);

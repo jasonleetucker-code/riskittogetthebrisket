@@ -21,8 +21,6 @@ const {
   prodUrl,
   getJson,
   annotate,
-  desktopOnly,
-  mobileOnly,
 } = require("./helpers");
 
 /** Recipe step 2: the capability block, asserted to be a REAL boolean. */
@@ -53,10 +51,9 @@ async function annotateDeployedSha(page, testInfo) {
 }
 
 test.describe("V1-131: nav gating on the deployed shell", () => {
-  test("capability and the board endpoint agree (recipe step 3)", async ({
+  test("@desktop-only capability and the board endpoint agree (recipe step 3)", async ({
     prodPage: page,
   }, testInfo) => {
-    desktopOnly(test, testInfo);
     await annotateDeployedSha(page, testInfo);
     const available = await readCapability(page, testInfo);
 
@@ -83,10 +80,9 @@ test.describe("V1-131: nav gating on the deployed shell", () => {
     }
   });
 
-  test("desktop Market menu, palette, /more and DOM anchors honour the capability (recipe steps 4-5)", async ({
+  test("@desktop-only desktop Market menu, palette, /more and DOM anchors honour the capability (recipe steps 4-5)", async ({
     prodPage: page,
   }, testInfo) => {
-    desktopOnly(test, testInfo);
     const available = await readCapability(page, testInfo);
 
     await page.goto(prodUrl("/rankings"), { waitUntil: "domcontentloaded" });
@@ -226,10 +222,9 @@ test.describe("V1-131: nav gating on the deployed shell", () => {
     }
   });
 
-  test("hard reload of a private route: zero consensus-edge requests, exactly one auth/status (recipe step 6)", async ({
+  test("@desktop-only hard reload of a private route: zero consensus-edge requests, exactly one auth/status (recipe step 6)", async ({
     prodPage: page,
   }, testInfo) => {
-    desktopOnly(test, testInfo);
     const available = await readCapability(page, testInfo);
     annotate(
       testInfo,
@@ -279,10 +274,9 @@ test.describe("V1-131: nav gating on the deployed shell", () => {
     ).toBe(1);
   });
 
-  test("the /consensus-edge route itself stays reachable (recipe step 8)", async ({
+  test("@desktop-only the /consensus-edge route itself stays reachable (recipe step 8)", async ({
     prodPage: page,
   }, testInfo) => {
-    desktopOnly(test, testInfo);
     const available = await readCapability(page, testInfo);
 
     await page.goto(prodUrl("/consensus-edge"), {
@@ -300,10 +294,9 @@ test.describe("V1-131: nav gating on the deployed shell", () => {
     );
   });
 
-  test("mobile drawer honours the capability at 390x844 (recipe step 5, mobile)", async ({
+  test("@mobile-only mobile drawer honours the capability at 390x844 (recipe step 5, mobile)", async ({
     prodPage: page,
   }, testInfo) => {
-    mobileOnly(test, testInfo);
     const available = await readCapability(page, testInfo);
 
     await page.goto(prodUrl("/rankings"), { waitUntil: "domcontentloaded" });
