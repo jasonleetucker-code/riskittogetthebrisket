@@ -358,3 +358,34 @@ def test_an_unpersisted_delivery_does_not_write_the_store(store):
     }
     assert not store.exists()
     assert _health()["consecutiveFailures"] == 1
+
+
+def test_an_unrecorded_delivery_touches_neither_the_store_nor_memory(store):
+    """``record=False`` (the producer test): the attempt is invisible to the
+    delivery-health record, in the store AND in this process, failed or not."""
+    assert A.deliver(None, "s", "b", push=lambda s, b: False, record=False) is False
+    assert A.deliver(None, "s", "b", push=lambda s, b: True, record=False) is True
+    mailed = []
+    assert (
+        A.deliver(
+            "owner@example.invalid",
+            "s",
+            "b",
+            push=lambda s, b: False,
+            email=lambda to, s, b: mailed.append(to) or True,
+            record=False,
+        )
+        is True
+    )
+    assert mailed == ["owner@example.invalid"]
+    out = A.deliver_each(None, "s", "b", push=lambda s, b: False, record=False)
+    assert out == {"ntfy": False, "email": None}
+    assert not store.exists()
+    assert _health()["consecutiveFailures"] is None
+    assert _health()["deliveryRecord"] == "none"
+
+
+def test_mark_test_labels_title_and_body():
+    subject, body = A.mark_test("[Brisket Ops] 1 warning", "detail")
+    assert subject == "[TEST] [Brisket Ops] 1 warning"
+    assert body == f"{A.TEST_BODY_BANNER}\n\ndetail"

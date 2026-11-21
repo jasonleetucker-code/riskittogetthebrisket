@@ -25,6 +25,10 @@ these conditions hold:
       its source exists on this host, or one the writer recorded as failed or
       shed (one alert per store), and a post-deploy restore proof that failed,
       could not run or died mid-way (``src/api/backup_health.py``)
+    * A state backup whose newest generation is older than
+      ``backup_health.STALE_AFTER_HOURS`` -- a timer that stopped firing or runs
+      that stopped producing generations, which leave no unit ``failed``
+      (``backup_state_stale``; an unjudgeable root is unknown, never fresh)
     * A shipped ``dynasty-*`` / ``riskit-*`` systemd service in the ``failed``
       state -- a timer whose latest run failed (``src/api/systemd_failures.py``;
       one alert per unit)
@@ -289,16 +293,45 @@ def _check_roster_construction(rows: list[dict[str, Any]]) -> list[OpsAlert]:
     return alerts
 
 
-def _check_backup_coverage(block: dict[str, Any] | None) -> list[OpsAlert]:
+#: The category of the stale-state-backup row (COV-BACKUP, 2026-11-20).
+BACKUP_STATE_STALE_CATEGORY = "backup_state_stale"
+
+
+STATE_BACKUP_UNIT = "riskit-state-backup.service"
+
+
+def _check_backup_coverage(
+    block: dict[str, Any] | None, failed_units: list[str] | None = None
+) -> list[OpsAlert]:
     """Irreplaceable-store coverage and the restore proof, from ``alert_rows``.
 
-    One alert per uncovered store, keyed ``backup_ledger:<store>``, and one for
-    the proof keyed ``backup_restore_proof``.  The email goes to the operator, so
+    One alert per uncovered store, keyed ``backup_ledger:<store>``, one for
+    the proof keyed ``backup_restore_proof``, and one for a stale state backup
+    keyed ``backup_state_stale``.  The email goes to the operator, so
     it names the store (the public ``/api/health`` block never does).  A store
     that does not exist on this host never reaches here -- ``absent_by_design``
     is not a finding.
+
+    ``failed_units`` is the same sweep's ``check_and_alert(failed_units=...)``
+    (``None`` = not checked): it decides only the stale-state-backup TEXT, so
+    that alert never contradicts a failed-unit alert in the same message.
     """
     alerts: list[OpsAlert] = []
+    if failed_units is None:
+        unit_note = (
+            "If riskit-state-backup.service is not in the failed state, check the "
+            "timer is still scheduled (systemctl list-timers riskit-state-backup.timer)."
+        )
+    elif STATE_BACKUP_UNIT in failed_units:
+        unit_note = (
+            "riskit-state-backup.service is in the failed state (reported separately "
+            "in this message): the last run failed."
+        )
+    else:
+        unit_note = (
+            "riskit-state-backup.service is not in the failed state, so check the "
+            "timer is still scheduled (systemctl list-timers riskit-state-backup.timer)."
+        )
     for row in (block or {}).get("rows") or []:
         if not isinstance(row, dict):
             continue
@@ -337,6 +370,29 @@ def _check_backup_coverage(block: dict[str, Any] | None) -> list[OpsAlert]:
                         "-u riskit-offbox-copy.service -n 80 --no-pager (and "
                         "/var/log/riskit-offbox-backup.log), then re-run "
                         "`offbox_backup.py copy`.  See docs/ops/BACKUP_OFFBOX_DESIGN_2026-11-19.md."
+                    ),
+                )
+            )
+        elif row.get("kind") == "state_backup":
+            age = row.get("ageHours")
+            limit = row.get("staleAfterHours")
+            alerts.append(
+                OpsAlert(
+                    severity="warning",
+                    category=BACKUP_STATE_STALE_CATEGORY,
+                    title=(
+                        f"State backup is stale ({age:.0f} h old)"
+                        if isinstance(age, (int, float))
+                        else "State backup is stale"
+                    ),
+                    detail=(
+                        "The newest generation of the nightly state backup "
+                        f"({row.get('newestGeneration') or 'unknown date'}) is older than "
+                        f"{limit if limit is not None else 'the stale threshold'} h, so at "
+                        f"least one nightly run did not produce a generation.  {unit_note}  "
+                        "Read the last run: sudo journalctl -u riskit-state-backup.service "
+                        "-n 80 --no-pager.  Run it now with sudo systemctl start "
+                        "riskit-state-backup.service."
                     ),
                 )
             )
@@ -959,6 +1015,34 @@ def format_ops_email(alerts: list[OpsAlert]) -> tuple[str, str]:
     return subject, "\n".join(lines)
 
 
+#: The category a producer TEST notice carries.  It is never stored, so it can
+#: neither spend a cooldown nor earn a recovery notice.
+TEST_CATEGORY = "owner_alert_producer_test"
+
+
+def format_test_notice() -> tuple[str, str]:
+    """``(subject, body)`` of one labelled TEST notice, built by
+    :func:`format_ops_email` -- the sweep's own formatter -- for ``POST
+    /api/test-alert?producers=1``.  Pure: it reads and writes no state."""
+    from src.utils import owner_alerts  # noqa: PLC0415
+
+    return owner_alerts.mark_test(
+        *format_ops_email(
+            [
+                OpsAlert(
+                    severity="warning",
+                    category=TEST_CATEGORY,
+                    title="Ops-alert producer test (no condition fired)",
+                    detail=(
+                        "An operator check of the ops-alert sweep's formatting and owner "
+                        "delivery.  No cooldown or recovery state was read or written."
+                    ),
+                )
+            ]
+        )
+    )
+
+
 def check_and_alert(
     *,
     status_payload: dict[str, Any] | None = None,
@@ -994,7 +1078,7 @@ def check_and_alert(
     alerts.extend(_check_draft_valuation(draft_valuation or []))
     alerts.extend(_check_pregame_archive(pregame_archive or []))
     alerts.extend(_check_roster_construction(roster_construction or []))
-    alerts.extend(_check_backup_coverage(backup_coverage))
+    alerts.extend(_check_backup_coverage(backup_coverage, failed_units))
     alerts.extend(_check_failed_units(failed_units))
     try:
         alerts.extend(_check_forecast_degradation(forecast_degradation or []))
@@ -1032,6 +1116,10 @@ def check_and_alert(
         active_categories |= {c for c in state if str(c) == "backup_offbox_copy"}
     if not (backup_coverage or {}).get("proofChecked"):
         active_categories |= {c for c in state if str(c) == "backup_restore_proof"}
+    if not (backup_coverage or {}).get("stateChecked"):
+        # The state backup's age could not be judged (unreadable root, no
+        # generation, a failed probe): UNKNOWN, never "fresh again".
+        active_categories |= {c for c in state if str(c) == BACKUP_STATE_STALE_CATEGORY}
 
     # Recovery alerts first — for conditions that were firing but
     # aren't now.

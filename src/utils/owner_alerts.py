@@ -101,6 +101,23 @@ def recipient(alert_to: str | None, env: Mapping[str, str] | None = None) -> str
     return OWNER_CHANNEL if channels_configured(env)["ntfy"] else None
 
 
+#: Every producer TEST notice's title starts with this (``POST
+#: /api/test-alert?producers=1``, ``scripts/send_owner_test_alert.py``).
+TEST_TITLE_PREFIX = "[TEST]"
+#: The first line of a producer TEST notice's body: what follows is that
+#: producer's real formatting, and nothing fired.
+TEST_BODY_BANNER = (
+    "TEST MESSAGE from an operator check of the alert producers "
+    "(POST /api/test-alert?producers=1). Nothing fired, nothing changed and no "
+    "action is needed: the text below only shows this producer's real formatting."
+)
+
+
+def mark_test(subject: str, body: str) -> tuple[str, str]:
+    """``(subject, body)`` of a producer's real notice, labelled as a TEST."""
+    return f"{TEST_TITLE_PREFIX} {subject}", f"{TEST_BODY_BANNER}\n\n{body}"
+
+
 def deliver(
     to_email: str | None,
     subject: str,
@@ -109,32 +126,33 @@ def deliver(
     email: EmailDelivery | None = None,
     push: PushDelivery | None = None,
     persist: bool = True,
+    record: bool = True,
 ) -> bool:
     """Push first, e-mail as fallback.  ``True`` when either channel delivered.
 
     ``push`` defaults to the configured ntfy webhook (absent -> skipped).
     ``email`` is used only for a real address (never :data:`OWNER_CHANNEL`).
     ``persist=False`` keeps the attempt out of the store (a process that is not
-    the server, e.g. ``scripts/send_owner_test_alert.py``).
+    the server, e.g. ``scripts/send_owner_test_alert.py``).  ``record=False``
+    keeps it out of the delivery-health record altogether, in memory too (an
+    operator's producer test, which must not move ``alertDelivery``).
     """
     push_fn = push if push is not None else owner_notify.channel()
     attempted = False
+    delivered = False
     if push_fn is not None:
         attempted = True
         try:
-            if push_fn(subject, body):
-                _record(True, persist=persist)
-                return True
+            delivered = bool(push_fn(subject, body))
         except Exception:  # noqa: BLE001 - a channel fault must never break the caller
-            pass
-    delivered = False
-    if email is not None and to_email and to_email != OWNER_CHANNEL:
+            delivered = False
+    if not delivered and email is not None and to_email and to_email != OWNER_CHANNEL:
         attempted = True
         try:
             delivered = bool(email(to_email, subject, body))
         except Exception:  # noqa: BLE001
             delivered = False
-    if attempted:
+    if attempted and record:
         _record(delivered, persist=persist)
     return delivered
 
@@ -147,9 +165,10 @@ def deliver_each(
     email: EmailDelivery | None = None,
     push: PushDelivery | None = None,
     persist: bool = True,
+    record: bool = True,
 ) -> dict[str, bool | None]:
     """Try EVERY channel once (an operator test): ``None`` = not configured.
-    ``persist`` as in :func:`deliver`."""
+    ``persist`` and ``record`` as in :func:`deliver`."""
     out: dict[str, bool | None] = {"ntfy": None, "email": None}
     push_fn = push if push is not None else owner_notify.channel()
     if push_fn is not None:
@@ -163,7 +182,7 @@ def deliver_each(
         except Exception:  # noqa: BLE001
             out["email"] = False
     attempted = [v for v in out.values() if v is not None]
-    if attempted:
+    if attempted and record:
         _record(any(attempted), persist=persist)
     return out
 

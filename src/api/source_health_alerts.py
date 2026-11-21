@@ -658,6 +658,27 @@ def check_and_alert(
     return summary
 
 
+#: The pseudo-source a producer TEST notice names.  It is never written to the
+#: alert state, so it can neither spend a cooldown nor earn a recovery notice.
+TEST_SOURCE = "owner_alert_producer_test (no source is stale)"
+
+
+def format_test_notice() -> tuple[str, str]:
+    """``(subject, body)`` of one labelled TEST notice, built by the sweep's own
+    formatters, for ``POST /api/test-alert?producers=1``.  Pure: it reads and
+    writes no state."""
+    from src.utils import owner_alerts  # noqa: PLC0415
+
+    alert = StaleSourceAlert(
+        source=TEST_SOURCE,
+        last_seen_iso="",
+        hours_stale=None,
+        threshold_hours=None,
+        transition="stale",
+    )
+    return owner_alerts.mark_test(_format_subject([alert]), _format_body([alert]))
+
+
 def _format_subject(alerts: list[StaleSourceAlert]) -> str:
     stale = [a for a in alerts if a.transition == "stale"]
     recovered = [a for a in alerts if a.transition == "recovered"]
