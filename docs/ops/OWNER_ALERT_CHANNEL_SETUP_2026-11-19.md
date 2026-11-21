@@ -135,6 +135,7 @@ never carry a URL, an address or the token. How to read `backend.state`:
 | `failed` | HTTP 502: at least one producer did not deliver (read its `reason`) | 1 |
 | `not_configured` | HTTP 400: the running process has no channel at all. If `.env` has the URL, the backend was not restarted after the edit (`sudo systemctl restart dynasty`) | 1 |
 | `refused` | HTTP 401/403: the running backend has a different token, or predates this change | 1 |
+| `rate_limited` | HTTP 429: the shared owner test-alert budget is spent (a burst of 5, then one more every 2 minutes, for every caller together). The backend is healthy and nothing was sent; run again after `retryAfterSeconds` | 1 |
 | `unreachable` | the backend did not answer on 127.0.0.1:8000 (`errorClass` says how) | 1 |
 | `token_absent` | `.env` has no `SIGNAL_ALERT_CRON_TOKEN`, so the check did not run. Nothing else fails | unchanged |
 

@@ -28,6 +28,18 @@ import pytest
 from fastapi.testclient import TestClient
 
 import server
+from src.api import rate_limit
+
+
+@pytest.fixture(autouse=True)
+def _fresh_site_rate_limit():
+    """``/api/test-alert`` is on the self-authed public list, so every request
+    is also charged to the site-wide per-IP bucket, which TestClient shares
+    across tests (one ``testclient`` peer).  Start each test with it full so a
+    result never depends on how many public requests earlier tests made."""
+    rate_limit.reset_for_tests()
+    yield
+    rate_limit.reset_for_tests()
 
 
 @pytest.fixture(autouse=True)

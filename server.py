@@ -3931,7 +3931,7 @@ def load_from_disk() -> dict | None:
             str(runtime_path),
             produced_at=runtime_data.get("scrapeTimestamp"),
         )
-        log.info(f"Loaded cached data from {runtime_path.name} " f"({runtime_count} players)")
+        log.info(f"Loaded cached data from {runtime_path.name} ({runtime_count} players)")
         return runtime_data
 
     if checkout_data is not None:
@@ -18999,10 +18999,13 @@ async def trigger_scrape(request: Request, background_tasks: BackgroundTasks):
     )
 
 
-# Owner test alerts reach a phone: at most this many authorized requests per
-# window, for every caller together (one producers request can send up to one
-# push per producer per channel).  Charged only AFTER auth, so a caller who is
-# refused cannot spend the owner's budget.
+# Owner test alerts reach a phone, so authorized requests from every caller
+# together draw on one token bucket (one producers request can send up to one
+# push per producer per channel): a burst of ``_TEST_ALERT_CAPACITY``, then one
+# more every ``_TEST_ALERT_WINDOW_S / _TEST_ALERT_CAPACITY`` seconds (2 minutes).
+# Worst case from a full bucket is about 2 x capacity in one window.  Charged
+# only AFTER auth, so a caller who is refused cannot spend the owner's budget;
+# a request that then finds no channel (400) has still spent its token.
 _TEST_ALERT_CAPACITY = 5
 _TEST_ALERT_WINDOW_S = 600.0
 _TEST_ALERT_LIMITER = None
@@ -19043,8 +19046,9 @@ async def test_alert(request: Request):
     bearer verified by ``_signal_alert_cron_bearer_ok`` (the box's notify-test
     uses it to test the RUNNING process).  Anything else is refused exactly as
     before: no session 401 ``auth_required``, a non-allowlisted session 403.
-    Authorized requests share one budget (``_TEST_ALERT_CAPACITY`` per
-    ``_TEST_ALERT_WINDOW_S``); past it the answer is 429 and nothing is sent."""
+    Authorized requests share one token bucket (a burst of
+    ``_TEST_ALERT_CAPACITY``, refilling over ``_TEST_ALERT_WINDOW_S``); past it
+    the answer is 429 and nothing is sent."""
     # W22-F007: sends outbound messages — operator-grade, so it gates
     # on the admin allowlist, not on session presence.
     if not _signal_alert_cron_bearer_ok(request):

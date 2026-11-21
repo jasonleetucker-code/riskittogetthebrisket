@@ -22,12 +22,23 @@ import pytest
 from fastapi.testclient import TestClient
 
 import server
-from src.api import ops_alerts, source_health_alerts, user_kv
+from src.api import ops_alerts, rate_limit, source_health_alerts, user_kv
 from src.sources import signals_auth
 from src.utils import owner_alerts, owner_notify
 
 TOPIC = "https://ntfy.sh/private-topic-for-tests"
 ADDRESS = "owner@example.invalid"
+
+
+@pytest.fixture(autouse=True)
+def _fresh_site_rate_limit():
+    """``/api/test-alert`` is on the self-authed public list, so every request
+    is also charged to the site-wide per-IP bucket, which TestClient shares
+    across tests (one ``testclient`` peer).  Start each test with it full so a
+    result never depends on how many public requests earlier tests made."""
+    rate_limit.reset_for_tests()
+    yield
+    rate_limit.reset_for_tests()
 
 
 @pytest.fixture(autouse=True)
@@ -306,8 +317,9 @@ def test_authorized_test_alerts_share_one_bounded_budget(monkeypatch):
     monkeypatch.setattr(
         server,
         "_owner_alert_producer_test",
-        lambda: sent.append("x")
-        or {"producers": {"ops": {"delivered": True, "reason": "delivered"}}},
+        lambda: (
+            sent.append("x") or {"producers": {"ops": {"delivered": True, "reason": "delivered"}}}
+        ),
     )
     codes = [_post().status_code for _ in range(server._TEST_ALERT_CAPACITY + 2)]
     assert codes[: server._TEST_ALERT_CAPACITY] == [200] * server._TEST_ALERT_CAPACITY
@@ -319,11 +331,20 @@ def test_authorized_test_alerts_share_one_bounded_budget(monkeypatch):
 
 
 def test_refused_callers_never_spend_the_owner_budget(monkeypatch):
+    monkeypatch.setattr(server, "SIGNAL_ALERT_CRON_TOKEN", "cron-token-for-tests-0123456789")
     monkeypatch.setattr(server, "_is_authenticated", lambda r: False)
     with TestClient(server.app) as c:
         for _ in range(server._TEST_ALERT_CAPACITY * 2):
             assert c.post("/api/test-alert?producers=1").status_code == 401
+            wrong = {"Authorization": "Bearer not-the-cron-token"}
+            assert c.post("/api/test-alert", headers=wrong).status_code == 401
+    # Signed in but not on the admin allowlist: 403, and still nothing spent.
     monkeypatch.setattr(server, "_is_authenticated", lambda r: True)
+    monkeypatch.setattr(server, "_get_auth_session", lambda r: {"username": "someone-else"})
+    with TestClient(server.app) as c:
+        for _ in range(server._TEST_ALERT_CAPACITY * 2):
+            assert c.post("/api/test-alert?producers=1").status_code == 403
+    monkeypatch.setattr(server, "_get_auth_session", lambda r: {"username": "jasonleetucker"})
     monkeypatch.setattr(
         server,
         "_owner_alert_producer_test",

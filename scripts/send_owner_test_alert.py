@@ -82,6 +82,9 @@ _BACKEND_STATES = {
     400: "not_configured",
     401: "refused",
     403: "refused",
+    # The shared owner test-alert budget is spent (server._TEST_ALERT_CAPACITY):
+    # the backend is healthy, nothing was sent, run again after retryAfterSeconds.
+    429: "rate_limited",
     502: "failed",
 }
 _IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
@@ -176,6 +179,12 @@ def backend_producer_check(
         ntfyState=_identifier(owner_notify.public_state(ntfy)) if isinstance(ntfy, str) else None,
         producers=producers,
     )
+    if state == "rate_limited":
+        retry = body.get("retryAfterSeconds") if isinstance(body, Mapping) else None
+        # An integer or nothing: never echo a backend value of another shape.
+        report["retryAfterSeconds"] = (
+            retry if isinstance(retry, int) and not isinstance(retry, bool) else None
+        )
     passed = state == "ok" and all(p["delivered"] is True for p in (producers or {}).values())
     return report, passed
 

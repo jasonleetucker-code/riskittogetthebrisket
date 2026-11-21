@@ -167,6 +167,8 @@ def test_a_delivering_backend_passes_and_is_called_with_the_bearer(tmp_path):
         (200, {"producers": {"opsAlerts": {"delivered": False, "reason": "producer_error"}}}, "ok"),
         (200, {"error": "nonsense"}, "unexpected_response"),
         (500, None, "unexpected_status"),
+        # The shared test-alert budget is spent: healthy backend, nothing sent.
+        (429, {"error": "rate_limited", "retryAfterSeconds": 120}, "rate_limited"),
     ],
 )
 def test_a_backend_that_did_not_deliver_everywhere_fails_the_run(tmp_path, status, body, state):
@@ -176,6 +178,23 @@ def test_a_backend_that_did_not_deliver_everywhere_fails_the_run(tmp_path, statu
     assert code == 1, out
     assert out["backend"]["state"] == state
     assert out["backend"]["httpStatus"] == status
+
+
+@pytest.mark.parametrize(
+    "body,expected",
+    [
+        ({"error": "rate_limited", "retryAfterSeconds": 120}, 120),
+        ({"error": "rate_limited", "retryAfterSeconds": "120; https://x"}, None),
+        ({"error": "rate_limited", "retryAfterSeconds": True}, None),
+        (None, None),
+    ],
+)
+def test_a_rate_limited_backend_reports_only_an_integer_retry_hint(body, expected):
+    report, passed = T.backend_producer_check(
+        {"SIGNAL_ALERT_CRON_TOKEN": TOKEN}, post=lambda *a: (429, body)
+    )
+    assert passed is False and report["state"] == "rate_limited"
+    assert report["retryAfterSeconds"] == expected
 
 
 def test_an_unreachable_backend_reports_the_error_class_only(tmp_path, _hermetic):
