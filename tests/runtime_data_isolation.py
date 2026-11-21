@@ -59,6 +59,13 @@ A sixth, measured 2026-11-12:
   only: it is a cache, not production state, and a running server writes
   it legitimately, so it is not on the watch list.
 
+A seventh, 2026-11-20:
+* the owner-alert delivery-health record (``src/utils/owner_alerts.py``),
+  persisted in user_kv.  Every test that delivers an alert would otherwise
+  write the real store, and a later test would read that record instead of
+  "nothing recorded".  Redirected to a per-test file, and the in-process copy
+  is forgotten, so each test starts like a fresh process.
+
 Two TRACKED scraper artifacts are WATCHED, never redirected (2026-10-18):
 ``data/scrape_state/`` and ``data/sleeper_last_good.json``.  They are
 production state the scheduled refresh commits and deploy dispatch keys on
@@ -100,6 +107,7 @@ from src.draft.rookie_auction import published as draft_published
 from src.nfl_data import cache as nfl_cache
 from src.public_league import snapshot_store
 from src.ros import game_day_live, team_strength
+from src.utils import owner_alerts
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -220,6 +228,11 @@ def activate(root: Path) -> None:
     # Heap snapshots (WA-17): redirected, not watched, like the nflverse
     # cache, because a running local server appends to the real log.
     heap_report.REPORT_PATH = root / "diagnostics" / "heap_reports.jsonl"
+    # Owner-alert delivery health (2026-11-20): persisted in user_kv, so a test
+    # that delivers an alert would write the real store and the next test would
+    # read its record.  Each test starts as a fresh process with an empty store.
+    owner_alerts.HEALTH_STORE_PATH = root / "owner_alerts" / "user_kv.sqlite"
+    owner_alerts.reset_delivery_health_for_tests(store=False)
 
 
 @contextlib.contextmanager

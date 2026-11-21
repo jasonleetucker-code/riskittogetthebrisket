@@ -50,6 +50,19 @@ def healthy_slo(**over) -> dict:
     return base
 
 
+def healthy_alerting() -> dict:
+    return {
+        "alertDelivery": {
+            "ntfyConfigured": True,
+            "emailConfigured": False,
+            "lastDeliveredAt": ago(5).isoformat(),
+            "lastFailedAt": None,
+            "consecutiveFailures": 0,
+        },
+        "alertSweepAgeHours": 3.0,
+    }
+
+
 def snap(**kw) -> slo.Snapshot:
     defaults = dict(
         now=NOW,
@@ -57,6 +70,7 @@ def snap(**kw) -> slo.Snapshot:
         deploy_runs=[run("success", 1)],
         refresh_runs=[run("success", 3)],
         freshness_slo=healthy_slo(),
+        alerting=healthy_alerting(),
     )
     defaults.update(kw)
     return slo.Snapshot(**defaults)

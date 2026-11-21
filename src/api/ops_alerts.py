@@ -1,13 +1,13 @@
 """Operator alerts for critical production conditions.
 
-Fires SMTP emails (reusing the existing signal-alert SMTP pipe)
-when any of these conditions hold:
+Delivers one batched owner alert through the caller's delivery callable --
+in production ``server._deliver_owner_alert``, i.e. ``src/utils/owner_alerts.py``:
+the owner's push channel (ntfy) first, e-mail as the fallback -- when any of
+these conditions hold:
 
     * Scrape success rate over the last 24h drops below 50%
     * Any circuit breaker has been OPEN for > 10 minutes
     * Contract health reports ``ok=False``
-    * Signal-alert cron hasn't run in > 36h (expected every 12h)
-    * Session-store SQLite integrity check fails
     * Data freshness > 3 × scrape interval
     * A draft-capital dollars generation serving last-known-good or
       unavailable (Batch F, one alert per league + draft class)
@@ -31,11 +31,18 @@ when any of these conditions hold:
 
 Cooldown: each alert class has a 4-hour re-alert cooldown keyed
 on the synthetic user ``_system_ops_alerts`` in user_kv so the
-cron doesn't spam when a condition is persistent.  Recovery
-alerts fire once when the condition clears.
+cron doesn't spam when a condition is persistent.  The window is spent
+only by a DELIVERED alert (audit F-20).  Recovery alerts fire once
+when the condition clears.
 
 Intended to be called once per sweep (piggybacks on the existing
 ``/api/signal-alerts/run`` cron).  Never raises.
+
+The sweep cannot alert on its own absence (a sweep that never runs sends
+nothing), so its liveness is judged from OUTSIDE: ``record_sweep`` stamps the
+end of every sweep under the same synthetic user, ``/api/status`` publishes
+``alertSweepAgeHours`` from it, and ``scripts/check_production_slo.py`` breaches
+when it is too old (``config/ops/production_slo.json`` ``alerting``).
 """
 
 from __future__ import annotations
@@ -43,6 +50,8 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Callable
 
 from src.api import user_kv
@@ -808,6 +817,50 @@ def _save_ops_state(state: dict[str, Any], categories: set[str], path: Any = Non
     user_kv.mutate_user_state(_OPS_STATE_USER, _apply, path=path)
 
 
+#: Where :func:`record_sweep` stamps the end of a sweep (beside ``opsAlertState``).
+SWEEP_STATE_KEY = "alertSweep"
+
+
+def record_sweep(*, now: float | None = None, kv_path: Any = None) -> None:
+    """Stamp the end of an alert sweep (``lastSweepAt``, UTC ISO).
+
+    The dead-man's switch for the daily ``/api/signal-alerts/run`` sweep: every
+    ops, source-staleness and backup-coverage alert depends on it, and a sweep
+    that never runs (bad token, disabled timer, backend down at 15:00 UTC) sends
+    nothing.  Only an external reader can notice that, so this records the fact
+    and :func:`alert_sweep_age_hours` reports it."""
+    stamp = time.time() if now is None else float(now)
+
+    def _apply(entry: dict[str, Any]) -> None:
+        entry[SWEEP_STATE_KEY] = {
+            "lastSweepAt": datetime.fromtimestamp(stamp, tz=timezone.utc).isoformat(),
+            "lastSweepEpoch": stamp,
+        }
+
+    user_kv.mutate_user_state(_OPS_STATE_USER, _apply, path=kv_path)
+
+
+def alert_sweep_age_hours(*, now: float | None = None, kv_path: Any = None) -> float | None:
+    """Hours since the last recorded sweep; ``None`` when none was ever recorded
+    or the store cannot be read (unknown -- never 0, never "fresh").
+
+    Read-only: a missing store is answered ``None`` without creating it."""
+    path = Path(kv_path) if kv_path is not None else Path(user_kv.USER_KV_PATH)
+    if not path.is_file():
+        return None
+    try:
+        state = user_kv.get_user_state(_OPS_STATE_USER, path=path)
+    except Exception as exc:  # noqa: BLE001 - a diagnostic never raises
+        _LOGGER.warning("alert sweep stamp unreadable: %s", exc)
+        return None
+    entry = state.get(SWEEP_STATE_KEY)
+    epoch = entry.get("lastSweepEpoch") if isinstance(entry, dict) else None
+    if isinstance(epoch, bool) or not isinstance(epoch, (int, float)):
+        return None
+    current = time.time() if now is None else float(now)
+    return round(max(0.0, current - float(epoch)) / 3600.0, 2)
+
+
 def _should_fire(
     alert: OpsAlert,
     state: dict[str, Any],
@@ -1011,6 +1064,14 @@ def check_and_alert(
 
     to_deliver = firing + recovery_alerts
     delivered = False
+    if to_deliver and not delivery_configured:
+        # One line per sweep, so "nothing to say" and "nobody to say it to"
+        # do not look the same in the journal.
+        _LOGGER.warning(
+            "ops alerts: %d notice(s) to deliver but no owner alert channel is configured "
+            "(NOTIFY_WEBHOOK_URL or ALERT_*); nothing sent, retried next sweep",
+            len(to_deliver),
+        )
     if to_deliver and delivery_configured:
         subject, body = format_ops_email(to_deliver)
         try:
@@ -1018,6 +1079,12 @@ def check_and_alert(
         except Exception as exc:  # noqa: BLE001
             _LOGGER.warning("ops alert delivery failed: %s", exc)
             delivered = False
+        if not delivered:
+            _LOGGER.warning(
+                "ops alerts: %d notice(s) NOT delivered (every channel failed); "
+                "retried next sweep",
+                len(to_deliver),
+            )
     summary["delivered"] = delivered
 
     if delivered:
