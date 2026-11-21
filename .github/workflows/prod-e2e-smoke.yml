@@ -94,10 +94,13 @@ jobs:
           npm install --no-audit --no-fund
 
       - name: Install Playwright chromium
+        # Below the job's 15-minute budget: a stalled mirror must FAIL this step
+        # (so the report and tracker steps below run), not cancel the job.
+        timeout-minutes: 10
         shell: bash
         run: |
           set -Eeuo pipefail
-          npx playwright install --with-deps chromium
+          bash scripts/ci/install_apt_packages.sh --playwright chromium
 
       - name: Run public /league spec against prod
         shell: bash
