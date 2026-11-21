@@ -5,6 +5,32 @@
 > 4 concurrent editing workers" record the rule in force at the time and are superseded on that one point. Process
 > only: this authorizes no feature.
 
+## Top 10 dynasty improvements and Chase Trade Market completion — owner, 2026-11-21
+
+**AUTHORIZED NOW.** Intake DYN10-1 … DYN10-14 (`docs/OWNER_REQUESTED_TODO.md`); structured record
+`docs/owner/DYNASTY_TOP10_TRADE_MARKET_DIRECTIVE_2026-11-21.md`.
+
+- **Authorized to implement:**
+  - the CTM-1 … CTM-7 audit, data measurement, infrastructure completion, estimator, validation, IDP evidence and
+    internal shadow values. This extends the existing CTM shadow authorizations (2026-10-19 "the shadow source, its
+    validation and the research view"; 2026-10-26 IDP market phases 1–4), on the existing owners only:
+    `src/trade/market_trade_*`, `comparable_trades.py`, `src/model_registry/*`, `src/history/*`, `src/identity/*`;
+  - read-only production diagnostics that print aggregates only;
+  - the ranked top-ten improvements through normal gates (tests, independent review, exact-tree release candidate).
+    Anything that changes a recommendation, verdict or served value ships behind a default-OFF flag or as a labelled
+    shadow.
+- **OWNER-RESERVED (not authorized here):**
+  - `chaseTradeMarket` voting, any source weight or `_RANKING_SOURCES` change, canonical values, Hill constants,
+    model promotion, and turning any flag ON;
+  - the package model, recommendation rule tables, public fairness, and live trade verdicts;
+  - examining reserved holdouts of draft preregistrations;
+  - Sleeper writes and paid data.
+
+  CTM-8 ends in a prepared owner decision, not an activation.
+- **Out of scope:** DFS, League Tycoon, and the site-wide frontend redesign (another developer's lane); only targeted
+  functional UI on existing components is in scope.
+- **Unaffected:** the production stabilization closeout below (#2287–#2291 train 1121) continues first.
+
 ## Production stabilization and final closeout — owner, 2026-11-19
 
 **AUTHORIZED NOW.** Intake STAB-1 … STAB-12 (`docs/OWNER_REQUESTED_TODO.md`); live tracker
