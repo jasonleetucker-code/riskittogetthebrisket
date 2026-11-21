@@ -1,12 +1,17 @@
 name: Verify Sharp Production Population
 
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - "data/ops/sharp-production-smoke.json"
-      - "data/**"
-      - "exports/**"
+  # Deploy completions ONLY (CI-2c).  The ``push`` trigger is gone, and it
+  # added no coverage: every main push that ships becomes a Deploy Production
+  # run, whose completion fires this workflow_run; a push that does not ship
+  # (docs/tests-only paths deploy.yml ignores) leaves production unchanged, so
+  # there is nothing new to attribute to it; and a deploy started by
+  # GITHUB_TOKEN (scheduled-refresh's data deploys) produced neither event.
+  # What it DID add was the defect: a push run started alongside its deploy
+  # and broke on the first ``healthy`` -- measured on the PREVIOUS deploy --
+  # and recorded that verdict against the new SHA.  Measurement now also waits
+  # for production's /api/status build.commit to equal the deploy head (see
+  # the smoke step), so even a workflow_run cannot grade a different revision.
   workflow_run:
     workflows: ["Deploy Production"]
     types: [completed]
@@ -25,7 +30,7 @@ concurrency:
 
 jobs:
   verify:
-    if: ${{ github.event_name == 'push' || github.event.workflow_run.head_branch == 'main' }}
+    if: ${{ github.event.workflow_run.head_branch == 'main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 50
     outputs:
@@ -90,6 +95,29 @@ jobs:
 
           smoke_token = os.environ.get("SHARP_SMOKE_TOKEN", "").strip()
 
+          def production_commit():
+              """The commit production is RUNNING: public /api/status build.commit.
+
+              Read once at process start (src/api/build_identity.py), so it
+              changes exactly when a deploy restarts the backend.  No bearer:
+              the endpoint is public and the token goes nowhere it is not
+              needed.  ``None`` = could not be read, never a guess.
+              """
+              request = urllib.request.Request(
+                  f"{base}/api/status",
+                  headers={
+                      "User-Agent": "ChaseUpside-Production-Smoke/1.0",
+                      "Cache-Control": "no-cache",
+                  },
+              )
+              try:
+                  with urllib.request.urlopen(request, timeout=30) as response:
+                      status = json.loads(response.read().decode("utf-8"))
+              except Exception:  # noqa: BLE001 -- unreachable / restarting: unknown
+                  return None
+              commit = ((status or {}).get("build") or {}).get("commit")
+              return commit if isinstance(commit, str) and commit else None
+
           def fetch_json(url):
               headers = {
                   "User-Agent": "ChaseUpside-Production-Smoke/1.0",
@@ -145,85 +173,118 @@ jobs:
           elif event_name == "workflow_run" and deploy_conclusion != "success":
               result["status"] = "deploy_failed"
           else:
-              # A push-triggered smoke starts alongside deployment. A workflow-run
-              # smoke starts after deployment. Both allow up to 40 minutes for the
-              # deploy plus the initial background Sleeper/FFPC collection.
-              for attempt in range(1, 81):
-                  result["attempts"] = attempt
-                  try:
-                      cohort_status, cohort = fetch_json(f"{base}/api/sharp/cohort")
-                      market_status, market = fetch_json(
-                          f"{base}/api/sharp/market?window=90d&platform=ffpc&qualification=provisional&limit=100"
-                      )
-                      cohort_stats = cohort.get("cohort") or {}
-                      records = ((cohort.get("coverage") or {}).get("records") or {})
-                      market_cohort = market.get("cohort") or {}
-                      assets = market.get("assets") or []
-                      ffpc_coverage = (
-                          ((market.get("coverage") or {}).get("platforms") or {}).get("ffpc")
-                          or {}
-                      )
-                      result["cohort"] = {
-                          "httpStatus": cohort_status,
-                          "status": cohort.get("status"),
-                          "observableManagers": cohort_stats.get("observableManagers", 0),
-                          "evaluableManagers": cohort_stats.get("evaluableManagers", 0),
-                          "qualifiedManagers": cohort_stats.get("qualifiedManagers", 0),
-                          "provisionalManagers": cohort_stats.get("provisionalManagers", 0),
-                          "managersWithRecords": records.get("managersWithRecords", 0),
-                          "seasonRows": records.get("seasonRows", 0),
-                      }
-                      result["ffpcMarket"] = {
-                          "httpStatus": market_status,
-                          "status": market.get("status"),
-                          "assetRows": len(assets),
-                          "provisionalManagers": market_cohort.get("provisionalManagers", 0),
-                          "transactions": ffpc_coverage.get("transactions", 0),
-                          "movements": ffpc_coverage.get("movements", 0),
-                          "unmappedAssets": (market.get("dataQuality") or {}).get(
-                              "unmappedAssets", 0
+              # CI-2c.  Measure only once production RUNS the deploy head.  A
+              # 'healthy' from the previous revision used to be recorded against
+              # the new SHA: the smoke never asked which commit it was grading.
+              # The deploy has completed by the time this runs, so the commit
+              # normally matches at once; the bounded wait covers the backend
+              # restart.  A mismatch at the bound (a later deploy already shipped,
+              # or a restart that never came) is an absence of evidence about
+              # THIS deploy: ``deploy_unmeasured``, which the record builder keeps
+              # out of the standing record, never a verdict either way.
+              commit_deadline = time.monotonic() + 600
+              running_commit = production_commit()
+              while running_commit != deploy_sha and time.monotonic() < commit_deadline:
+                  time.sleep(20)
+                  running_commit = production_commit()
+              if not deploy_sha or running_commit != deploy_sha:
+                  result["status"] = "deploy_unmeasured"
+                  observed = running_commit[:12] if running_commit else "an unreadable commit"
+                  result["errors"].append(
+                      {
+                          "attempt": 0,
+                          "type": "ProductionCommitMismatch",
+                          "message": (
+                              f"production runs {observed}, the triggering deploy shipped "
+                              f"{(deploy_sha or 'no recorded commit')[:12]}"
                           ),
-                          "sampleAssets": [
-                              {
-                                  "assetId": row.get("assetId"),
-                                  "displayName": row.get("displayName"),
-                                  "sourceLabels": row.get("sourceLabels"),
-                              }
-                              for row in assets[:5]
-                          ],
                       }
-                      sleeper_started = int(records.get("managersWithRecords") or 0) > 0
-                      ffpc_started = (
-                          len(assets) > 0
-                          and int(market_cohort.get("provisionalManagers") or 0) > 0
-                      )
-                      if sleeper_started and ffpc_started:
-                          result["status"] = "healthy"
-                          break
-                      result["status"] = "population_in_progress"
-                  except Unauthenticated as exc:
-                      # Terminal, not transient. Say what is actually
-                      # wrong — the check has no credential — instead of
-                      # burning 40 minutes to report a timeout.
-                      result["status"] = "unverifiable_unauthenticated"
-                      result["errors"].append(
-                          {"attempt": attempt, "type": "Unauthenticated", "message": str(exc)}
-                      )
-                      break
-                  except Exception as exc:  # noqa: BLE001
-                      result["errors"].append(
-                          {
-                              "attempt": attempt,
-                              "type": type(exc).__name__,
-                              "message": str(exc),
-                          }
-                      )
-                      result["errors"] = result["errors"][-10:]
-                      result["status"] = "endpoint_retry"
-                  if attempt < 80:
-                      time.sleep(30)
+                  )
+                  print(
+                      "::warning title=Sharp smoke did not measure the triggering deploy::"
+                      f"production /api/status build.commit is {observed}, not "
+                      f"{(deploy_sha or 'unknown')[:12]}, after a 10 min wait; nothing "
+                      "was measured for this deploy."
+                  )
               else:
-                  result["status"] = "degraded_timeout"
+                  # Both allow up to 40 minutes for the initial background
+                  # Sleeper/FFPC collection after the deploy.
+                  for attempt in range(1, 81):
+                      result["attempts"] = attempt
+                      try:
+                          cohort_status, cohort = fetch_json(f"{base}/api/sharp/cohort")
+                          market_status, market = fetch_json(
+                              f"{base}/api/sharp/market?window=90d&platform=ffpc&qualification=provisional&limit=100"
+                          )
+                          cohort_stats = cohort.get("cohort") or {}
+                          records = ((cohort.get("coverage") or {}).get("records") or {})
+                          market_cohort = market.get("cohort") or {}
+                          assets = market.get("assets") or []
+                          ffpc_coverage = (
+                              ((market.get("coverage") or {}).get("platforms") or {}).get("ffpc")
+                              or {}
+                          )
+                          result["cohort"] = {
+                              "httpStatus": cohort_status,
+                              "status": cohort.get("status"),
+                              "observableManagers": cohort_stats.get("observableManagers", 0),
+                              "evaluableManagers": cohort_stats.get("evaluableManagers", 0),
+                              "qualifiedManagers": cohort_stats.get("qualifiedManagers", 0),
+                              "provisionalManagers": cohort_stats.get("provisionalManagers", 0),
+                              "managersWithRecords": records.get("managersWithRecords", 0),
+                              "seasonRows": records.get("seasonRows", 0),
+                          }
+                          result["ffpcMarket"] = {
+                              "httpStatus": market_status,
+                              "status": market.get("status"),
+                              "assetRows": len(assets),
+                              "provisionalManagers": market_cohort.get("provisionalManagers", 0),
+                              "transactions": ffpc_coverage.get("transactions", 0),
+                              "movements": ffpc_coverage.get("movements", 0),
+                              "unmappedAssets": (market.get("dataQuality") or {}).get(
+                                  "unmappedAssets", 0
+                              ),
+                              "sampleAssets": [
+                                  {
+                                      "assetId": row.get("assetId"),
+                                      "displayName": row.get("displayName"),
+                                      "sourceLabels": row.get("sourceLabels"),
+                                  }
+                                  for row in assets[:5]
+                              ],
+                          }
+                          sleeper_started = int(records.get("managersWithRecords") or 0) > 0
+                          ffpc_started = (
+                              len(assets) > 0
+                              and int(market_cohort.get("provisionalManagers") or 0) > 0
+                          )
+                          if sleeper_started and ffpc_started:
+                              result["status"] = "healthy"
+                              break
+                          result["status"] = "population_in_progress"
+                      except Unauthenticated as exc:
+                          # Terminal, not transient. Say what is actually
+                          # wrong — the check has no credential — instead of
+                          # burning 40 minutes to report a timeout.
+                          result["status"] = "unverifiable_unauthenticated"
+                          result["errors"].append(
+                              {"attempt": attempt, "type": "Unauthenticated", "message": str(exc)}
+                          )
+                          break
+                      except Exception as exc:  # noqa: BLE001
+                          result["errors"].append(
+                              {
+                                  "attempt": attempt,
+                                  "type": type(exc).__name__,
+                                  "message": str(exc),
+                              }
+                          )
+                          result["errors"] = result["errors"][-10:]
+                          result["status"] = "endpoint_retry"
+                      if attempt < 80:
+                          time.sleep(30)
+                  else:
+                      result["status"] = "degraded_timeout"
 
           now = datetime.now(timezone.utc)
           result["checkedAt"] = now.isoformat()
@@ -514,6 +575,25 @@ jobs:
               raise SystemExit(0)
 
           if status == "deploy_unmeasured":
+              last_error = result.get("lastError") or {}
+              if last_error.get("type") == "ProductionCommitMismatch":
+                  # The deploy succeeded, but production never ran its commit
+                  # inside the bound (CI-2c): grading production now would
+                  # grade a DIFFERENT revision and attribute it to this one.
+                  reason = (
+                      f"{last_error.get('message')}, so this deploy's Sharp production "
+                      "health was NOT measured. This is an absence of evidence, not "
+                      "evidence of health or of failure."
+                  )
+                  print(f"::warning title=Sharp smoke did not measure the triggering deploy::{reason}")
+                  summary = os.environ.get("GITHUB_STEP_SUMMARY")
+                  if summary:
+                      with open(summary, "a", encoding="utf-8") as handle:
+                          handle.write(
+                              "### :grey_question: Sharp smoke UNMEASURED (production revision differs)\n\n"
+                              f"{reason}\n\nGreen here is not verification; `measured` is `false`.\n"
+                          )
+                  raise SystemExit(0)
               print(
                   "::warning title=Sharp smoke has no deploy conclusion::"
                   f"the triggering deploy concluded '{deploy_conclusion or 'none'}', "

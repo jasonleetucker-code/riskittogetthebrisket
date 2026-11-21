@@ -599,6 +599,9 @@
     "game-day-live-diagnostics.yml::inventory::Collect Game Day live collector inventory": {
       "category": "blocking"
     },
+    "health-check.yml::health::Check out the shared owner-push script": {
+      "category": "blocking"
+    },
     "health-check.yml::health::Check /api/health": {
       "category": "blocking"
     },
@@ -845,7 +848,13 @@
     "pr-verification-receipt.yml::receipt::Check receipt": {
       "category": "blocking"
     },
+    "prod-e2e-smoke.yml::smoke::Close the tracking issue on a green run": {
+      "category": "blocking"
+    },
     "prod-e2e-smoke.yml::smoke::Checkout": {
+      "category": "blocking"
+    },
+    "prod-e2e-smoke.yml::smoke::Open or update the tracking issue on failure": {
       "category": "blocking"
     },
     "prod-e2e-smoke.yml::smoke::Install Playwright chromium": {
@@ -1355,11 +1364,17 @@
     "v1-authenticated-verification.yml::v1-authenticated::Wait for a warm backend (bounded, public endpoints)": {
       "category": "advisory"
     },
+    "v1-authenticated-verification.yml::v1-authenticated::Wait for production to run the verified revision (bounded, public /api/status)": {
+      "category": "advisory"
+    },
     "v1-authenticated-verification.yml::v1-authenticated::Wait for warm trade routes (bounded, authenticated)": {
       "category": "blocking"
     },
     "v1-authenticated-verification.yml::v1-authenticated::Detect a backend restart during the run (public /api/status)": {
       "category": "advisory"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Publish whether this run verified the triggering deploy": {
+      "category": "blocking"
     },
     "v1-authenticated-verification.yml::v1-authenticated::Classify failures (report-only, never a gate)": {
       "category": "advisory"

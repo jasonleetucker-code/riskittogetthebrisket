@@ -22,6 +22,7 @@ transcribed copy would.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -116,5 +117,10 @@ def test_the_smoke_writer_was_not_throttled_and_the_fingerprint_not_widened():
     """
     script = _gate_script()
     before_loop = script.split("for attempt")[0]
-    assert "time.sleep(" not in before_loop, "a throttle was added to the writer"
+    # CI-2c added exactly ONE deliberate wait ahead of the loop: the bounded
+    # poll for production to run the deploy's commit.  It may do nothing but
+    # re-read that commit; any other sleep here is a throttle.
+    waits = re.findall(r"time\.sleep\([^)]*\)\n\s*(\S[^\n]*)", before_loop)
+    assert waits == ["running_commit = production_commit()"], waits
+    assert before_loop.count("time.sleep(") == 1, "a throttle was added to the writer"
     assert "stateFingerprint" not in before_loop, "the fingerprint was widened"
