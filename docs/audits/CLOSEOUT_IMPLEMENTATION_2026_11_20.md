@@ -436,3 +436,22 @@ That stopped the wave-1 workflow and the first review workflow. On resume:
   #2288 `165c76f8`, #2289 `354ab408`, #2290 `c82c0b57`, #2291 `7fe43842`. No conflicts (`server.py` auto-merged the
   #2289 and #2290 changes). None touches `config/coercion_baseline.json`. Release candidate 44899341283 and E2E
   44899343711 (the E2E job installs its browsers through #2288's installer) dispatched 11:29 UTC.
+- **Train 1121 release-candidate history.**
+  - **44900047845 (12:08 UTC): failed in shard 4.** Two `PublicLeagueRouteTests` section tests answered 429. The public routes share one per-client limiter budget (60/min, 1000/h) across the test process, and that file never reset it.
+    - Pre-existing, not caused by the five PRs: the same 121-file shard sequence fails identically on `main` `110d1f54` (2 failed, 2,521 passed). The train's new test files only changed which files share the shard.
+    - Fixed on #2290 (`d64bda29`): the file now resets the limiter per test, as its sibling memo tests already do. The same sequence then gives 2,542 passed on the train.
+  - **44904289607 (12:30 UTC): all eight shards passed** (including shard 4). The strict freshness step failed because an idpShow refresh (4 `data/scrape_state` files) landed on `main` during the run.
+  - **44961121478 (23:18 UTC): success.** Before it, `main` was integrated once more (16 class-C commits: data/exports/CSVs/config), giving train head `e16d6a41`, tree `b4d12c3a`. The run was timed after the 22:27/22:32 refreshes. E2E 44899343711 passed on the train earlier; it is the first real run of #2288's Playwright installer.
+  - **Lesson:** the local `ruff` here is 0.16.9; the pinned 0.6.9 is `python -m ruff` / `scripts/format_python_changes.sh`. One #2287 commit was formatted with the wrong one and fixed in `567f758a`.
+- **2026-11-21 23:40 UTC: train 1121 merged**, in order, each squash with `expectedHeadSha`:
+  - #2287 `4485aaf1` (head `567f758a`);
+  - #2288 `02ebd9aa` (`165c76f8`);
+  - #2289 `1ba65ede` (`354ab408`);
+  - #2290 `f6c16e38` (`d64bda29`);
+  - #2291 `cfc0179a` (`7fe43842`).
+
+  `main` `cfc0179a` has tree `b4d12c3a`, identical to the validated candidate tree. Deploy 44962907372 (`4485aaf1`) was running and 44962933533 (`cfc0179a`) queued; the three intermediate deploys were cancelled as stale, by design.
+- **DLF confirmed recovered without a code change:**
+  - Scheduled refreshes 44906727928 (13:01) and 44947449357 (20:39) passed `Assert DLF freshness` and the staleness watchdog.
+  - Health check 44939740223 (19:13) moved the SLO conditions from `data_freshness.private_sources,pipeline.refresh` to `data_freshness.private_sources` only.
+  - The one remaining breach is the Signals reconnect (owner, ledger row 4).
