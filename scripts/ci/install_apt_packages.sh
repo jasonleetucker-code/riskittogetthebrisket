@@ -21,7 +21,11 @@
 # dry-run must report everything installed or the script exits 1.  Anything
 # else from the dry-run (another exit code, no recognised header, a count that
 # disagrees with the list) is a hard failure, never "nothing to install".
-# Seam: PLAYWRIGHT_CMD (default `npx playwright`).
+# Seam: PLAYWRIGHT_CMD (default `npx --no playwright`: the project's own
+# pinned Playwright, never a download of whatever npm serves today -- npx
+# fails instead when the local install is missing).  PW_DRY_TIMEOUT (120 s)
+# and PW_INSTALL_TIMEOUT (420 s) bound the two Playwright calls, so a hang
+# ends with a named error below the caller's step cap.
 #
 # The ONE copy of the CI apt install: PR Validation, Release Candidate and the
 # Deploy Production hard gate all call it.  Nothing here skips the install or
@@ -140,7 +144,9 @@ for arg in "$@"; do
 done
 
 PACKAGES=("$@")
-PLAYWRIGHT_CMD="${PLAYWRIGHT_CMD:-npx playwright}"
+PLAYWRIGHT_CMD="${PLAYWRIGHT_CMD:-npx --no playwright}"
+PW_DRY_TIMEOUT="${PW_DRY_TIMEOUT:-120}"
+PW_INSTALL_TIMEOUT="${PW_INSTALL_TIMEOUT:-420}"
 PW_INDEX_FRESH=0
 PW_STATE=""
 APT_ETC_DIR="${APT_ETC_DIR:-/etc/apt}"
@@ -417,7 +423,12 @@ cache_key_prefix() {
 playwright_dry_run() {
   local out rc=0 line count="" header_seen=0 listed=()
   # shellcheck disable=SC2086
-  out="$(${PLAYWRIGHT_CMD} install-deps --dry-run "${BROWSERS[@]}" 2>&1)" || rc=$?
+  out="$(timeout --kill-after=15 "${PW_DRY_TIMEOUT}" ${PLAYWRIGHT_CMD} install-deps --dry-run "${BROWSERS[@]}" 2>&1)" || rc=$?
+  if (( rc == 124 || rc == 137 )); then
+    annotate error "Playwright dependency check timed out" \
+      "playwright install-deps --dry-run ${BROWSERS[*]} did not finish within ${PW_DRY_TIMEOUT}s and was stopped. Nothing was skipped."
+    return 1
+  fi
   if (( rc == 0 )) && grep -qxF 'All system dependencies are installed.' <<<"${out}"; then
     PW_STATE=installed
     PACKAGES=()
@@ -478,7 +489,11 @@ playwright_index_and_dry_run() {
 playwright_finish() {
   local rc=0
   # shellcheck disable=SC2086
-  ${PLAYWRIGHT_CMD} install "${BROWSERS[@]}" || rc=$?
+  timeout --kill-after=15 "${PW_INSTALL_TIMEOUT}" ${PLAYWRIGHT_CMD} install "${BROWSERS[@]}" || rc=$?
+  if (( rc == 124 || rc == 137 )); then
+    echo "::error title=Playwright browser install timed out::playwright install ${BROWSERS[*]} did not finish within ${PW_INSTALL_TIMEOUT}s and was stopped; nothing skipped."
+    exit 1
+  fi
   if (( rc != 0 )); then
     echo "::error title=Playwright browser install failed::playwright install ${BROWSERS[*]} exited ${rc}; nothing skipped."
     exit 1

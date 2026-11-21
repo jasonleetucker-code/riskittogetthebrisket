@@ -747,6 +747,7 @@ _FAKE_PLAYWRIGHT = r"""#!/usr/bin/env bash
 echo "playwright $*" >> "$STATE/pw_calls"
 case "$1" in
   install-deps)
+    [[ -e "$STATE/pw_dry_sleep" ]] && sleep "$(cat "$STATE/pw_dry_sleep")"
     # Scripted answers win; otherwise model Playwright: missing until the apt
     # install ran, then installed (unless a library is still missing).
     if [[ -e "$STATE/pw_dry_output" ]]; then
@@ -757,6 +758,7 @@ case "$1" in
     fi
     cat "$STATE/pw_missing_output"; exit 1;;
   install)
+    [[ -e "$STATE/pw_install_sleep" ]] && sleep "$(cat "$STATE/pw_install_sleep")"
     exit "$(cat "$STATE/pw_install_rc" 2>/dev/null || echo 0)";;
 esac
 exit 99
@@ -773,8 +775,10 @@ def pw(runner, tmp_path):
     (state / "pw_missing_output").write_text(MISSING_OUTPUT, encoding="utf-8")
     (state / "pw_installed_output").write_text(INSTALLED_OUTPUT, encoding="utf-8")
 
-    def run(*browsers: str):
-        return runner["run"]("--playwright", *browsers, env={"PLAYWRIGHT_CMD": str(fake)})
+    def run(*browsers: str, env: dict | None = None):
+        return runner["run"](
+            "--playwright", *browsers, env={"PLAYWRIGHT_CMD": str(fake), **(env or {})}
+        )
 
     def pw_calls() -> list[str]:
         path = state / "pw_calls"
@@ -995,3 +999,28 @@ def test_v1_reads_the_installer_from_the_workflow_commit():
         assert 'git show "${GITHUB_SHA}:scripts/ci/install_apt_packages.sh"' in run
         assert 'bash "${INSTALLER}" --playwright chromium' in run
         assert "bash scripts/ci/install_apt_packages.sh" not in run
+
+
+def test_playwright_default_command_never_downloads_an_unpinned_playwright():
+    """`npx playwright` with no local install fetches whatever npm serves; the
+    default is `npx --no playwright`, which fails instead."""
+    text = (ROOT / "scripts/ci/install_apt_packages.sh").read_text(encoding="utf-8")
+    assert 'PLAYWRIGHT_CMD="${PLAYWRIGHT_CMD:-npx --no playwright}"' in text
+
+
+@pytest.mark.parametrize(
+    ("sleep_file", "env", "title"),
+    [
+        ("pw_install_sleep", {"PW_INSTALL_TIMEOUT": "1"}, "Playwright browser install timed out"),
+        ("pw_dry_sleep", {"PW_DRY_TIMEOUT": "1"}, "Playwright dependency check timed out"),
+    ],
+)
+def test_a_hung_playwright_call_ends_with_a_named_error(pw, sleep_file, env, title):
+    import time
+
+    (pw["state"] / sleep_file).write_text("30", encoding="utf-8")
+    started = time.monotonic()
+    result = pw["pw_run"]("chromium", env=env)
+    assert result.returncode != 0
+    assert title in result.stdout + result.stderr
+    assert time.monotonic() - started < 25, "the timeout fired, not the sleep"
