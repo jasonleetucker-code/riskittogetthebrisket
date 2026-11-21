@@ -53,7 +53,7 @@ EXTERNAL BLOCKER · VERIFIED NOT NEEDED. A status is set only from evidence.
 | 12 | P2 Sharp smoke token | MERGED (code); OWNER ACTION REQUIRED (token) | honest "not measured" since T15 | measure only after deploy commit; unverifiable is loud (#2277) | #2277 → `b44d5e43` | train release candidate green | — | owner provisions `SHARP_SMOKE_TOKEN` | — |
 | 13 | P2 2030 pick policy | OWNER ACTION REQUIRED (decision) | league window vs board horizon | prototype `d5b8161d` | — | — | — | decision before 2027-01-01 | — |
 | 14 | P2 data-only activation | EXTERNAL BLOCKER (time) | evidence bar not met | observer automatic since #2272 | — | — | 17 compared + live since | time; owner on counting rule | wave 2: aggregate dedup + live-only window |
-| 15 | §17 audit leftovers | MERGED (train 1120); PR OPEN (follow-ups) | see §17 table | train 1120: #2277, #2278, #2279, #2281, #2282, #2283, #2284, #2285, #2286, #2280; follow-ups #2287–#2290 | `main` `76f9e117` | release candidate 44887684813 + E2E 44803981544 green | deploy running | — | verify deploy; land follow-ups |
+| 15 | §17 audit leftovers | VERIFIED COMPLETE (train 1120); PR OPEN (follow-ups #2287–#2291) | see §17 table | train 1120: #2277, #2278, #2279, #2281, #2282, #2283, #2284, #2285, #2286, #2280; follow-ups #2287–#2290, #2291 | `main` `76f9e117` | release candidate 44887684813 + E2E 44803981544 green | production `build.commit` `76f9e117` (deploy 44889347872, 2026-11-21 10:43 UTC); `/api/health` 200 and read-only; frontend lock hash = repo (Next 16.4.6) | — | land the follow-ups |
 
 ## §1 DLF rookie boards — evidence and decision
 
@@ -324,3 +324,47 @@ That stopped the wave-1 workflow and the first review workflow. On resume:
   scratchpad, and its `git checkout` moved the main checkout to `roster-slo-v2`. Nothing was modified or pushed; the
   checkout was restored to the closeout branch at once. Disk reached ~92% during reviews; finished worktrees were
   removed after confirming each was clean and matched its pushed head.
+- **2026-11-21 10:43 UTC: train 1120 verified in production.** Deploy 44889308459 (`b44d5e43`) succeeded at 10:03
+  and 44889347872 (`76f9e117`) at 10:43; the intermediate deploys were cancelled as stale. On
+  `https://chaseupside.com` at 10:48:
+  - `/api/status` `build.commit` = `76f9e1174ab403be27bff1c22f4b345ef960ac8f` (process started 10:38:13);
+  - `build.release.frontend_lock_sha256` = `04d44494…` = `sha256(frontend/package-lock.json @ 76f9e117)`, whose `next`
+    is 16.4.6 (#2281);
+  - `alertDelivery` = `{ntfyConfigured: false, emailConfigured: false, consecutiveFailures: null, deliveryRecord:
+    "none"}` (#2280); `alertSweepAgeHours` = null until the first 15:00 UTC sweep;
+  - `freshness_slo.privateSourceDetail` = `withheld` on the anonymous projection;
+  - `/api/health` answered 200 twice with every scrape-state field of `/api/status` unchanged before and after
+    (#2279, read-only); the startup scrape finished at 10:43:23 (`scrape_count` 1, success);
+  - `/` and `/league` answer 200. A production browser smoke (`prod-e2e-smoke.yml`) was dispatched.
+- **Production SLO, 2026-11-21 07:02 UTC (health check 44878386225):** two BREACHes, both explained.
+  `pipeline.refresh`: the DLF rookie boards (§1; every scheduled refresh since 2026-11-19 03:50 fails `Assert DLF
+  freshness` and the staleness watchdog, 7 runs). `data_freshness.private_sources`: 4 of 4 Signals sources stale
+  (ledger row 4, owner reconnect). Every other rule OK (deploy lag 0, board age 0.14 h).
+- **Owner alert delivery: highest verified level = none on a real channel.** Level 1 (generated) is proven only in
+  tests with stub channels. Production has no channel: the box reports `ntfyConfigured: false` /
+  `emailConfigured: false`, and the GitHub workflows' environment shows `NOTIFY_WEBHOOK_URL` empty (a set secret
+  prints `***`). To reach Level 2 (accepted) and Level 4 (received): create the private ntfy topic; set it as the
+  repository secret `NOTIFY_WEBHOOK_URL` and in the box drop-ins (`dynasty.service`, `riskit-uptime.service`,
+  `dynasty-healthcheck.service`) per `docs/ops/OWNER_ALERT_CHANNEL_SETUP_2026-11-19.md`; restart; then an admin
+  `POST /api/test-alert?producers=1` (after #2290) and the owner confirms the four `[TEST]` pushes arrived.
+- **Follow-up review fixes on 2026-11-21** (beyond the reviews already recorded):
+  - #2287 queue-storage audit (`5458ecc1`): status and queues move from the predictable, shared `/var/tmp` path to a
+    private `StateDirectory=` (0700, `UMask=0077`); the script refuses a state directory it does not own or that
+    others can write; atomic temp-and-rename writes; a symlinked queue file is never read; `flock` against concurrent
+    runs; the queue is saved before sending and after each accepted message (at-least-once, at most one re-send after
+    a kill); a 15 s delivery budget keeps a run inside `TimeoutStartSec=90`; `NOTIFY_CMD` under `timeout 10`. Eight
+    new tests, all failing on the previous script, including a run killed on its second POST. CI then caught 33
+    text-mode file calls without `encoding=` in the new tests (`tests/test_explicit_text_encoding.py`); fixed in
+    `ce212151`.
+  - #2288 (`278ab140`): the default `PLAYWRIGHT_CMD` was `npx playwright`, which downloads whatever npm serves when
+    the local install is missing; it is now `npx --no playwright` (the pinned 1.64.1 or a failure). Both Playwright
+    calls run under `timeout` with named errors (dry-run 120 s, browser install 420 s).
+  - #2290 (`f7a31566`): authorized `/api/test-alert` calls were bounded only by the site-wide 60-per-minute limiter,
+    and one producers request can send a push per producer per channel. Authorized requests now share one isolated
+    budget (5 per 10 minutes, charged after auth); past it 429 and nothing is sent.
+  - #2289: verified, no change needed. Shard 7 failed once on `test_run_scraper_nonblocking` (an event-loop timing
+    assertion in the scraper path, which this PR does not reach: call graph and import diff checked); it reproduced
+    1 time in 17 locally on the PR head and 0 in 12 on `main`, and passed on the one allowed re-run.
+  - #2291 (new): the DLF diagnostics session-jar traceback. The jar `fetch_dlf.py` writes is an object
+    (`{"_comment_", "cookies"}`), so section [4] iterated key strings. Fixed to read the cookie list, print names and
+    domains only, never values.
