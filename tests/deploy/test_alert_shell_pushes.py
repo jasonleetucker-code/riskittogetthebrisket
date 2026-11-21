@@ -64,13 +64,18 @@ class Box:
     def push_messages(self) -> list[str]:
         if not self.push_log.exists():
             return []
-        return [ln.removeprefix("POST ") for ln in self.push_log.read_text().splitlines()]
+        return [
+            ln.removeprefix("POST ")
+            for ln in self.push_log.read_text(encoding="utf-8").splitlines()
+        ]
 
     def restarts(self) -> int:
         if not self.systemctl_log.exists():
             return 0
         return sum(
-            1 for ln in self.systemctl_log.read_text().splitlines() if ln.startswith("restart")
+            1
+            for ln in self.systemctl_log.read_text(encoding="utf-8").splitlines()
+            if ln.startswith("restart")
         )
 
     def run(self, script: Path, *, push_rc: int = 0, url: str | None = URL, **extra: str):
@@ -166,13 +171,15 @@ def _uptime(box, up: bool, push_rc: int = 0, **kw):
 
 def _queue(box, channel: str) -> list[str]:
     q = box.dir / f"uptime.state.pending-{channel}"
-    return q.read_text().splitlines() if q.exists() else []
+    return q.read_text(encoding="utf-8").splitlines() if q.exists() else []
 
 
 def test_uptime_retries_a_failed_push_while_the_outage_lasts(box):
-    (box.dir / "uptime.state").write_text("UP\n")
+    (box.dir / "uptime.state").write_text("UP\n", encoding="utf-8")
     assert _uptime(box, up=False, push_rc=22).returncode == 1
-    assert (box.dir / "uptime.state").read_text().strip() == "DOWN"  # status always recorded
+    assert (box.dir / "uptime.state").read_text(
+        encoding="utf-8"
+    ).strip() == "DOWN"  # status always recorded
     assert box.pushes() == 1 and len(_queue(box, "webhook")) == 1
     _uptime(box, up=False, push_rc=0)
     msgs = box.push_messages()
@@ -185,7 +192,7 @@ def test_uptime_retries_a_failed_push_while_the_outage_lasts(box):
 def test_uptime_reports_an_outage_that_cleared_before_the_retry(box):
     """Review 2026-11-20: recording the state only after a delivered push lost a
     short outage completely when its DOWN push failed."""
-    (box.dir / "uptime.state").write_text("UP\n")
+    (box.dir / "uptime.state").write_text("UP\n", encoding="utf-8")
     _uptime(box, up=False, push_rc=22)
     _uptime(box, up=True, push_rc=0)
     msgs = box.push_messages()
@@ -195,9 +202,9 @@ def test_uptime_reports_an_outage_that_cleared_before_the_retry(box):
 
 
 def test_uptime_a_failing_channel_never_makes_a_working_one_repeat(box, tmp_path):
-    (box.dir / "uptime.state").write_text("UP\n")
+    (box.dir / "uptime.state").write_text("UP\n", encoding="utf-8")
     bad = tmp_path / "bad_cmd.sh"
-    bad.write_text("#!/usr/bin/env bash\ncat >/dev/null\nexit 1\n")
+    bad.write_text("#!/usr/bin/env bash\ncat >/dev/null\nexit 1\n", encoding="utf-8")
     bad.chmod(0o755)
     for _ in range(3):
         _uptime(box, up=False, NOTIFY_CMD=str(bad))
@@ -210,7 +217,7 @@ def test_uptime_a_failing_channel_never_makes_a_working_one_repeat(box, tmp_path
 
 
 def test_uptime_queue_is_bounded(box):
-    (box.dir / "uptime.state").write_text("UP\n")
+    (box.dir / "uptime.state").write_text("UP\n", encoding="utf-8")
     for i in range(15):
         _uptime(box, up=(i % 2 == 1), push_rc=22)
     assert len(_queue(box, "webhook")) == 10
@@ -218,7 +225,7 @@ def test_uptime_queue_is_bounded(box):
 
 
 def test_uptime_drops_the_queue_of_a_channel_no_longer_configured(box):
-    (box.dir / "uptime.state").write_text("UP\n")
+    (box.dir / "uptime.state").write_text("UP\n", encoding="utf-8")
     _uptime(box, up=False, push_rc=22)
     assert len(_queue(box, "webhook")) == 1
     _uptime(box, up=False, url=None)
@@ -228,7 +235,7 @@ def test_uptime_drops_the_queue_of_a_channel_no_longer_configured(box):
 def test_uptime_without_a_channel_still_records_state(box):
     state = box.dir / "uptime.state"
     box.run(UPTIME, url=None, PROBE_RC="7", SITE_URL="https://site.example.invalid")
-    assert state.read_text().strip() == "DOWN" and box.pushes() == 0
+    assert state.read_text(encoding="utf-8").strip() == "DOWN" and box.pushes() == 0
 
 
 @pytest.mark.parametrize(
@@ -321,15 +328,15 @@ def test_uptime_queue_never_hands_a_planted_line_to_curl(box, tmp_path):
     and curl reads a -d value starting with "@" as a file name.  The body now
     goes on stdin, and only lines this script queued are replayed."""
     secret = tmp_path / "secret.txt"
-    secret.write_text("TOP-SECRET-CONTENT\n")
-    (box.dir / "uptime.state").write_text("DOWN\n")
+    secret.write_text("TOP-SECRET-CONTENT\n", encoding="utf-8")
+    (box.dir / "uptime.state").write_text("DOWN\n", encoding="utf-8")
     (box.dir / "uptime.state.pending-webhook").write_text(
-        f"@{secret}\nnot ours\n[riskit-uptime] UP -> DOWN at earlier: probes\n"
+        f"@{secret}\nnot ours\n[riskit-uptime] UP -> DOWN at earlier: probes\n", encoding="utf-8"
     )
     _uptime(box, up=False)
     msgs = box.push_messages()
     assert msgs == ["[riskit-uptime] UP -> DOWN at earlier: probes"]
-    assert "TOP-SECRET-CONTENT" not in box.push_log.read_text()
+    assert "TOP-SECRET-CONTENT" not in box.push_log.read_text(encoding="utf-8")
     assert _queue(box, "webhook") == []
 
 
@@ -346,9 +353,9 @@ def test_uptime_refuses_a_shared_state_directory_and_uses_the_private_default(bo
     cp = box.run(
         UPTIME, STATE_FILE=str(shared / "riskit-uptime.state"), HOME=str(home), **UPTIME_DOWN
     )
-    assert "is not private" in (box.dir / "uptime.log").read_text()
+    assert "is not private" in (box.dir / "uptime.log").read_text(encoding="utf-8")
     private = home / ".local/state/riskit-uptime"
-    assert (private / "state").read_text().strip() == "DOWN"
+    assert (private / "state").read_text(encoding="utf-8").strip() == "DOWN"
     assert oct(private.stat().st_mode & 0o777) == "0o700"
     assert oct((private / "state").stat().st_mode & 0o777) == "0o600"
     assert list(shared.iterdir()) == [], "nothing is written to the shared directory"
@@ -357,24 +364,27 @@ def test_uptime_refuses_a_shared_state_directory_and_uses_the_private_default(bo
 
 def test_uptime_never_follows_a_symlinked_queue_file(box, tmp_path):
     target = tmp_path / "victim.txt"
-    target.write_text("[riskit-uptime] FORGED -> line from a symlink target\n")
-    (box.dir / "uptime.state").write_text("UP\n")
+    target.write_text("[riskit-uptime] FORGED -> line from a symlink target\n", encoding="utf-8")
+    (box.dir / "uptime.state").write_text("UP\n", encoding="utf-8")
     (box.dir / "uptime.state.pending-webhook").symlink_to(target)
     _uptime(box, up=False)
     msgs = box.push_messages()
     assert len(msgs) == 1 and "UP -> DOWN" in msgs[0], "the symlink target was not read"
-    assert target.read_text() == "[riskit-uptime] FORGED -> line from a symlink target\n"
+    assert (
+        target.read_text(encoding="utf-8")
+        == "[riskit-uptime] FORGED -> line from a symlink target\n"
+    )
 
 
 def test_uptime_run_that_cannot_take_the_lock_records_nothing(box):
     import fcntl
 
-    (box.dir / "uptime.state").write_text("UP\n")
-    with open(box.dir / "lock", "a") as held:
+    (box.dir / "uptime.state").write_text("UP\n", encoding="utf-8")
+    with open(box.dir / "lock", "a", encoding="utf-8") as held:
         fcntl.flock(held, fcntl.LOCK_EX)
         cp = _uptime(box, up=False)
-    assert "holds the lock" in (box.dir / "uptime.log").read_text()
-    assert (box.dir / "uptime.state").read_text().strip() == "UP"
+    assert "holds the lock" in (box.dir / "uptime.log").read_text(encoding="utf-8")
+    assert (box.dir / "uptime.state").read_text(encoding="utf-8").strip() == "UP"
     assert box.pushes() == 0 and cp.returncode == 1
 
 
@@ -389,11 +399,12 @@ def test_uptime_saves_progress_after_each_accepted_message(box, tmp_path):
         '  n=$(( $(cat "$POSTS" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$POSTS"\n'
         '  printf "POST %s\\n" "$(cat)" >> "$PUSH_LOG"; [ "$n" -eq 1 ] && exit 0\n'
         '  kill -9 "$PPID"; exit 22;;\n'
-        "esac\nprintf 000; exit 7\n"
+        "esac\nprintf 000; exit 7\n",
+        encoding="utf-8",
     )
-    (box.dir / "uptime.state").write_text("DOWN\n")
+    (box.dir / "uptime.state").write_text("DOWN\n", encoding="utf-8")
     (box.dir / "uptime.state.pending-webhook").write_text(
-        "[riskit-uptime] one\n[riskit-uptime] two\n[riskit-uptime] three\n"
+        "[riskit-uptime] one\n[riskit-uptime] two\n[riskit-uptime] three\n", encoding="utf-8"
     )
     box.run(UPTIME, POSTS=str(counter), **UPTIME_DOWN)
     assert box.push_messages() == ["[riskit-uptime] one", "[riskit-uptime] two"]
@@ -401,16 +412,16 @@ def test_uptime_saves_progress_after_each_accepted_message(box, tmp_path):
 
 
 def test_uptime_delivery_budget_keeps_the_queue(box):
-    (box.dir / "uptime.state").write_text("UP\n")
+    (box.dir / "uptime.state").write_text("UP\n", encoding="utf-8")
     _uptime(box, up=False, NOTIFY_BUDGET="0")
     assert box.pushes() == 0 and len(_queue(box, "webhook")) == 1
-    assert "delivery budget spent" in (box.dir / "uptime.log").read_text()
+    assert "delivery budget spent" in (box.dir / "uptime.log").read_text(encoding="utf-8")
 
 
 def test_uptime_drops_malformed_lines_and_unknown_status(box):
-    (box.dir / "uptime.state").write_text("garbage\n")
+    (box.dir / "uptime.state").write_text("garbage\n", encoding="utf-8")
     (box.dir / "uptime.state.pending-webhook").write_text(
-        "[riskit-uptime] " + "x" * 2000 + "\nno prefix\n\n"
+        "[riskit-uptime] " + "x" * 2000 + "\nno prefix\n\n", encoding="utf-8"
     )
     _uptime(box, up=True)
     assert box.pushes() == 0, "an unknown stored status reads as UP: no transition"
@@ -418,8 +429,8 @@ def test_uptime_drops_malformed_lines_and_unknown_status(box):
 
 
 def test_uptime_cleans_temp_files_left_by_a_killed_run(box):
-    (box.dir / "uptime.state.tmp.ABC123").write_text("partial")
-    (box.dir / "uptime.state.pending-webhook.tmp.XYZ789").write_text("partial")
+    (box.dir / "uptime.state.tmp.ABC123").write_text("partial", encoding="utf-8")
+    (box.dir / "uptime.state.pending-webhook.tmp.XYZ789").write_text("partial", encoding="utf-8")
     _uptime(box, up=True)
     assert not list(box.dir.glob("*.tmp.*"))
 
