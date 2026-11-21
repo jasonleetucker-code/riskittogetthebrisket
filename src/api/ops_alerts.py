@@ -297,7 +297,12 @@ def _check_roster_construction(rows: list[dict[str, Any]]) -> list[OpsAlert]:
 BACKUP_STATE_STALE_CATEGORY = "backup_state_stale"
 
 
-def _check_backup_coverage(block: dict[str, Any] | None) -> list[OpsAlert]:
+STATE_BACKUP_UNIT = "riskit-state-backup.service"
+
+
+def _check_backup_coverage(
+    block: dict[str, Any] | None, failed_units: list[str] | None = None
+) -> list[OpsAlert]:
     """Irreplaceable-store coverage and the restore proof, from ``alert_rows``.
 
     One alert per uncovered store, keyed ``backup_ledger:<store>``, one for
@@ -306,8 +311,27 @@ def _check_backup_coverage(block: dict[str, Any] | None) -> list[OpsAlert]:
     it names the store (the public ``/api/health`` block never does).  A store
     that does not exist on this host never reaches here -- ``absent_by_design``
     is not a finding.
+
+    ``failed_units`` is the same sweep's ``check_and_alert(failed_units=...)``
+    (``None`` = not checked): it decides only the stale-state-backup TEXT, so
+    that alert never contradicts a failed-unit alert in the same message.
     """
     alerts: list[OpsAlert] = []
+    if failed_units is None:
+        unit_note = (
+            "If riskit-state-backup.service is not in the failed state, check the "
+            "timer is still scheduled (systemctl list-timers riskit-state-backup.timer)."
+        )
+    elif STATE_BACKUP_UNIT in failed_units:
+        unit_note = (
+            "riskit-state-backup.service is in the failed state (reported separately "
+            "in this message): the last run failed."
+        )
+    else:
+        unit_note = (
+            "riskit-state-backup.service is not in the failed state, so check the "
+            "timer is still scheduled (systemctl list-timers riskit-state-backup.timer)."
+        )
     for row in (block or {}).get("rows") or []:
         if not isinstance(row, dict):
             continue
@@ -365,10 +389,8 @@ def _check_backup_coverage(block: dict[str, Any] | None) -> list[OpsAlert]:
                         "The newest generation of the nightly state backup "
                         f"({row.get('newestGeneration') or 'unknown date'}) is older than "
                         f"{limit if limit is not None else 'the stale threshold'} h, so at "
-                        "least one nightly run did not produce a generation, and no unit "
-                        "is in the failed state to say so.  Check the timer is still "
-                        "scheduled (systemctl list-timers riskit-state-backup.timer), then "
-                        "read the last run: sudo journalctl -u riskit-state-backup.service "
+                        f"least one nightly run did not produce a generation.  {unit_note}  "
+                        "Read the last run: sudo journalctl -u riskit-state-backup.service "
                         "-n 80 --no-pager.  Run it now with sudo systemctl start "
                         "riskit-state-backup.service."
                     ),
@@ -1056,7 +1078,7 @@ def check_and_alert(
     alerts.extend(_check_draft_valuation(draft_valuation or []))
     alerts.extend(_check_pregame_archive(pregame_archive or []))
     alerts.extend(_check_roster_construction(roster_construction or []))
-    alerts.extend(_check_backup_coverage(backup_coverage))
+    alerts.extend(_check_backup_coverage(backup_coverage, failed_units))
     alerts.extend(_check_failed_units(failed_units))
     try:
         alerts.extend(_check_forecast_degradation(forecast_degradation or []))
