@@ -61,6 +61,21 @@ Behaviour with the flag ON:
    As a result, a fully derived round ends exactly one round step below the
    previous round's last slot, and every later pick is worth less.
 
+   A refused slot in rounds 1–4 that has NO slot market takes its **tier's**
+   market blend. This happens when the only slot market is withheld, for
+   example under the IDP Trade Calculator quarantine cutoff (owner 2026-10-07).
+   * The tier values are captured before alias suppression clears them, and
+     only while the flag is on.
+   * The slot → tier map is `site_pick_map.slot_to_tier`.
+   * This is the C1-U6-D2 `tier_of_unslotted_class` rule.
+   * Provenance: `direct_market_blend`, `grade: "tier"`, the tier named as
+     the basis. Its `pickEvidence` is the tier's.
+
+   Without this fallback, all 72 slots went unpriced under the cutoff with the
+   flag ON (measured by running `tests/api/test_idptc_cutoff_readiness.py`
+   with the flag ON). With it, that module passes with the flag ON
+   (23 passed, 1 skipped).
+
    The literal analogue of the tier rule (slot `5.s` from slot `4.s`) was
    measured and rejected. It priced `2027 Pick 5.01` (1598) above
    `2027 Pick 4.03..4.12`, which is the earlier-is-worth-less inversion class
@@ -119,6 +134,10 @@ The sha256 is taken over the full contract, serialised with
 
 The ON contracts hash to `bd2e3fa4…` (pinned), `9ffc9ff5…` (latest) and
 `0d4041bb…` (aug). They are expected to differ.
+
+All six branch builds (OFF and ON) were repeated after the tier fallback (§2,
+step 3) was added. Every hash came out the same. The fallback does not fire on
+these boards because IDPTC prices every round-1–4 slot.
 
 ## 4. Flag ON — measured impact
 
@@ -318,6 +337,23 @@ differ slightly because the 2026 rookie ladder moved. The max movement there is
   rather than inventing a number.
 * **The board keeps the 2027 tier rows suppressed** as aliases of the slots.
   That is unchanged from OFF; see §4c for the alternative.
+* **ON reopens audit W05-F006 in season** (single-vendor slot picks).
+  `tests/api/test_audit_cw40_batch_m1_regression.py::test_w05_f006_slot_picks_are_no_longer_anchored_on_one_vendor`
+  pins "every slot is `rookie_pool_tether`", and the tether is what had closed
+  W05-F006. With the flag ON the 2027 slots are priced by IDPTC alone.
+* **Tests that encode the in-season tether.** Running the pick, tether and
+  rookie tests (`tests/api` + `tests/picks`, `-k "pick or tether or rookie"`)
+  with the flag ON produced 7 failures out of 508. Each one asserts the
+  incumbent tether or the OFF default:
+  * `test_audit_cw40_batch_m1_regression::test_w05_f006_…`;
+  * `test_confidence_naming::…::test_tethered_rows_report_the_tether_as_their_basis`;
+  * `test_confidence_naming_red::…::test_the_measured_population_now_reports_its_tether`;
+  * `test_pick_rookie_anchor::TestAnchorEndToEnd` ×2 (`livedata`);
+  * `test_pick_class_tether_guard::test_the_flag_is_registered_default_off`;
+  * `test_idptc_cutoff_readiness::test_1_…` — fixed by the tier fallback above.
+
+  On activation, the remaining tests need an owner-approved update in the same
+  change. They are not defects of the guard; they are the tether's own pins.
 
 ## 6. Rollback / activation
 

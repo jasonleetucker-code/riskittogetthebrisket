@@ -10980,6 +10980,7 @@ def _complete_future_pick_values(
     retired_years: Iterable[int] | None = None,
     horizon_end_year: int | None = None,
     tether_guard: dict[str, Any] | None = None,
+    guard_tier_values: Mapping[str, float] | None = None,
 ) -> dict[str, int]:
     """Guarantee a finite canonical value for every valid future pick
     through the horizon, and stamp provenance on EVERY pick row (C1-U6,
@@ -10995,8 +10996,13 @@ def _complete_future_pick_values(
     round step, spread evenly over the round's slots
     (``factor = roundStep ** (1 / slotsPerRound)``), so a whole derived round
     ends exactly one round step below the previous round's last slot and every
-    later pick is worth less than every earlier one.  Each refused slot's
-    provenance carries ``tetherWithheld`` with the reason.
+    later pick is worth less than every earlier one.  A refused slot in a
+    round with no configured step and no slot market (rounds 1-4 when the only
+    slot market is withheld) takes its TIER's market blend
+    (``guard_tier_values``: the tier rows' values captured before alias
+    suppression; the slot -> tier map is ``site_pick_map.slot_to_tier``), the
+    C1-U6-D2 ``tier_of_unslotted_class`` rule.  Each refused slot's provenance
+    carries ``tetherWithheld`` with the reason.
 
     ``horizon_end_year`` is the board horizon
     (``pick_lifecycle.board_pick_horizon``, owner decision 2026-10-19); the
@@ -11413,6 +11419,49 @@ def _complete_future_pick_values(
                             "slotsPerRound": slots_per_round,
                         }
                         _stamp_derived_pick_evidence(row, [prev_name], by_name)
+                        derived[name] = value
+                        derived_slots.append(name)
+                        legacy = players_by_name.get(row.get("legacyRef") or name)
+                        if isinstance(legacy, dict):
+                            legacy["rankDerivedValue"] = value
+                        value_now = float(value)
+                if (
+                    value_now is None
+                    and name in withheld_slots
+                    and step_f is None
+                    and slots_per_round > 0
+                ):
+                    # No slot market and no round step (rounds 1-4 when the
+                    # only slot market is withheld): the slot's TIER market
+                    # blend, captured before alias suppression — the
+                    # C1-U6-D2 ``tier_of_unslotted_class`` rule.  Never a
+                    # fabricated slot value, never 0.
+                    tier = _site_pick_map.slot_to_tier(slot, slots_per_round).capitalize()
+                    tier_name = f"{current_year} {tier} {_round_suffix(rnd)}"
+                    tier_value = (guard_tier_values or {}).get(tier_name)
+                    if isinstance(tier_value, (int, float)) and tier_value > 0:
+                        value = int(round(float(tier_value)))
+                        row["rankDerivedValue"] = value
+                        row["confidenceBucket"] = "low"
+                        row["confidenceLabel"] = (
+                            "Low — priced at its tier's market blend "
+                            "(no slot market, no same-class rookie)"
+                        )
+                        row["confidenceBasis"] = "derived_tier_values"
+                        row["confidenceAxes"] = None
+                        row["confidenceReasons"] = None
+                        row["pickValueProvenance"] = {
+                            "class": "direct_market_blend",
+                            "grade": "tier",
+                            "basis": tier_name,
+                            "appliedAs": "tier_of_untethered_slot",
+                        }
+                        tier_row = by_name.get(tier_name)
+                        tier_evidence = (
+                            tier_row.get("pickEvidence") if isinstance(tier_row, dict) else None
+                        )
+                        if isinstance(tier_evidence, dict):
+                            row["pickEvidence"] = dict(tier_evidence)
                         derived[name] = value
                         derived_slots.append(name)
                         legacy = players_by_name.get(row.get("legacyRef") or name)
@@ -15642,6 +15691,30 @@ def _compute_unified_rankings(
     #    inversions without disturbing global rank/value monotonicity.
     _reassign_pick_slot_order(players_array)
 
+    # Rookie-class guard ON only (flag ``pick_class_tether_guard``): keep the
+    # active class's TIER market values before step 2 clears them, so a slot
+    # the guard refuses to tether and no slot market prices (e.g. the IDP
+    # Trade Calculator cutoff, owner 2026-10-07) can still be priced at its
+    # tier's market blend instead of going unpriced.  OFF reads nothing.
+    _guard_tier_values: dict[str, float] = {}
+    if _pick_class_tether_guard_enabled():
+        _guard_tier_year = current_rookie_draft_year()
+        for _tier_row in players_array:
+            if _tier_row.get("assetClass") != "pick":
+                continue
+            _tier_name = str(_tier_row.get("canonicalName") or "")
+            _tier_parsed = _parse_pick_tier(_tier_name)
+            _tier_value = _tier_row.get("rankDerivedValue")
+            if (
+                _tier_parsed is not None
+                and _tier_parsed[0] == _guard_tier_year
+                and isinstance(_tier_value, (int, float))
+                and not isinstance(_tier_value, bool)
+                and math.isfinite(float(_tier_value))
+                and _tier_value > 0
+            ):
+                _guard_tier_values[_tier_name] = float(_tier_value)
+
     # 2) Suppress generic Early/Mid/Late tier rows for years that have
     #    specific slots, returning a {generic_name: slot_alias} map.
     pick_aliases = _suppress_generic_pick_tiers_when_slots_exist(players_array)
@@ -15691,6 +15764,7 @@ def _compute_unified_rankings(
         retired_years=retired_pick_years,
         horizon_end_year=pick_horizon_end_year,
         tether_guard=_tether_guard_report,
+        guard_tier_values=_guard_tier_values,
     )
     if pick_class_guard_report is not None and _tether_guard_report is not None:
         # Completion stamps what it derived for the withheld slots.

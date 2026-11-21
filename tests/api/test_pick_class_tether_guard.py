@@ -212,6 +212,38 @@ def test_refused_slots_with_no_market_are_derived_monotone() -> None:
     assert guard["derivedSlots"] == 24 and guard["withheldUnpriced"] == []
 
 
+def test_a_refused_slot_with_no_slot_market_takes_its_tier_market_blend() -> None:
+    """The IDP Trade Calculator cutoff (owner 2026-10-07) with the guard on:
+    the only slot market is withheld, so rounds 1-4 have no slot value and no
+    round step.  They are priced at their TIER's market blend (captured before
+    alias suppression), never left unpriced; rounds 5-6 then continue from it."""
+    r1 = [_pick(f"2027 Pick 1.{s:02d}", None) for s in range(1, 13)]
+    r5 = [_pick(f"2027 Pick 5.{s:02d}", None) for s in range(1, 13)]
+    tiers = {"2027 Early 1st": 6584.0, "2027 Mid 1st": 5482.0, "2027 Late 1st": 4909.0}
+    tier_rows = [_pick(name, None) for name in tiers]
+    for row in tier_rows:
+        row["pickGenericSuppressed"] = True
+        row["pickEvidence"] = {"state": "single_provider", "valueBasis": "market_blend"}
+    rows = r1 + r5 + tier_rows
+    guard = {
+        "withheldSlots": {r["canonicalName"]: dc.TETHER_WITHHELD_NO_SAME_CLASS for r in r1 + r5}
+    }
+    dc._complete_future_pick_values(
+        rows, {}, 2027, horizon_end_year=2027, tether_guard=guard, guard_tier_values=tiers
+    )
+    assert [r["rankDerivedValue"] for r in r1] == [6584] * 4 + [5482] * 4 + [4909] * 4
+    prov = r1[0]["pickValueProvenance"]
+    assert prov["class"] == "direct_market_blend" and prov["grade"] == "tier"
+    assert prov["basis"] == "2027 Early 1st"
+    assert prov["tetherWithheld"]["reason"] == dc.TETHER_WITHHELD_NO_SAME_CLASS
+    assert r1[0]["pickEvidence"] == {"state": "single_provider", "valueBasis": "market_blend"}
+    assert r1[0]["confidenceBasis"] == "derived_tier_values"
+    # Round 5 has no tier market here; it continues from 1.12 by the round step.
+    assert r5[0]["pickValueProvenance"]["basis"] == "2027 Pick 1.12"
+    assert all(isinstance(r["rankDerivedValue"], int) for r in r5)
+    assert guard["withheldUnpriced"] == []
+
+
 def test_completion_without_the_guard_leaves_current_slots_alone() -> None:
     rows = [_pick(f"2027 Pick 5.{s:02d}", None) for s in range(1, 13)]
     dc._complete_future_pick_values(rows, {}, 2027, horizon_end_year=2027)
