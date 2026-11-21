@@ -465,10 +465,11 @@ def served_section(status: Mapping[str, Any] | None) -> dict[str, Any]:
 
 
 #: Units that send an owner push from their OWN environment (a systemd drop-in),
-#: not the app ``.env``: the uptime probe and the session-renewal timer.
+#: not the app ``.env``: the uptime probe, the session-renewal timer and the liveness watchdog.
 PUSH_DROPIN_UNITS: dict[str, str] = {
     "uptimeProbeNtfyConfigured": "riskit-uptime.service",
     "renewalNtfyConfigured": "dynasty-signals-auth-renew.service",
+    "healthcheckNtfyConfigured": "dynasty-healthcheck.service",
 }
 _DROPIN_WEBHOOK = re.compile(r"(?:^|\s)NOTIFY_WEBHOOK_URL=(\S+)")
 
@@ -626,6 +627,7 @@ PUBLIC_PATHS: tuple[str, ...] = (
     "alertRouting.emailConfigured",
     "alertRouting.uptimeProbeNtfyConfigured",
     "alertRouting.renewalNtfyConfigured",
+    "alertRouting.healthcheckNtfyConfigured",
     "memAvailableMb",
 )
 
