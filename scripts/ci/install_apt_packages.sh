@@ -498,8 +498,14 @@ playwright_finish() {
     echo "::error title=Playwright browser install failed::playwright install ${BROWSERS[*]} exited ${rc}; nothing skipped."
     exit 1
   fi
-  if ! playwright_dry_run || [[ "${PW_STATE}" != installed ]]; then
-    echo "::error title=Playwright dependencies still missing::after the install, playwright install-deps --dry-run ${BROWSERS[*]} does not report everything installed (a Playwright upgrade may have added a library: ${PACKAGES[*]:-unknown}). Nothing was skipped."
+  # An unusable or timed-out final check has already said so; only a check
+  # that parsed and still lists packages names them (PACKAGES is that list,
+  # never the packages the earlier pass installed).
+  if ! playwright_dry_run; then
+    exit 1
+  fi
+  if [[ "${PW_STATE}" != installed ]]; then
+    echo "::error title=Playwright dependencies still missing::after the install, playwright install-deps --dry-run ${BROWSERS[*]} still lists: ${PACKAGES[*]:-unknown} (a Playwright upgrade may have added a library). Nothing was skipped."
     exit 1
   fi
   echo "Playwright ${BROWSERS[*]}: browsers installed, all system dependencies present."

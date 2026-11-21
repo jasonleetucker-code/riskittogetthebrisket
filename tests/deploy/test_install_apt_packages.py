@@ -753,6 +753,9 @@ case "$1" in
     if [[ -e "$STATE/pw_dry_output" ]]; then
       cat "$STATE/pw_dry_output"; exit "$(cat "$STATE/pw_dry_rc")"
     fi
+    if [[ -e "$STATE/installed" && -e "$STATE/pw_final_output" ]]; then
+      cat "$STATE/pw_final_output"; exit "$(cat "$STATE/pw_final_rc")"
+    fi
     if [[ -e "$STATE/installed" && ! -e "$STATE/pw_still_missing" ]]; then
       cat "$STATE/pw_installed_output"; exit 0
     fi
@@ -831,6 +834,18 @@ def test_playwright_upgrade_that_adds_a_library_fails_loudly_after_the_install(p
     assert result.returncode == 1
     assert "Playwright dependencies still missing" in result.stdout
     assert "libgbm1" in result.stdout
+
+
+def test_an_unusable_final_check_never_blames_the_packages_just_installed(pw):
+    # The first check lists three packages, they install, then the final check
+    # answers with no header (e.g. the apt simulation threw): the failure is
+    # "unusable", never "still missing" naming the three installed packages.
+    (pw["state"] / "pw_final_output").write_text("Error: apt-get failed\n", encoding="utf-8")
+    (pw["state"] / "pw_final_rc").write_text("1", encoding="utf-8")
+    result = pw["pw_run"]("chromium")
+    assert result.returncode == 1
+    assert "Playwright dependency check unusable" in result.stdout
+    assert "Playwright dependencies still missing" not in result.stdout
 
 
 def test_playwright_browser_download_failure_is_a_failure(pw):
