@@ -228,9 +228,9 @@ def test_uptime_queue_is_bounded(box):
     # at the 6th ("DOWN -> UP") and end at the 15th ("UP -> DOWN").  Keeping the
     # first ten instead would start and end the other way round.
     assert "DOWN -> UP" in queue[0] and "UP -> DOWN" in queue[-1]
-    assert all(("UP -> DOWN" in m) == (i % 2 == 1) for i, m in enumerate(queue)), (
-        "in order, alternating"
-    )
+    assert all(
+        ("UP -> DOWN" in m) == (i % 2 == 1) for i, m in enumerate(queue)
+    ), "in order, alternating"
 
 
 def test_uptime_drops_the_queue_of_a_channel_no_longer_configured(box):
