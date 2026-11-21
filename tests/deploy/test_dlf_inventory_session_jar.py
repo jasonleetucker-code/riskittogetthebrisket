@@ -68,6 +68,56 @@ def test_the_jar_fetch_dlf_writes_is_listed_by_name_without_values(tmp_path, jar
 
 def test_a_jar_without_a_cookie_list_says_so_without_a_traceback(tmp_path):
     res = _run(tmp_path, {"_comment_": "no cookies key"})
-    assert res.returncode != 0
-    assert "no cookie list" in res.stderr + res.stdout
+    assert res.returncode == 0, res.stderr
+    assert "no cookie list" in res.stdout
     assert "Traceback" not in res.stderr
+
+
+def test_a_name_or_domain_that_is_not_a_string_is_never_printed(tmp_path):
+    jar = {"cookies": [{"name": {"value": SECRET}, "domain": [SECRET], "value": SECRET}]}
+    res = _run(tmp_path, jar)
+    assert res.returncode == 0, res.stderr
+    assert "<not a string>" in res.stdout
+    assert SECRET not in res.stdout + res.stderr
+
+
+def test_a_huge_jar_is_capped(tmp_path):
+    jar = {"cookies": [{**COOKIE, "name": f"c{i}"} for i in range(500)]}
+    res = _run(tmp_path, jar)
+    assert res.returncode == 0, res.stderr
+    assert "cookies : 500" in res.stdout
+    assert "... 460 more not listed" in res.stdout
+    assert len(res.stdout.splitlines()) <= 45
+
+
+@pytest.mark.parametrize("expires", [float("nan"), 1e30, True, "soon"])
+def test_odd_expiries_never_raise(tmp_path, expires):
+    path = tmp_path / "dlf_session.json"
+    # json.dumps writes NaN as a bare token, which json.load reads back.
+    path.write_text(json.dumps({"cookies": [{**COOKIE, "expires": expires}]}), encoding="utf-8")
+    res = subprocess.run(
+        [sys.executable, "-", str(path)],
+        input=_section_python(),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert res.returncode == 0, res.stderr
+    assert "Traceback" not in res.stderr
+    assert SECRET not in res.stdout + res.stderr
+
+
+def test_an_unparseable_jar_names_the_error_class_only(tmp_path):
+    path = tmp_path / "dlf_session.json"
+    path.write_bytes(b'{"cookies": [{"name": "x", "value": "' + SECRET.encode() + b'"')
+    res = subprocess.run(
+        [sys.executable, "-", str(path)],
+        input=_section_python(),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert res.returncode == 0, res.stderr
+    assert "session jar unreadable (JSONDecodeError)" in res.stdout
+    assert "Traceback" not in res.stderr
+    assert SECRET not in res.stdout + res.stderr

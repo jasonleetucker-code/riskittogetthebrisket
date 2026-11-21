@@ -103,24 +103,45 @@ PY="${DLF_FETCH_PYTHON:-/home/dynasty/.venvs/trade-calculator/bin/python}"
 echo "python : ${PY} ($("${PY}" -V 2>&1))"
 if [[ -r "${SESSION_FILE}" ]]; then
   echo "session mtime : $(date -u -r "${SESSION_FILE}" +%Y-%m-%dT%H:%M:%SZ)"
-  "${PY}" - "${SESSION_FILE}" <<'PY' || echo "session jar unreadable as JSON"
-import json, sys, time
+  "${PY}" - "${SESSION_FILE}" <<'PY' || echo "session jar check failed"
+import json, math, sys, time
 # scripts/fetch_dlf.py writes {"_comment_": ..., "cookies": [{name, value,
 # domain, path}, ...]}: an object, not a list, and no expiry.  A bare list
-# (older jars) is read too.  Cookie VALUES are never printed.
-data = json.load(open(sys.argv[1], encoding="utf-8"))
+# (older jars) is read too.  Cookie VALUES are never printed, and neither is a
+# name or domain that is not a plain string (it could hold anything).
+LIMIT = 40
+
+
+def text(v, width):
+    return v[:width] if isinstance(v, str) else "<not a string>"
+
+
+def expiry(v):
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
+        return "not recorded"
+    try:
+        return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(v))
+    except (OverflowError, OSError, ValueError):
+        return "out of range"
+
+
+try:
+    with open(sys.argv[1], encoding="utf-8") as fh:
+        data = json.load(fh)
+except (OSError, ValueError) as exc:  # a class only: the file's bytes are never echoed
+    print(f"session jar unreadable ({type(exc).__name__})")
+    sys.exit(0)
 cookies = data.get("cookies") if isinstance(data, dict) else data
 if not isinstance(cookies, list):
-    raise SystemExit(f"session jar has no cookie list (top level: {type(data).__name__})")
+    print(f"session jar has no cookie list (top level: {type(data).__name__})")
+    sys.exit(0)
 cookies = [c for c in cookies if isinstance(c, dict)]
 print(f"cookies : {len(cookies)}")
-for c in cookies:
-    exp = c.get("expires")
-    if isinstance(exp, (int, float)):
-        when = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(exp))
-    else:
-        when = "not recorded"
-    print(f"  {str(c.get('name'))[:48]:48s} domain={str(c.get('domain'))[:40]} expires={when}")
+for c in cookies[:LIMIT]:
+    name, domain = text(c.get("name"), 48), text(c.get("domain"), 40)
+    print(f"  {name:48s} domain={domain} expires={expiry(c.get('expires'))}")
+if len(cookies) > LIMIT:
+    print(f"  ... {len(cookies) - LIMIT} more not listed")
 PY
   cp -f "${SESSION_FILE}" "${DIAG_DIR}/dlf_session.json"
 else
