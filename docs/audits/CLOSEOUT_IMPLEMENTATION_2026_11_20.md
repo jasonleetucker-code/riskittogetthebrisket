@@ -53,7 +53,7 @@ EXTERNAL BLOCKER · VERIFIED NOT NEEDED. A status is set only from evidence.
 | 12 | P2 Sharp smoke token | MERGED (code); OWNER ACTION REQUIRED (token) | honest "not measured" since T15 | measure only after deploy commit; unverifiable is loud (#2277) | #2277 → `b44d5e43` | train release candidate green | — | owner provisions `SHARP_SMOKE_TOKEN` | — |
 | 13 | P2 2030 pick policy | OWNER ACTION REQUIRED (decision) | league window vs board horizon | prototype `d5b8161d` | — | — | — | decision before 2027-01-01 | — |
 | 14 | P2 data-only activation | EXTERNAL BLOCKER (time) | evidence bar not met | observer automatic since #2272 | — | — | 17 compared + live since | time; owner on counting rule | wave 2: aggregate dedup + live-only window |
-| 15 | §17 audit leftovers | VERIFIED COMPLETE (train 1120); PR OPEN (follow-ups #2287–#2291) | see §17 table | train 1120: #2277, #2278, #2279, #2281, #2282, #2283, #2284, #2285, #2286, #2280; follow-ups #2287–#2290, #2291 | `main` `76f9e117` | release candidate 44887684813 + E2E 44803981544 green | production `build.commit` `76f9e117` (deploy 44889347872, 2026-11-21 10:43 UTC); `/api/health` 200 and read-only; frontend lock hash = repo (Next 16.4.6) | — | land the follow-ups |
+| 15 | §17 audit leftovers | VERIFIED COMPLETE (train 1120; follow-ups #2287–#2291 as train 1121) | see §17 table | train 1120: #2277, #2278, #2279, #2281, #2282, #2283, #2284, #2285, #2286, #2280; follow-ups #2287–#2290, #2291 | `main` `76f9e117` | release candidate 44887684813 + E2E 44803981544 green | production `build.commit` `76f9e117` (deploy 44889347872, 2026-11-21 10:43 UTC); `/api/health` 200 and read-only; frontend lock hash = repo (Next 16.4.6). Train 1121: `build.commit` `cfc0179a` (deploy 44962933533, 2026-11-22); roster freshness and `alertDelivery` served, anonymous test-alert 401 | — | — |
 
 ## §1 DLF rookie boards — evidence and decision
 
@@ -451,6 +451,16 @@ That stopped the wave-1 workflow and the first review workflow. On resume:
   - #2291 `cfc0179a` (`7fe43842`).
 
   `main` `cfc0179a` has tree `b4d12c3a`, identical to the validated candidate tree. Deploy 44962907372 (`4485aaf1`) was running and 44962933533 (`cfc0179a`) queued; the three intermediate deploys were cancelled as stale, by design.
+- **2026-11-22: train 1121 VERIFIED in production.**
+  - Deploy 44962907372 (`4485aaf1`) succeeded at 00:10 UTC.
+  - Deploy 44962933533 (`cfc0179a`) succeeded at about 00:53 UTC.
+  - Read-only probe right after: `/api/status` `build.commit` = `cfc0179ab0e4…` (match).
+  - `freshness_slo`: `state: measured`, board 0.04 h, rosters `current` / `live` at 0.12 h against the 6 h budget (#2289).
+  - `rosterUnverifiableTrades` and `privateSourceDetail` are `withheld` for an anonymous caller (#2289 privacy).
+  - `alerting.alertDelivery` is present and honest (#2290): `deliveryRecord: none`, ntfy and email not configured. No channel exists yet; this is an owner action, ledger row 4.
+  - Anonymous `POST /api/test-alert` returns 401 `auth_required`.
+  - `/api/health`, `/` and `/league` return 200.
+  - #2287 (uptime and healthcheck shell) and #2288 (CI installer) have no HTTP surface. Their acceptance is the shell tests and E2E 44899343711.
 - **DLF confirmed recovered without a code change:**
   - Scheduled refreshes 44906727928 (13:01) and 44947449357 (20:39) passed `Assert DLF freshness` and the staleness watchdog.
   - Health check 44939740223 (19:13) moved the SLO conditions from `data_freshness.private_sources,pipeline.refresh` to `data_freshness.private_sources` only.
