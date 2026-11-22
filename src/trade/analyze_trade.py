@@ -1070,9 +1070,13 @@ def analyze_trade(
             season = _excluded_by_mode(TITLE_ODDS_DIMENSION, LINEAGE_SEASON_SIMULATION)
             season.votes = False
         dimensions.append(season)
-        unavailable_dimensions = [
-            d for d in unavailable_dimensions if d["dimension"] != TITLE_ODDS_DIMENSION
-        ]
+        # Only computed odds retire the "not included yet" entry: an
+        # unavailable or mode-excluded lens leaves the dimension unavailable,
+        # so the client's caveat never disappears with nothing in its place.
+        if season.available:
+            unavailable_dimensions = [
+                d for d in unavailable_dimensions if d["dimension"] != TITLE_ODDS_DIMENSION
+            ]
 
     return AnalyzeTradeResult(
         decision=decision,

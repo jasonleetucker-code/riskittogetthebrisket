@@ -483,6 +483,18 @@ def test_the_lens_is_context_and_never_votes(war_room_sim):
     assert TITLE_ODDS_DIMENSION not in {d["dimension"] for d in packet["unavailableDimensions"]}
 
 
+def test_an_unavailable_lens_keeps_the_dimension_named_unavailable(war_room_sim):
+    """An unavailable (or mode-excluded) lens must not retire the "not included
+    yet" entry the client renders its season-odds caveat from."""
+    packet = analyze_trade(war_room_sim, title_odds=tol.unavailable(tol.REASON_NO_SCHEDULE))
+    assert packet["lenses"]["titleOdds"]["available"] is False
+    assert TITLE_ODDS_DIMENSION in {d["dimension"] for d in packet["unavailableDimensions"]}
+    sim = {**war_room_sim, "teamContext": {"applied": False, "mode": "asset_only"}}
+    asset_only = analyze_trade(sim, title_odds=_ok_payload())
+    assert asset_only["lenses"]["titleOdds"]["available"] is False
+    assert TITLE_ODDS_DIMENSION in {d["dimension"] for d in asset_only["unavailableDimensions"]}
+
+
 def test_an_unavailable_payload_stays_unavailable_and_never_votes(war_room_sim):
     payload = tol.unavailable(tol.REASON_NO_SCHEDULE)
     lens = analyze_trade(war_room_sim, title_odds=payload)["lenses"]["titleOdds"]
