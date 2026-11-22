@@ -156,6 +156,7 @@ __all__ = [
     "build_gameplan",
     "build_league_bundle",
     "get_league_bundle",
+    "cached_team_gameplan",
     "invalidate_cache",
     "load_league_inputs",
 ]
@@ -636,6 +637,28 @@ def last_built_league_bundle(league_key: str) -> LeagueBundle | None:
     with _CACHE_LOCK:
         cached = _BUNDLE_CACHE.get(league_key)
     return None if cached is None else cached[1]
+
+
+def cached_team_gameplan(league_key: str, owner_id: str) -> dict[str, Any] | None:
+    """The team payload ``/api/gameplan`` last built for ``owner_id``, from
+    memory, or ``None``.
+
+    Warm-only, like :func:`last_built_league_bundle`: it reads the entry the
+    route stored for the CURRENT league bundle (no partner, so no package
+    section and no constraint key) and never builds, loads inputs or touches
+    the LRU order.  ``None`` means "not built for this bundle yet", never
+    "this team has no targets".  The returned dict is the cached object:
+    callers must treat it as read-only.
+    """
+    with _CACHE_LOCK:
+        bundle_entry = _BUNDLE_CACHE.get(league_key)
+        if bundle_entry is None:
+            return None
+        stamp = bundle_entry[0]
+        entry = _TEAM_CACHE.get("\x00".join([league_key, stamp, str(owner_id), "", ""]))
+    if entry is None or entry[0] != stamp:
+        return None
+    return entry[1]
 
 
 def get_league_bundle(

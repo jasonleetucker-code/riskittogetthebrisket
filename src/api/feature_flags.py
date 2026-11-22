@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-29 of the 69 entries in ``_DEFAULTS`` below are ``True`` —
+29 of the 70 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -999,6 +999,19 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # tests/api/test_pick_class_guard_hold_locked.py is the lock).  Rollback
     # if ever on: RISKIT_FEATURE_PICK_CLASS_TETHER_GUARD=0 + restart.
     "pick_class_tether_guard": False,
+    # Composed Team Advisor plan (owner directive 2026-11-21, intake DYN10,
+    # top-10 item #2; docs/EXECUTION_PLAN.md 2026-11-21 section).  ON:
+    # ``GET /api/team/plan`` serves one team's composed plan -- posture, then
+    # buy / sell-high / waiver / aging actions -- from the existing owners
+    # (``src/api/team_plan.py`` composes and computes nothing).  OFF: the route
+    # answers 503 feature_disabled and nothing else changes; every existing
+    # route is byte-identical either way.  HELD, DEFAULT OFF: it serves new
+    # recommendations, and turning any flag on is OWNER-RESERVED under the
+    # 2026-11-21 authorization; deploy/verify-deploy.sh fails a deploy whose
+    # effective flag is ON (scripts/verify_owner_held_flags.py;
+    # tests/api/test_team_plan_hold_locked.py is the lock).  Rollback if ever
+    # on: RISKIT_FEATURE_TEAM_ADVISOR_PLAN=0 + restart.
+    "team_advisor_plan": False,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"
@@ -1205,6 +1218,10 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # read on every board build, which reaches a request through ``/api/data``
     # and every engine that reads pick values; ships OFF (owner-held).
     "pick_class_tether_guard": LIVE,
+    # team_advisor_plan gates GET /api/team/plan inline in server.py: off ->
+    # 503 feature_disabled, on -> the composed Team Advisor plan; ships OFF
+    # (owner-held).
+    "team_advisor_plan": LIVE,
     # dlf_offense_only_vote gates the vote hold on the DLF IDP boards in
     # ``data_contract._policy_source_vote_holds`` -- a TEMPORARY hold
     # re-applied 2026-10-19 (default ON): the owner rescinded the 2026-10-16

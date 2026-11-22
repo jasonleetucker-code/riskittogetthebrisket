@@ -8751,6 +8751,25 @@ def _perfect_waivers_cache_get(key: str) -> dict | None:
         return payload
 
 
+def _perfect_waivers_cache_peek(key: str) -> dict | None:
+    """A live (unexpired) Perfect Waivers entry, or ``None`` -- read only.
+
+    Unlike :func:`_perfect_waivers_cache_get` it neither refreshes the LRU
+    order nor evicts an expired entry, so a warm-only reader (the composed
+    team plan) leaves the cache exactly as it found it.
+    """
+    if not key:
+        return None
+    with _PERFECT_WAIVERS_CACHE_LOCK:
+        hit = _PERFECT_WAIVERS_CACHE.get(key)
+    if hit is None:
+        return None
+    stored_at, payload = hit
+    if time.time() - stored_at > _PERFECT_WAIVERS_CACHE_TTL_SEC:
+        return None
+    return payload
+
+
 def _perfect_waivers_cache_put(key: str, payload: dict) -> None:
     if not key:
         return
@@ -10758,6 +10777,331 @@ async def get_roster_intelligence(request: Request):
     return JSONResponse(content=payload, headers={"Cache-Control": "no-store"})
 
 
+# ── Composed Team Advisor plan (DYN10 top-10 item #2) ───────────────────
+#
+# Every answer of the private team plan, error or not, is per-user and
+# uncacheable.
+_TEAM_PLAN_NO_STORE = {"Cache-Control": "private, no-store"}
+
+
+def _team_plan_posture_read(league_cfg: Any, contract: Any, owner_id: str) -> Any:
+    """Competitive posture, WARM-ONLY (the last built league bundle)."""
+    from src.api import gameplan as _gp  # noqa: PLC0415
+    from src.api.team_plan import OwnerRead  # noqa: PLC0415
+
+    try:
+        postures, meta = _gp.league_competitive_postures(
+            league_cfg.key, league_cfg.scoring_profile, contract, build_if_missing=False
+        )
+    except _gp.GameplanUnavailable as exc:
+        reason = str(exc.reason)
+        return OwnerRead(reason=reason if reason.isidentifier() else "posture_unavailable")
+    except Exception as exc:  # noqa: BLE001 — a named unavailable, never a 500
+        log.warning("team plan: posture lookup failed: %s", exc)
+        return OwnerRead(reason="posture_error")
+    posture = postures.get(str(owner_id))
+    if posture is None:
+        return OwnerRead(reason="team_not_in_posture_set")
+    return OwnerRead(payload=posture.to_dict(), freshness=meta.get("bundleFreshness"))
+
+
+def _team_plan_targets_read(league_cfg: Any, owner_id: str) -> Any:
+    """Buy targets as ``/api/gameplan`` last built them, WARM-ONLY."""
+    from src.api import gameplan as _gp  # noqa: PLC0415
+    from src.api.team_plan import OwnerRead  # noqa: PLC0415
+
+    try:
+        payload = _gp.cached_team_gameplan(league_cfg.key, owner_id)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("team plan: gameplan cache unreadable: %s", exc)
+        return OwnerRead(reason="gameplan_cache_unreadable")
+    if payload is None:
+        return OwnerRead(reason="gameplan_targets_not_warm")
+    return OwnerRead(payload=payload, freshness="last_computed")
+
+
+def _team_plan_waivers_read(
+    league_cfg: Any, contract: Any, owner_id: str, constraints: Any, requester_owns_team: bool
+) -> Any:
+    """This team's Perfect Waivers plan from the route's result cache, WARM-ONLY.
+
+    The key is rebuilt exactly as ``/api/waiver/perfect`` builds it: the roster
+    snapshot that route would have used (the live teams overlay, peeked from
+    its fresh cache without a fetch, else the contract's block) and the
+    protections that bind THIS requester's plan -- theirs when they own the
+    team, none otherwise -- so an entry computed under someone else's
+    protections can never match.  Nothing is fetched, computed or written.
+    """
+    from src.api.team_plan import OwnerRead  # noqa: PLC0415
+    from src.trade.constraints import resolve_constraints  # noqa: PLC0415
+
+    keyed = constraints if requester_owns_team and constraints is not None else None
+    if keyed is None:
+        keyed = resolve_constraints()
+    sleeper = contract.get("sleeper") if isinstance(contract, dict) else None
+    candidates: list[list] = []
+    try:
+        overlay = _sleeper_overlay.peek_sleeper_teams_overlay(league_cfg.sleeper_league_id)
+    except Exception:  # noqa: BLE001 — a peek that fails is simply a miss
+        overlay = None
+    if isinstance(overlay, dict) and isinstance(overlay.get("teams"), list) and overlay["teams"]:
+        candidates.append(overlay["teams"])
+    baked = (sleeper or {}).get("teams") if isinstance(sleeper, dict) else None
+    if isinstance(baked, list) and baked:
+        candidates.append(baked)
+    for teams in candidates:
+        key = _perfect_waivers_cache_key(league_cfg.key, owner_id, contract, teams, keyed)
+        hit = _perfect_waivers_cache_peek(key)
+        if hit is not None:
+            return OwnerRead(payload=hit, freshness="cached_within_ttl")
+    return OwnerRead(reason="perfect_waivers_not_warm")
+
+
+def _team_plan_draft_capital_read(league_key: str) -> Any:
+    """This league's ``/api/draft-capital`` board from its result cache, WARM-ONLY.
+
+    Served exactly when that route would serve it from cache (inside the TTL,
+    or inside the stale-while-revalidate bound, labelled); never kicks a
+    rebuild.
+    """
+    from src.api.team_plan import OwnerRead  # noqa: PLC0415
+
+    slot = _DRAFT_CAPITAL_CACHE.get(league_key)
+    if not slot:
+        return OwnerRead(reason="draft_capital_not_warm")
+    now = time.time()
+    stamp, payload = slot
+    if not isinstance(payload, dict):
+        return OwnerRead(reason="draft_capital_payload_malformed")
+    if now - stamp < _DRAFT_CAPITAL_TTL_SEC:
+        freshness = "stale_while_revalidate" if payload.get("staleWhileRevalidate") else "current"
+    elif _draft_capital_stale_servable(slot, now):
+        freshness = "stale_while_revalidate"
+    else:
+        return OwnerRead(reason="draft_capital_not_warm")
+    return OwnerRead(payload=payload, freshness=freshness)
+
+
+@app.get("/api/team/plan")
+async def get_team_plan(request: Request):
+    """Composed Team Advisor plan for one team (owner directive 2026-11-21,
+    DYN10 top-10 item #2).  Private, read-only, league-scoped, owner-held
+    default-OFF behind ``team_advisor_plan``.
+
+    One payload: posture, Team Strength / Weakness, the age portfolio, draft
+    capital, roster freshness and a ranked list of next actions (buy target,
+    sell-high, waiver move, pick action, aging-asset risk, or ``do_nothing``),
+    each with the evidence and uncertainty of the owner that produced it.
+    ``src/api/team_plan.py`` composes; it computes nothing.
+
+    Latency discipline: the solves behind posture, buy targets, Perfect
+    Waivers and draft capital are read WARM-ONLY from their owners' caches and
+    are never run here; a cold one is an explicit unavailable section.  Only
+    the cheap owners (roster intelligence, trade suggestions) run per request,
+    on a worker thread.  Rosters are the contract's own block, never a live
+    fetch, and their freshness is stated, not hidden.
+
+    Query parameters::
+
+        leagueKey   optional — standard resolver
+        team        optional — ownerId; defaults to the session's own team
+                    (Sleeper user id, then the league's default team map).
+                    Another team's plan may be read, but the requester's
+                    trade protections bind only their OWN team.
+
+    Responses::
+
+        200  the plan, or ``available: false`` for a league out of scope
+        400  team_required / unknown_league / inactive_league
+        401  auth_required (the private API gate)
+        404  team_not_found
+        503  feature_disabled (flag off) / data_not_ready (no contract, or one
+             loaded for another league)
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+    from src.api import team_plan as _team_plan  # noqa: PLC0415
+
+    if not is_enabled("team_advisor_plan"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": "feature_disabled", "flag": _team_plan.FLAG},
+            headers=_TEAM_PLAN_NO_STORE,
+        )
+    if not _get_auth_session(request):
+        return JSONResponse(
+            status_code=401,
+            content={"error": "auth_required", "message": "Sign-in required."},
+            headers=_TEAM_PLAN_NO_STORE,
+        )
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        body = {"error": err.code, "message": err.message}
+        requested = (request.query_params.get("leagueKey") or "").strip()
+        if requested:
+            body["leagueKey"] = requested
+        return JSONResponse(status_code=err.status, content=body, headers=_TEAM_PLAN_NO_STORE)
+
+    if league_cfg.key not in _team_plan.IN_SCOPE_LEAGUE_KEYS:
+        return JSONResponse(
+            content=_team_plan.out_of_scope_payload(league_cfg.key), headers=_TEAM_PLAN_NO_STORE
+        )
+
+    contract = latest_contract_data
+    if not contract:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": "No data available yet. First scrape may still be running.",
+                "leagueKey": league_cfg.key,
+            },
+            headers=_TEAM_PLAN_NO_STORE,
+        )
+    loaded_meta = (contract.get("meta") or {}) if isinstance(contract, dict) else {}
+    loaded_league = loaded_meta.get("leagueKey")
+    if loaded_league and loaded_league != league_cfg.key:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": (
+                    f"No data loaded for league {league_cfg.key!r} yet "
+                    f"(server holds {loaded_league!r})."
+                ),
+                "leagueKey": league_cfg.key,
+            },
+            headers=_TEAM_PLAN_NO_STORE,
+        )
+
+    requester = _requester_owner_id(request, league_cfg)
+    owner_id = (
+        request.query_params.get("team") or request.query_params.get("ownerId") or ""
+    ).strip() or (requester or "")
+    if not owner_id:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "team_required",
+                "message": (
+                    "Pass ?team=<ownerId>. It could not be inferred: this session "
+                    "carries no Sleeper user id and the league has no default team "
+                    "mapping for it."
+                ),
+                "leagueKey": league_cfg.key,
+            },
+            headers=_TEAM_PLAN_NO_STORE,
+        )
+    sleeper_block = contract.get("sleeper") if isinstance(contract.get("sleeper"), dict) else {}
+    team_block = _team_block_by_owner_id(sleeper_block.get("teams") or [], owner_id)
+    if team_block is None:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": "team_not_found",
+                "message": f"No roster for owner {owner_id!r} in league {league_cfg.key!r}.",
+                "leagueKey": league_cfg.key,
+            },
+            headers=_TEAM_PLAN_NO_STORE,
+        )
+
+    # The requester's protections bind the requester's OWN roster only, as on
+    # /api/gameplan.  Resolved on the request thread (session + user store).
+    owns_team = bool(requester) and requester == owner_id
+    constraints = (
+        _constraints_for_request(request, contract, league_cfg, surface="/api/team/plan")
+        if owns_team
+        else None
+    )
+
+    def _compute() -> dict[str, Any]:
+        from src.api.roster_freshness import roster_age  # noqa: PLC0415
+        from src.trade.suggestions import (  # noqa: PLC0415
+            BOARD_TOP_N_FILTER,
+            starter_needs_for_league,
+        )
+
+        t0 = time.perf_counter()
+        posture = _team_plan_posture_read(league_cfg, contract, owner_id)
+        targets = _team_plan_targets_read(league_cfg, owner_id)
+        waivers = _team_plan_waivers_read(league_cfg, contract, owner_id, constraints, owns_team)
+        draft_capital = _team_plan_draft_capital_read(league_cfg.key)
+        t_warm = time.perf_counter()
+
+        try:
+            roster_intel = _team_plan.OwnerRead(
+                payload=_roster_intelligence.get_team_roster_intelligence(
+                    contract,
+                    owner_id,
+                    team_count=_roster_intelligence.declared_team_count(league_cfg.key),
+                )
+            )
+        except _roster_intelligence.TeamNotInLeague:
+            roster_intel = _team_plan.OwnerRead(reason="team_not_in_contract")
+        except Exception as exc:  # noqa: BLE001
+            log.warning("team plan: roster intelligence failed: %s", exc)
+            roster_intel = _team_plan.OwnerRead(reason="roster_intelligence_error")
+        t_roster = time.perf_counter()
+
+        roster_names = [str(n) for n in (team_block.get("players") or []) if str(n).strip()]
+        if not roster_names:
+            sell_high = _team_plan.OwnerRead(reason="team_roster_empty")
+        else:
+            try:
+                sell_high = _team_plan.OwnerRead(
+                    payload=_trade_suggestions_from_contract(
+                        contract,
+                        league_cfg,
+                        roster_names,
+                        starter_needs=starter_needs_for_league(league_cfg.key),
+                        league_rosters=None,
+                        ktc_top_n=BOARD_TOP_N_FILTER,
+                        constraints=constraints,
+                        surface="/api/team/plan",
+                    )
+                )
+            except Exception as exc:  # noqa: BLE001
+                log.warning("team plan: trade suggestions failed: %s", exc)
+                sell_high = _team_plan.OwnerRead(reason="suggestions_error")
+        t_sugg = time.perf_counter()
+
+        plan = _team_plan.compose_team_plan(
+            league_key=league_cfg.key,
+            owner_id=owner_id,
+            team_block=team_block,
+            requester_owns_team=owns_team,
+            constraints=constraints,
+            roster_freshness=roster_age(contract),
+            posture=posture,
+            roster_intelligence=roster_intel,
+            buy_targets=targets,
+            sell_high=sell_high,
+            waivers=waivers,
+            draft_capital=draft_capital,
+        )
+        t_end = time.perf_counter()
+        plan["timing"] = {
+            "computeMs": round((t_end - t0) * 1000.0, 1),
+            "warmReadsMs": round((t_warm - t0) * 1000.0, 1),
+            "rosterIntelligenceMs": round((t_roster - t_warm) * 1000.0, 1),
+            "suggestionsMs": round((t_sugg - t_roster) * 1000.0, 1),
+            "composeMs": round((t_end - t_sugg) * 1000.0, 1),
+        }
+        return plan
+
+    try:
+        payload = await run_in_threadpool(_compute)
+    except Exception:  # noqa: BLE001
+        logging.exception("Team plan build failed")
+        return JSONResponse(
+            status_code=503,
+            content={"error": "team_plan_unavailable", "leagueKey": league_cfg.key},
+            headers=_TEAM_PLAN_NO_STORE,
+        )
+    _stamp_valuation_mode(payload, "market", None)
+    return JSONResponse(content=payload, headers=_TEAM_PLAN_NO_STORE)
+
+
 async def _contract_with_live_rosters(
     contract: dict[str, Any], league_cfg: Any
 ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -11067,11 +11411,7 @@ async def post_trade_suggestions(request: Request):
             },
         )
 
-    from src.trade.suggestions import (
-        build_asset_pool_from_contract,
-        generate_suggestions_from_pool,
-        starter_needs_for_league,
-    )
+    from src.trade.suggestions import starter_needs_for_league
 
     # Effective starter demand is a per-LEAGUE fact, not a constant: both
     # live leagues share a scoring profile but ``dynasty_main`` starts
@@ -11138,48 +11478,15 @@ async def post_trade_suggestions(request: Request):
     # exactly like /api/trade/finder already does, instead of stalling
     # the event loop for every concurrent request.
     def _generate():
-        from src.trade.suggestions import _apply_board_top_n_filter
-
-        # The FULL board (every row ranked, nothing cut) feeds roster analysis
-        # and the positional floor; the top-N cut of it is the quality pool
-        # proposals are drawn from.  One build, two views — the cut is the
-        # same ``_apply_board_top_n_filter`` the builder would have applied.
-        full_pool = build_asset_pool_from_contract(contract, ktc_top_n=0)
-        pool = _apply_board_top_n_filter(list(full_pool), ktc_top_n)
-        sleeper_block = contract.get("sleeper") if isinstance(contract, dict) else None
-        league_team_count = len((sleeper_block or {}).get("teams") or []) or (
-            len(league_rosters) + 1 if league_rosters else None
-        )
-        weakness_needs, weakness_reason = _suggestion_weakness_needs(
-            contract, league_cfg, roster, league_team_count
-        )
-        # Roster capacity for the requesting team, built ONCE and reused
-        # across every proposal — the expensive part (joining the roster to
-        # the board, measuring waiver level league-wide, resolving starter
-        # slots) does not depend on which trade is being scored.  Each
-        # suggestion then reports what it would cost in forced releases;
-        # nothing is filtered out on capacity grounds.
-        # Suggestions are the product; capacity is an annotation on them, so a
-        # failure here degrades to no annotation rather than no suggestions.
-        capacity_context = _capacity_context_for(
+        return _trade_suggestions_from_contract(
             contract,
             league_cfg,
-            {"players": list(roster)},
-            surface="/api/trade/suggestions",
-        )
-
-        return generate_suggestions_from_pool(
-            roster_names=roster,
-            pool=pool,
-            league_rosters=league_rosters,
+            roster,
             starter_needs=starter_needs,
+            league_rosters=league_rosters,
             ktc_top_n=ktc_top_n,
-            capacity_context=capacity_context,
             constraints=constraints,
-            roster_pool=full_pool,
-            team_count=league_team_count,
-            weakness_needs=weakness_needs,
-            weakness_unavailable_reason=weakness_reason,
+            surface="/api/trade/suggestions",
         )
 
     try:
@@ -11194,6 +11501,72 @@ async def post_trade_suggestions(request: Request):
         result["leagueKey"] = league_cfg.key
     _stamp_valuation_mode(result, valuation_mode, valuation_note)
     return JSONResponse(content=result)
+
+
+def _trade_suggestions_from_contract(
+    contract: Any,
+    league_cfg: Any,
+    roster: list,
+    *,
+    starter_needs: dict | None,
+    league_rosters: list | None,
+    ktc_top_n: int,
+    constraints: Any,
+    surface: str,
+) -> dict[str, Any]:
+    """One roster's trade suggestions off the live contract.
+
+    The body of ``POST /api/trade/suggestions`` (moved here verbatim so the
+    composed team plan runs the SAME path rather than a second copy of it).
+    Synchronous and CPU-heavy: callers run it on a worker thread.
+    """
+    from src.trade.suggestions import (
+        _apply_board_top_n_filter,
+        build_asset_pool_from_contract,
+        generate_suggestions_from_pool,
+    )
+
+    # The FULL board (every row ranked, nothing cut) feeds roster analysis
+    # and the positional floor; the top-N cut of it is the quality pool
+    # proposals are drawn from.  One build, two views — the cut is the
+    # same ``_apply_board_top_n_filter`` the builder would have applied.
+    full_pool = build_asset_pool_from_contract(contract, ktc_top_n=0)
+    pool = _apply_board_top_n_filter(list(full_pool), ktc_top_n)
+    sleeper_block = contract.get("sleeper") if isinstance(contract, dict) else None
+    league_team_count = len((sleeper_block or {}).get("teams") or []) or (
+        len(league_rosters) + 1 if league_rosters else None
+    )
+    weakness_needs, weakness_reason = _suggestion_weakness_needs(
+        contract, league_cfg, roster, league_team_count
+    )
+    # Roster capacity for the requesting team, built ONCE and reused
+    # across every proposal — the expensive part (joining the roster to
+    # the board, measuring waiver level league-wide, resolving starter
+    # slots) does not depend on which trade is being scored.  Each
+    # suggestion then reports what it would cost in forced releases;
+    # nothing is filtered out on capacity grounds.
+    # Suggestions are the product; capacity is an annotation on them, so a
+    # failure here degrades to no annotation rather than no suggestions.
+    capacity_context = _capacity_context_for(
+        contract,
+        league_cfg,
+        {"players": list(roster)},
+        surface=surface,
+    )
+
+    return generate_suggestions_from_pool(
+        roster_names=roster,
+        pool=pool,
+        league_rosters=league_rosters,
+        starter_needs=starter_needs,
+        ktc_top_n=ktc_top_n,
+        capacity_context=capacity_context,
+        constraints=constraints,
+        roster_pool=full_pool,
+        team_count=league_team_count,
+        weakness_needs=weakness_needs,
+        weakness_unavailable_reason=weakness_reason,
+    )
 
 
 def _suggestion_weakness_needs(

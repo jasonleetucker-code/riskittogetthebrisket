@@ -1902,6 +1902,37 @@ def fetch_sleeper_teams_overlay(
     return payload
 
 
+def peek_sleeper_teams_overlay(sleeper_league_id: str) -> dict[str, Any] | None:
+    """What :func:`fetch_sleeper_teams_overlay` would answer from its FRESH
+    caches, or ``None`` -- never a network call and never a cache write.
+
+    For a warm-only caller that must name the same roster snapshot the
+    fetching routes used (the team plan reproduces Perfect Waivers' cache key
+    from it).  Same order as the fetch: a fresh full-overlay entry, then the
+    fresh teams cache.  Stale entries are not answered: the fetch would have
+    refreshed them, so they are not what a route just used.
+    """
+    sleeper_league_id = str(sleeper_league_id or "").strip()
+    if not sleeper_league_id:
+        return None
+    now = time.time()
+    with _CACHE_LOCK:
+        full = _CACHE.get(sleeper_league_id)
+        if full and (now - float(full.get("_cached_at") or 0)) < _CACHE_TTL_SEC:
+            payload = full.get("payload") or {}
+            if payload.get("teams"):
+                return {
+                    "teams": payload["teams"],
+                    "overlayFetchedAt": payload.get("overlayFetchedAt"),
+                }
+        teams_cached = _TEAMS_CACHE.get(sleeper_league_id)
+        if teams_cached and (now - float(teams_cached.get("_cached_at") or 0)) < (
+            _TEAMS_CACHE_TTL_SEC
+        ):
+            return dict(teams_cached["payload"])
+    return None
+
+
 def overlay_observation_servable(fetched_at: Any, *, now: float | None = None) -> bool:
     """Whether an overlay observed at ``fetched_at`` may still be served.
 
