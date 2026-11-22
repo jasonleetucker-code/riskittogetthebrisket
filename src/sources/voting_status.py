@@ -155,6 +155,20 @@ def _universe(row: Mapping[str, Any]) -> str:
     return "idp" if pos in _IDP_POSITIONS else "offense"
 
 
+def meta_voted(m: Mapping[str, Any]) -> bool:
+    """Did this ``sourceRankMeta`` observation vote (positive applied weight,
+    contributed to the blend, not outlier-dropped)?  The ONE definition: the
+    per-source tallies below and the rookie coverage stamp both read it."""
+    applied = m.get("appliedWeight")
+    return (
+        m.get("contributedToBlend") is not False
+        and not m.get("hampelDropped")
+        and isinstance(applied, (int, float))
+        and not isinstance(applied, bool)
+        and applied > 0
+    )
+
+
 def _row_tallies(rows: Iterable[Mapping[str, Any]]) -> dict[str, dict[str, Any]]:
     """Per source: rows it voted on (by universe) and why it did not vote
     elsewhere — read from each row's ``sourceRankMeta``."""
@@ -172,13 +186,7 @@ def _row_tallies(rows: Iterable[Mapping[str, Any]]) -> dict[str, dict[str, Any]]
                 {"voting": {"offense": 0, "idp": 0, "pick": 0}, "notVoting": {}, "applied": 0.0},
             )
             applied = m.get("appliedWeight")
-            voted = (
-                m.get("contributedToBlend") is not False
-                and not m.get("hampelDropped")
-                and isinstance(applied, (int, float))
-                and not isinstance(applied, bool)
-                and applied > 0
-            )
+            voted = meta_voted(m)
             if voted:
                 t["voting"][uni] += 1
                 t["applied"] += float(applied)
