@@ -2,7 +2,8 @@
 LIVE process keeps the owner-held source-vote flags in force (DLF IDP hold ON,
 DLF Values voting OFF, universal freshness schedule v2 OFF; owner decisions
 2026-10-20; the depth-note shadow counters, the LI-5 replacement-level
-consolidation and the forced-drop fix OFF, owner decisions 2026-10-21).  It is what covers the
+consolidation and the forced-drop fix OFF, owner decisions 2026-10-21; the trade
+title-odds lens OFF, owner directive 2026-11-21).  It is what covers the
 production box's untracked ``.env``; ``deploy/verify-deploy.sh`` runs it and a
 non-zero exit fails the deploy (auto-rollback)."""
 
@@ -27,6 +28,7 @@ _GOOD = {
     "low_value_depth_disclosure_shadow": False,
     "replacement_level_li5_consolidation": False,
     "forced_drop_cheapest_legal": False,
+    "trade_title_odds_lens": False,
     "pick_class_tether_guard": False,
 }
 
@@ -84,10 +86,11 @@ def test_all_wrong_reports_all():
             low_value_depth_disclosure_shadow=True,
             replacement_level_li5_consolidation=True,
             forced_drop_cheapest_legal=True,
+            trade_title_odds_lens=True,
             pick_class_tether_guard=True,
         )
     )
-    assert len(out) == 7
+    assert len(out) == 8
 
 
 def test_depth_disclosure_shadow_on_fails_with_an_explicit_message():
@@ -121,6 +124,17 @@ def test_forced_drop_cheapest_legal_on_fails_with_an_explicit_message():
     assert "forced_drop_cheapest_legal is effectively ON" in msg and "must be OFF" in msg
     assert "RISKIT_FEATURE_FORCED_DROP_CHEAPEST_LEGAL" in msg and ".env" in msg
     assert "Package 1" in msg and "owner's activation decision" in msg
+
+
+def test_trade_title_odds_lens_on_fails_with_an_explicit_message():
+    """Owner directive 2026-11-21 (DYN10 #4): the title-odds lens ships
+    dormant; a live process with it ON fails the deploy."""
+    out = v.evaluate(_status(**{**_GOOD, "trade_title_odds_lens": True}))
+    assert len(out) == 1
+    msg = out[0]
+    assert "trade_title_odds_lens is effectively ON" in msg and "must be OFF" in msg
+    assert "RISKIT_FEATURE_TRADE_TITLE_ODDS_LENS" in msg and ".env" in msg
+    assert "2026-11-21" in msg and "owner's activation decision" in msg
 
 
 def test_pick_class_tether_guard_on_fails_with_an_explicit_message():
@@ -181,6 +195,7 @@ def test_the_live_registry_snapshot_shape_passes(monkeypatch):
         "RISKIT_FEATURE_LOW_VALUE_DEPTH_DISCLOSURE_SHADOW",
         "RISKIT_FEATURE_REPLACEMENT_LEVEL_LI5_CONSOLIDATION",
         "RISKIT_FEATURE_FORCED_DROP_CHEAPEST_LEGAL",
+        "RISKIT_FEATURE_TRADE_TITLE_ODDS_LENS",
         "RISKIT_FEATURE_PICK_CLASS_TETHER_GUARD",
     )
     for env in envs:
@@ -198,6 +213,7 @@ def test_the_live_registry_snapshot_shape_passes(monkeypatch):
             "RISKIT_FEATURE_LOW_VALUE_DEPTH_DISCLOSURE_SHADOW",
             "RISKIT_FEATURE_REPLACEMENT_LEVEL_LI5_CONSOLIDATION",
             "RISKIT_FEATURE_FORCED_DROP_CHEAPEST_LEGAL",
+            "RISKIT_FEATURE_TRADE_TITLE_ODDS_LENS",
             "RISKIT_FEATURE_PICK_CLASS_TETHER_GUARD",
         ):
             for other in envs:

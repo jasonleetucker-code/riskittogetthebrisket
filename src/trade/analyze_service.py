@@ -156,6 +156,7 @@ def analyze_for_team(
     team_goal: Any = None,
     comparables: Any = _UNSET,
     counterfactuals: bool = True,
+    title_odds: Any = _UNSET,
 ) -> dict[str, Any]:
     """``analyze_trade`` over one :func:`simulate_for_team` result.
 
@@ -163,15 +164,20 @@ def analyze_for_team(
     ``comparable_trades`` payload); omitted means not computed.
     ``counterfactuals=False`` skips the "what would change it" search (it
     never changes the decision; see ``trade_decision.decide``).
+    ``title_odds`` is the ``src.trade.title_odds_lens`` payload, passed only
+    when the owner-held ``trade_title_odds_lens`` flag is ON; omitted, the
+    packet is byte-identical to the pre-lens one.
     """
     from src.trade.analyze_trade import analyze_trade  # noqa: PLC0415
 
+    extra: dict[str, Any] = {} if title_odds is _UNSET else {"title_odds": title_odds}
     return analyze_trade(
         simulation,
         comparables=None if comparables is _UNSET else comparables,
         team_goal=team_goal,
         provenance=contract_provenance(contract),
         counterfactuals=counterfactuals,
+        **extra,
     )
 
 
@@ -184,6 +190,10 @@ MODES: tuple[str, ...] = ("team_context", "asset_only", "market_fairness")
 #: ``comparables_provider(flows, simulation) -> comparables payload`` — the
 #: route's own ``comparable_trades`` call for that team (N = 2 only).
 ComparablesProvider = Callable[[Any, dict[str, Any]], Any]
+#: ``title_odds_provider(ledger) -> title_odds_lens payload`` — the private
+#: route's whole-trade season-odds computation (flag ``trade_title_odds_lens``
+#: ON only).  Called ONCE per request, in ``team_context`` mode only.
+TitleOddsProvider = Callable[[Any], Any]
 
 
 class PackageModelUnavailable(RuntimeError):
@@ -404,6 +414,7 @@ def analyze_trade_n(
     posture_resolver: Callable[..., Mapping[str, Any] | None] | None = None,
     comparables_provider: ComparablesProvider | None = None,
     stage: StageHook | None = None,
+    title_odds_provider: TitleOddsProvider | None = None,
 ) -> dict[str, Any]:
     """The ONE N-team composer: every participating team's own analysis.
 
@@ -424,6 +435,12 @@ def analyze_trade_n(
     * ``asset_only`` (private toggle) — Team Context off, posture read warm;
     * ``market_fairness`` (public advisor) — Team Context off, no posture, no
       roster capacity / final roster / utility, nothing written anywhere.
+
+    ``title_odds_provider`` (private route, flag ``trade_title_odds_lens`` ON)
+    computes the non-voting season-odds lens ONCE for the whole trade; each
+    team's analysis projects its own row.  ``asset_only`` passes the
+    excluded-by-mode marker without computing; ``market_fairness`` never
+    receives it.  Omitted, every team's analysis is byte-identical.
 
     Not flag-gated: the private flag gates the private route only.  Refuses
     (:class:`PackageModelUnavailable`) unless the active package model is
@@ -460,6 +477,22 @@ def analyze_trade_n(
     goals = dict(team_goals or {})
     unverifiable = set(ledger.unverifiable_asset_ids)
     n_teams = len(ledger.teams)
+    # The season-odds lens: one paired simulation for the WHOLE trade (every
+    # team's roster change at once), never per team.  Context only.
+    title_odds: Any = _UNSET
+    if title_odds_provider is not None and mode != "market_fairness":
+        if team_context:
+            with stage("titleOdds"):
+                try:
+                    title_odds = title_odds_provider(ledger)
+                except Exception:  # noqa: BLE001 — context only, never the verdict
+                    from src.trade import title_odds_lens  # noqa: PLC0415
+
+                    title_odds = title_odds_lens.unavailable(title_odds_lens.REASON_ERROR)
+        else:
+            from src.trade import title_odds_lens  # noqa: PLC0415
+
+            title_odds = dict(title_odds_lens.ASSET_ONLY_MARKER)
 
     teams: dict[int, dict[str, Any]] = {}
     for rid in sorted(ledger.teams):
@@ -519,6 +552,7 @@ def analyze_trade_n(
                 team_goal=goals.get(rid),
                 comparables=comparables,
                 counterfactuals=counterfactuals,
+                title_odds=title_odds,
             )
         decision = analysis.get("decision") if isinstance(analysis, dict) else None
         checks = simulation.get("ownedPickChecks") or {}

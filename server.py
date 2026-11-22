@@ -21301,6 +21301,20 @@ async def _compute_trade_analysis(request: Request, body: Any, clock, league_cfg
     # echoes it back.  Absent -> inferred from competitive posture.
     _team_goal = body.get("teamGoal") if isinstance(body, dict) else None
     from src.trade import analyze_service as _analyze_service  # noqa: PLC0415
+    from src.trade import title_odds_lens as _title_odds_lens  # noqa: PLC0415
+
+    # DYN10 #4: this season's playoff / title odds before and after the trade
+    # -- the non-voting ``lenses.titleOdds``.  Owner-held flag, default OFF:
+    # OFF computes nothing and passes nothing, so the packet is byte-identical.
+    _title_odds_extra: dict[str, Any] = {}
+    if _title_odds_lens.enabled():
+        if (result.get("teamContext") or {}).get("applied") is False:
+            _title_odds_extra["title_odds"] = dict(_title_odds_lens.ASSET_ONLY_MARKER)
+        else:
+            with clock.stage("titleOdds"):
+                _title_odds_extra["title_odds"] = await run_in_threadpool(
+                    _trade_title_odds_two_team, result, league_key, _captured.get("contract")
+                )
 
     # Provenance comes from the contract the simulation ran against (B0-c),
     # not a second read of the global, which a publish could have swapped.
@@ -21310,8 +21324,45 @@ async def _compute_trade_analysis(request: Request, body: Any, clock, league_cfg
             contract=_captured.get("contract"),
             comparables=comparables,
             team_goal=_team_goal,
+            **_title_odds_extra,
         )
     return result, league_key, None, clock.stages()
+
+
+def _title_odds_snapshot(league_key: str | None):
+    """The league snapshot the title-odds lens simulates, or ``None``.
+
+    Only a league with recorded playoff rules is ever looked up (the lens
+    refuses every other league before reading anything), through the same
+    reader Roster Construction uses: the public snapshot when it is this
+    league, else a private in-memory build.
+    """
+    from src.trade import title_odds_lens as _title_odds_lens  # noqa: PLC0415
+
+    if not league_key or not _title_odds_lens.league_configured(league_key):
+        return None
+    cfg = _league_registry.get_league_by_key(league_key)
+    if cfg is None:
+        return None
+    try:
+        return _roster_construction_snapshot(cfg)
+    except Exception:  # noqa: BLE001 -- the lens reports the snapshot unavailable
+        log.warning("title-odds lens: league snapshot unavailable", exc_info=True)
+        return None
+
+
+def _trade_title_odds_two_team(result: dict, league_key: str | None, contract) -> dict:
+    """``/api/trade/analyze``'s title-odds lens payload (context only)."""
+    from src.trade import title_odds_lens as _title_odds_lens  # noqa: PLC0415
+
+    return _title_odds_lens.guarded(
+        lambda: _title_odds_lens.title_odds_for_two_team(
+            result,
+            snapshot=_title_odds_snapshot(league_key),
+            league_key=league_key,
+            contract=contract,
+        )
+    )
 
 
 # ── N-team trade analysis (private; spec docs/trade/NTEAM_TRADE_ENGINE_SPEC.md §3) ──
@@ -21531,6 +21582,20 @@ async def post_trade_analyze_multi(request: Request):
             names=_board_names_by_player_id(),
         )
 
+    from src.trade import title_odds_lens as _title_odds_lens  # noqa: PLC0415
+
+    def _title_odds(validated):
+        # DYN10 #4 (owner-held flag, default OFF): ONE paired season
+        # simulation for the whole trade; each team's analysis shows its row.
+        return _title_odds_lens.guarded(
+            lambda: _title_odds_lens.title_odds_for_ledger(
+                validated, snap, snapshot=_title_odds_snapshot(league_key)
+            )
+        )
+
+    # OFF passes no provider, so every team's analysis is byte-identical.
+    _title_odds_kw = {"title_odds_provider": _title_odds} if _title_odds_lens.enabled() else {}
+
     def _compute():
         return _svc.analyze_trade_n(
             snap,
@@ -21540,6 +21605,7 @@ async def post_trade_analyze_multi(request: Request):
             team_goals=goals,
             comparables_provider=_comparables,
             stage=clock.stage,
+            **_title_odds_kw,
         )
 
     from src.api import compute_admission as _admission_mod  # noqa: PLC0415
