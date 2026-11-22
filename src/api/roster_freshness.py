@@ -84,6 +84,35 @@ def roster_age(contract: Any, *, now: datetime | None = None) -> dict[str, Any]:
     }
 
 
+def served_roster_freshness(
+    contract: Any,
+    *,
+    from_overlay: bool,
+    overlay_fetched_at: Any = None,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """The :func:`roster_age` verdict for the rosters a private route SERVED.
+
+    Waiver routes answer from one of two roster snapshots: the live Sleeper
+    teams overlay when it answered, else the contract's own block.  A merged
+    contract keeps the BAKED block's ``rosterSource`` / ``rosterFetchedAt``
+    stamps beside the overlay's teams, so judging it by those stamps would
+    describe rosters it is not serving.  The overlay's own fetch time
+    (``overlayFetchedAt``, which stays honest on its stale-fallback path) is
+    judged instead, by the same rule and budget: a live fetch is ``current``
+    within ``SCORING_SNAPSHOT_MAX_AGE_HOURS``, older is ``stale``, and an
+    unparseable or missing stamp is ``unknown`` — never current.
+
+    Returns :func:`roster_age`'s fields plus ``delivery``
+    (``"live_overlay"`` / ``"contract"``).  Private routes only: it carries
+    the exact fetch time, which the public advisor shape deliberately omits.
+    """
+    if from_overlay:
+        evidence = {"sleeper": {"rosterSource": "live", "rosterFetchedAt": overlay_fetched_at}}
+        return {**roster_age(evidence, now=now), "delivery": "live_overlay"}
+    return {**roster_age(contract, now=now), "delivery": "contract"}
+
+
 def roster_freshness(contract: Any, *, now: datetime | None = None) -> dict[str, Any]:
     """``{"state", "asOf", "source"}`` for the contract's own roster block.
 

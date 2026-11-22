@@ -957,3 +957,45 @@ export function buildTopWaiverPool(
 // ``/api/waiver/suggestions`` candidate row, and the full ladder from
 // ``POST /api/waiver/faab-recommend``.  A row with no backend bid
 // renders a placeholder — never a locally computed number.
+
+// ── Roster freshness notice (DYN10 B3) ─────────────────────────────────
+
+/**
+ * The notice to show when the rosters behind a waiver answer are not
+ * current, or ``null`` when they are.
+ *
+ * ``freshness`` is the backend's ``rosterFreshness`` stamp
+ * (``src/api/roster_freshness.py``): ``state`` is ``current`` / ``stale``
+ * / ``unknown``.  The verdict is the server's; this only words it.  A
+ * stamp without a recognised state is not "current": it reads as unknown,
+ * because an older roster block can list a free agent who has since been
+ * claimed.  No stamp at all (nothing loaded yet) has nothing to describe.
+ */
+export function rosterFreshnessNotice(freshness) {
+  if (!freshness || typeof freshness !== "object") return null;
+  const state = freshness.state;
+  if (state === "current") return null;
+  const hours = Number(freshness?.ageHours);
+  const age = Number.isFinite(hours) && freshness?.ageHours != null
+    ? ` (last fetched ${hours < 1 ? "under an hour" : `${Math.round(hours)} h`} ago)`
+    : "";
+  if (state === "stale") {
+    const what = freshness?.source === "last_good"
+      ? "a saved copy kept after a failed refresh"
+      : "older than the refresh window";
+    return {
+      state: "stale",
+      title: "Rosters may be out of date",
+      text:
+        `These rosters are ${what}${age}. A free agent listed here may already ` +
+        "have been claimed — check Sleeper before you claim.",
+    };
+  }
+  return {
+    state: "unknown",
+    title: "Roster freshness unknown",
+    text:
+      "We could not confirm when these rosters were fetched. A free agent listed here may " +
+      "already have been claimed — check Sleeper before you claim.",
+  };
+}
