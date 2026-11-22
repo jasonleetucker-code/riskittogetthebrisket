@@ -181,8 +181,11 @@ def fit_suitability(trade: Mapping[str, Any], topo: Mapping[str, Any]) -> dict[s
 #
 # League maturity is reported under BOTH readings the plan names --
 # point-in-time at the trade and league-level as of the build -- from the
-# ``leagueMaturity`` hook the P3 maturity owner fills.  Until it does, every
-# cohort is ``unknown``: maturity is never inferred here.
+# ``leagueMaturity`` hook the P3 maturity owner fills
+# (``league_filter.resolve_league_maturity`` over the persisted
+# ``previous_league_id`` chain, wired by ``scripts/market_trade_ledger.py``).
+# A league whose chain no store holds stays ``unknown``: maturity is never
+# inferred here.
 
 COHORT_A = "A_three_plus_completed_seasons"
 COHORT_B = "B_two_completed_seasons"
@@ -376,7 +379,8 @@ def summarize_estimator_evidence(trades: Sequence[Mapping[str, Any]]) -> dict[st
         "notes": [
             "hard exclusions are data-integrity facts; which population flags exclude a trade "
             "from the primary population is the preregistration's decision",
-            "maturity cohorts stay 'unknown' until the P3 maturity owner fills leagueMaturity",
+            "maturity cohorts come from the persisted previous_league_id chain only (no "
+            "crawl); a league whose chain is not stored stays 'unknown', never a startup",
         ],
     }
 
