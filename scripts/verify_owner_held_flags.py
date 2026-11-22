@@ -1,10 +1,10 @@
 """Fail a deploy whose RUNNING process has an owner-held vote flag in the
 wrong state.
 
-The repository locks eight owner-held flags (three source-vote flags, one
+The repository locks nine owner-held flags (three source-vote flags, one
 shadow-measurement flag, one dormant replacement-level flag, one dormant
-forced-drop flag, one owner-reserved pick-tether flag and one owner-reserved
-recommendation-surface flag):
+forced-drop flag, one owner-reserved pick-tether flag, one dormant trade
+title-odds lens and one owner-reserved recommendation-surface flag):
 
 * ``dlf_offense_only_vote`` must be effectively **ON** -- the DLF IDP / DLF
   Rookie IDP vote hold (owner Option 3, 2026-10-20;
@@ -34,6 +34,10 @@ recommendation-surface flag):
   activation is owner-reserved and no owner decision has authorized it
   (2026-11-21, ``docs/picks/PICK_CLASS_GUARD_EVIDENCE_2026-11-21.md``;
   ``tests/api/test_pick_class_guard_hold_locked.py``);
+* ``trade_title_odds_lens`` must be effectively **OFF** -- Analyze Trade's
+  non-voting season-odds lens (DYN10 #4): built behind a default-OFF flag,
+  turning it ON is owner-reserved (owner directive 2026-11-21;
+  ``tests/api/test_title_odds_lens_hold_locked.py``);
 * ``team_advisor_plan`` must be effectively **OFF** -- the composed Team
   Advisor plan (``GET /api/team/plan``): it serves new recommendations, and
   turning any flag on is owner-reserved under the 2026-11-21 authorization
@@ -131,6 +135,13 @@ OWNER_HELD_FLAGS: dict[str, tuple[bool, str, str]] = {
         "2026-11-21.md): the rookie-class guard on the current-year pick tether moves "
         "canonical pick values, and no owner decision has authorized it",
         "the rookie-class tether guard is REPRICING current-year slot picks in production",
+    ),
+    "trade_title_odds_lens": (
+        False,
+        "owner directive 2026-11-21 (DYN10 #4, docs/EXECUTION_PLAN.md 2026-11-21 section): "
+        "the trade title-odds lens ships behind a default-OFF flag and turning it ON is "
+        "owner-reserved",
+        "Analyze Trade is SERVING playoff / championship odds deltas in production",
     ),
     "team_advisor_plan": (
         False,

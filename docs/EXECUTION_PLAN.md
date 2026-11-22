@@ -36,17 +36,21 @@
 
 | Unit | Top-10 item | PR | State | Note |
 |---|---|---|---|---|
-| A1 ledger memory | #7 CTM | #2295 | READY_FOR_INTEGRATION | Shares per-format objects. About 40% less build memory on a box-sized benchmark, with byte-identical ledger and report |
-| A1b stale-report alert | #7 CTM | — | IMPLEMENTING | Alert when the daily ledger report stops updating |
-| A2 league maturity | #7 CTM | #2297 | IN REVIEW | Sleeper `"0"` league-age fix; `resolve_league_maturity` wired into the daily report |
-| A3 aggregate report workflow | #7 CTM | — | IMPLEMENTING | Read-only, dispatch-only, aggregate counts only |
-| B1 pick-class guard | #3 | #2296 | IN REVIEW | Flag `pick_class_tether_guard` default OFF; activation is an owner decision |
-| C1 sell-high sign | #10 | #2293 | READY_FOR_INTEGRATION | The edge fired on an overpay |
-| D1 waiver protections | #6 | — | IMPLEMENTING | Protections on the greedy lists; roster freshness stamp |
-| D2 rookie coverage | #8 | #2298 | IN REVIEW | Display-only voting-source line on /draft |
-| V1 forward scoreboard | #1 | — | IMPLEMENTING | Research tool over the committed archive; changes nothing served |
+| A1 ledger memory | #7 CTM | #2295 | DEPLOYED (train 1122) | Shares per-format objects: about 40% less build memory on a box-sized benchmark, byte-identical ledger and report. Production proof outstanding: the next daily `dynasty-market-trade-ledger` peak RSS |
+| A1b stale-report alert | #7 CTM | #2299 | READY_FOR_INTEGRATION (train 1123) | Alert when the daily ledger report stops updating |
+| A2 league maturity | #7 CTM | #2297 | DEPLOYED (train 1122) | Sleeper `"0"` league-age fix; `resolve_league_maturity` wired into the daily report. Production proof outstanding: the next daily report's maturity cohorts |
+| A3 aggregate report workflow | #7 CTM | #2299 | READY_FOR_INTEGRATION (train 1123) | Read-only, dispatch-only, aggregate counts only |
+| B1 pick-class guard | #3 | #2296 | VERIFIED dormant (train 1122) | Flag `pick_class_tether_guard` OFF on the live process: the deploy's owner-held check passed with it listed. Activation is owner decision PG/PB |
+| C1 sell-high sign | #10 | #2293 | DEPLOYED (train 1122) | The edge fired on an overpay. Signed-in route; not observed in production |
+| D1 waiver protections | #6 | #2300 | READY_FOR_INTEGRATION (train 1123) | Protections on the greedy drop lists; roster freshness stamp on waiver payloads |
+| D2 rookie coverage | #8 | #2298 | DEPLOYED (train 1122) | Display-only voting-source line on /draft. Anonymous redaction VERIFIED in production; the signed-in display is not observed |
+| V1 forward scoreboard | #1 | #2301 | READY_FOR_INTEGRATION (train 1123) | Research tool. The archive holds no served board, so the board question needs the box ledger. idpTradeCalc's disagreement shows no effect net of KTC momentum |
+| #9 IDP independence | #9 | #2302 | READY_FOR_INTEGRATION (train 1123) | Measurement only: no lineage evidence; recommendation to the owner is no cap |
+| #4 title-odds lens | #4 | #2303 | IN REVIEW (train 1123) | Non-voting lens, owner-held flag `trade_title_odds_lens` default OFF. Activation also needs an async path (+5.5 s synchronous) and a War Room rendering lane |
 
-Items #2, #4, #5 and #9, and CTM-4 to CTM-8, are the next batch. Their order and owner gates are in the audit document.
+Train 1122 (#2292, #2293, #2295, #2296, #2297, #2298) merged 2026-11-22 01:31 UTC after release candidate
+44969509872. Production `build.commit` is `d7501c1f` (deploy 44971877322). Remaining items: #2 Team Advisor plan,
+#5 "This week" panel, CTM-4 to CTM-8 and the V1 box-ledger run. Their order and owner gates are in the audit document.
 
 ## Production stabilization and final closeout — owner, 2026-11-19
 

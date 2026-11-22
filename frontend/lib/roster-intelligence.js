@@ -277,6 +277,8 @@ function describeUnavailable(reason) {
     not_loaded: "roster intelligence has not loaded",
     droppability_not_requested: "the cut ladder was not requested",
     droppability_missing: "the response carried no cut ladder for this team",
+    protections_unresolved:
+      "your trade protections could not be read, so no drop is proposed until they can be",
   }[reason];
   return text || (reason ? String(reason) : "not measured");
 }
@@ -379,10 +381,21 @@ export function leagueNeedIndex(payload) {
  *
  * Every rung is a release the exact lineup solver has validated, in the
  * owner's cheapest-first order; players the lineup needs are NOT rungs.
- * Returns `{ state: "ok", rungs, undroppableCount }` or
+ * Returns `{ state: "ok", rungs, undroppableCount, protectedPlayers }` or
  * `{ state: "unavailable", reason, reasonText }`. No fallback ranking of
  * the roster by raw value exists — that was the shape #1017 deleted from
  * the backend, and /waivers carried a copy of it.
+ *
+ * Trade protections (DYN10 B1). On the requester's OWN team the server
+ * rebuilds the ladder without the players they protect
+ * (`droppability.protections`, owner `src/trade/constraints.py`), so a
+ * protected player is never a rung and the rungs after him were validated
+ * with him kept. This reader only states the result: protections that
+ * could not be read are an UNAVAILABLE drop side (the server proposes no
+ * cut then either), and as a guard against a payload contradicting itself
+ * a rung the same payload names as protected is never shown. Removing a
+ * rung keeps the rest a legal release set (legal cut-sets are downward
+ * closed); it is a guard, not a second ladder.
  */
 export function teamCutLadder(payload, { ownerId = "" } = {}) {
   const unavailable = (reason) => ({
@@ -400,8 +413,28 @@ export function teamCutLadder(payload, { ownerId = "" } = {}) {
   if (payload?.droppabilityIncluded !== true) return unavailable("droppability_not_requested");
   const ladder = team.droppability?.cutLadder;
   if (!ladder || !Array.isArray(ladder.rungs)) return unavailable("droppability_missing");
+  const protections = team.droppability?.protections;
+  if (protections?.state === "unresolved") return unavailable("protections_unresolved");
+  const protectedPlayers = (
+    protections?.state === "applied" && Array.isArray(protections.protectedOnRoster)
+      ? protections.protectedOnRoster
+      : []
+  )
+    .filter((p) => p && typeof p === "object" && (p.playerId || p.name))
+    .map((p) => ({
+      playerId: String(p.playerId ?? ""),
+      name: String(p.name || ""),
+      reason: String(p.reason || ""),
+    }));
+  const protectedIds = new Set(protectedPlayers.map((p) => p.playerId).filter(Boolean));
+  const protectedNames = new Set(
+    protectedPlayers.map((p) => p.name.trim().toLowerCase()).filter(Boolean),
+  );
+  const isProtected = (r) =>
+    (r.playerId != null && protectedIds.has(String(r.playerId))) ||
+    protectedNames.has(String(r.name).trim().toLowerCase());
   const rungs = ladder.rungs
-    .filter((r) => r && typeof r === "object" && r.name)
+    .filter((r) => r && typeof r === "object" && r.name && !isProtected(r))
     .map((r) => ({
       rung: num(r.rung),
       playerId: String(r.playerId ?? ""),
@@ -417,5 +450,6 @@ export function teamCutLadder(payload, { ownerId = "" } = {}) {
     reasonText: "",
     rungs,
     undroppableCount: Array.isArray(ladder.undroppable) ? ladder.undroppable.length : null,
+    protectedPlayers,
   };
 }

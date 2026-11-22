@@ -831,6 +831,30 @@ def _build_team_distributions(
     )
 
 
+def ros_z_scores(ros_strength_map: dict[str, float]) -> dict[str, float]:
+    """Each owner's ROS-strength z-score, exactly as the team distributions
+    apply it (``_compose_team_distribution``'s ``ros_z``).
+
+    The mean and population sd are taken over EVERY team in the map; a map
+    with fewer than two teams, or no spread, divides by 1.0.  An owner absent
+    from the map gets no entry (no blend at all — never a z of 0).  The one
+    owner of this arithmetic: :func:`_team_distributions_from_inputs` reads it,
+    and so does the trade title-odds lens (``src.trade.title_odds_lens``),
+    which hands it to ``src.league_intel.twin`` so a roster delta is scaled by
+    the same blend factor the simulator applied.
+    """
+    ros_values = list(ros_strength_map.values())
+    ros_mean = statistics.fmean(ros_values) if ros_values else 0.0
+    ros_sd = statistics.pstdev(ros_values) if len(ros_values) > 1 else 1.0
+    if ros_sd <= 0:
+        ros_sd = 1.0
+    return {
+        owner: (score - ros_mean) / ros_sd
+        for owner, score in ros_strength_map.items()
+        if score is not None
+    }
+
+
 def _team_distributions_from_inputs(
     per_owner: dict[str, list[float]],
     pool: list[float],
@@ -849,13 +873,8 @@ def _team_distributions_from_inputs(
     """
     pool_mean, pool_sd = _empirical_distribution(pool)
     # ROS strength scores are 0-100ish; convert to a per-owner z-score
-    # so the blend term is centered.  When the snapshot is empty, fall
-    # through with all-zero z (no ROS influence).
-    ros_values = list(ros_strength_map.values())
-    ros_mean = statistics.fmean(ros_values) if ros_values else 0.0
-    ros_sd = statistics.pstdev(ros_values) if len(ros_values) > 1 else 1.0
-    if ros_sd <= 0:
-        ros_sd = 1.0
+    # so the blend term is centered (one owner: :func:`ros_z_scores`).
+    ros_z_by_owner = ros_z_scores(ros_strength_map)
 
     distributions: dict[str, _TeamDist] = {}
     pf_by_owner: dict[str, float] = {}
@@ -874,10 +893,8 @@ def _team_distributions_from_inputs(
             if bb_mean > 0:
                 emp_mean, emp_sd = bb_mean, bb_sd
                 basis = "presim"
-        ros_score = ros_strength_map.get(owner_id)
-        # ``ros_sd > 0`` is the retired code's guard, kept for exact parity
-        # with it (``ros_sd`` is already clamped above, so it never fires).
-        ros_z = (ros_score - ros_mean) / ros_sd if ros_score is not None and ros_sd > 0 else None
+        # ``None`` when the owner has no ROS strength score: no blend at all.
+        ros_z = ros_z_by_owner.get(owner_id)
         mean, sd = _compose_team_distribution(
             basis=basis,
             basis_mean=emp_mean,

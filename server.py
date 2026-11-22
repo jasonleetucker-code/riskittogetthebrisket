@@ -3019,6 +3019,18 @@ def _backup_coverage_alert_rows() -> dict | None:
         return None
 
 
+def _market_trade_report_health() -> dict | None:
+    """Freshness row of the Chase Trade Market ledger report for the ops-alert
+    sweep (``None`` = not checked).  Owner: ``src/api/market_trade_report_health.py``.
+    """
+    try:
+        from src.api import market_trade_report_health as _mtr
+
+        return _mtr.market_trade_report_health()
+    except Exception:  # noqa: BLE001 -- the sweep must never fail on a probe
+        return None
+
+
 def _failed_systemd_units() -> list[str] | None:
     """Shipped systemd services currently ``failed`` (``None`` = not checked).
 
@@ -8170,8 +8182,27 @@ async def post_waiver_suggestions(request: Request):
 
     if isinstance(result, dict):
         result["leagueKey"] = league_cfg.key
+        _stamp_roster_freshness(result, inputs)
     _stamp_valuation_mode(result, valuation_mode, valuation_note)
     return JSONResponse(content=result)
+
+
+def _stamp_roster_freshness(payload: dict, inputs: Mapping[str, Any]) -> None:
+    """Stamp which rosters a waiver route served and how fresh they are.
+
+    ONE place for every route fed by :func:`_waiver_engine_inputs`.
+    ``rosterFreshness.state`` is ``current`` / ``stale`` / ``unknown``
+    (``src/api/roster_freshness.py``); a client warns on anything but
+    ``current``.
+    """
+    payload["rosterSource"] = "live_overlay" if inputs.get("rosters_from_overlay") else "contract"
+    payload["rostersAsOf"] = inputs.get("rosters_as_of")
+    freshness = inputs.get("roster_freshness")
+    payload["rosterFreshness"] = (
+        dict(freshness)
+        if isinstance(freshness, Mapping)
+        else {"state": "unknown", "delivery": payload["rosterSource"]}
+    )
 
 
 def _faab_config_refusal() -> JSONResponse | None:
@@ -8277,10 +8308,25 @@ async def _waiver_engine_inputs(league_cfg: Any, team_owner_id: str | None) -> d
     except (TypeError, ValueError) as exc:
         _input_error = exc
 
+    # B3 (DYN10 waiver correctness): how fresh the rosters these routes
+    # SERVE are, judged by the one roster-freshness reader.  ``rosterSource``
+    # alone said "contract" for a block the scraper may have restored from a
+    # last-good snapshot after a failed Sleeper fetch, so a free agent claimed
+    # since could still be listed as available with nothing saying so.
+    from src.api.roster_freshness import served_roster_freshness  # noqa: PLC0415
+
+    _from_overlay = _suggestions_teams is not sleeper_teams
+    _roster_freshness = served_roster_freshness(
+        latest_contract_data,
+        from_overlay=_from_overlay,
+        overlay_fetched_at=_rosters_as_of,
+    )
+
     return {
         "teams": _suggestions_teams,
-        "rosters_from_overlay": _suggestions_teams is not sleeper_teams,
+        "rosters_from_overlay": _from_overlay,
         "rosters_as_of": _rosters_as_of,
+        "roster_freshness": _roster_freshness,
         "roster_settings": _roster_settings,
         "league_budget": _league_budget,
         "team_count": _team_count,
@@ -8378,7 +8424,11 @@ async def post_waiver_perfect(request: Request):
     )
     cached = _perfect_waivers_cache_get(cache_key)
     if cached is not None:
-        return JSONResponse(content=cached)
+        # Freshness is a property of NOW, not of when the plan was cached: a
+        # hit re-states it (a shallow copy — the cached payload is shared).
+        hit = dict(cached)
+        _stamp_roster_freshness(hit, inputs)
+        return JSONResponse(content=hit)
 
     def _compute() -> dict[str, Any]:
         targets = _waiver.find_waiver_targets(
@@ -8423,8 +8473,7 @@ async def post_waiver_perfect(request: Request):
         )
 
     payload["leagueKey"] = league_cfg.key
-    payload["rosterSource"] = "live_overlay" if inputs["rosters_from_overlay"] else "contract"
-    payload["rostersAsOf"] = inputs["rosters_as_of"]
+    _stamp_roster_freshness(payload, inputs)
     _stamp_valuation_mode(payload, valuation_mode, valuation_note)
     _perfect_waivers_cache_put(cache_key, payload)
     return JSONResponse(content=payload)
@@ -8533,8 +8582,7 @@ async def post_waiver_advisor(request: Request):
             status_code=503,
             content={"error": "waiver_advisor_unavailable", "leagueKey": league_cfg.key},
         )
-    payload["rosterSource"] = "live_overlay" if inputs["rosters_from_overlay"] else "contract"
-    payload["rostersAsOf"] = inputs["rosters_as_of"]
+    _stamp_roster_freshness(payload, inputs)
     _stamp_valuation_mode(payload, valuation_mode, valuation_note)
     return JSONResponse(content=payload)
 
@@ -8694,8 +8742,7 @@ async def post_waiver_streaming(request: Request):
             content={"error": "idp_streaming_unavailable", "leagueKey": league_cfg.key},
         )
     payload["advisoryOnly"] = True
-    payload["rosterSource"] = "live_overlay" if inputs["rosters_from_overlay"] else "contract"
-    payload["rostersAsOf"] = inputs["rosters_as_of"]
+    _stamp_roster_freshness(payload, inputs)
     _stamp_valuation_mode(payload, valuation_mode, valuation_note)
     return JSONResponse(content=payload)
 
@@ -10754,13 +10801,35 @@ async def get_roster_intelligence(request: Request):
         "yes",
     }
 
+    # B1 (DYN10 waiver correctness): the cut ladder honours the REQUESTER's
+    # persistent trade protections — but only on the requester's OWN team.
+    # Protections are a private per-(user, league) setting that binds the
+    # user's own roster (the ``/api/gameplan`` rule): another user asking for
+    # this team, or this user asking for another team, gets the unconstrained
+    # ladder, so no protection reaches a payload anyone else is served.  This
+    # route caches nothing and answers ``no-store``; the constrained ladder is
+    # computed per request.
+    drop_constraints = None
+    protections_reason = None
+    if want_drops:
+        requester = _requester_owner_id(request, league_cfg)
+        if requester and requester == owner_id:
+            drop_constraints = _constraints_for_request(
+                request, contract, league_cfg, surface="/api/roster/intelligence"
+            )
+        else:
+            protections_reason = "not_requesters_team" if requester else "requester_team_unknown"
+
     try:
         payload = await run_in_threadpool(
-            _roster_intelligence.get_team_roster_intelligence,
-            contract,
-            owner_id,
-            team_count=declared_teams,
-            include_droppability=want_drops,
+            lambda: _roster_intelligence.get_team_roster_intelligence(
+                contract,
+                owner_id,
+                team_count=declared_teams,
+                include_droppability=want_drops,
+                constraints=drop_constraints,
+                protections_not_applied_reason=protections_reason,
+            )
         )
     except _roster_intelligence.TeamNotInLeague:
         return JSONResponse(
@@ -10773,6 +10842,14 @@ async def get_roster_intelligence(request: Request):
         )
 
     payload["rosterMembership"] = roster_membership
+    # B3: the cut ladder is only as current as the rosters it was built on.
+    from src.api.roster_freshness import served_roster_freshness  # noqa: PLC0415
+
+    payload["rosterFreshness"] = served_roster_freshness(
+        latest_contract_data,
+        from_overlay=roster_membership.get("source") == "live_overlay",
+        overlay_fetched_at=roster_membership.get("asOf"),
+    )
     # Private roster intelligence — never cached by a shared proxy.
     return JSONResponse(content=payload, headers={"Cache-Control": "no-store"})
 
@@ -21647,6 +21724,20 @@ async def _compute_trade_analysis(request: Request, body: Any, clock, league_cfg
     # echoes it back.  Absent -> inferred from competitive posture.
     _team_goal = body.get("teamGoal") if isinstance(body, dict) else None
     from src.trade import analyze_service as _analyze_service  # noqa: PLC0415
+    from src.trade import title_odds_lens as _title_odds_lens  # noqa: PLC0415
+
+    # DYN10 #4: this season's playoff / title odds before and after the trade
+    # -- the non-voting ``lenses.titleOdds``.  Owner-held flag, default OFF:
+    # OFF computes nothing and passes nothing, so the packet is byte-identical.
+    _title_odds_extra: dict[str, Any] = {}
+    if _title_odds_lens.enabled():
+        if (result.get("teamContext") or {}).get("applied") is False:
+            _title_odds_extra["title_odds"] = dict(_title_odds_lens.ASSET_ONLY_MARKER)
+        else:
+            with clock.stage("titleOdds"):
+                _title_odds_extra["title_odds"] = await run_in_threadpool(
+                    _trade_title_odds_two_team, result, league_key, _captured.get("contract")
+                )
 
     # Provenance comes from the contract the simulation ran against (B0-c),
     # not a second read of the global, which a publish could have swapped.
@@ -21656,8 +21747,45 @@ async def _compute_trade_analysis(request: Request, body: Any, clock, league_cfg
             contract=_captured.get("contract"),
             comparables=comparables,
             team_goal=_team_goal,
+            **_title_odds_extra,
         )
     return result, league_key, None, clock.stages()
+
+
+def _title_odds_snapshot(league_key: str | None):
+    """The league snapshot the title-odds lens simulates, or ``None``.
+
+    Only a league with recorded playoff rules is ever looked up (the lens
+    refuses every other league before reading anything), through the same
+    reader Roster Construction uses: the public snapshot when it is this
+    league, else a private in-memory build.
+    """
+    from src.trade import title_odds_lens as _title_odds_lens  # noqa: PLC0415
+
+    if not league_key or not _title_odds_lens.league_configured(league_key):
+        return None
+    cfg = _league_registry.get_league_by_key(league_key)
+    if cfg is None:
+        return None
+    try:
+        return _roster_construction_snapshot(cfg)
+    except Exception:  # noqa: BLE001 -- the lens reports the snapshot unavailable
+        log.warning("title-odds lens: league snapshot unavailable", exc_info=True)
+        return None
+
+
+def _trade_title_odds_two_team(result: dict, league_key: str | None, contract) -> dict:
+    """``/api/trade/analyze``'s title-odds lens payload (context only)."""
+    from src.trade import title_odds_lens as _title_odds_lens  # noqa: PLC0415
+
+    return _title_odds_lens.guarded(
+        lambda: _title_odds_lens.title_odds_for_two_team(
+            result,
+            snapshot=_title_odds_snapshot(league_key),
+            league_key=league_key,
+            contract=contract,
+        )
+    )
 
 
 # ── N-team trade analysis (private; spec docs/trade/NTEAM_TRADE_ENGINE_SPEC.md §3) ──
@@ -21877,6 +22005,20 @@ async def post_trade_analyze_multi(request: Request):
             names=_board_names_by_player_id(),
         )
 
+    from src.trade import title_odds_lens as _title_odds_lens  # noqa: PLC0415
+
+    def _title_odds(validated):
+        # DYN10 #4 (owner-held flag, default OFF): ONE paired season
+        # simulation for the whole trade; each team's analysis shows its row.
+        return _title_odds_lens.guarded(
+            lambda: _title_odds_lens.title_odds_for_ledger(
+                validated, snap, snapshot=_title_odds_snapshot(league_key)
+            )
+        )
+
+    # OFF passes no provider, so every team's analysis is byte-identical.
+    _title_odds_kw = {"title_odds_provider": _title_odds} if _title_odds_lens.enabled() else {}
+
     def _compute():
         return _svc.analyze_trade_n(
             snap,
@@ -21886,6 +22028,7 @@ async def post_trade_analyze_multi(request: Request):
             team_goals=goals,
             comparables_provider=_comparables,
             stage=clock.stage,
+            **_title_odds_kw,
         )
 
     from src.api import compute_admission as _admission_mod  # noqa: PLC0415
@@ -23270,6 +23413,7 @@ async def run_signal_alerts(request: Request):
             backup_coverage=await run_in_threadpool(_backup_coverage_alert_rows),
             failed_units=await run_in_threadpool(_failed_systemd_units),
             forecast_degradation=await run_in_threadpool(_forecast_degradation_health),
+            market_trade_report=await run_in_threadpool(_market_trade_report_health),
             delivery=_deliver_owner_alert if _owner_alert_recipient() else None,
             to_email=_owner_alert_recipient(),
         )

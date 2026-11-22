@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-29 of the 70 entries in ``_DEFAULTS`` below are ``True`` —
+29 of the 71 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -983,6 +983,23 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # flag is ON (scripts/verify_owner_held_flags.py).  Rollback:
     # RISKIT_FEATURE_REPLACEMENT_LEVEL_LI5_CONSOLIDATION=0 + restart.
     "replacement_level_li5_consolidation": False,
+    # DYN10 #4 (owner directive 2026-11-21; docs/EXECUTION_PLAN.md 2026-11-21
+    # section): Analyze Trade's ``lenses.titleOdds`` -- this season's playoff
+    # and championship odds before / after a team-attributed trade, with a
+    # paired interval and a significance flag (``src/trade/title_odds_lens.py``:
+    # the LI-8 roster bridge ``league_intel/twin.py`` into ONE
+    # ``playoff_sim.simulate_trade_impact`` call, bracket pinned to both arms).
+    # Context only: ``votes=False``, never passed to ``trade_decision``, so no
+    # verdict, gap, fairness band or value moves.  ON computes it on the
+    # private ``/api/trade/analyze`` and ``/api/trade/analyze-multi`` routes
+    # (never the public advisor), scoped to leagues with recorded playoff rules
+    # (``dynasty_main``).  OFF computes nothing and every payload is
+    # byte-identical (tests/trade/test_title_odds_lens.py).  HELD, DEFAULT OFF
+    # (2026-11-21 directive: turning any flag ON is owner-reserved);
+    # deploy/verify-deploy.sh fails a deploy whose effective flag is ON
+    # (scripts/verify_owner_held_flags.py).  Rollback if ever on:
+    # RISKIT_FEATURE_TRADE_TITLE_ODDS_LENS=0 + restart.
+    "trade_title_odds_lens": False,
     # Rookie-class guard on the current-year pick tether (2026-11-21;
     # docs/picks/PICK_CLASS_GUARD_EVIDENCE_2026-11-21.md).  ON:
     # ``data_contract._anchor_current_year_picks_to_rookies`` tethers a slot
@@ -1390,6 +1407,10 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # ``roster_intel.droppability.team_droppability``
     # (/api/roster/intelligence).  Defaults False.
     "replacement_level_li5_consolidation": LIVE,
+    # ``src/trade/title_odds_lens.enabled`` -- read by ``server.py``'s
+    # ``/api/trade/analyze`` (``_compute_trade_analysis``) and
+    # ``/api/trade/analyze-multi``.  Defaults False (owner-held).
+    "trade_title_odds_lens": LIVE,
     # ``src/nfl_data/depth_charts.py`` is gated and imported by
     # ``scripts/refresh_depth_charts.py``, which since 2026-09-01 also
     # writes DEPTH_CHART_PROMOTION/DEMOTION events into the BDVM ledger

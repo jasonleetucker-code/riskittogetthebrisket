@@ -443,6 +443,8 @@ def get_team_roster_intelligence(
     *,
     team_count: int | None = None,
     include_droppability: bool = False,
+    constraints: Any = None,
+    protections_not_applied_reason: str | None = None,
 ) -> dict[str, Any]:
     """One team's roster intelligence, plus the league context it is
     ranked against.
@@ -450,6 +452,15 @@ def get_team_roster_intelligence(
     Raises :class:`TeamNotInLeague` when the owner has no roster in this
     contract — distinct from "this team has nothing", which is a real
     answer with a real payload.
+
+    ``constraints`` is the REQUESTING user's resolved trade protections and
+    the route passes it only when that user owns ``owner_id`` (protections
+    are private and bind the requester's own roster).  It reaches only this
+    team's cut ladder, which is computed per request and never cached here.
+    Without it the ladder is the unconstrained one and ``droppability``
+    says so (``protections.state == "not_applied"`` with the route's
+    reason), so "your protections were applied and none bind" and "they
+    were not applied" never read the same.
 
     ``league_key`` / ``scoring_profile`` were parameters while this read
     the ROS snapshot through ``gameplan.get_league_bundle``; the
@@ -465,7 +476,13 @@ def get_team_roster_intelligence(
         # ONE team's ladder, not the league's — the league loop costs 13x
         # this and the other eleven ladders are not part of this answer.
         team = dict(team)
-        team["droppability"] = team_droppability(contract, owner_id=str(owner_id))
+        drops = team_droppability(contract, owner_id=str(owner_id), constraints=constraints)
+        if constraints is None:
+            drops["protections"] = {
+                "state": "not_applied",
+                "reason": protections_not_applied_reason or "not_supplied",
+            }
+        team["droppability"] = drops
 
     payload = dict(league)
     payload["droppabilityIncluded"] = bool(include_droppability)

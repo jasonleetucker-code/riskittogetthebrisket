@@ -326,7 +326,12 @@ def test_the_team_view_computes_one_ladder_not_twelve():
     c = _contract()
     out = ri.get_team_roster_intelligence(c, "o0", team_count=12, include_droppability=True)
     assert out["droppabilityIncluded"] is True
-    assert out["team"]["droppability"] == team_droppability(c, owner_id="o0")
+    served = dict(out["team"]["droppability"])
+    # Without the requester's constraints the ladder is the owner's own, and
+    # the payload SAYS protections were not applied (DYN10 B1) — never an
+    # absent key that reads like "applied, none bind".
+    assert served.pop("protections") == {"state": "not_applied", "reason": "not_supplied"}
+    assert served == team_droppability(c, owner_id="o0")
     # League context carries ranks, never other teams' cut ladders.
     assert all("droppability" not in row for row in out["leagueContext"])
 

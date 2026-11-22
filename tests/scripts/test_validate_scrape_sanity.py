@@ -225,6 +225,11 @@ class AuditSidecarTests(unittest.TestCase):
         # columns of CSVs that carry a vendor-id column, into the identity
         # owner's append-only id map; never a value, never a vote.
         "src/identity/vendor_ids.py",
+        # V1 forward scoreboard (offline research tool): enumerates export-
+        # archive zips only, and reads only the NAMED site_raw members
+        # ``SITE_RAW_KEYS`` (KTC's three market modes) into a temporary
+        # research ledger; never an unnamed CSV, never a sidecar, never a vote.
+        "src/backtesting/forward_scoreboard.py",
     }
 
     def test_no_src_module_loads_site_raw_by_enumeration(self) -> None:

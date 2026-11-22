@@ -1262,6 +1262,12 @@
     "temporal-ledger-diagnostics.yml::ledger-status::Probe temporal ledger on production": {
       "category": "blocking"
     },
+    "market-trade-ledger-report.yml::report-summary::Configure production SSH": {
+      "category": "blocking"
+    },
+    "market-trade-ledger-report.yml::report-summary::Summarize ledger report on production": {
+      "category": "blocking"
+    },
     "v1-49-host-native-scoring-activation.yml::v1-49-activation::Backup, activate, rebuild, measure": {
       "category": "blocking"
     },
