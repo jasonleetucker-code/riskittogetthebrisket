@@ -157,3 +157,16 @@ jobs:
           cat summary.md
           cat summary.md >> "$GITHUB_STEP_SUMMARY"
           exit "$rc"
+
+      # The job log masks every repository-secret value, and DEPLOY_PORT is
+      # "22": every "22" in the printed summary (inside a number or a date)
+      # shows as ***.  The artifact is not masked, so it carries the exact
+      # aggregate figures.  Same aggregate-only content as the log.
+      - name: Upload the aggregate summary
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: forward-scoreboard-summary
+          path: summary.md
+          if-no-files-found: ignore
+          retention-days: 30

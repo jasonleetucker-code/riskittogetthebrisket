@@ -192,3 +192,26 @@ def test_workflow_resource_bounds_and_hygiene():
     assert "HUP INT TERM" in text  # a cancel / hang-up kills the measurement
     wf = yaml.safe_load(text)
     assert wf["jobs"]["scoreboard"]["timeout-minutes"] * 60 > 1500 + 10 + 120
+
+
+def _upload_steps(wf):
+    return [
+        step
+        for job in wf["jobs"].values()
+        for step in job.get("steps", [])
+        if str(step.get("uses", "")).startswith("actions/upload-artifact")
+    ]
+
+
+def test_artifact_uploads_only_the_aggregate_summary():
+    # The log masks DEPLOY_PORT ("22"), so the exact figures travel as an
+    # artifact.  It must carry summary.md and nothing else: a wider path
+    # (".", "~/.ssh", the work dir) would archive the SSH key or box data.
+    wf = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    steps = _upload_steps(wf)
+    assert len(steps) == 1
+    step = steps[0]
+    assert step["uses"] == "actions/upload-artifact@v7"
+    assert step["with"]["path"] == "summary.md"
+    assert step["if"] == "always()"
+    assert step["with"]["if-no-files-found"] == "ignore"
