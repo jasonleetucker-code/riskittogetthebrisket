@@ -725,6 +725,104 @@ def format_authority(axes: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
     }
 
 
+# ── Build-scoped format interning (memory, never semantics) ──────────────
+
+#: The ``settings`` keys :func:`format_from_ktc_settings` reads -- its whole
+#: input, so two rows equal on these build the same format.
+_KTC_FORMAT_INPUT_KEYS = (
+    "leagueStartingLineup",
+    "teams",
+    "tep",
+    "is2TE",
+    "ppr",
+    "passTDPoints",
+    "rostersPerPlayer",
+    "qBs",
+)
+
+
+class FormatInterner:
+    """Share ONE format object -- and its derived views -- among the many
+    observations and groups that carry the same format, within one build.
+
+    The daily ledger build used to construct a fresh :class:`TradeMarketFormat`,
+    ``to_dict()`` and ``compare_formats`` result for EVERY observation, though a
+    league's thousands of trades share a handful of captures and KTC rows a
+    handful of lineups -- the dominant per-observation term of the build's
+    memory (dynasty-market-trade-ledger.service).  Interning returns an object
+    equal to what the constructor would have built, so every serialized output
+    is identical; only identity is shared.  Shared views are read-only by
+    contract (no consumer mutates a format, a ``marketFormat`` dict or a
+    ``comparability`` block).
+
+    Identity-keyed caches hold a reference to the key object, so an id can
+    never be reused by a different object while the interner lives.  Scope one
+    to a build: it keeps what it interned alive.
+    """
+
+    def __init__(self) -> None:
+        self._sleeper: dict[tuple[int, Any], tuple[Any, TradeMarketFormat]] = {}
+        self._by_content: dict[str, TradeMarketFormat] = {}
+        self._dicts: dict[int, tuple[TradeMarketFormat, dict[str, Any]]] = {}
+        self._axes: dict[tuple[int, int], tuple[Any, Any, dict[str, dict[str, Any]]]] = {}
+
+    def _content(self, key: str, build: Callable[[], TradeMarketFormat]) -> TradeMarketFormat:
+        fmt = self._by_content.get(key)
+        if fmt is None:
+            fmt = self._by_content[key] = build()
+        return fmt
+
+    def sleeper(
+        self,
+        league: Mapping[str, Any] | None,
+        *,
+        captured_at: str | None = None,
+        by_content: bool = False,
+    ) -> TradeMarketFormat:
+        """:func:`format_from_sleeper_league`, shared per payload OBJECT (a
+        capture dict is one object for every trade it describes), or -- with
+        ``by_content`` -- per payload CONTENT, for a small payload built per call.
+        The content key is the ``repr``, faithful for the JSON values these
+        payloads hold (``1`` / ``1.0`` / ``True`` / ``"1"`` and key order all
+        stay distinct), so equal keys build equal formats."""
+        if by_content:
+            return self._content(
+                "sleeper:" + repr((league, captured_at)),
+                lambda: format_from_sleeper_league(league, captured_at=captured_at),
+            )
+        key = (id(league), captured_at)
+        hit = self._sleeper.get(key)
+        if hit is None or hit[0] is not league:
+            hit = (league, format_from_sleeper_league(league, captured_at=captured_at))
+            self._sleeper[key] = hit
+        return hit[1]
+
+    def ktc(self, settings: Mapping[str, Any] | None) -> TradeMarketFormat:
+        """:func:`format_from_ktc_settings`, shared per CONTENT of the keys it
+        reads (the same ``repr`` key as :meth:`sleeper`'s ``by_content``)."""
+        if not isinstance(settings, Mapping):
+            return format_from_ktc_settings(settings)
+        return self._content(
+            "ktc:" + repr(tuple(settings.get(k) for k in _KTC_FORMAT_INPUT_KEYS)),
+            lambda: format_from_ktc_settings(settings),
+        )
+
+    def as_dict(self, fmt: TradeMarketFormat) -> dict[str, Any]:
+        """``fmt.to_dict()``, one dict per format object (read-only)."""
+        hit = self._dicts.get(id(fmt))
+        if hit is None or hit[0] is not fmt:
+            hit = self._dicts[id(fmt)] = (fmt, fmt.to_dict())
+        return hit[1]
+
+    def compare(self, src: TradeMarketFormat, tgt: TradeMarketFormat) -> dict[str, dict[str, Any]]:
+        """:func:`compare_formats`, one axes block per (source, target) pair."""
+        key = (id(src), id(tgt))
+        hit = self._axes.get(key)
+        if hit is None or hit[0] is not src or hit[1] is not tgt:
+            hit = self._axes[key] = (src, tgt, compare_formats(src, tgt))
+        return hit[2]
+
+
 # ── Translators (plumbing only — none validated) ─────────────────────────
 
 
@@ -1164,9 +1262,13 @@ def disposition(
     *,
     observation: Mapping[str, Any] | None = None,
     registry: TranslatorRegistry | None = None,
+    interner: FormatInterner | None = None,
 ) -> dict[str, Any]:
     """Exactly one of the four target-pricing dispositions, with every axis
     attached (owner decision 2, 2026-10-01).
+
+    ``interner`` (a build's :class:`FormatInterner`) shares the ``comparability``
+    block among observations of one format; the result is otherwise identical.
 
     Pass the ``observation`` (or group) the format belongs to: its
     ``formatEvidence`` decides the timing cap (:func:`format_timing_cap`) and
@@ -1188,7 +1290,7 @@ def disposition(
        kind (:func:`broad_context_kind`) and reasons stamped.
     """
     reg = registry if registry is not None else DEFAULT_REGISTRY
-    axes = compare_formats(src, tgt)
+    axes = interner.compare(src, tgt) if interner is not None else compare_formats(src, tgt)
     authority = format_authority(axes)
     timing_cap = format_timing_cap(observation)
     authority["formatTimingCap"] = timing_cap

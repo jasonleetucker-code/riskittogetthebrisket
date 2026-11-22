@@ -68,6 +68,17 @@ IOSchedulingClass=idle
 # is the market-trades owner's to fix (stream the persist, share per-league
 # format objects).
 #
+# 2026-11-21 (DYN10-3), measured on synthetic stores sized like the box
+# (32k observations peaked at 835 MiB, matching the box's ~870 MiB at 37k):
+# the persist adds ~1 MiB, because it already writes row by row, so streaming
+# it buys nothing.  Per-observation copies of the league format (format object,
+# marketFormat dict, comparability block) were about half the working set; they
+# are now shared per distinct format (market_trade_format.FormatInterner),
+# 835 -> 521 MiB at 32k observations (about 25 -> 15 KiB per observation),
+# output byte-identical.  What remains still grows with the trade records
+# themselves; bounding that needs the coverage/evaluation reports aggregated
+# while streaming the groups, not a bigger ceiling.
+#
 # A kill leaves the temp database and its -journal, which the next run removes
 # before building.
 MemoryMax=2G
