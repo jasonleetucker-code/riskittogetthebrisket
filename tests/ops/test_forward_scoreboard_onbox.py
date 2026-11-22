@@ -147,7 +147,7 @@ def test_workflow_shape():
     assert wf["permissions"] == {"contents": "read"}
     assert wf["concurrency"]["group"] == "forward-scoreboard-onbox"
     assert wf["concurrency"]["group"] != "production-deploy"
-    assert "--ledger" in text and "trap 'rm -rf \"$WORK\"' EXIT" in text
+    assert "--ledger" in text and 'rm -rf "$WORK"\' EXIT HUP INT TERM' in text
     assert "-lt $((SIZE * 3))" in text  # 3x headroom refusal
     assert "market_trades" not in text
 
@@ -157,3 +157,38 @@ def test_workflow_drops_remote_stderr():
     assert "scripts/forward_scoreboard_summary.py" in text
     assert "--markdown 2>/dev/null" in text
     assert ">/dev/null 2>&1" in text  # the scoreboard run itself is silent
+
+
+def test_asset_key_labels_are_dropped():
+    cell = {"ALL": _cell(), "player:1234": _cell(), "mpick:2027:r1": _cell()}
+    payload = _payload({"status": "measured", "byGroup": cell})
+    payload["horizons"]["30"]["sources"]["player:1234"] = {"byGroup": {"ALL": _cell()}}
+    out = summ.whitelist_scoreboard(payload)
+    assert list(out["horizons"]["30"]["board"]["byGroup"]) == ["ALL"]
+    assert "player:1234" not in json.dumps(out) and "mpick" not in json.dumps(out)
+
+
+def test_workflow_resource_bounds_and_hygiene():
+    text = WORKFLOW.read_text(encoding="utf-8")
+    for needle in (
+        "timeout -k 10 1500",
+        "nice -n 19",
+        "ionice -c3",
+        "prlimit --as=$((2<<30))",
+        "systemd-run --scope --quiet -p MemoryMax=2G -p CPUQuota=50%",
+        "timeout -k 5 120",
+        "command -v timeout",
+        "command -v nice",
+        "command -v ionice",
+        "command -v prlimit",
+        "command -v systemd-run",
+    ):
+        assert needle in text, needle
+    assert "exec 2>/dev/null" in text
+    assert "export PYTHONDONTWRITEBYTECODE=1" in text
+    assert "export GIT_OPTIONAL_LOCKS=0" in text
+    assert "$LEDGER-wal" in text  # headroom counts the WAL
+    assert "NOTHING MEASURABLE" in text
+    assert "HUP INT TERM" in text  # a cancel / hang-up kills the measurement
+    wf = yaml.safe_load(text)
+    assert wf["jobs"]["scoreboard"]["timeout-minutes"] * 60 > 1500 + 10 + 120

@@ -9,6 +9,17 @@ name: Forward Scoreboard On-Box (read-only)
 # tool copies the ledger with SQLite's backup API from a read-only connection
 # and measures the copy in a temp dir that is deleted afterwards.
 #
+# Live-writer note: SQLite's backup API holds ONE read transaction on the live
+# ledger for the duration of the copy, so WAL checkpointing is delayed until it
+# ends.  Dispatch away from the even-hour :27 / :32 refresh windows.  The disk
+# check counts the main file PLUS the -wal file, times 3.
+#
+# Production safety: the remote `timeout` (1500 s + 10 s kill grace, plus 120 s
+# for the summarizer) is the real bound and sits below timeout-minutes (30);
+# GitHub's timeout only kills the local ssh client.  The remote job also runs
+# under nice / ionice and a systemd scope (MemoryMax 2G, CPUQuota 50%) or an
+# address-space rlimit, and a hang-up or cancel kills the measurement.
+#
 # Dispatch only, deliberately: no schedule.  Own concurrency group, NOT
 # production-deploy: a queued run in that group can cancel a pending deploy.
 
@@ -63,8 +74,14 @@ jobs:
             -o ConnectTimeout=15 -o ServerAliveInterval=15 \
             -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
             "APP_DIR=$(printf %q "$APP_DIR") bash -s" > summary.md <<'REMOTE'
+          # All remote stderr is dropped: the job log is public and any error
+          # (cd, stat, bash, python) can name box paths.  Known failure branches
+          # print one terse stdout line instead.
+          exec 2>/dev/null
           set -Eeuo pipefail
-          cd "$APP_DIR"
+          export PYTHONDONTWRITEBYTECODE=1   # no __pycache__ in the app checkout
+          export GIT_OPTIONAL_LOCKS=0        # the tool's `git status` must not refresh .git/index
+          cd "$APP_DIR" || { echo "app dir not found"; exit 2; }
           PY="$APP_DIR/.venv/bin/python"
           [ -x "$PY" ] || PY="$APP_DIR/venv/bin/python"
           [ -x "$PY" ] || PY=python3
@@ -77,28 +94,63 @@ jobs:
             echo "could not create a temp dir"
             exit 4
           }
-          trap 'rm -rf "$WORK"' EXIT
+          CHILD=""
+          # Cleanup also runs on SSH hang-up / cancel (HUP/TERM): kill the
+          # background measurement so a cancelled run cannot be orphaned.
+          trap 'if [ -n "$CHILD" ]; then kill "$CHILD" 2>/dev/null || true; fi; rm -rf "$WORK"' EXIT HUP INT TERM
           # The tool copies the ledger (backup API) into this temp dir: refuse
-          # unless free space is at least 3x the ledger file size.
-          SIZE="$(stat -c %s "$LEDGER")"
+          # unless free space is at least 3x (main file + -wal) size.
+          SIZE="$(stat -c %s "$LEDGER" 2>/dev/null || echo 0)"
+          WAL="$(stat -c %s "$LEDGER-wal" 2>/dev/null || echo 0)"
+          SIZE=$((SIZE + WAL))
           FREE="$(df -PB1 "$WORK" | awk 'NR==2 {print $4}')"
           if [ -z "$FREE" ] || [ "$FREE" -lt $((SIZE * 3)) ]; then
-            echo "refusing: temp dir free space ${FREE:-unknown} bytes is under 3x the ledger size ($SIZE bytes)"
+            echo "insufficient disk: temp dir free ${FREE:-unknown} bytes is under 3x ledger+wal ($SIZE bytes)"
             exit 4
           fi
           export TMPDIR="$WORK"
-          # stdout/stderr dropped: the job log is public and a traceback names box paths.
-          set +e
-          "$PY" scripts/forward_validation_scoreboard.py --ledger "$LEDGER" \
-            --out "$WORK/scoreboard.json" --summary "$WORK/scoreboard.md" >/dev/null 2>&1
-          rc=$?
-          set -e
+          # Resource bounds, each guarded and degrading gracefully.  The remote
+          # `timeout` (1500 s + 10 s kill grace) is the REAL bound and sits below
+          # the job's timeout-minutes (30): the GitHub-side timeout only kills the
+          # local ssh client.  Prefer a systemd scope (MemoryMax / CPUQuota) when
+          # it works for this user, else an address-space rlimit.
+          LOW=()
+          if command -v nice >/dev/null; then LOW+=(nice -n 19); fi
+          if command -v ionice >/dev/null; then LOW+=(ionice -c3); fi
+          MEM=()
+          if command -v systemd-run >/dev/null \
+             && systemd-run --scope --quiet -p MemoryMax=2G -p CPUQuota=50% true >/dev/null 2>&1; then
+            MEM=(systemd-run --scope --quiet -p MemoryMax=2G -p CPUQuota=50%)
+          elif command -v prlimit >/dev/null; then
+            MEM=(prlimit --as=$((2<<30)))
+          fi
+          LIMIT=()
+          if command -v timeout >/dev/null; then LIMIT=(timeout -k 10 1500); fi
+          ${LIMIT[@]+"${LIMIT[@]}"} ${LOW[@]+"${LOW[@]}"} ${MEM[@]+"${MEM[@]}"} "$PY" scripts/forward_validation_scoreboard.py \
+            --ledger "$LEDGER" --out "$WORK/scoreboard.json" --summary "$WORK/scoreboard.md" \
+            >/dev/null 2>&1 &
+          CHILD=$!
+          rc=0
+          wait "$CHILD" || rc=$?
+          CHILD=""
+          if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
+            echo "scoreboard timed out on the box (exit $rc)"
+            exit 5
+          fi
           # rc 1 = "nothing measurable" but the JSON is still written: summarize it.
           if [ ! -s "$WORK/scoreboard.json" ]; then
             echo "scoreboard produced no output (exit $rc)"
             exit 3
           fi
-          "$PY" scripts/forward_scoreboard_summary.py "$WORK/scoreboard.json" --markdown 2>/dev/null
+          SLIMIT=()
+          if command -v timeout >/dev/null; then SLIMIT=(timeout -k 5 120); fi
+          ${SLIMIT[@]+"${SLIMIT[@]}"} ${LOW[@]+"${LOW[@]}"} "$PY" scripts/forward_scoreboard_summary.py \
+            "$WORK/scoreboard.json" --markdown 2>/dev/null
+          if [ "$rc" -eq 1 ]; then
+            echo "NOTHING MEASURABLE"
+            exit 1
+          fi
+          exit "$rc"
           REMOTE
           rc=$?
           set -e

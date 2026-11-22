@@ -24,9 +24,10 @@ import re
 from pathlib import Path
 from typing import Any
 
-# Same rule as scripts/market_trade_report_summary.py::_LABEL_RE: a map label
+# Like scripts/market_trade_report_summary.py::_LABEL_RE but WITHOUT ":" so asset keys
+# (player:1234, mpick:2027:r1) can never pass as labels: a map label
 # must look like an enum value (starts with a letter).  Numeric ids are dropped.
-_LABEL_RE = re.compile(r"[A-Za-z][A-Za-z0-9_.:+-]{0,47}")
+_LABEL_RE = re.compile(r"[A-Za-z][A-Za-z0-9_.+-]{0,47}")
 _DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 _SHA_RE = re.compile(r"[0-9a-f]{40}")
 _TEXT_MAX = 700
