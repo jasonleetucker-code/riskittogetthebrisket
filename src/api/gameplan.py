@@ -123,6 +123,7 @@ import threading
 import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -269,6 +270,9 @@ class LeagueBundle:
     signals: Mapping[str, _partner.RosterSignal]
     compute_ms: float
     notes: tuple[str, ...] = field(default_factory=tuple)
+    #: When this bundle was built (ISO UTC).  Lets a warm-only reader say how
+    #: old a ``last_computed`` answer is; ``None`` for a bundle built without it.
+    built_at: str | None = None
 
     def team(self, owner_id: str) -> TeamInput | None:
         return next((t for t in self.inputs.teams if t.owner_id == str(owner_id)), None)
@@ -586,6 +590,7 @@ def build_league_bundle(inputs: LeagueInputs) -> LeagueBundle:
         signals=signals,
         compute_ms=(time.perf_counter() - t0) * 1000.0,
         notes=tuple(notes),
+        built_at=datetime.now(timezone.utc).isoformat(),
     )
 
 

@@ -10805,19 +10805,69 @@ def _team_plan_posture_read(league_cfg: Any, contract: Any, owner_id: str) -> An
     return OwnerRead(payload=posture.to_dict(), freshness=meta.get("bundleFreshness"))
 
 
-def _team_plan_targets_read(league_cfg: Any, owner_id: str) -> Any:
-    """Buy targets as ``/api/gameplan`` last built them, WARM-ONLY."""
+def _team_plan_bundle_alignment(bundle_built_at: Any, rosters_fetched_at: Any) -> dict[str, Any]:
+    """Is the league bundle behind the buy targets older than the rosters the
+    sell-high section reads?  ``unknown`` whenever either clock is unprovable.
+    """
+    from src.api.roster_freshness import _parse_iso  # noqa: PLC0415
+
+    built = _parse_iso(bundle_built_at)
+    fetched = _parse_iso(rosters_fetched_at)
+    base = {"bundleBuiltAt": bundle_built_at, "rostersFetchedAt": rosters_fetched_at}
+    if built is None or fetched is None:
+        missing = [
+            name
+            for name, value in (("bundle build time", built), ("roster fetch time", fetched))
+            if value is None
+        ]
+        return {
+            **base,
+            "state": "unknown",
+            "note": (
+                "cannot tell whether these targets predate the rosters the sell-high section "
+                f"reads: {' and '.join(missing)} unknown"
+            ),
+        }
+    if built < fetched:
+        return {
+            **base,
+            "state": "bundle_older_than_rosters",
+            "note": (
+                "these targets come from a league bundle built before the rosters the "
+                "sell-high section reads were fetched; roster moves since may be missing"
+            ),
+        }
+    return {
+        **base,
+        "state": "bundle_not_older",
+        "note": (
+            "the league bundle was built after those rosters were fetched (its own rosters "
+            "come from the ROS team-strength snapshot)"
+        ),
+    }
+
+
+def _team_plan_targets_read(league_cfg: Any, owner_id: str, contract: Any) -> Any:
+    """Buy targets as ``/api/gameplan`` last built them, WARM-ONLY, with a note
+    saying whether that bundle is older than the contract's rosters."""
     from src.api import gameplan as _gp  # noqa: PLC0415
+    from src.api.roster_freshness import roster_age  # noqa: PLC0415
     from src.api.team_plan import OwnerRead  # noqa: PLC0415
 
     try:
         payload = _gp.cached_team_gameplan(league_cfg.key, owner_id)
+        bundle = _gp.last_built_league_bundle(league_cfg.key) if payload is not None else None
     except Exception as exc:  # noqa: BLE001
         log.warning("team plan: gameplan cache unreadable: %s", exc)
         return OwnerRead(reason="gameplan_cache_unreadable")
     if payload is None:
         return OwnerRead(reason="gameplan_targets_not_warm")
-    return OwnerRead(payload=payload, freshness="last_computed")
+    alignment = _team_plan_bundle_alignment(
+        getattr(bundle, "built_at", None), roster_age(contract).get("fetchedAt")
+    )
+    return OwnerRead(
+        payload=payload, freshness="last_computed", meta={"rosterAlignment": alignment}
+    )
 
 
 def _team_plan_waivers_read(
@@ -11023,7 +11073,7 @@ async def get_team_plan(request: Request):
 
         t0 = time.perf_counter()
         posture = _team_plan_posture_read(league_cfg, contract, owner_id)
-        targets = _team_plan_targets_read(league_cfg, owner_id)
+        targets = _team_plan_targets_read(league_cfg, owner_id, contract)
         waivers = _team_plan_waivers_read(league_cfg, contract, owner_id, constraints, owns_team)
         draft_capital = _team_plan_draft_capital_read(league_cfg.key)
         t_warm = time.perf_counter()

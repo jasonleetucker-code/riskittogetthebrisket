@@ -1916,9 +1916,17 @@ def peek_sleeper_teams_overlay(sleeper_league_id: str) -> dict[str, Any] | None:
     if not sleeper_league_id:
         return None
     now = time.time()
+
+    def _fresh(entry: Any, ttl: float) -> bool:
+        # An entry without a numeric cache stamp has no provable age: not fresh.
+        stamp = entry.get("_cached_at") if isinstance(entry, dict) else None
+        if not isinstance(stamp, (int, float)) or isinstance(stamp, bool):
+            return False
+        return (now - float(stamp)) < ttl
+
     with _CACHE_LOCK:
         full = _CACHE.get(sleeper_league_id)
-        if full and (now - float(full.get("_cached_at") or 0)) < _CACHE_TTL_SEC:
+        if _fresh(full, _CACHE_TTL_SEC):
             payload = full.get("payload") or {}
             if payload.get("teams"):
                 return {
@@ -1926,9 +1934,7 @@ def peek_sleeper_teams_overlay(sleeper_league_id: str) -> dict[str, Any] | None:
                     "overlayFetchedAt": payload.get("overlayFetchedAt"),
                 }
         teams_cached = _TEAMS_CACHE.get(sleeper_league_id)
-        if teams_cached and (now - float(teams_cached.get("_cached_at") or 0)) < (
-            _TEAMS_CACHE_TTL_SEC
-        ):
+        if _fresh(teams_cached, _TEAMS_CACHE_TTL_SEC):
             return dict(teams_cached["payload"])
     return None
 

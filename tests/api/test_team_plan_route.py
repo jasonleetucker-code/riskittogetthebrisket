@@ -380,6 +380,47 @@ def test_composed_plan_from_warm_owners(env):
     assert body["protections"]["applied"] is True and body["protections"]["active"] is True
 
 
+class _Bundle:
+    def __init__(self, built_at):
+        self.built_at = built_at
+
+
+def test_buy_targets_from_an_older_bundle_carry_a_staleness_note(env):
+    _seed_warm(env)
+    gameplan._BUNDLE_CACHE["dynasty_main"] = ("stamp-1", _Bundle("2020-01-01T00:00:00+00:00"))
+    body = env.client.get(URL, headers=OWNER).json()
+    alignment = body["sections"]["buyTargets"]["rosterAlignment"]
+    assert alignment["state"] == "bundle_older_than_rosters"
+    assert alignment["rostersFetchedAt"] == env.contract["sleeper"]["rosterFetchedAt"]
+    assert any(w.startswith("buy targets:") for w in body["warnings"])
+
+
+def test_buy_targets_bundle_without_a_clock_is_unknown(env):
+    _seed_warm(env)  # the seeded bundle carries no built_at
+    body = env.client.get(URL, headers=OWNER).json()
+    alignment = body["sections"]["buyTargets"]["rosterAlignment"]
+    assert alignment["state"] == "unknown"
+    assert "bundle build time" in alignment["note"]
+
+
+def test_bundle_alignment_states():
+    f = server._team_plan_bundle_alignment
+    early, late = "2026-11-20T00:00:00+00:00", "2026-11-21T00:00:00+00:00"
+    assert f(early, late)["state"] == "bundle_older_than_rosters"
+    assert f(late, early)["state"] == "bundle_not_older"
+    assert f(late, late)["state"] == "bundle_not_older"
+    missing_both = f(None, "not-a-time")
+    assert missing_both["state"] == "unknown"
+    assert "bundle build time and roster fetch time unknown" in missing_both["note"]
+
+
+def test_league_bundle_records_when_it_was_built():
+    """``built_at`` is the gameplan owner's own stamp; a bundle built without
+    it reads as unknown, never as fresh."""
+    assert "built_at" in {f.name for f in gameplan.LeagueBundle.__dataclass_fields__.values()}
+    assert gameplan.LeagueBundle.__dataclass_fields__["built_at"].default is None
+
+
 def test_cold_owners_are_explicit_never_empty(env):
     res = env.client.get(URL, headers=OWNER)
     assert res.status_code == 200

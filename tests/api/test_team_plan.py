@@ -403,7 +403,81 @@ def test_do_nothing_only_when_every_owner_backed_kind_was_assessed():
     assert set(action["evidence"]) == set(tp.OWNER_BACKED_KINDS)
     assert action["evidence"]["sell_high"]["ownerNoResultReason"] == "no_need_positions"
     assert action["uncertainty"]["notAssessed"][0]["kind"] == "pick_action"
-    assert plan["completeness"]["complete"] is True
+    # pick_action is never assessable, so the plan is never "complete"; the
+    # assessable kinds all were.
+    assert plan["completeness"]["complete"] is False
+    assert plan["completeness"]["assessableKindsComplete"] is True
+    assert plan["completeness"]["unmappedCandidates"] == []
+
+
+def test_an_unmeasured_age_room_is_unassessed_not_a_false_do_nothing():
+    """Review repro: one DB room with no measurable age, the other kinds warm
+    and empty.  ``isOldForLeague`` is False there because the gap is unknown,
+    so the aging kind must be unassessed, never "assessed, nothing found"."""
+    unknown = {**_room("DB", False), "valueWeightedAge": None, "ageVsLeagueMedian": None}
+    intel = _roster_intel([_room("QB", False), unknown])
+    plan = _compose(**_empty_answers(roster_intelligence=OwnerRead(payload=intel)))
+    assert plan["planState"] == "incomplete"
+    assert plan["actions"] == []
+    assert plan["completeness"]["complete"] is False
+    assert plan["completeness"]["assessableKindsComplete"] is False
+    assert plan["completeness"]["unassessed"] == [
+        {
+            "kind": "aging_asset_risk",
+            "reason": "partially_assessed",
+            "parts": [{"position": "DB", "reason": "age_vs_league_median_unmeasured"}],
+        }
+    ]
+    assert "aging_asset_risk" not in plan["completeness"]["assessedKinds"]
+    sec = plan["sections"]["agingAssets"]
+    assert sec["available"] is True and sec["actions"] == []
+
+
+def test_an_unmeasured_room_does_not_hide_a_measured_old_room():
+    unknown = {**_room("DB", False), "ageVsLeagueMedian": None}
+    intel = _roster_intel([_room("QB", True), unknown])
+    plan = _compose(**_empty_answers(roster_intelligence=OwnerRead(payload=intel)))
+    assert [a["subject"]["position"] for a in plan["actions"]] == ["QB"]
+    assert plan["completeness"]["unassessed"][0]["kind"] == "aging_asset_risk"
+
+
+@pytest.mark.parametrize("kind", ["buyLow", "consolidation", "positionalUpgrades"])
+def test_other_suggestion_kinds_block_do_nothing(kind):
+    """Suggestions that are not sell-high are not mapped to an action kind, but
+    while they exist the plan may not say no owner produced a candidate."""
+    payload = _suggestions([], reason=None)
+    payload[kind] = [_suggestion("A", "B"), _suggestion("C", "D")]
+    plan = _compose(**_empty_answers(sell_high=OwnerRead(payload=payload)))
+    assert plan["planState"] == "incomplete"
+    assert plan["actions"] == []
+    assert plan["sections"]["sellHigh"]["otherTradeIdeas"] == {kind: 2}
+    assert plan["completeness"]["unmappedCandidates"] == [
+        {"source": tp.SUGGESTIONS_OWNER, "kind": kind, "count": 2}
+    ]
+    assert plan["completeness"]["complete"] is False
+    assert any("does not map" in w for w in plan["warnings"])
+
+
+def test_bundle_roster_alignment_is_surfaced():
+    older = {
+        "state": "bundle_older_than_rosters",
+        "note": "built before the rosters were fetched",
+    }
+    plan = _compose(
+        buy_targets=OwnerRead(payload=_gameplan([_target("t1")]), meta={"rosterAlignment": older})
+    )
+    assert plan["sections"]["buyTargets"]["rosterAlignment"] == older
+    assert "buy targets: built before the rosters were fetched" in plan["warnings"]
+    unknown = _compose(buy_targets=OwnerRead(payload=_gameplan([_target("t1")])))
+    assert unknown["sections"]["buyTargets"]["rosterAlignment"] is None
+    assert any("relative to the rosters is unknown" in w for w in unknown["warnings"])
+    aligned = _compose(
+        buy_targets=OwnerRead(
+            payload=_gameplan([_target("t1")]),
+            meta={"rosterAlignment": {"state": "bundle_not_older", "note": "fine"}},
+        )
+    )
+    assert not any(w.startswith("buy targets:") for w in aligned["warnings"])
 
 
 def test_empty_answers_with_a_cold_owner_are_incomplete_not_do_nothing():
@@ -455,11 +529,55 @@ def test_inputs_are_not_mutated():
 
 # ── The composer computes nothing (AST guard) ────────────────────────
 
-_AGGREGATES = {"sum", "min", "max", "round", "abs", "pow", "divmod", "float", "int"}
+#: Builtins / helpers that aggregate, convert or ORDER values.  Ordering counts:
+#: re-sorting an owner's list by any field is a ranking decision of our own.
+_AGGREGATES = {
+    "sum",
+    "min",
+    "max",
+    "round",
+    "abs",
+    "pow",
+    "divmod",
+    "float",
+    "int",
+    "sorted",
+    "reduce",
+    "accumulate",
+    "nlargest",
+    "nsmallest",
+}
+#: Method calls with the same meaning (``rows.sort(...)``, ``heapq.nlargest``).
+_AGGREGATE_METHODS = {"sort", "reduce", "accumulate", "nlargest", "nsmallest"}
+_NUMERIC_MODULES = {"math", "statistics", "numpy", "decimal", "fractions", "heapq", "operator"}
+
+#: Exact composer source lines exempt from the guard, each with its reason.
+#: Empty today: the composer needs none of the forbidden constructs.  A line
+#: listed here that no longer exists fails ``test_guard_allowlist_is_not_stale``.
+_ALLOWED_LINES: dict[str, str] = {}
+
+
+def _is_number(node: ast.AST) -> bool:
+    return (
+        isinstance(node, ast.Constant)
+        and isinstance(node.value, (int, float))
+        and not isinstance(node.value, bool)
+    )
 
 
 def _arithmetic_offenders(source: str) -> list[str]:
-    """Arithmetic, aggregates, float literals and numeric imports in ``source``."""
+    """Arithmetic, aggregation, ordering, numeric comparisons, float literals and
+    numeric imports in ``source`` (type annotations exempt)."""
+    lines = source.splitlines()
+    found = _raw_offenders(source)
+    return [
+        f"{kind} at line {lineno}"
+        for kind, lineno in found
+        if lines[lineno - 1].strip() not in _ALLOWED_LINES
+    ]
+
+
+def _raw_offenders(source: str) -> list[tuple[str, int]]:
     tree = ast.parse(source)
     # ``X | None`` in a type annotation is a BinOp too; annotations are not
     # values, so their subtrees are exempt (and only theirs).
@@ -476,34 +594,53 @@ def _arithmetic_offenders(source: str) -> list[str]:
         for ann in annotations:
             if ann is not None:
                 annotation_nodes.update(id(n) for n in ast.walk(ann))
-    offenders: list[str] = []
+    offenders: list[tuple[str, int]] = []
     for node in ast.walk(tree):
         if id(node) in annotation_nodes:
             continue
         if isinstance(node, (ast.BinOp, ast.AugAssign)):
-            offenders.append(f"arithmetic at line {node.lineno}")
+            offenders.append(("arithmetic", node.lineno))
         elif isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
-            offenders.append(f"unary arithmetic at line {node.lineno}")
+            offenders.append(("unary arithmetic", node.lineno))
         elif isinstance(node, ast.Constant) and isinstance(node.value, float):
-            offenders.append(f"float literal at line {node.lineno}")
-        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
-            if node.func.id in _AGGREGATES:
-                offenders.append(f"{node.func.id}() at line {node.lineno}")
+            offenders.append(("float literal", node.lineno))
+        elif isinstance(node, ast.Compare):
+            if any(_is_number(n) for n in (node.left, *node.comparators)):
+                offenders.append(("comparison against a numeric literal", node.lineno))
+        elif isinstance(node, ast.Call):
+            func = node.func
+            if isinstance(func, ast.Name) and func.id in _AGGREGATES:
+                offenders.append((f"{func.id}()", node.lineno))
+            elif isinstance(func, ast.Attribute) and func.attr in _AGGREGATE_METHODS:
+                offenders.append((f".{func.attr}()", node.lineno))
         elif isinstance(node, (ast.Import, ast.ImportFrom)):
             names = [a.name for a in node.names] + [getattr(node, "module", None) or ""]
-            if any(n.split(".")[0] in {"math", "statistics", "numpy", "decimal"} for n in names):
-                offenders.append(f"numeric import at line {node.lineno}")
+            if any(n.split(".")[0] in _NUMERIC_MODULES for n in names) or any(
+                a.name in _AGGREGATES for a in node.names
+            ):
+                offenders.append(("numeric / ordering import", node.lineno))
     return offenders
 
 
 def test_the_composer_performs_no_value_arithmetic():
-    """No arithmetic operator, no aggregate builtin, no float literal and no
-    numeric library anywhere in the composer: every number it publishes is an
-    owner's, carried through.  (Integer literals are allowed for the 1-based
-    ``enumerate`` start and the exactly-one-row test.)"""
+    """No arithmetic operator, aggregate, sort, numeric comparison, float literal
+    or numeric / ordering library anywhere in the composer: every number it
+    publishes is an owner's, carried through in the owner's order.  (Integer
+    literals are allowed only where they are not compared: the 1-based
+    ``enumerate`` start and slicing.)"""
     source = (_REPO / "src/api/team_plan.py").read_text(encoding="utf-8")
     offenders = _arithmetic_offenders(source)
     assert not offenders, offenders
+
+
+def test_guard_allowlist_is_not_stale():
+    lines = {
+        line.strip()
+        for line in (_REPO / "src/api/team_plan.py").read_text(encoding="utf-8").splitlines()
+    }
+    for allowed, reason in _ALLOWED_LINES.items():
+        assert reason, allowed
+        assert allowed in lines, f"allowlisted line no longer exists: {allowed!r}"
 
 
 @pytest.mark.parametrize(
@@ -518,10 +655,34 @@ def test_the_composer_performs_no_value_arithmetic():
         "x = 0.25",
         "import math",
         "from statistics import median",
+        "x = sorted(rows)",
+        "rows.sort(key=k)",
+        "ok = score > 3",
+        "ok = 0 <= p",
+        "ok = len(xs) == 1",
+        "import heapq",
+        "from operator import add",
+        "x = heapq.nlargest(3, rows)",
+        "from functools import reduce",
+        "x = reduce(f, rows)",
     ],
 )
 def test_the_arithmetic_guard_catches_what_it_claims(snippet):
     assert _arithmetic_offenders(snippet)
+
+
+@pytest.mark.parametrize(
+    "snippet",
+    [
+        "ok = state != 'current'",
+        "ok = flag is True",
+        "x = rows[1:]",
+        "x = list(enumerate(rows, start=1))",
+        "n = len(rows)",
+    ],
+)
+def test_the_arithmetic_guard_allows_what_the_composer_needs(snippet):
+    assert _arithmetic_offenders(snippet) == []
 
 
 def test_the_arithmetic_guard_exempts_only_annotations():

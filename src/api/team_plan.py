@@ -13,7 +13,9 @@ Every number in the payload is produced by an existing canonical owner and
 passed through verbatim.  This module computes no value, score, threshold,
 weight or decision of its own, and it performs no arithmetic on any value it
 is handed (``tests/api/test_team_plan.py`` pins that with an AST guard: no
-arithmetic operator, no aggregate builtin, no float literal).
+arithmetic operator, no aggregate builtin, no sorting, no comparison against a
+numeric literal, no float literal, no numeric / ``heapq`` / ``operator``
+import).
 
 =========================  ====================================================
 section                    canonical owner consumed (never re-derived)
@@ -66,8 +68,12 @@ Every section is ``available: true`` with the owner's answer (which may be an
 empty list -- a real "nothing cleared this owner's bar") or ``available:
 false`` with a stable ``unavailableReason``.  A cold cache, a refused engine,
 an unresolved team or a stale roster never reads as "nothing to do".  The
-plan asserts ``do_nothing`` only when EVERY owner-backed kind was assessed and
-none produced an action; otherwise it is ``incomplete``.
+plan asserts ``do_nothing`` only when EVERY owner-backed kind was fully
+assessed (an aging room whose age gap is unmeasured leaves that kind
+unassessed), none produced an action, and the suggestion engine produced no
+other trade idea the plan does not map; otherwise it is ``incomplete``.
+``completeness.complete`` is never true while ``pick_action`` has no owner;
+``assessableKindsComplete`` answers the narrower question.
 
 Pure: no I/O, no clock, no globals written.  The route in ``server.py``
 resolves every input (warm-only cache reads plus the cheap owners) and hands
@@ -82,6 +88,7 @@ from typing import Any, Mapping, Sequence
 
 __all__ = [
     "FLAG",
+    "IN_SCOPE_LEAGUES",
     "IN_SCOPE_LEAGUE_KEYS",
     "KIND_ORDER",
     "OWNER_BACKED_KINDS",
@@ -99,7 +106,8 @@ FLAG = "team_advisor_plan"
 
 #: Leagues the plan serves.  ``dynasty_main`` only: the owner's 2026-10-18 scope
 #: correction puts every other league's private tools out of scope.
-IN_SCOPE_LEAGUE_KEYS: frozenset[str] = frozenset({"dynasty_main"})
+IN_SCOPE_LEAGUES: tuple[str, ...] = ("dynasty_main",)
+IN_SCOPE_LEAGUE_KEYS: frozenset[str] = frozenset(IN_SCOPE_LEAGUES)
 
 BUY_TARGET = "buy_target"
 SELL_HIGH = "sell_high"
@@ -128,6 +136,11 @@ DRAFT_CAPITAL_OWNER = "server.py::get_draft_capital (/api/draft-capital)"
 PICK_OWNERSHIP_OWNER = "src/identity/picks.py (sleeper.teams[].pickOwnershipState)"
 FRESHNESS_OWNER = "src/api/roster_freshness.py::roster_age"
 CONSTRAINTS_OWNER = "src/trade/constraints.py"
+
+#: The suggestion engine's categories this plan does not map to an action kind
+#: (buy targets come from ``targets.py``; consolidation and positional upgrades
+#: have no action kind).  Counted, so their presence blocks ``do_nothing``.
+UNMAPPED_SUGGESTION_KINDS: tuple[str, ...] = ("buyLow", "consolidation", "positionalUpgrades")
 
 _SECTION_FOR_KIND = {
     BUY_TARGET: "buyTargets",
@@ -344,7 +357,7 @@ def _draft_capital_section(
         ]
         # Exactly one row, or none: the owner leaves ``ownerId`` empty on an
         # ambiguous display name, and a guessed row would be another team's.
-        return dict(mine[0]) if len(mine) == 1 else None
+        return dict(mine[0]) if mine and not mine[1:] else None
 
     upcoming = _team_row(payload.get("teamTotals"))
     all_years = _team_row(payload.get("allYearsTeamTotals"))
@@ -419,6 +432,7 @@ def _buy_targets_section(read: OwnerRead) -> dict[str, Any]:
         "candidatePolicyExhaustive": candidate_policy.get("exhaustive"),
         "marketEdgeUnmeasured": coverage.get("marketEdgeUnmeasured"),
         "limitations": limitations.get("targets"),
+        "rosterAlignment": read.meta.get("rosterAlignment"),
         "actions": actions,
     }
 
@@ -485,6 +499,11 @@ def _sell_high_section(read: OwnerRead) -> dict[str, Any]:
         "constraintsBlockedOutgoing": meta.get("constraintsBlockedOutgoing"),
         "constraintsBlockedReasons": meta.get("constraintsBlockedReasons"),
         "warnings": list(payload.get("warnings") or []),
+        "otherTradeIdeas": {
+            kind: len(payload.get(kind) or [])
+            for kind in UNMAPPED_SUGGESTION_KINDS
+            if payload.get(kind)
+        },
         "actions": actions,
     }
 
@@ -548,10 +567,15 @@ def _aging_section(roster: Mapping[str, dict[str, Any]]) -> dict[str, Any]:
     if not age["available"]:
         return _unavailable(AGING_OWNER, age.get("unavailableReason"), actions=[])
     portfolio = age.get("portfolio") or {}
-    rooms = [
-        r
-        for r in portfolio.get("byPosition") or []
-        if isinstance(r, Mapping) and r.get("isOldForLeague") is True
+    all_rooms = [r for r in portfolio.get("byPosition") or [] if isinstance(r, Mapping)]
+    rooms = [r for r in all_rooms if r.get("isOldForLeague") is True]
+    # ``is_old_for_league`` answers False when either side of the age gap is
+    # unmeasured.  That False means "could not tell", not "not old", so such a
+    # room is reported as unassessed rather than counted as assessed-and-fine.
+    unmeasured = [
+        {"position": r.get("position"), "reason": "age_vs_league_median_unmeasured"}
+        for r in all_rooms
+        if r.get("ageVsLeagueMedian") is None
     ]
     actions = []
     for owner_rank, room in enumerate(rooms, start=1):
@@ -577,6 +601,7 @@ def _aging_section(roster: Mapping[str, dict[str, Any]]) -> dict[str, Any]:
         "valueWeightedCoreAge": portfolio.get("valueWeightedCoreAge"),
         "youngCoreIndex": portfolio.get("youngCoreIndex"),
         "youngCoreIndexStatus": portfolio.get("youngCoreIndexStatus"),
+        "unassessedParts": unmeasured,
         "actions": actions,
     }
 
@@ -597,6 +622,29 @@ def _interleave(sections: Mapping[str, Mapping[str, Any]]) -> list[dict[str, Any
     """Round-robin over :data:`KIND_ORDER`, each owner's order kept."""
     lanes = [list(sections[_SECTION_FOR_KIND[kind]].get("actions") or []) for kind in KIND_ORDER]
     return [action for tier in zip_longest(*lanes) for action in tier if action is not None]
+
+
+def _unassessed(sections: Mapping[str, Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Owner-backed kinds that were not (fully) assessed, with the reason.
+
+    A section that answered for only part of its population (aging rooms whose
+    age gap is unmeasured) is not assessed: "nothing found" may only be said
+    about what was actually measured.
+    """
+    out: list[dict[str, Any]] = []
+    for kind in OWNER_BACKED_KINDS:
+        section = sections[_SECTION_FOR_KIND[kind]]
+        if not section["available"]:
+            out.append({"kind": kind, "reason": section["unavailableReason"]})
+        elif section.get("unassessedParts"):
+            out.append(
+                {
+                    "kind": kind,
+                    "reason": "partially_assessed",
+                    "parts": list(section["unassessedParts"]),
+                }
+            )
+    return out
 
 
 def _do_nothing_action(sections: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
@@ -674,14 +722,15 @@ def compose_team_plan(
         "agingAssets": _aging_section(roster),
     }
     merged = _interleave(sections)
-    unassessed = [
-        {"kind": kind, "reason": sections[_SECTION_FOR_KIND[kind]]["unavailableReason"]}
-        for kind in OWNER_BACKED_KINDS
-        if not sections[_SECTION_FOR_KIND[kind]]["available"]
+    unassessed = _unassessed(sections)
+    unmapped = [
+        {"source": SUGGESTIONS_OWNER, "kind": kind, "count": count}
+        for kind, count in (sections["sellHigh"].get("otherTradeIdeas") or {}).items()
     ]
+    not_assessable = [{"kind": PICK_ACTION, "reason": sections["pickActions"]["unavailableReason"]}]
     if merged:
         plan_state = "actions"
-    elif not unassessed:
+    elif not unassessed and not unmapped:
         plan_state = DO_NOTHING
         merged = [_do_nothing_action(sections)]
     else:
@@ -700,6 +749,16 @@ def compose_team_plan(
             "not every action kind could be assessed (see completeness.unassessed); "
             "an absent action of those kinds is unknown, not 'nothing to do'"
         )
+    if unmapped:
+        warnings.append(
+            "the trade-suggestion engine also produced ideas this plan does not map to an "
+            "action kind (see completeness.unmappedCandidates); the plan never reads as "
+            "'do nothing' while they exist"
+        )
+    alignment = sections["buyTargets"].get("rosterAlignment") or {}
+    if sections["buyTargets"]["available"] and alignment.get("state") != "bundle_not_older":
+        note = alignment.get("note") or "bundle age relative to the rosters is unknown"
+        warnings.append(f"buy targets: {note}")
 
     return {
         "contractVersion": TEAM_PLAN_CONTRACT_VERSION,
@@ -722,16 +781,16 @@ def compose_team_plan(
         "actions": actions,
         "planState": plan_state,
         "completeness": {
-            "complete": not unassessed,
+            # Never true while a kind is not assessable (pick_action has no
+            # owner); ``assessableKindsComplete`` answers the narrower question.
+            "complete": not unassessed and not unmapped and not not_assessable,
+            "assessableKindsComplete": not unassessed,
             "assessedKinds": [
-                kind
-                for kind in OWNER_BACKED_KINDS
-                if sections[_SECTION_FOR_KIND[kind]]["available"]
+                kind for kind in OWNER_BACKED_KINDS if kind not in {u["kind"] for u in unassessed}
             ],
             "unassessed": unassessed,
-            "notAssessable": [
-                {"kind": PICK_ACTION, "reason": sections["pickActions"]["unavailableReason"]}
-            ],
+            "unmappedCandidates": unmapped,
+            "notAssessable": not_assessable,
         },
         "ordering": {"kindOrder": list(KIND_ORDER), "rule": _ORDERING_RULE},
         "protections": protections_block(requester_owns_team, constraints),
@@ -747,7 +806,7 @@ def out_of_scope_payload(league_key: str) -> dict[str, Any]:
         "available": False,
         "unavailableReason": "league_not_in_scope",
         "leagueKey": league_key,
-        "inScopeLeagues": sorted(IN_SCOPE_LEAGUE_KEYS),
+        "inScopeLeagues": list(IN_SCOPE_LEAGUES),
         "note": (
             "The team plan serves dynasty_main only (owner scope correction 2026-10-18); "
             "no plan is computed for any other league."
