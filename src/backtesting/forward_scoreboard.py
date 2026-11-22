@@ -1221,7 +1221,7 @@ def _staleness_table(
         for f in origins:
             st = (f.get("predictorStaleness") or {}).get(series_id) or {}
             share = st.get("unchangedShare")
-            cells.append("—" if share is None else f"{share:.2f} (n {st.get('n')})")
+            cells.append("—" if share is None else f"{share:.3f} (n {st.get('n')})")
         lines.append(f"| {name} | " + " | ".join(cells) + " |")
     return lines
 
@@ -1303,11 +1303,11 @@ def render_markdown(result: Mapping[str, Any], *, title: str) -> str:
                 cell = by_group.get(GROUP_ALL) or {}
                 mom = cell.get("momentumControl") or {}
                 lines.append(
-                    f"- `{name}` ALL: {cell.get('verdict')}. Mean zero-gap share "
+                    f"- `{name}` ALL: {str(cell.get('verdict') or '').rstrip('.')}. Mean zero-gap share "
                     f"{_fmt(cell.get('meanZeroGapShare'), signed=False)}; mean share unchanged "
                     f"since the lookback date "
                     f"{_fmt(cell.get('meanUnchangedSincePriorShare'), signed=False)}. "
-                    f"Net of momentum: {mom.get('verdict')}."
+                    f"Momentum control: {mom.get('verdict')}."
                 )
             lines.append("")
             staleness = _staleness_table(folds, [n for n, _ in series_rows], block)
