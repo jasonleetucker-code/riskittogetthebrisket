@@ -21,7 +21,9 @@ import { ODDS_EXPERIMENTAL_DISCLOSURE } from "@/lib/odds-disclosure";
 import {
   formatPointChange,
   oddsCell,
+  titleOddsErrorText,
   titleOddsReasonText,
+  titleOddsRetryable,
   titleOddsRows,
 } from "@/lib/trade-title-odds";
 
@@ -262,6 +264,19 @@ describe("wording helpers", () => {
     });
     // A simulated share is never printed as 0% or 100%.
     expect(oddsCell({ before: 0, after: 1, delta: 1, significant: true }).levels).toBe("<1% → >99%");
+  });
+
+  it("words every request failure and offers Retry only where it can help", () => {
+    expect(titleOddsErrorText("feature_disabled")).toBe("season odds are switched off");
+    expect(titleOddsErrorText("HTTP 401")).toBe("you are signed out");
+    expect(titleOddsErrorText("upstream_unavailable")).toBe("the server could not be reached");
+    expect(titleOddsErrorText("HTTP 500")).toBe("the server had a problem");
+    expect(titleOddsErrorText("invalid_body")).toBe("the request was refused");
+    expect(titleOddsRetryable("upstream_unavailable")).toBe(true);
+    expect(titleOddsRetryable("HTTP 502")).toBe(true);
+    expect(titleOddsRetryable("title_odds_timeout")).toBe(true);
+    expect(titleOddsRetryable("feature_disabled")).toBe(false);
+    expect(titleOddsRetryable("no_remaining_schedule")).toBe(false);
   });
 
   it("never shows a reason code", () => {

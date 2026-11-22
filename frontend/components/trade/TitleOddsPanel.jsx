@@ -85,6 +85,8 @@ export default function TitleOddsPanel({ body, requestKey }) {
         });
         const data = await res.json().catch(() => ({}));
         if (!current()) return;
+        if (timedOut) return fail("timeout");
+        if (controller.signal.aborted) return;
         if (!res.ok) {
           return fail(typeof data?.error === "string" ? data.error : `HTTP ${res.status}`);
         }

@@ -58,7 +58,13 @@ export function titleOddsReasonText(reason) {
 }
 
 /** Errors Retry can plausibly fix (a refusal by the request itself cannot). */
-const RETRYABLE = new Set(["timeout", "network", "title_odds_timeout", "title_odds_error"]);
+const RETRYABLE = new Set([
+  "timeout",
+  "network",
+  "upstream_unavailable",
+  "title_odds_timeout",
+  "title_odds_error",
+]);
 
 export function titleOddsRetryable(code) {
   return RETRYABLE.has(code) || /^HTTP 5\d\d$/.test(String(code || ""));
@@ -71,6 +77,8 @@ export function titleOddsErrorText(code) {
   if (c === "auth_required" || c === "HTTP 401") return "you are signed out";
   if (c === "timeout") return "the request took too long";
   if (c === "network") return "the connection failed";
+  if (c === "upstream_unavailable") return "the server could not be reached";
+  if (c === "invalid_payload") return "the answer could not be read";
   if (c === "data_not_ready" || c === "HTTP 503") return "the data is not ready yet";
   if (/^HTTP 5\d\d$/.test(c)) return "the server had a problem";
   if (Object.prototype.hasOwnProperty.call(TITLE_ODDS_REASON_WORDS, c)) {
