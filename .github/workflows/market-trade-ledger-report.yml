@@ -1,0 +1,75 @@
+name: Market Trade Ledger Report (read-only)
+
+# DYN10-3 / A3.  Prints AGGREGATE counts from the latest Chase Trade Market
+# ledger report plus raw KTC archive stats from the box, into the job log and
+# step summary.  The repository is PUBLIC, so both are public: the box-side
+# script (scripts/market_trade_report_summary.py) emits a fixed whitelist of
+# counts, dates and the report age -- no league/user ids, usernames, player
+# names, trade details or paths.  Read-only: the report is read as a file and
+# the archive is opened mode=ro.
+#
+# Dispatch only, deliberately: no schedule.  Own concurrency group, NOT
+# production-deploy: a queued run in that group can cancel a pending deploy.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: market-trade-ledger-report
+  cancel-in-progress: false
+
+jobs:
+  report-summary:
+    name: Ledger report summary
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Summarize ledger report on production
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # Exit 2 = no readable report (missing / unreadable / not provisioned):
+          # a real answer, surfaced as a failure so silence is never read as ok.
+          set +e
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR=$(printf %q "$APP_DIR") bash -s" > summary.md <<'REMOTE'
+          set -Eeuo pipefail
+          cd "$APP_DIR"
+          PY="$APP_DIR/.venv/bin/python"
+          [ -x "$PY" ] || PY="$APP_DIR/venv/bin/python"
+          [ -x "$PY" ] || PY=python3
+          exec "$PY" scripts/market_trade_report_summary.py --markdown
+          REMOTE
+          rc=$?
+          set -e
+          cat summary.md
+          cat summary.md >> "$GITHUB_STEP_SUMMARY"
+          exit "$rc"

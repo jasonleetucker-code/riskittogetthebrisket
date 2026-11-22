@@ -3019,6 +3019,18 @@ def _backup_coverage_alert_rows() -> dict | None:
         return None
 
 
+def _market_trade_report_health() -> dict | None:
+    """Freshness row of the Chase Trade Market ledger report for the ops-alert
+    sweep (``None`` = not checked).  Owner: ``src/api/market_trade_report_health.py``.
+    """
+    try:
+        from src.api import market_trade_report_health as _mtr
+
+        return _mtr.market_trade_report_health()
+    except Exception:  # noqa: BLE001 -- the sweep must never fail on a probe
+        return None
+
+
 def _failed_systemd_units() -> list[str] | None:
     """Shipped systemd services currently ``failed`` (``None`` = not checked).
 
@@ -22805,6 +22817,7 @@ async def run_signal_alerts(request: Request):
             backup_coverage=await run_in_threadpool(_backup_coverage_alert_rows),
             failed_units=await run_in_threadpool(_failed_systemd_units),
             forecast_degradation=await run_in_threadpool(_forecast_degradation_health),
+            market_trade_report=await run_in_threadpool(_market_trade_report_health),
             delivery=_deliver_owner_alert if _owner_alert_recipient() else None,
             to_email=_owner_alert_recipient(),
         )

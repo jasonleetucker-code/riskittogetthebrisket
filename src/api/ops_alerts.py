@@ -415,6 +415,73 @@ def _check_backup_coverage(
     return alerts
 
 
+#: The category of the stale ledger-report row (DYN10-3 / A1b, 2026-11-21).
+MARKET_TRADE_REPORT_CATEGORY = "market_trade_report_stale"
+
+
+def _check_market_trade_report(row: dict[str, Any] | None) -> list[OpsAlert]:
+    """The Chase Trade Market ledger report is stale, missing or unreadable.
+
+    ``row`` is ``src/api/market_trade_report_health.market_trade_report_health``.
+    ``fresh`` and ``not_provisioned`` (CI, dev) say nothing; ``missing`` on a
+    provisioned host and ``unreadable`` are their own findings, never "fresh".
+    ``None`` is "not checked" (see ``check_and_alert``).
+    """
+    if not isinstance(row, dict):
+        return []
+    state = row.get("state")
+    unit = "dynasty-market-trade-ledger.service"
+    how = (
+        f"Read the last run: sudo journalctl -u {unit} -n 80 --no-pager; "
+        "check the timer (systemctl list-timers dynasty-market-trade-ledger.timer); "
+        f"run it now with sudo systemctl start {unit}.  Some upstream rows exist only "
+        "in a rolling window, so every missed day can lose evidence."
+    )
+    if state == "stale":
+        age, limit = row.get("ageHours"), row.get("staleAfterHours")
+        return [
+            OpsAlert(
+                severity="warning",
+                category=MARKET_TRADE_REPORT_CATEGORY,
+                title=(
+                    f"Trade market ledger report is stale ({age:.0f} h old)"
+                    if isinstance(age, (int, float))
+                    else "Trade market ledger report is stale"
+                ),
+                detail=(
+                    f"The newest report (generated {row.get('generatedAt')}) is older than "
+                    f"the {limit if limit is not None else 'declared'} h budget for a daily "
+                    f"job.  {how}"
+                ),
+            )
+        ]
+    if state == "missing":
+        return [
+            OpsAlert(
+                severity="warning",
+                category=MARKET_TRADE_REPORT_CATEGORY,
+                title="Trade market ledger report is missing",
+                detail=(
+                    "This host holds trade-market data but no ledger report exists, so the "
+                    f"daily job has not produced one.  {how}"
+                ),
+            )
+        ]
+    if state == "unreadable":
+        return [
+            OpsAlert(
+                severity="warning",
+                category=MARKET_TRADE_REPORT_CATEGORY,
+                title="Trade market ledger report time is unreadable",
+                detail=(
+                    "A report exists but its own generatedAt stamp is absent, unparseable or "
+                    f"in the future, so its freshness cannot be established.  {how}"
+                ),
+            )
+        ]
+    return []
+
+
 def _check_failed_units(units: list[str] | None) -> list[OpsAlert]:
     """One alert per shipped systemd service whose latest run failed.
 
@@ -1056,6 +1123,7 @@ def check_and_alert(
     backup_coverage: dict[str, Any] | None = None,
     failed_units: list[str] | None = None,
     forecast_degradation: list[dict[str, Any]] | None = None,
+    market_trade_report: dict[str, Any] | None = None,
     delivery: Callable[[str, str, str], bool] | None = None,
     to_email: str | None = None,
     kv_path: Any = None,
@@ -1080,6 +1148,7 @@ def check_and_alert(
     alerts.extend(_check_roster_construction(roster_construction or []))
     alerts.extend(_check_backup_coverage(backup_coverage, failed_units))
     alerts.extend(_check_failed_units(failed_units))
+    alerts.extend(_check_market_trade_report(market_trade_report))
     try:
         alerts.extend(_check_forecast_degradation(forecast_degradation or []))
     except Exception as exc:  # noqa: BLE001 -- malformed scorecard content never breaks the sweep
@@ -1101,6 +1170,10 @@ def check_and_alert(
     if forecast_degradation is None:
         # An unreadable scorecard is UNKNOWN, not recovered.
         active_categories |= {c for c in state if str(c).startswith(FORECAST_DEGRADATION_PREFIX)}
+
+    if market_trade_report is None:
+        # Not checked (the probe failed) is UNKNOWN, not recovered.
+        active_categories |= {c for c in state if str(c) == MARKET_TRADE_REPORT_CATEGORY}
 
     if failed_units is None:
         # systemctl could not be asked: UNKNOWN, not recovered.
