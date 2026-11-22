@@ -45,16 +45,20 @@
 | D1 waiver protections | #6 | #2300 | DEPLOYED | Greedy drop lists rebuild without protected players; waiver payloads stamp roster freshness. Signed-in routes answer 401 anonymously |
 | D2 rookie coverage | #8 | #2298 | DEPLOYED | Anonymous redaction VERIFIED in production; the signed-in display is not observed |
 | V1 forward scoreboard | #1 | #2301 | MERGED (offline tool) | The archive holds no served board. idpTradeCalc's disagreement with KTC shows no effect net of KTC momentum (mean partial −0.036). The box-ledger run is #2307 |
-| V1b on-box scoreboard run | #1 | #2307 | IN REVIEW | Read-only dispatch over a backup copy of the box temporal ledger, low priority and bounded; answers whether the served board predicts later market moves |
+| V1b on-box scoreboard run | #1 | #2307, #2313 | VERIFIED (measured) | Run 45040989830 on production `9e991616`, 132 dates. At 30 days the served board's disagreement with the market does not predict the market's later move net of momentum (mean partial ρ +0.016, 1/3 origins positive). QB is negative and consistent (−0.077, 3/3). 60 d has 1 origin, 90 d is unavailable. Record: `docs/measurements/forward-scoreboard-onbox-2026-11-22.md`. #2313 uploads the summary as an artifact: log masking of the `22` port secret mangled printed numbers |
 | #9 IDP independence | #9 | #2302 | MERGED (measurement) | Four IDP voters are four providers; no lineage evidence; recommendation: no cap |
-| #4 title-odds lens | #4 | #2303 | VERIFIED dormant | `trade_title_odds_lens` OFF (deploy owner-held check). Activation needs an async path (+5.5 s synchronous today) and War Room rendering |
+| #4 title-odds lens | #4 | #2303, #2312 | VERIFIED dormant | `trade_title_odds_lens` OFF (deploy owner-held check). #2312 builds both activation prerequisites: analyze no longer blocks (deferred envelope), and an async `POST /api/trade/title-odds` with a 2-slot admission cap, per-user cache and single-flight; the War Room panel is capability-gated. Production `8bbed5cd`: the new route answers 401 anonymously, and the deploy's owner-held check confirms the flag OFF. Activation stays owner decision TO |
 | #2 Team Advisor plan | #2 | #2306 | VERIFIED dormant | `GET /api/team/plan`, composer only; `team_advisor_plan` OFF (deploy owner-held check). Four owner decisions in the audit packet |
-| #5 "This week" panel | #5 | — | IMPLEMENTING | Display of `/api/team/plan` on the signed-in home; renders nothing while the flag is off |
+| #5 "This week" panel | #5 | #2309 | VERIFIED dormant | Production `9e991616`: capability `teamAdvisorPlan` false with `team_advisor_plan` OFF, so the home makes no plan request; `/api/team/plan` answers 401 anonymously |
+| #10 trade-context disclosure | #10 | #2310 | DEPLOYED | Disclosure only: the posture lean is labelled uncalibrated; suggestions carry `strategyBasis` with a badge caption; the `/phases` quadrant names its median-split basis. No label, rank or value changed |
+| A4 Sleeper week coverage | #7 CTM | #2311 | DEPLOYED | The Sharp crawl fetched only the current week, so a league not visited during a week lost that week's trades permanently. It now catches up from the last gap-free week (6 per visit), sweeps dormant leagues by elapsed time, and abandons a failing week only after 3 tries and 48 h (counted, never silent). Three independent review rounds; 26 mutants caught. Production proof: the next crawl receipt shows `weekClocked`, then `leaguesRecoverySwept` |
 
-Trains: 1122 (#2292–#2298, production `d7501c1f`); 1123 (#2299–#2304, `6256d366`); 1124 (#2305, #2306, `56774f75`),
+Trains: 1122 (#2292–#2298, production `d7501c1f`); 1123 (#2299–#2304, `6256d366`); 1124 (#2305, #2306, `56774f75`);
+1125 (#2276, #2307–#2309, `9e991616`); 1126 (#2310–#2313, `8bbed5cd`),
 each merged after a green release candidate with the merged tree identical to the candidate. Still open: CTM-4 to CTM-8
-(blocked on owner decisions Q2, Q5, SK, C), the title-odds async path and rendering (after an activation decision),
-and the V1b first dispatch.
+(blocked on owner decisions Q2, Q5, SK, C); owner activation decisions PG/PB, TO and TP1–TP4; and three review follow-ups
+on #2311 (a cut-short recovery visit loses its 30-day read-back; an all-weeks-broken league heads the queue at about 1.2%
+of the daily budget; a clock step-back restarts sweeps at week 0).
 
 ## Master implementation closeout — owner, 2026-11-20
 
