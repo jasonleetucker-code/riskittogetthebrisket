@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-29 of the 68 entries in ``_DEFAULTS`` below are ``True`` —
+29 of the 69 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -983,6 +983,22 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # flag is ON (scripts/verify_owner_held_flags.py).  Rollback:
     # RISKIT_FEATURE_REPLACEMENT_LEVEL_LI5_CONSOLIDATION=0 + restart.
     "replacement_level_li5_consolidation": False,
+    # Rookie-class guard on the current-year pick tether (2026-11-21;
+    # docs/picks/PICK_CLASS_GUARD_EVIDENCE_2026-11-21.md).  ON:
+    # ``data_contract._anchor_current_year_picks_to_rookies`` tethers a slot
+    # pick of year Y only to rookies whose draft class the class owner
+    # (``src/draft/rookie_auction/class_snapshot.py::class_identity``) proves
+    # is Y; a slot with no same-class rookie keeps its market blend and
+    # ``_complete_future_pick_values`` derives the rounds no market prices.
+    # In season this stops "2027 Pick 1.01" inheriting a 2026 rookie's value
+    # (the residual risk C1-U6-D2 named).  OFF: the incumbent tether, byte
+    # for byte (tests/api/test_pick_class_tether_guard.py).  HELD, DEFAULT
+    # OFF: it moves canonical pick values, so activation is OWNER-RESERVED
+    # (no owner decision has authorized it); deploy/verify-deploy.sh fails a
+    # deploy whose effective flag is ON (scripts/verify_owner_held_flags.py;
+    # tests/api/test_pick_class_guard_hold_locked.py is the lock).  Rollback
+    # if ever on: RISKIT_FEATURE_PICK_CLASS_TETHER_GUARD=0 + restart.
+    "pick_class_tether_guard": False,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"
@@ -1184,6 +1200,11 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # read on every board build, which reaches a request through ``/api/data``
     # (confidenceBucket / confidenceAxes / confidenceReasons).
     "confidence_cured_rejection_guard": LIVE,
+    # pick_class_tether_guard gates the rookie-class guard on the current-year
+    # pick tether in ``data_contract._compute_unified_rankings`` (Phase 5),
+    # read on every board build, which reaches a request through ``/api/data``
+    # and every engine that reads pick values; ships OFF (owner-held).
+    "pick_class_tether_guard": LIVE,
     # dlf_offense_only_vote gates the vote hold on the DLF IDP boards in
     # ``data_contract._policy_source_vote_holds`` -- a TEMPORARY hold
     # re-applied 2026-10-19 (default ON): the owner rescinded the 2026-10-16
