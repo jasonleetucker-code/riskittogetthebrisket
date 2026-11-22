@@ -13388,7 +13388,14 @@ _DRAFT_CAPITAL_PRIVATE_PICK_FIELDS = (
     # pipeline is in each row.  Added with the fields, not after.
     "rookieDispersionCV",
     "rookieSingleSource",
+    # Per-rookie voting-source count + which sources voted (DYN10 item 8):
+    # board evidence internals, redacted with the rest of the rookie board.
+    "rookieSourceCoverage",
 )
+
+#: Top-level draft-capital fields that describe OUR rookie board's evidence
+#: (not Sleeper facts); stripped from the anonymous payload.
+_DRAFT_CAPITAL_PRIVATE_TOP_FIELDS = ("rookieSourceCoverage",)
 
 
 def _redact_draft_capital_for_public(result):
@@ -13422,6 +13429,8 @@ def _redact_draft_capital_for_public(result):
         else pick
         for pick in picks
     ]
+    for _k in _DRAFT_CAPITAL_PRIVATE_TOP_FIELDS:
+        redacted.pop(_k, None)
     redacted["rookieBoardRedacted"] = True
     return redacted
 
@@ -13649,6 +13658,7 @@ def _our_rookie_pool(top_n: int = 72) -> list[dict]:
     # it from the free-agent pool.  Two copies of "who is in this auction"
     # would eventually disagree, and the failure would be silent.
     from src.draft.rookie_pool import select_rookie_rows  # noqa: PLC0415
+    from src.draft.rookie_source_coverage import row_coverage as _rookie_row_coverage  # noqa: PLC0415
 
     out: list[dict] = []
     for p in select_rookie_rows(contract, top_n):
@@ -13677,6 +13687,10 @@ def _our_rookie_pool(top_n: int = 72) -> list[dict]:
         cv = p.get("marketDispersionCV")
         out.append(
             {
+                # Additive, display-only (DYN10 item 8): how many voting sources
+                # priced this rookie.  Reads the row's own sourceRankMeta; moves
+                # no value, vote or weight.  Unknown stays null, never 0.
+                "sourceCoverage": _rookie_row_coverage(p),
                 "name": str(p.get("canonicalName") or p.get("displayName") or ""),
                 "pos": (str(p.get("position") or "").upper() or None),
                 "value": float(val),
@@ -15076,6 +15090,7 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 # NOT that the sources agreed — see ``_our_rookie_pool``.
                 "dispersionCV": r.get("dispersionCV"),
                 "singleSource": r.get("singleSource"),
+                "sourceCoverage": r.get("sourceCoverage"),
             }
             for r, d in zip(our_rookies, rookie_dollar_overrides)
         ]
@@ -15128,6 +15143,8 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             if "dispersionCV" in rookies[i]:
                 pick["rookieDispersionCV"] = rookies[i]["dispersionCV"]
                 pick["rookieSingleSource"] = rookies[i]["singleSource"]
+            if "sourceCoverage" in rookies[i]:
+                pick["rookieSourceCoverage"] = rookies[i]["sourceCoverage"]
 
     sorted_teams = sorted(team_totals.items(), key=lambda x: -x[1])
 
@@ -15141,6 +15158,14 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         else "csv"
     )
     ktc_count = len([r for r in rookies if not r["name"].startswith("Rookie #")]) if rookies else 0
+    # Only meaningful when the contract-sourced pool is in play; the KTC fallback
+    # carries no per-source evidence, so it says so rather than implying a count.
+    if rookie_source == "ours_filtered":
+        from src.draft.rookie_source_coverage import build_pool_coverage  # noqa: PLC0415
+
+        rookie_source_coverage = build_pool_coverage(latest_contract_data, _KTC_TOTAL_PICKS)
+    else:
+        rookie_source_coverage = None
 
     # Stable team keys (Wave A): ``team`` is a display name, and /trade's
     # Sleeper teams are named differently (owner first name vs Sleeper team
@@ -15189,6 +15214,10 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         "rookieDollarLadder": rookie_ladder_receipt,
         # Per-vendor population / state receipt for ``rookie*ComparableDollar``.
         "vendorComparison": vendor_comparison,
+        # Pool-level rookie-source coverage (DYN10 item 8): which rookie-relevant
+        # sources vote / are held / seasonal / stale / missing.  Additive and
+        # private (redacted for anonymous callers with the rookie board).
+        "rookieSourceCoverage": rookie_source_coverage,
     }
     # ── Every other class this league owns picks in (owner directive
     # 2026-10-17) ──────────────────────────────────────────────────────
