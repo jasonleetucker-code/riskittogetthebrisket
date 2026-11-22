@@ -5,6 +5,49 @@
 > 4 concurrent editing workers" record the rule in force at the time and are superseded on that one point. Process
 > only: this authorizes no feature.
 
+## Top 10 dynasty improvements and Chase Trade Market completion — owner, 2026-11-21
+
+**AUTHORIZED NOW.** Intake DYN10-1 … DYN10-14 (`docs/OWNER_REQUESTED_TODO.md`); structured record
+`docs/owner/DYNASTY_TOP10_TRADE_MARKET_DIRECTIVE_2026-11-21.md`.
+
+- **Authorized to implement:**
+  - the CTM-1 … CTM-7 audit, data measurement, infrastructure completion, estimator, validation, IDP evidence and
+    internal shadow values. This extends the existing CTM shadow authorizations (2026-10-19 "the shadow source, its
+    validation and the research view"; 2026-10-26 IDP market phases 1–4), on the existing owners only:
+    `src/trade/market_trade_*`, `comparable_trades.py`, `src/model_registry/*`, `src/history/*`, `src/identity/*`;
+  - read-only production diagnostics that print aggregates only;
+  - the ranked top-ten improvements through normal gates (tests, independent review, exact-tree release candidate).
+    Anything that changes a recommendation, verdict or served value ships behind a default-OFF flag or as a labelled
+    shadow.
+- **OWNER-RESERVED (not authorized here):**
+  - `chaseTradeMarket` voting, any source weight or `_RANKING_SOURCES` change, canonical values, Hill constants,
+    model promotion, and turning any flag ON;
+  - the package model, recommendation rule tables, public fairness, and live trade verdicts;
+  - examining reserved holdouts of draft preregistrations;
+  - Sleeper writes and paid data.
+
+  CTM-8 ends in a prepared owner decision, not an activation.
+- **Out of scope:** DFS, League Tycoon, and the site-wide frontend redesign (another developer's lane); only targeted
+  functional UI on existing components is in scope.
+- **Unaffected:** the production stabilization closeout below (#2287–#2291 train 1121) continues first.
+
+**Progress, first batch.** States use the Agent OS vocabulary. The ranking and plan are in
+`docs/audits/DYNASTY_TOP10_AUDIT_2026-11-21.md`. Every item is non-voting, and nothing was activated.
+
+| Unit | Top-10 item | PR | State | Note |
+|---|---|---|---|---|
+| A1 ledger memory | #7 CTM | #2295 | READY_FOR_INTEGRATION | Shares per-format objects. About 40% less build memory on a box-sized benchmark, with byte-identical ledger and report |
+| A1b stale-report alert | #7 CTM | — | IMPLEMENTING | Alert when the daily ledger report stops updating |
+| A2 league maturity | #7 CTM | #2297 | IN REVIEW | Sleeper `"0"` league-age fix; `resolve_league_maturity` wired into the daily report |
+| A3 aggregate report workflow | #7 CTM | — | IMPLEMENTING | Read-only, dispatch-only, aggregate counts only |
+| B1 pick-class guard | #3 | #2296 | IN REVIEW | Flag `pick_class_tether_guard` default OFF; activation is an owner decision |
+| C1 sell-high sign | #10 | #2293 | READY_FOR_INTEGRATION | The edge fired on an overpay |
+| D1 waiver protections | #6 | — | IMPLEMENTING | Protections on the greedy lists; roster freshness stamp |
+| D2 rookie coverage | #8 | #2298 | IN REVIEW | Display-only voting-source line on /draft |
+| V1 forward scoreboard | #1 | — | IMPLEMENTING | Research tool over the committed archive; changes nothing served |
+
+Items #2, #4, #5 and #9, and CTM-4 to CTM-8, are the next batch. Their order and owner gates are in the audit document.
+
 ## Production stabilization and final closeout — owner, 2026-11-19
 
 **AUTHORIZED NOW.** Intake STAB-1 … STAB-12 (`docs/OWNER_REQUESTED_TODO.md`); live tracker
