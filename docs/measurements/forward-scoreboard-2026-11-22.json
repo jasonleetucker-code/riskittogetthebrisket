@@ -1,0 +1,4910 @@
+{
+  "schema": "forward-scoreboard/v1",
+  "measuredAt": "2026-11-22T00:41:09.788619+00:00",
+  "codeSha": "e982547cf354ed184be6e490df121bf532547736",
+  "codeDirty": false,
+  "inputs": {
+    "mode": "archive",
+    "archiveDir": "exports/archive",
+    "ledgerBuild": {
+      "archive": {
+        "zipCount": 160,
+        "firstZip": "dynasty_export_20260714_233659.zip",
+        "lastZip": "dynasty_export_20261121_204304.zip",
+        "sha256": "cf409ba1c193b390d59d5016404579f8ba6f4956bb29dadbfeff6addef74c08f"
+      },
+      "payloadBackfill": {
+        "dates": 130,
+        "written": 529255,
+        "duplicates": 0,
+        "contentConflicts": 0,
+        "rejected": 0,
+        "unresolved": 0,
+        "unreadableDates": 0
+      },
+      "siteRawIngest": {
+        "totals": {
+          "contentConflicts": 0,
+          "dates": 130,
+          "duplicates": 0,
+          "rejected": 0,
+          "written": 109500
+        },
+        "bySource": {
+          "ktcCrowdSfTep": {
+            "dates": 73,
+            "nameKeyed": 1315,
+            "nonPositiveOrBlank": 0,
+            "rows": 36500,
+            "unresolved": 0
+          },
+          "ktcTradesSfTep": {
+            "dates": 73,
+            "nameKeyed": 1315,
+            "nonPositiveOrBlank": 0,
+            "rows": 36500,
+            "unresolved": 0
+          },
+          "ktcCrowdTradesSfTep": {
+            "dates": 73,
+            "nameKeyed": 1315,
+            "nonPositiveOrBlank": 0,
+            "rows": 36500,
+            "unresolved": 0
+          }
+        }
+      }
+    }
+  },
+  "panel": {
+    "dates": 130,
+    "start": "2026-07-14",
+    "end": "2026-11-21",
+    "marketDates": {
+      "ktcCrowdTradesSfTep": 73,
+      "ktcSfTep": 130,
+      "ktc": 130,
+      "idpTradeCalc": 130
+    },
+    "boardDates": 0,
+    "sourceLane": {
+      "idpTradeCalc": {
+        "observations": 115847,
+        "distinctDates": 130,
+        "firstDate": "2026-07-14",
+        "lastDate": "2026-11-21"
+      },
+      "ktc": {
+        "observations": 72149,
+        "distinctDates": 130,
+        "firstDate": "2026-07-14",
+        "lastDate": "2026-11-21"
+      },
+      "ktcCrowdSfTep": {
+        "observations": 36500,
+        "distinctDates": 73,
+        "firstDate": "2026-09-09",
+        "lastDate": "2026-11-21"
+      },
+      "ktcCrowdTradesSfTep": {
+        "observations": 36500,
+        "distinctDates": 73,
+        "firstDate": "2026-09-09",
+        "lastDate": "2026-11-21"
+      },
+      "ktcSfTep": {
+        "observations": 59585,
+        "distinctDates": 130,
+        "firstDate": "2026-07-14",
+        "lastDate": "2026-11-21"
+      },
+      "ktcTradesSfTep": {
+        "observations": 36500,
+        "distinctDates": 73,
+        "firstDate": "2026-09-09",
+        "lastDate": "2026-11-21"
+      }
+    }
+  },
+  "target": {
+    "offense": "the first of ['ktcCrowdTradesSfTep', 'ktcSfTep', 'ktc'] (KTC Market, then the historical KTC boards) that observed the class on both fold dates; named per fold",
+    "pick": "chosen the same way from ['ktcCrowdTradesSfTep', 'ktcSfTep', 'ktc'], per fold",
+    "idp": "idpTradeCalc"
+  },
+  "outcome": "cohort-excess forward market return over the fold (src.consensus_edge.outcomes.forward_returns): raw return minus the median return of the asset's position-family x value-tier cohort, cohort fixed at the origin price",
+  "signal": "log((x + 1) / (market + 1)) at the origin (CE mispricing.log_gap); x is the board or source value. Spearman is rank-based, so (x - market) / market gives the identical rho",
+  "minPairsPerCrossSection": 30,
+  "minUsableOriginsForVerdict": 2,
+  "groups": [
+    "ALL",
+    "QB",
+    "RB",
+    "WR",
+    "TE",
+    "IDP",
+    "PICK"
+  ],
+  "excludedSources": {
+    "signalsIdpDl": "family-local value scale; a DL/LB/DB cross-section is not comparable",
+    "signalsIdpLb": "family-local value scale; a DL/LB/DB cross-section is not comparable",
+    "signalsIdpDb": "family-local value scale; a DL/LB/DB cross-section is not comparable"
+  },
+  "horizons": {
+    "30": {
+      "horizonDays": 30,
+      "foldsAttempted": 4,
+      "foldsNote": null,
+      "folds": [
+        {
+          "origin": "2026-07-14",
+          "horizon": "2026-08-13",
+          "heldDays": 30,
+          "instruments": {
+            "offense": "ktcSfTep",
+            "pick": "ktc",
+            "idp": "idpTradeCalc"
+          },
+          "marketUniverse": 959,
+          "byGroup": {
+            "ALL": 959,
+            "QB": 71,
+            "RB": 132,
+            "WR": 188,
+            "TE": 72,
+            "IDP": 370,
+            "PICK": 126
+          },
+          "excluded": {},
+          "attrition": {
+            "of": 959,
+            "dropped": 18,
+            "rate": 0.018769551616266946,
+            "byReason": {
+              "no_cohort_peers_at_horizon": 3,
+              "no_price_at_horizon": 15
+            }
+          },
+          "persistence": {
+            "ALL": {
+              "n": 944,
+              "spearmanLevel": 0.9879158737062044,
+              "r2LogLevel": 0.9784006859797917,
+              "medianAbsLogReturn": 0.016144636402892765,
+              "unchangedShare": 0.09851694915254237
+            },
+            "QB": {
+              "n": 69,
+              "spearmanLevel": 0.9949579831932773,
+              "r2LogLevel": 0.9897139549086464,
+              "medianAbsLogReturn": 0.05139877405644189,
+              "unchangedShare": 0.0
+            },
+            "RB": {
+              "n": 125,
+              "spearmanLevel": 0.9909830475195616,
+              "r2LogLevel": 0.9800426095657261,
+              "medianAbsLogReturn": 0.03750439545845374,
+              "unchangedShare": 0.0
+            },
+            "WR": {
+              "n": 185,
+              "spearmanLevel": 0.9784072203689442,
+              "r2LogLevel": 0.9592624034858991,
+              "medianAbsLogReturn": 0.03226086221822122,
+              "unchangedShare": 0.005405405405405406
+            },
+            "TE": {
+              "n": 69,
+              "spearmanLevel": 0.9880251007454616,
+              "r2LogLevel": 0.9810852234991995,
+              "medianAbsLogReturn": 0.025533302005165126,
+              "unchangedShare": 0.0
+            },
+            "IDP": {
+              "n": 370,
+              "spearmanLevel": 0.9973309675996206,
+              "r2LogLevel": 0.9769116801347895,
+              "medianAbsLogReturn": 0.002518928979392321,
+              "unchangedShare": 0.24864864864864866
+            },
+            "PICK": {
+              "n": 126,
+              "spearmanLevel": 0.9869725111887021,
+              "r2LogLevel": 0.9898785564486196,
+              "medianAbsLogReturn": 0.02103937913197207,
+              "unchangedShare": 0.0
+            }
+          },
+          "boardObservationsAtOrigin": 0,
+          "identicalSourceSeriesAtOrigin": []
+        },
+        {
+          "origin": "2026-08-13",
+          "horizon": "2026-09-12",
+          "heldDays": 30,
+          "instruments": {
+            "offense": "ktcSfTep",
+            "pick": "ktc",
+            "idp": "idpTradeCalc"
+          },
+          "marketUniverse": 959,
+          "byGroup": {
+            "ALL": 959,
+            "QB": 69,
+            "RB": 131,
+            "WR": 191,
+            "TE": 72,
+            "IDP": 370,
+            "PICK": 126
+          },
+          "excluded": {},
+          "attrition": {
+            "of": 959,
+            "dropped": 100,
+            "rate": 0.10427528675703858,
+            "byReason": {
+              "no_cohort_peers_at_horizon": 3,
+              "no_price_at_horizon": 97
+            }
+          },
+          "persistence": {
+            "ALL": {
+              "n": 862,
+              "spearmanLevel": 0.9820707859853169,
+              "r2LogLevel": 0.9654471162988136,
+              "medianAbsLogReturn": 0.02733369400599228,
+              "unchangedShare": 0.04060324825986079
+            },
+            "QB": {
+              "n": 63,
+              "spearmanLevel": 0.9834987459755113,
+              "r2LogLevel": 0.9695869182514663,
+              "medianAbsLogReturn": 0.03925737743677349,
+              "unchangedShare": 0.0
+            },
+            "RB": {
+              "n": 112,
+              "spearmanLevel": 0.9664275601116274,
+              "r2LogLevel": 0.9411926024991283,
+              "medianAbsLogReturn": 0.056192434558944626,
+              "unchangedShare": 0.0
+            },
+            "WR": {
+              "n": 168,
+              "spearmanLevel": 0.9809013838194263,
+              "r2LogLevel": 0.9682803163178901,
+              "medianAbsLogReturn": 0.04407340914915281,
+              "unchangedShare": 0.0
+            },
+            "TE": {
+              "n": 67,
+              "spearmanLevel": 0.9796268584211073,
+              "r2LogLevel": 0.9613577914318837,
+              "medianAbsLogReturn": 0.03061844657495527,
+              "unchangedShare": 0.0
+            },
+            "IDP": {
+              "n": 368,
+              "spearmanLevel": 0.9733959928927771,
+              "r2LogLevel": 0.9493986128998024,
+              "medianAbsLogReturn": 0.008517295599649977,
+              "unchangedShare": 0.09510869565217392
+            },
+            "PICK": {
+              "n": 84,
+              "spearmanLevel": 0.9841751165730527,
+              "r2LogLevel": 0.9700046685732081,
+              "medianAbsLogReturn": 0.043543255660907665,
+              "unchangedShare": 0.0
+            }
+          },
+          "boardObservationsAtOrigin": 0,
+          "identicalSourceSeriesAtOrigin": []
+        },
+        {
+          "origin": "2026-09-12",
+          "horizon": "2026-10-12",
+          "heldDays": 30,
+          "instruments": {
+            "offense": "ktcCrowdTradesSfTep",
+            "pick": "ktcCrowdTradesSfTep",
+            "idp": "idpTradeCalc"
+          },
+          "marketUniverse": 859,
+          "byGroup": {
+            "ALL": 859,
+            "QB": 64,
+            "RB": 109,
+            "WR": 159,
+            "TE": 67,
+            "IDP": 376,
+            "PICK": 84
+          },
+          "excluded": {},
+          "attrition": {
+            "of": 859,
+            "dropped": 71,
+            "rate": 0.08265424912689173,
+            "byReason": {
+              "no_cohort_peers_at_horizon": 2,
+              "no_price_at_horizon": 69
+            }
+          },
+          "persistence": {
+            "ALL": {
+              "n": 790,
+              "spearmanLevel": 0.9746687652634569,
+              "r2LogLevel": 0.9475831525216339,
+              "medianAbsLogReturn": 0.04155617885019769,
+              "unchangedShare": 0.0379746835443038
+            },
+            "QB": {
+              "n": 64,
+              "spearmanLevel": 0.9537426024274401,
+              "r2LogLevel": 0.9351051018481963,
+              "medianAbsLogReturn": 0.07373531413344203,
+              "unchangedShare": 0.0
+            },
+            "RB": {
+              "n": 106,
+              "spearmanLevel": 0.9722169741244896,
+              "r2LogLevel": 0.9529959118907012,
+              "medianAbsLogReturn": 0.07904149592008336,
+              "unchangedShare": 0.009433962264150943
+            },
+            "WR": {
+              "n": 158,
+              "spearmanLevel": 0.9754250360546523,
+              "r2LogLevel": 0.9581722110705322,
+              "medianAbsLogReturn": 0.06323081325800928,
+              "unchangedShare": 0.0
+            },
+            "TE": {
+              "n": 67,
+              "spearmanLevel": 0.9710865010475904,
+              "r2LogLevel": 0.9526147697217945,
+              "medianAbsLogReturn": 0.05998682903021901,
+              "unchangedShare": 0.0
+            },
+            "IDP": {
+              "n": 371,
+              "spearmanLevel": 0.9595056390480863,
+              "r2LogLevel": 0.9092618310772769,
+              "medianAbsLogReturn": 0.015861166489382406,
+              "unchangedShare": 0.07816711590296496
+            },
+            "PICK": {
+              "n": 24,
+              "spearmanLevel": null,
+              "r2LogLevel": null,
+              "medianAbsLogReturn": null,
+              "unchangedShare": null,
+              "reason": "only 24 paired rows (need 30)"
+            }
+          },
+          "boardObservationsAtOrigin": 0,
+          "identicalSourceSeriesAtOrigin": [
+            [
+              "ktcCrowdSfTep",
+              "ktcSfTep"
+            ]
+          ]
+        },
+        {
+          "origin": "2026-10-12",
+          "horizon": "2026-11-11",
+          "heldDays": 30,
+          "instruments": {
+            "offense": "ktcCrowdTradesSfTep",
+            "pick": "ktcCrowdTradesSfTep",
+            "idp": "idpTradeCalc"
+          },
+          "marketUniverse": 858,
+          "byGroup": {
+            "ALL": 858,
+            "QB": 73,
+            "RB": 118,
+            "WR": 177,
+            "TE": 77,
+            "IDP": 377,
+            "PICK": 36
+          },
+          "excluded": {},
+          "attrition": {
+            "of": 858,
+            "dropped": 21,
+            "rate": 0.024475524475524476,
+            "byReason": {
+              "no_cohort_peers_at_horizon": 2,
+              "no_price_at_horizon": 19
+            }
+          },
+          "persistence": {
+            "ALL": {
+              "n": 839,
+              "spearmanLevel": 0.9868127781014826,
+              "r2LogLevel": 0.9719690180749229,
+              "medianAbsLogReturn": 0.0200514025577192,
+              "unchangedShare": 0.12276519666269368
+            },
+            "QB": {
+              "n": 68,
+              "spearmanLevel": 0.9763331679199908,
+              "r2LogLevel": 0.9590295834514391,
+              "medianAbsLogReturn": 0.06788385807556718,
+              "unchangedShare": 0.0
+            },
+            "RB": {
+              "n": 112,
+              "spearmanLevel": 0.9804023738413159,
+              "r2LogLevel": 0.9569383594970684,
+              "medianAbsLogReturn": 0.07488149848837766,
+              "unchangedShare": 0.0
+            },
+            "WR": {
+              "n": 172,
+              "spearmanLevel": 0.9844901732584084,
+              "r2LogLevel": 0.9745618767438662,
+              "medianAbsLogReturn": 0.04355004052028155,
+              "unchangedShare": 0.0
+            },
+            "TE": {
+              "n": 75,
+              "spearmanLevel": 0.9868773871669352,
+              "r2LogLevel": 0.9805028790678171,
+              "medianAbsLogReturn": 0.03555021960708249,
+              "unchangedShare": 0.0
+            },
+            "IDP": {
+              "n": 376,
+              "spearmanLevel": 0.9930002202633983,
+              "r2LogLevel": 0.9626177984775546,
+              "medianAbsLogReturn": 0.002447996308559297,
+              "unchangedShare": 0.27393617021276595
+            },
+            "PICK": {
+              "n": 36,
+              "spearmanLevel": 0.9979407979407979,
+              "r2LogLevel": 0.9957827372054477,
+              "medianAbsLogReturn": 0.01664115742293726,
+              "unchangedShare": 0.0
+            }
+          },
+          "boardObservationsAtOrigin": 0,
+          "identicalSourceSeriesAtOrigin": [
+            [
+              "ktcCrowdSfTep",
+              "ktcSfTep"
+            ]
+          ]
+        }
+      ],
+      "board": {
+        "status": "unavailable",
+        "reason": "the ledger holds no canonical_board observation on any fold origin. The committed archive carries the raw scraper payload, not the served board (no rankDerivedValue; audit W04-F009), so archive mode cannot measure the board. Run --ledger against a ledger that recorded the served board (origins live:server / migration:*)."
+      },
+      "sources": {
+        "idpTradeCalc": {
+          "provider": "idpTradeCalculator",
+          "sameProviderAsOffenseTarget": false,
+          "isIdpTarget": true,
+          "byGroup": {
+            "ALL": {
+              "foldsAttempted": 4,
+              "foldsUsable": 4,
+              "meanSpearman": -0.09662489302399906,
+              "medianSpearman": -0.09146527163165659,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 514,
+                  "rho": -0.16378298934623572,
+                  "partialR": -0.22802376069406943,
+                  "deltaR2": 0.0012757987160627727
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 487,
+                  "rho": -0.039786039486447336,
+                  "partialR": -0.10555449918192697,
+                  "deltaR2": 0.0004254837931356975
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 416,
+                  "rho": -0.1137368225305077,
+                  "partialR": -0.16773333526476378,
+                  "deltaR2": 0.0013044279048150481
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 447,
+                  "rho": -0.06919372073280548,
+                  "partialR": -0.07569702153395312,
+                  "deltaR2": 0.00019000821697806431
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.038827166847330855,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": -0.007726092365371791,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "negative and consistent (mean rho -0.097 over 4 non-overlapping folds; 4/4 folds negative; beat market-value benchmark in 1/4)",
+              "foldsPositive": 0,
+              "originsUnusable": [],
+              "meanPartialR": -0.14425215416867831,
+              "meanDeltaR2": 0.0007989296577478956
+            },
+            "QB": {
+              "foldsAttempted": 4,
+              "foldsUsable": 4,
+              "meanSpearman": -0.1595404741749054,
+              "medianSpearman": -0.14394578713716877,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 67,
+                  "rho": -0.24379439699896244,
+                  "partialR": -0.5386307200323367,
+                  "deltaR2": 0.003423314166654213
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 63,
+                  "rho": -0.10647592542632175,
+                  "partialR": -0.1151589432921096,
+                  "deltaR2": 0.0004033255841764852
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 63,
+                  "rho": -0.15226757234646243,
+                  "partialR": -0.4136293326758526,
+                  "deltaR2": 0.010248680298787685
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 66,
+                  "rho": -0.13562400192787508,
+                  "partialR": -0.21088983581452908,
+                  "deltaR2": 0.002047097439668914
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.028518627114056498,
+                  "beatenInFolds": 0
+                },
+                "random": {
+                  "meanSpearman": -0.08732784968883284,
+                  "beatenInFolds": 2
+                }
+              },
+              "verdict": "negative and consistent (mean rho -0.160 over 4 non-overlapping folds; 4/4 folds negative; beat market-value benchmark in 0/4)",
+              "foldsPositive": 0,
+              "originsUnusable": [],
+              "meanPartialR": -0.319577207953707,
+              "meanDeltaR2": 0.0040306043723218245
+            },
+            "RB": {
+              "foldsAttempted": 4,
+              "foldsUsable": 4,
+              "meanSpearman": -0.20667067213147772,
+              "medianSpearman": -0.17705277063075228,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 119,
+                  "rho": -0.4034396809571286,
+                  "partialR": -0.6567355037681863,
+                  "deltaR2": 0.00785710510755727
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 111,
+                  "rho": -0.19792909792909794,
+                  "partialR": -0.06506266024732178,
+                  "deltaR2": 0.0002503843197467071
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 105,
+                  "rho": -0.06913746630727764,
+                  "partialR": -0.013680327991489386,
+                  "deltaR2": 8.969175616607677e-06
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 109,
+                  "rho": -0.15617644333240663,
+                  "partialR": -0.11361679064902488,
+                  "deltaR2": 0.0005932607594118104
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.04447788606293157,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": 0.09462341689595685,
+                  "beatenInFolds": 0
+                }
+              },
+              "verdict": "negative and consistent (mean rho -0.207 over 4 non-overlapping folds; 4/4 folds negative; beat market-value benchmark in 1/4)",
+              "foldsPositive": 0,
+              "originsUnusable": [],
+              "meanPartialR": -0.2122738206640056,
+              "meanDeltaR2": 0.0021774298405830986
+            },
+            "WR": {
+              "foldsAttempted": 4,
+              "foldsUsable": 4,
+              "meanSpearman": -0.14559358335512496,
+              "medianSpearman": -0.17077750172606082,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 177,
+                  "rho": -0.24960613562784578,
+                  "partialR": -0.3503413416594345,
+                  "deltaR2": 0.004861816923355546
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 164,
+                  "rho": -0.2019675485093065,
+                  "partialR": -0.3362071951928595,
+                  "deltaR2": 0.0028453413894392993
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 158,
+                  "rho": -0.13958745494281513,
+                  "partialR": -0.18823219495745114,
+                  "deltaR2": 0.0014820154148755672
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 163,
+                  "rho": 0.008786805659467638,
+                  "partialR": 0.004516940987663999,
+                  "deltaR2": 5.280804328048062e-07
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.03289815209034856,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": 0.03669467411197821,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "inconsistent across folds (mean rho -0.146 over 4 non-overlapping folds; 3/4 folds negative; beat market-value benchmark in 1/4)",
+              "foldsPositive": 1,
+              "originsUnusable": [],
+              "meanPartialR": -0.2175659477055203,
+              "meanDeltaR2": 0.0022974254520258044
+            },
+            "TE": {
+              "foldsAttempted": 4,
+              "foldsUsable": 4,
+              "meanSpearman": -0.20283233519100746,
+              "medianSpearman": -0.22104717056429088,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 69,
+                  "rho": -0.3237851662404092,
+                  "partialR": -0.3983753386817739,
+                  "deltaR2": 0.003001830081563165
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 67,
+                  "rho": -0.24159948918509064,
+                  "partialR": -0.3896056897606738,
+                  "deltaR2": 0.005865601056886204
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 67,
+                  "rho": -0.20049485194349112,
+                  "partialR": -0.1896515990488395,
+                  "deltaR2": 0.001704339122281225
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 74,
+                  "rho": -0.04544983339503887,
+                  "partialR": -0.07122462030961307,
+                  "deltaR2": 0.00010418570932012703
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.12836889676309204,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": 0.07782978284945466,
+                  "beatenInFolds": 0
+                }
+              },
+              "verdict": "negative and consistent (mean rho -0.203 over 4 non-overlapping folds; 4/4 folds negative; beat market-value benchmark in 1/4)",
+              "foldsPositive": 0,
+              "originsUnusable": [],
+              "meanPartialR": -0.26221431195022504,
+              "meanDeltaR2": 0.0026689889925126803
+            },
+            "IDP": {
+              "foldsAttempted": 4,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "PICK": {
+              "foldsAttempted": 4,
+              "foldsUsable": 3,
+              "meanSpearman": 0.32764659436539084,
+              "medianSpearman": 0.3428583867138995,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 82,
+                  "rho": 0.3428583867138995,
+                  "partialR": 0.23705832730431514,
+                  "deltaR2": 0.0002854156721985026
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 82,
+                  "rho": 0.5921822367184075,
+                  "partialR": 0.7479206633522563,
+                  "deltaR2": 0.018946874715689455
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 35,
+                  "rho": 0.04789915966386555,
+                  "partialR": 0.3944053032306052,
+                  "deltaR2": 0.0006533936526049663
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.02253966526387075,
+                  "beatenInFolds": 3
+                },
+                "random": {
+                  "meanSpearman": -0.14155664460707215,
+                  "beatenInFolds": 3
+                }
+              },
+              "verdict": "positive and consistent (mean rho +0.328 over 3 non-overlapping folds; 3/3 folds positive; beat market-value benchmark in 3/3)",
+              "foldsPositive": 3,
+              "originsUnusable": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 23,
+                  "reason": "only 23 paired rows (need 30)"
+                }
+              ],
+              "meanPartialR": 0.4597947646290588,
+              "meanDeltaR2": 0.006628561346830974
+            }
+          }
+        },
+        "ktc": {
+          "provider": "keepTradeCut",
+          "sameProviderAsOffenseTarget": true,
+          "isIdpTarget": false,
+          "byGroup": {
+            "ALL": {
+              "foldsAttempted": 4,
+              "foldsUsable": 4,
+              "meanSpearman": 0.004935237511015903,
+              "medianSpearman": 0.004776395064894371,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 448,
+                  "rho": 0.021879732316538242,
+                  "partialR": -0.030201962640492748,
+                  "deltaR2": 2.4597819361834734e-05
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 410,
+                  "rho": -0.011691572402263374,
+                  "partialR": -0.07458342025312996,
+                  "deltaR2": 0.00022247303637065768
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 418,
+                  "rho": -0.008826478597837981,
+                  "partialR": -0.012687122358193888,
+                  "deltaR2": 7.612985512604356e-06
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 462,
+                  "rho": 0.018379268727626723,
+                  "partialR": 0.08637198981863192,
+                  "deltaR2": 0.00023280307234482375
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.06022723707161391,
+                  "beatenInFolds": 4
+                },
+                "random": {
+                  "meanSpearman": -0.022290930916716772,
+                  "beatenInFolds": 3
+                }
+              },
+              "verdict": "no effect detected (mean rho +0.005 over 4 non-overlapping folds; 2/4 folds positive; beat market-value benchmark in 4/4)",
+              "foldsPositive": 2,
+              "originsUnusable": [],
+              "meanPartialR": -0.007775128858296168,
+              "meanDeltaR2": 0.00012187172839748013
+            },
+            "QB": {
+              "foldsAttempted": 4,
+              "foldsUsable": 2,
+              "meanSpearman": -0.016504814976390135,
+              "medianSpearman": -0.016504814976390135,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 64,
+                  "rho": -0.032417953504338924,
+                  "partialR": 0.052716416019797874,
+                  "deltaR2": 0.00018034425347559181
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 68,
+                  "rho": -0.0005916764484413452,
+                  "partialR": -0.042490281197327916,
+                  "deltaR2": 7.396897317222859e-05
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.047940041857408904,
+                  "beatenInFolds": 2
+                },
+                "random": {
+                  "meanSpearman": -0.17635884038450064,
+                  "beatenInFolds": 2
+                }
+              },
+              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho -0.017 is reported for completeness only.",
+              "foldsPositive": 0,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 69,
+                  "reason": "correlation undefined (zero variance in signal or outcome)"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 63,
+                  "reason": "correlation undefined (zero variance in signal or outcome)"
+                }
+              ],
+              "meanPartialR": 0.005113067411234979,
+              "meanDeltaR2": 0.0001271566133239102
+            },
+            "RB": {
+              "foldsAttempted": 4,
+              "foldsUsable": 2,
+              "meanSpearman": -0.02328206934088745,
+              "medianSpearman": -0.02328206934088745,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 106,
+                  "rho": -0.05765171171625059,
+                  "partialR": -0.0772756409277029,
+                  "deltaR2": 0.0002806860722425772
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 112,
+                  "rho": 0.011087573034475691,
+                  "partialR": 0.07799993014302797,
+                  "deltaR2": 0.00026198655154773866
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.1285591904004017,
+                  "beatenInFolds": 2
+                },
+                "random": {
+                  "meanSpearman": 0.0100103114866942,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho -0.023 is reported for completeness only.",
+              "foldsPositive": 1,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 125,
+                  "reason": "correlation undefined (zero variance in signal or outcome)"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 112,
+                  "reason": "correlation undefined (zero variance in signal or outcome)"
+                }
+              ],
+              "meanPartialR": 0.0003621446076625401,
+              "meanDeltaR2": 0.0002713363118951579
+            },
+            "WR": {
+              "foldsAttempted": 4,
+              "foldsUsable": 2,
+              "meanSpearman": 0.09202377141870129,
+              "medianSpearman": 0.09202377141870129,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 158,
+                  "rho": 0.054690096804118904,
+                  "partialR": -0.005515721901228666,
+                  "deltaR2": 1.2725346900608571e-06
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 172,
+                  "rho": 0.12935744603328367,
+                  "partialR": 0.26120148790107944,
+                  "deltaR2": 0.001735546924512612
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.12246233246671179,
+                  "beatenInFolds": 2
+                },
+                "random": {
+                  "meanSpearman": 0.08816797957851122,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho +0.092 is reported for completeness only.",
+              "foldsPositive": 2,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 185,
+                  "reason": "correlation undefined (zero variance in signal or outcome)"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 168,
+                  "reason": "correlation undefined (zero variance in signal or outcome)"
+                }
+              ],
+              "meanPartialR": 0.12784288299992538,
+              "meanDeltaR2": 0.0008684097296013364
+            },
+            "TE": {
+              "foldsAttempted": 4,
+              "foldsUsable": 4,
+              "meanSpearman": -0.10037587957755595,
+              "medianSpearman": -0.0805299159366419,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 69,
+                  "rho": -0.19773474607234198,
+                  "partialR": -0.23977485110613053,
+                  "deltaR2": 0.0010874479375910901
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 67,
+                  "rho": -0.43307526538430846,
+                  "partialR": -0.5073304266953181,
+                  "deltaR2": 0.009945892464370484
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 67,
+                  "rho": 0.03667491419905819,
+                  "partialR": -0.018444158021726522,
+                  "deltaR2": 1.6119837680348765e-05
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 75,
+                  "rho": 0.19263157894736843,
+                  "partialR": 0.21744067905992823,
+                  "deltaR2": 0.000921832630126999
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.12863049990050943,
+                  "beatenInFolds": 2
+                },
+                "random": {
+                  "meanSpearman": 0.08570386457357243,
+                  "beatenInFolds": 2
+                }
+              },
+              "verdict": "inconsistent across folds (mean rho -0.100 over 4 non-overlapping folds; 2/4 folds negative; beat market-value benchmark in 2/4)",
+              "foldsPositive": 2,
+              "originsUnusable": [],
+              "meanPartialR": -0.13702718919081175,
+              "meanDeltaR2": 0.0029928232174422304
+            },
+            "IDP": {
+              "foldsAttempted": 4,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "PICK": {
+              "foldsAttempted": 4,
+              "foldsUsable": 1,
+              "meanSpearman": -0.1672268907563025,
+              "medianSpearman": -0.1672268907563025,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-10-12",
+                  "n": 35,
+                  "rho": -0.1672268907563025,
+                  "partialR": 0.14474541846560607,
+                  "deltaR2": 8.800332307385352e-05
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.16666666666666666,
+                  "beatenInFolds": 0
+                },
+                "random": {
+                  "meanSpearman": -0.33753501400560226,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 0,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 23,
+                  "reason": "only 23 paired rows (need 30)"
+                }
+              ],
+              "meanPartialR": 0.14474541846560607,
+              "meanDeltaR2": 8.800332307385352e-05
+            }
+          }
+        },
+        "ktcCrowdSfTep": {
+          "provider": "keepTradeCut",
+          "sameProviderAsOffenseTarget": true,
+          "isIdpTarget": false,
+          "byGroup": {
+            "ALL": {
+              "foldsAttempted": 4,
+              "foldsUsable": 2,
+              "meanSpearman": 0.04230339860484216,
+              "medianSpearman": 0.04230339860484216,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 418,
+                  "rho": -0.00044206743627465614,
+                  "partialR": -0.02877387564546139,
+                  "deltaR2": 3.9158448056496e-05
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 462,
+                  "rho": 0.08504886464595898,
+                  "partialR": 0.12685500000860137,
+                  "deltaR2": 0.0005021784097187309
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.07980165070856496,
+                  "beatenInFolds": 2
+                },
+                "random": {
+                  "meanSpearman": -0.06340843744291697,
+                  "beatenInFolds": 2
+                }
+              },
+              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho +0.042 is reported for completeness only.",
+              "foldsPositive": 1,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": 0.04904056218156999,
+              "meanDeltaR2": 0.0002706684288876134
+            },
+            "QB": {
+              "foldsAttempted": 4,
+              "foldsUsable": 2,
+              "meanSpearman": -0.016504814976390135,
+              "medianSpearman": -0.016504814976390135,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 64,
+                  "rho": -0.032417953504338924,
+                  "partialR": 0.052716416019797874,
+                  "deltaR2": 0.00018034425347559181
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 68,
+                  "rho": -0.0005916764484413452,
+                  "partialR": -0.042490281197327916,
+                  "deltaR2": 7.396897317222859e-05
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.047940041857408904,
+                  "beatenInFolds": 2
+                },
+                "random": {
+                  "meanSpearman": -0.17635884038450064,
+                  "beatenInFolds": 2
+                }
+              },
+              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho -0.017 is reported for completeness only.",
+              "foldsPositive": 0,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": 0.005113067411234979,
+              "meanDeltaR2": 0.0001271566133239102
+            },
+            "RB": {
+              "foldsAttempted": 4,
+              "foldsUsable": 2,
+              "meanSpearman": -0.02328206934088745,
+              "medianSpearman": -0.02328206934088745,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 106,
+                  "rho": -0.05765171171625059,
+                  "partialR": -0.0772756409277029,
+                  "deltaR2": 0.0002806860722425772
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 112,
+                  "rho": 0.011087573034475691,
+                  "partialR": 0.07799993014302797,
+                  "deltaR2": 0.00026198655154773866
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.1285591904004017,
+                  "beatenInFolds": 2
+                },
+                "random": {
+                  "meanSpearman": 0.0100103114866942,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho -0.023 is reported for completeness only.",
+              "foldsPositive": 1,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": 0.0003621446076625401,
+              "meanDeltaR2": 0.0002713363118951579
+            },
+            "WR": {
+              "foldsAttempted": 4,
+              "foldsUsable": 2,
+              "meanSpearman": 0.09202377141870129,
+              "medianSpearman": 0.09202377141870129,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 158,
+                  "rho": 0.054690096804118904,
+                  "partialR": -0.005515721901228666,
+                  "deltaR2": 1.2725346900608571e-06
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 172,
+                  "rho": 0.12935744603328367,
+                  "partialR": 0.26120148790107944,
+                  "deltaR2": 0.001735546924512612
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.12246233246671179,
+                  "beatenInFolds": 2
+                },
+                "random": {
+                  "meanSpearman": 0.08816797957851122,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho +0.092 is reported for completeness only.",
+              "foldsPositive": 2,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": 0.12784288299992538,
+              "meanDeltaR2": 0.0008684097296013364
+            },
+            "TE": {
+              "foldsAttempted": 4,
+              "foldsUsable": 2,
+              "meanSpearman": 0.1403258045885466,
+              "medianSpearman": 0.1403258045885466,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 67,
+                  "rho": -0.018836299784499962,
+                  "partialR": -0.07794566746213674,
+                  "deltaR2": 0.0002878902495633242
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 75,
+                  "rho": 0.29948790896159316,
+                  "partialR": 0.25158052301703765,
+                  "deltaR2": 0.0012340265873026534
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": 0.058555946736287535,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": 0.053710996746438734,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho +0.140 is reported for completeness only.",
+              "foldsPositive": 1,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": 0.08681742777745045,
+              "meanDeltaR2": 0.0007609584184329888
+            },
+            "IDP": {
+              "foldsAttempted": 4,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "PICK": {
+              "foldsAttempted": 4,
+              "foldsUsable": 1,
+              "meanSpearman": -0.1672268907563025,
+              "medianSpearman": -0.1672268907563025,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-10-12",
+                  "n": 35,
+                  "rho": -0.1672268907563025,
+                  "partialR": 0.14474541846560607,
+                  "deltaR2": 8.800332307385352e-05
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.16666666666666666,
+                  "beatenInFolds": 0
+                },
+                "random": {
+                  "meanSpearman": -0.33753501400560226,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 0,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 23,
+                  "reason": "only 23 paired rows (need 30)"
+                }
+              ],
+              "meanPartialR": 0.14474541846560607,
+              "meanDeltaR2": 8.800332307385352e-05
+            }
+          }
+        },
+        "ktcCrowdTradesSfTep": {
+          "provider": "keepTradeCut",
+          "sameProviderAsOffenseTarget": true,
+          "isIdpTarget": false,
+          "byGroup": {
+            "ALL": {
+              "foldsAttempted": 4,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "QB": {
+              "foldsAttempted": 4,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "RB": {
+              "foldsAttempted": 4,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "WR": {
+              "foldsAttempted": 4,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "TE": {
+              "foldsAttempted": 4,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "IDP": {
+              "foldsAttempted": 4,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "PICK": {
+              "foldsAttempted": 4,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            }
+          }
+        },
+        "ktcSfTep": {
+          "provider": "keepTradeCut",
+          "sameProviderAsOffenseTarget": true,
+          "isIdpTarget": false,
+          "byGroup": {
+            "ALL": {
+              "foldsAttempted": 4,
+              "foldsUsable": 2,
+              "meanSpearman": 0.04349678016395047,
+              "medianSpearman": 0.04349678016395047,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 395,
+                  "rho": -0.0036317721454365817,
+                  "partialR": -0.04024271894009064,
+                  "deltaR2": 7.792946513853215e-05
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 427,
+                  "rho": 0.09062533247333752,
+                  "partialR": 0.12546704127958433,
+                  "deltaR2": 0.0005048499782262614
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.08416879091342874,
+                  "beatenInFolds": 2
+                },
+                "random": {
+                  "meanSpearman": 0.04464027927238784,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho +0.043 is reported for completeness only.",
+              "foldsPositive": 1,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": 0.042612161169746844,
+              "meanDeltaR2": 0.00029138972168239676
+            },
+            "QB": {
+              "foldsAttempted": 4,
+              "foldsUsable": 2,
+              "meanSpearman": -0.016504814976390135,
+              "medianSpearman": -0.016504814976390135,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 64,
+                  "rho": -0.032417953504338924,
+                  "partialR": 0.052716416019797874,
+                  "deltaR2": 0.00018034425347559181
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 68,
+                  "rho": -0.0005916764484413452,
+                  "partialR": -0.042490281197327916,
+                  "deltaR2": 7.396897317222859e-05
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.047940041857408904,
+                  "beatenInFolds": 2
+                },
+                "random": {
+                  "meanSpearman": -0.17635884038450064,
+                  "beatenInFolds": 2
+                }
+              },
+              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho -0.017 is reported for completeness only.",
+              "foldsPositive": 0,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": 0.005113067411234979,
+              "meanDeltaR2": 0.0001271566133239102
+            },
+            "RB": {
+              "foldsAttempted": 4,
+              "foldsUsable": 2,
+              "meanSpearman": -0.02328206934088745,
+              "medianSpearman": -0.02328206934088745,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 106,
+                  "rho": -0.05765171171625059,
+                  "partialR": -0.0772756409277029,
+                  "deltaR2": 0.0002806860722425772
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 112,
+                  "rho": 0.011087573034475691,
+                  "partialR": 0.07799993014302797,
+                  "deltaR2": 0.00026198655154773866
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.1285591904004017,
+                  "beatenInFolds": 2
+                },
+                "random": {
+                  "meanSpearman": 0.0100103114866942,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho -0.023 is reported for completeness only.",
+              "foldsPositive": 1,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": 0.0003621446076625401,
+              "meanDeltaR2": 0.0002713363118951579
+            },
+            "WR": {
+              "foldsAttempted": 4,
+              "foldsUsable": 2,
+              "meanSpearman": 0.09202377141870129,
+              "medianSpearman": 0.09202377141870129,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 158,
+                  "rho": 0.054690096804118904,
+                  "partialR": -0.005515721901228666,
+                  "deltaR2": 1.2725346900608571e-06
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 172,
+                  "rho": 0.12935744603328367,
+                  "partialR": 0.26120148790107944,
+                  "deltaR2": 0.001735546924512612
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.12246233246671179,
+                  "beatenInFolds": 2
+                },
+                "random": {
+                  "meanSpearman": 0.08816797957851122,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho +0.092 is reported for completeness only.",
+              "foldsPositive": 2,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": 0.12784288299992538,
+              "meanDeltaR2": 0.0008684097296013364
+            },
+            "TE": {
+              "foldsAttempted": 4,
+              "foldsUsable": 2,
+              "meanSpearman": 0.1403258045885466,
+              "medianSpearman": 0.1403258045885466,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 67,
+                  "rho": -0.018836299784499962,
+                  "partialR": -0.07794566746213674,
+                  "deltaR2": 0.0002878902495633242
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 75,
+                  "rho": 0.29948790896159316,
+                  "partialR": 0.25158052301703765,
+                  "deltaR2": 0.0012340265873026534
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": 0.058555946736287535,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": 0.053710996746438734,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho +0.140 is reported for completeness only.",
+              "foldsPositive": 1,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": 0.08681742777745045,
+              "meanDeltaR2": 0.0007609584184329888
+            },
+            "IDP": {
+              "foldsAttempted": 4,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "PICK": {
+              "foldsAttempted": 4,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            }
+          }
+        },
+        "ktcTradesSfTep": {
+          "provider": "keepTradeCut",
+          "sameProviderAsOffenseTarget": true,
+          "isIdpTarget": false,
+          "byGroup": {
+            "ALL": {
+              "foldsAttempted": 4,
+              "foldsUsable": 2,
+              "meanSpearman": -0.042437455644619204,
+              "medianSpearman": -0.042437455644619204,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 418,
+                  "rho": 0.0006392356184622803,
+                  "partialR": 0.018025474204194664,
+                  "deltaR2": 1.536746186549735e-05
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 462,
+                  "rho": -0.08551414690770069,
+                  "partialR": -0.15527321753827833,
+                  "deltaR2": 0.0007523777827220113
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.07980165070856496,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": -0.06340843744291697,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho -0.042 is reported for completeness only.",
+              "foldsPositive": 1,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": -0.06862387166704183,
+              "meanDeltaR2": 0.0003838726222937543
+            },
+            "QB": {
+              "foldsAttempted": 4,
+              "foldsUsable": 2,
+              "meanSpearman": 0.018776098368448783,
+              "medianSpearman": 0.018776098368448783,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 64,
+                  "rho": 0.03425026042785393,
+                  "partialR": -0.11852264855840076,
+                  "deltaR2": 0.0009116187537465673
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 68,
+                  "rho": 0.003301936309043636,
+                  "partialR": 0.028122523441698345,
+                  "deltaR2": 3.240253246253686e-05
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.047940041857408904,
+                  "beatenInFolds": 2
+                },
+                "random": {
+                  "meanSpearman": -0.17635884038450064,
+                  "beatenInFolds": 2
+                }
+              },
+              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho +0.019 is reported for completeness only.",
+              "foldsPositive": 2,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": -0.04520006255835121,
+              "meanDeltaR2": 0.0004720106431045521
+            },
+            "RB": {
+              "foldsAttempted": 4,
+              "foldsUsable": 2,
+              "meanSpearman": 0.02297793476929525,
+              "medianSpearman": 0.02297793476929525,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 106,
+                  "rho": 0.05735949819885633,
+                  "partialR": 0.10863199417562087,
+                  "deltaR2": 0.0005546910208634434
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 112,
+                  "rho": -0.01140362866026583,
+                  "partialR": -0.049274244430380976,
+                  "deltaR2": 0.00010455156019080574
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.1285591904004017,
+                  "beatenInFolds": 2
+                },
+                "random": {
+                  "meanSpearman": 0.0100103114866942,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho +0.023 is reported for completeness only.",
+              "foldsPositive": 1,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": 0.02967887487261995,
+              "meanDeltaR2": 0.0003296212905271246
+            },
+            "WR": {
+              "foldsAttempted": 4,
+              "foldsUsable": 2,
+              "meanSpearman": -0.09166896585084844,
+              "medianSpearman": -0.09166896585084844,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 158,
+                  "rho": -0.05332250210503118,
+                  "partialR": -0.010393624985335926,
+                  "deltaR2": 4.518548972956488e-06
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 172,
+                  "rho": -0.1300154295966657,
+                  "partialR": -0.3039958693683526,
+                  "deltaR2": 0.002350825713358572
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.12246233246671179,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": 0.08816797957851122,
+                  "beatenInFolds": 0
+                }
+              },
+              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho -0.092 is reported for completeness only.",
+              "foldsPositive": 0,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": -0.15719474717684426,
+              "meanDeltaR2": 0.001177672131165764
+            },
+            "TE": {
+              "foldsAttempted": 4,
+              "foldsUsable": 2,
+              "meanSpearman": -0.14031750407333793,
+              "medianSpearman": -0.14031750407333793,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 67,
+                  "rho": 0.018596855295713945,
+                  "partialR": 0.08528832943866795,
+                  "deltaR2": 0.00034468486274141666
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 75,
+                  "rho": -0.2992318634423898,
+                  "partialR": -0.2581418108777122,
+                  "deltaR2": 0.001299233440200706
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": 0.058555946736287535,
+                  "beatenInFolds": 0
+                },
+                "random": {
+                  "meanSpearman": 0.053710996746438734,
+                  "beatenInFolds": 0
+                }
+              },
+              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho -0.140 is reported for completeness only.",
+              "foldsPositive": 1,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": -0.08642674071952214,
+              "meanDeltaR2": 0.0008219591514710613
+            },
+            "IDP": {
+              "foldsAttempted": 4,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                },
+                {
+                  "origin": "2026-10-12",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "PICK": {
+              "foldsAttempted": 4,
+              "foldsUsable": 1,
+              "meanSpearman": 0.1607843137254902,
+              "medianSpearman": 0.1607843137254902,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-10-12",
+                  "n": 35,
+                  "rho": 0.1607843137254902,
+                  "partialR": -0.1289476509140453,
+                  "deltaR2": 6.984193917060648e-05
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.16666666666666666,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": -0.33753501400560226,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 1,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 23,
+                  "reason": "only 23 paired rows (need 30)"
+                }
+              ],
+              "meanPartialR": -0.1289476509140453,
+              "meanDeltaR2": 6.984193917060648e-05
+            }
+          }
+        }
+      }
+    },
+    "60": {
+      "horizonDays": 60,
+      "foldsAttempted": 2,
+      "foldsNote": null,
+      "folds": [
+        {
+          "origin": "2026-07-14",
+          "horizon": "2026-09-12",
+          "heldDays": 60,
+          "instruments": {
+            "offense": "ktcSfTep",
+            "pick": "ktc",
+            "idp": "idpTradeCalc"
+          },
+          "marketUniverse": 959,
+          "byGroup": {
+            "ALL": 959,
+            "QB": 71,
+            "RB": 132,
+            "WR": 188,
+            "TE": 72,
+            "IDP": 370,
+            "PICK": 126
+          },
+          "excluded": {},
+          "attrition": {
+            "of": 959,
+            "dropped": 106,
+            "rate": 0.1105318039624609,
+            "byReason": {
+              "no_cohort_peers_at_horizon": 4,
+              "no_price_at_horizon": 102
+            }
+          },
+          "persistence": {
+            "ALL": {
+              "n": 857,
+              "spearmanLevel": 0.9690044744267429,
+              "r2LogLevel": 0.9429401452861328,
+              "medianAbsLogReturn": 0.03761686357130678,
+              "unchangedShare": 0.028004667444574097
+            },
+            "QB": {
+              "n": 63,
+              "spearmanLevel": 0.9706097664121365,
+              "r2LogLevel": 0.9564911394424477,
+              "medianAbsLogReturn": 0.06833977469656638,
+              "unchangedShare": 0.0
+            },
+            "RB": {
+              "n": 111,
+              "spearmanLevel": 0.9508267209756701,
+              "r2LogLevel": 0.9195109583798065,
+              "medianAbsLogReturn": 0.06583525786563627,
+              "unchangedShare": 0.0
+            },
+            "WR": {
+              "n": 165,
+              "spearmanLevel": 0.9469924498187194,
+              "r2LogLevel": 0.9057343499628017,
+              "medianAbsLogReturn": 0.06151484845908861,
+              "unchangedShare": 0.006060606060606061
+            },
+            "TE": {
+              "n": 66,
+              "spearmanLevel": 0.9675702193477468,
+              "r2LogLevel": 0.9441992656025257,
+              "medianAbsLogReturn": 0.051030107251182955,
+              "unchangedShare": 0.0
+            },
+            "IDP": {
+              "n": 368,
+              "spearmanLevel": 0.9692540851876141,
+              "r2LogLevel": 0.9264112085626038,
+              "medianAbsLogReturn": 0.013718372144774005,
+              "unchangedShare": 0.0625
+            },
+            "PICK": {
+              "n": 84,
+              "spearmanLevel": 0.9826614760904908,
+              "r2LogLevel": 0.9688791622288385,
+              "medianAbsLogReturn": 0.045505791221668535,
+              "unchangedShare": 0.0
+            }
+          },
+          "boardObservationsAtOrigin": 0,
+          "identicalSourceSeriesAtOrigin": []
+        },
+        {
+          "origin": "2026-09-12",
+          "horizon": "2026-11-11",
+          "heldDays": 60,
+          "instruments": {
+            "offense": "ktcCrowdTradesSfTep",
+            "pick": "ktcCrowdTradesSfTep",
+            "idp": "idpTradeCalc"
+          },
+          "marketUniverse": 859,
+          "byGroup": {
+            "ALL": 859,
+            "QB": 64,
+            "RB": 109,
+            "WR": 159,
+            "TE": 67,
+            "IDP": 376,
+            "PICK": 84
+          },
+          "excluded": {},
+          "attrition": {
+            "of": 859,
+            "dropped": 72,
+            "rate": 0.08381839348079162,
+            "byReason": {
+              "no_cohort_peers_at_horizon": 2,
+              "no_price_at_horizon": 70
+            }
+          },
+          "persistence": {
+            "ALL": {
+              "n": 789,
+              "spearmanLevel": 0.960737528282584,
+              "r2LogLevel": 0.916801716191259,
+              "medianAbsLogReturn": 0.05577202792538838,
+              "unchangedShare": 0.03802281368821293
+            },
+            "QB": {
+              "n": 64,
+              "spearmanLevel": 0.9404869561852,
+              "r2LogLevel": 0.9037278161373808,
+              "medianAbsLogReturn": 0.12828099370825718,
+              "unchangedShare": 0.0
+            },
+            "RB": {
+              "n": 106,
+              "spearmanLevel": 0.943159432702723,
+              "r2LogLevel": 0.8854900557741213,
+              "medianAbsLogReturn": 0.11735084142298602,
+              "unchangedShare": 0.0
+            },
+            "WR": {
+              "n": 158,
+              "spearmanLevel": 0.9619575345229696,
+              "r2LogLevel": 0.9288278466610635,
+              "medianAbsLogReturn": 0.07808485181483338,
+              "unchangedShare": 0.006329113924050633
+            },
+            "TE": {
+              "n": 67,
+              "spearmanLevel": 0.952050284346004,
+              "r2LogLevel": 0.9338168062711123,
+              "medianAbsLogReturn": 0.07835965084576202,
+              "unchangedShare": 0.014925373134328358
+            },
+            "IDP": {
+              "n": 370,
+              "spearmanLevel": 0.9462301370766,
+              "r2LogLevel": 0.8691331477678488,
+              "medianAbsLogReturn": 0.021557420130434046,
+              "unchangedShare": 0.07567567567567568
+            },
+            "PICK": {
+              "n": 24,
+              "spearmanLevel": null,
+              "r2LogLevel": null,
+              "medianAbsLogReturn": null,
+              "unchangedShare": null,
+              "reason": "only 24 paired rows (need 30)"
+            }
+          },
+          "boardObservationsAtOrigin": 0,
+          "identicalSourceSeriesAtOrigin": [
+            [
+              "ktcCrowdSfTep",
+              "ktcSfTep"
+            ]
+          ]
+        }
+      ],
+      "board": {
+        "status": "unavailable",
+        "reason": "the ledger holds no canonical_board observation on any fold origin. The committed archive carries the raw scraper payload, not the served board (no rankDerivedValue; audit W04-F009), so archive mode cannot measure the board. Run --ledger against a ledger that recorded the served board (origins live:server / migration:*)."
+      },
+      "sources": {
+        "idpTradeCalc": {
+          "provider": "idpTradeCalculator",
+          "sameProviderAsOffenseTarget": false,
+          "isIdpTarget": true,
+          "byGroup": {
+            "ALL": {
+              "foldsAttempted": 2,
+              "foldsUsable": 2,
+              "meanSpearman": -0.10180796441988246,
+              "medianSpearman": -0.10180796441988246,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 484,
+                  "rho": -0.12291283875626213,
+                  "partialR": -0.14387342020792215,
+                  "deltaR2": 0.0013586085421455826
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 416,
+                  "rho": -0.08070309008350278,
+                  "partialR": -0.0775413318256828,
+                  "deltaR2": 0.000506545822688659
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.07803931099196114,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": 0.024546752633139,
+                  "beatenInFolds": 0
+                }
+              },
+              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho -0.102 is reported for completeness only.",
+              "foldsPositive": 0,
+              "originsUnusable": [],
+              "meanPartialR": -0.11070737601680247,
+              "meanDeltaR2": 0.0009325771824171209
+            },
+            "QB": {
+              "foldsAttempted": 2,
+              "foldsUsable": 2,
+              "meanSpearman": -0.18810046455949414,
+              "medianSpearman": -0.18810046455949414,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 62,
+                  "rho": -0.27239303971191864,
+                  "partialR": -0.5525634985506033,
+                  "deltaR2": 0.008666085904515673
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 63,
+                  "rho": -0.10380788940706967,
+                  "partialR": -0.20888903210074278,
+                  "deltaR2": 0.004043835327001885
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.10871037757313427,
+                  "beatenInFolds": 0
+                },
+                "random": {
+                  "meanSpearman": -0.002875707115917739,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho -0.188 is reported for completeness only.",
+              "foldsPositive": 0,
+              "originsUnusable": [],
+              "meanPartialR": -0.380726265325673,
+              "meanDeltaR2": 0.006354960615758779
+            },
+            "RB": {
+              "foldsAttempted": 2,
+              "foldsUsable": 2,
+              "meanSpearman": -0.21711154391178625,
+              "medianSpearman": -0.21711154391178625,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 110,
+                  "rho": -0.34804228749182875,
+                  "partialR": -0.4757632641813735,
+                  "deltaR2": 0.017781693445438965
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 105,
+                  "rho": -0.08618080033174375,
+                  "partialR": 0.040767055059265186,
+                  "deltaR2": 0.00019343042826432317
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.09719214955351838,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": 0.139774219646991,
+                  "beatenInFolds": 0
+                }
+              },
+              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho -0.217 is reported for completeness only.",
+              "foldsPositive": 0,
+              "originsUnusable": [],
+              "meanPartialR": -0.21749810456105415,
+              "meanDeltaR2": 0.008987561936851645
+            },
+            "WR": {
+              "foldsAttempted": 2,
+              "foldsUsable": 2,
+              "meanSpearman": -0.18339026885010495,
+              "medianSpearman": -0.18339026885010495,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 164,
+                  "rho": -0.31360711710853867,
+                  "partialR": -0.43792700041714894,
+                  "deltaR2": 0.015475869155414925
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 158,
+                  "rho": -0.053173420591671225,
+                  "partialR": -0.06956577304845107,
+                  "deltaR2": 0.00034443028968191654
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.05517339412014657,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": 0.0090067344703003,
+                  "beatenInFolds": 0
+                }
+              },
+              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho -0.183 is reported for completeness only.",
+              "foldsPositive": 0,
+              "originsUnusable": [],
+              "meanPartialR": -0.25374638673280003,
+              "meanDeltaR2": 0.00791014972254842
+            },
+            "TE": {
+              "foldsAttempted": 2,
+              "foldsUsable": 2,
+              "meanSpearman": -0.2343246744475893,
+              "medianSpearman": -0.2343246744475893,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 66,
+                  "rho": -0.34908673416136105,
+                  "partialR": -0.361820924521422,
+                  "deltaR2": 0.007305118626512812
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 67,
+                  "rho": -0.11956261473381756,
+                  "partialR": -0.12366183476007087,
+                  "deltaR2": 0.0010120899030172984
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.12137630237523124,
+                  "beatenInFolds": 0
+                },
+                "random": {
+                  "meanSpearman": 0.018432927914929675,
+                  "beatenInFolds": 0
+                }
+              },
+              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho -0.234 is reported for completeness only.",
+              "foldsPositive": 0,
+              "originsUnusable": [],
+              "meanPartialR": -0.24274137964074644,
+              "meanDeltaR2": 0.004158604264765055
+            },
+            "IDP": {
+              "foldsAttempted": 2,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "PICK": {
+              "foldsAttempted": 2,
+              "foldsUsable": 1,
+              "meanSpearman": 0.5757120623415071,
+              "medianSpearman": 0.5757120623415071,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 82,
+                  "rho": 0.5757120623415071,
+                  "partialR": 0.7608212485396283,
+                  "deltaR2": 0.020380254114777403
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.07531521922608675,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": 0.1179025043262481,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 1,
+              "originsUnusable": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 23,
+                  "reason": "only 23 paired rows (need 30)"
+                }
+              ],
+              "meanPartialR": 0.7608212485396283,
+              "meanDeltaR2": 0.020380254114777403
+            }
+          }
+        },
+        "ktc": {
+          "provider": "keepTradeCut",
+          "sameProviderAsOffenseTarget": true,
+          "isIdpTarget": false,
+          "byGroup": {
+            "ALL": {
+              "foldsAttempted": 2,
+              "foldsUsable": 2,
+              "meanSpearman": -0.008992016290720876,
+              "medianSpearman": -0.008992016290720876,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 404,
+                  "rho": -0.0019886844352597077,
+                  "partialR": -0.06652741417800273,
+                  "deltaR2": 0.00032551784934761627
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 418,
+                  "rho": -0.015995348146182045,
+                  "partialR": -0.028161665997092585,
+                  "deltaR2": 6.733989254869228e-05
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.08378674777749474,
+                  "beatenInFolds": 2
+                },
+                "random": {
+                  "meanSpearman": 0.011846718104931798,
+                  "beatenInFolds": 0
+                }
+              },
+              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho -0.009 is reported for completeness only.",
+              "foldsPositive": 0,
+              "originsUnusable": [],
+              "meanPartialR": -0.047344540087547654,
+              "meanDeltaR2": 0.00019642887094815426
+            },
+            "QB": {
+              "foldsAttempted": 2,
+              "foldsUsable": 1,
+              "meanSpearman": -0.0845247770748724,
+              "medianSpearman": -0.0845247770748724,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 64,
+                  "rho": -0.0845247770748724,
+                  "partialR": 0.06137483696039052,
+                  "deltaR2": 0.0003626448601369312
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.11470042812335446,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": -0.35380441628252385,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 0,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 62,
+                  "reason": "correlation undefined (zero variance in signal or outcome)"
+                }
+              ],
+              "meanPartialR": 0.06137483696039052,
+              "meanDeltaR2": 0.0003626448601369312
+            },
+            "RB": {
+              "foldsAttempted": 2,
+              "foldsUsable": 1,
+              "meanSpearman": -0.11407914955790108,
+              "medianSpearman": -0.11407914955790108,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 106,
+                  "rho": -0.11407914955790108,
+                  "partialR": -0.12195883321560799,
+                  "deltaR2": 0.0017032159864093907
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.23173035745774237,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": -0.029820893266493686,
+                  "beatenInFolds": 0
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 0,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 111,
+                  "reason": "correlation undefined (zero variance in signal or outcome)"
+                }
+              ],
+              "meanPartialR": -0.12195883321560799,
+              "meanDeltaR2": 0.0017032159864093907
+            },
+            "WR": {
+              "foldsAttempted": 2,
+              "foldsUsable": 1,
+              "meanSpearman": 0.09337370704116209,
+              "medianSpearman": 0.09337370704116209,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 158,
+                  "rho": 0.09337370704116209,
+                  "partialR": 0.0018600307716255579,
+                  "deltaR2": 2.46235328866989e-07
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.15054517519010377,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": 0.024613662103714608,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 1,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 165,
+                  "reason": "correlation undefined (zero variance in signal or outcome)"
+                }
+              ],
+              "meanPartialR": 0.0018600307716255579,
+              "meanDeltaR2": 2.46235328866989e-07
+            },
+            "TE": {
+              "foldsAttempted": 2,
+              "foldsUsable": 2,
+              "meanSpearman": -0.10381821865579546,
+              "medianSpearman": -0.10381821865579546,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 66,
+                  "rho": -0.2862540444629997,
+                  "partialR": -0.5189281854497737,
+                  "deltaR2": 0.015026382323601381
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 67,
+                  "rho": 0.07861760715140874,
+                  "partialR": -0.0021281315817086054,
+                  "deltaR2": 2.997399800629359e-07
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.12137630237523124,
+                  "beatenInFolds": 2
+                },
+                "random": {
+                  "meanSpearman": 0.018432927914929675,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho -0.104 is reported for completeness only.",
+              "foldsPositive": 1,
+              "originsUnusable": [],
+              "meanPartialR": -0.2605281585157412,
+              "meanDeltaR2": 0.007513341031790722
+            },
+            "IDP": {
+              "foldsAttempted": 2,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "PICK": {
+              "foldsAttempted": 2,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 23,
+                  "reason": "only 23 paired rows (need 30)"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            }
+          }
+        },
+        "ktcCrowdSfTep": {
+          "provider": "keepTradeCut",
+          "sameProviderAsOffenseTarget": true,
+          "isIdpTarget": false,
+          "byGroup": {
+            "ALL": {
+              "foldsAttempted": 2,
+              "foldsUsable": 1,
+              "meanSpearman": -0.00453158145045717,
+              "medianSpearman": -0.00453158145045717,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 418,
+                  "rho": -0.00453158145045717,
+                  "partialR": -0.03365389767187376,
+                  "deltaR2": 9.61670894522249e-05
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.12871827552020415,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": -0.007752240805738934,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 0,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": -0.03365389767187376,
+              "meanDeltaR2": 9.61670894522249e-05
+            },
+            "QB": {
+              "foldsAttempted": 2,
+              "foldsUsable": 1,
+              "meanSpearman": -0.0845247770748724,
+              "medianSpearman": -0.0845247770748724,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 64,
+                  "rho": -0.0845247770748724,
+                  "partialR": 0.06137483696039052,
+                  "deltaR2": 0.0003626448601369312
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.11470042812335446,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": -0.35380441628252385,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 0,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": 0.06137483696039052,
+              "meanDeltaR2": 0.0003626448601369312
+            },
+            "RB": {
+              "foldsAttempted": 2,
+              "foldsUsable": 1,
+              "meanSpearman": -0.11407914955790108,
+              "medianSpearman": -0.11407914955790108,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 106,
+                  "rho": -0.11407914955790108,
+                  "partialR": -0.12195883321560799,
+                  "deltaR2": 0.0017032159864093907
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.23173035745774237,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": -0.029820893266493686,
+                  "beatenInFolds": 0
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 0,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": -0.12195883321560799,
+              "meanDeltaR2": 0.0017032159864093907
+            },
+            "WR": {
+              "foldsAttempted": 2,
+              "foldsUsable": 1,
+              "meanSpearman": 0.09337370704116209,
+              "medianSpearman": 0.09337370704116209,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 158,
+                  "rho": 0.09337370704116209,
+                  "partialR": 0.0018600307716255579,
+                  "deltaR2": 2.46235328866989e-07
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.15054517519010377,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": 0.024613662103714608,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 1,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": 0.0018600307716255579,
+              "meanDeltaR2": 2.46235328866989e-07
+            },
+            "TE": {
+              "foldsAttempted": 2,
+              "foldsUsable": 1,
+              "meanSpearman": 0.11557187325405062,
+              "medianSpearman": 0.11557187325405062,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 67,
+                  "rho": 0.11557187325405062,
+                  "partialR": -0.0023153957024626775,
+                  "deltaR2": 3.548118911629075e-07
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": 0.044297672379014254,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": 0.03751296990980925,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 1,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": -0.0023153957024626775,
+              "meanDeltaR2": 3.548118911629075e-07
+            },
+            "IDP": {
+              "foldsAttempted": 2,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "PICK": {
+              "foldsAttempted": 2,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 23,
+                  "reason": "only 23 paired rows (need 30)"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            }
+          }
+        },
+        "ktcCrowdTradesSfTep": {
+          "provider": "keepTradeCut",
+          "sameProviderAsOffenseTarget": true,
+          "isIdpTarget": false,
+          "byGroup": {
+            "ALL": {
+              "foldsAttempted": 2,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "QB": {
+              "foldsAttempted": 2,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "RB": {
+              "foldsAttempted": 2,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "WR": {
+              "foldsAttempted": 2,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "TE": {
+              "foldsAttempted": 2,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "IDP": {
+              "foldsAttempted": 2,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "PICK": {
+              "foldsAttempted": 2,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            }
+          }
+        },
+        "ktcSfTep": {
+          "provider": "keepTradeCut",
+          "sameProviderAsOffenseTarget": true,
+          "isIdpTarget": false,
+          "byGroup": {
+            "ALL": {
+              "foldsAttempted": 2,
+              "foldsUsable": 1,
+              "meanSpearman": -0.009585779466326166,
+              "medianSpearman": -0.009585779466326166,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 395,
+                  "rho": -0.009585779466326166,
+                  "partialR": -0.04296862830273684,
+                  "deltaR2": 0.0001601279511861813
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.13525761709855094,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": 0.011623928961206181,
+                  "beatenInFolds": 0
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 0,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": -0.04296862830273684,
+              "meanDeltaR2": 0.0001601279511861813
+            },
+            "QB": {
+              "foldsAttempted": 2,
+              "foldsUsable": 1,
+              "meanSpearman": -0.0845247770748724,
+              "medianSpearman": -0.0845247770748724,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 64,
+                  "rho": -0.0845247770748724,
+                  "partialR": 0.06137483696039052,
+                  "deltaR2": 0.0003626448601369312
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.11470042812335446,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": -0.35380441628252385,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 0,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": 0.06137483696039052,
+              "meanDeltaR2": 0.0003626448601369312
+            },
+            "RB": {
+              "foldsAttempted": 2,
+              "foldsUsable": 1,
+              "meanSpearman": -0.11407914955790108,
+              "medianSpearman": -0.11407914955790108,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 106,
+                  "rho": -0.11407914955790108,
+                  "partialR": -0.12195883321560799,
+                  "deltaR2": 0.0017032159864093907
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.23173035745774237,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": -0.029820893266493686,
+                  "beatenInFolds": 0
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 0,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": -0.12195883321560799,
+              "meanDeltaR2": 0.0017032159864093907
+            },
+            "WR": {
+              "foldsAttempted": 2,
+              "foldsUsable": 1,
+              "meanSpearman": 0.09337370704116209,
+              "medianSpearman": 0.09337370704116209,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 158,
+                  "rho": 0.09337370704116209,
+                  "partialR": 0.0018600307716255579,
+                  "deltaR2": 2.46235328866989e-07
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.15054517519010377,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": 0.024613662103714608,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 1,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": 0.0018600307716255579,
+              "meanDeltaR2": 2.46235328866989e-07
+            },
+            "TE": {
+              "foldsAttempted": 2,
+              "foldsUsable": 1,
+              "meanSpearman": 0.11557187325405062,
+              "medianSpearman": 0.11557187325405062,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 67,
+                  "rho": 0.11557187325405062,
+                  "partialR": -0.0023153957024626775,
+                  "deltaR2": 3.548118911629075e-07
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": 0.044297672379014254,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": 0.03751296990980925,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 1,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": -0.0023153957024626775,
+              "meanDeltaR2": 3.548118911629075e-07
+            },
+            "IDP": {
+              "foldsAttempted": 2,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "PICK": {
+              "foldsAttempted": 2,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            }
+          }
+        },
+        "ktcTradesSfTep": {
+          "provider": "keepTradeCut",
+          "sameProviderAsOffenseTarget": true,
+          "isIdpTarget": false,
+          "byGroup": {
+            "ALL": {
+              "foldsAttempted": 2,
+              "foldsUsable": 1,
+              "meanSpearman": 0.004561074707801998,
+              "medianSpearman": 0.004561074707801998,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 418,
+                  "rho": 0.004561074707801998,
+                  "partialR": 0.03684354659270415,
+                  "deltaR2": 0.00011525999344864127
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.12871827552020415,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": -0.007752240805738934,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 1,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": 0.03684354659270415,
+              "meanDeltaR2": 0.00011525999344864127
+            },
+            "QB": {
+              "foldsAttempted": 2,
+              "foldsUsable": 1,
+              "meanSpearman": 0.0846182904688156,
+              "medianSpearman": 0.0846182904688156,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 64,
+                  "rho": 0.0846182904688156,
+                  "partialR": -0.09954705777653394,
+                  "deltaR2": 0.0009540204421023382
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.11470042812335446,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": -0.35380441628252385,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 1,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": -0.09954705777653394,
+              "meanDeltaR2": 0.0009540204421023382
+            },
+            "RB": {
+              "foldsAttempted": 2,
+              "foldsUsable": 1,
+              "meanSpearman": 0.11393808096329695,
+              "medianSpearman": 0.11393808096329695,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 106,
+                  "rho": 0.11393808096329695,
+                  "partialR": 0.1467098481206795,
+                  "deltaR2": 0.0024646867941508456
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.23173035745774237,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": -0.029820893266493686,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 1,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": 0.1467098481206795,
+              "meanDeltaR2": 0.0024646867941508456
+            },
+            "WR": {
+              "foldsAttempted": 2,
+              "foldsUsable": 1,
+              "meanSpearman": -0.09180682991095035,
+              "medianSpearman": -0.09180682991095035,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 158,
+                  "rho": -0.09180682991095035,
+                  "partialR": -0.0019073774965582756,
+                  "deltaR2": 2.589306220747186e-07
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.15054517519010377,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": 0.024613662103714608,
+                  "beatenInFolds": 0
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 0,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": -0.0019073774965582756,
+              "meanDeltaR2": 2.589306220747186e-07
+            },
+            "TE": {
+              "foldsAttempted": 2,
+              "foldsUsable": 1,
+              "meanSpearman": -0.11513289169127626,
+              "medianSpearman": -0.11513289169127626,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-09-12",
+                  "n": 67,
+                  "rho": -0.11513289169127626,
+                  "partialR": 0.01323479155943773,
+                  "deltaR2": 1.1592628863026547e-05
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": 0.044297672379014254,
+                  "beatenInFolds": 0
+                },
+                "random": {
+                  "meanSpearman": 0.03751296990980925,
+                  "beatenInFolds": 0
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 0,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": 0.01323479155943773,
+              "meanDeltaR2": 1.1592628863026547e-05
+            },
+            "IDP": {
+              "foldsAttempted": 2,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "PICK": {
+              "foldsAttempted": 2,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                },
+                {
+                  "origin": "2026-09-12",
+                  "n": 23,
+                  "reason": "only 23 paired rows (need 30)"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            }
+          }
+        }
+      }
+    },
+    "90": {
+      "horizonDays": 90,
+      "foldsAttempted": 1,
+      "foldsNote": null,
+      "folds": [
+        {
+          "origin": "2026-07-14",
+          "horizon": "2026-10-12",
+          "heldDays": 90,
+          "instruments": {
+            "offense": "ktcSfTep",
+            "pick": "ktc",
+            "idp": "idpTradeCalc"
+          },
+          "marketUniverse": 959,
+          "byGroup": {
+            "ALL": 959,
+            "QB": 71,
+            "RB": 132,
+            "WR": 188,
+            "TE": 72,
+            "IDP": 370,
+            "PICK": 126
+          },
+          "excluded": {},
+          "attrition": {
+            "of": 959,
+            "dropped": 138,
+            "rate": 0.14389989572471323,
+            "byReason": {
+              "no_cohort_peers_at_horizon": 2,
+              "no_price_at_horizon": 136
+            }
+          },
+          "persistence": {
+            "ALL": {
+              "n": 823,
+              "spearmanLevel": 0.9336750748383149,
+              "r2LogLevel": 0.8665611126020746,
+              "medianAbsLogReturn": 0.09053798576860217,
+              "unchangedShare": 0.019441069258809233
+            },
+            "QB": {
+              "n": 69,
+              "spearmanLevel": 0.9365985552992723,
+              "r2LogLevel": 0.8352267767509951,
+              "medianAbsLogReturn": 0.17776103604711935,
+              "unchangedShare": 0.0
+            },
+            "RB": {
+              "n": 117,
+              "spearmanLevel": 0.9291132079506357,
+              "r2LogLevel": 0.839441325157169,
+              "medianAbsLogReturn": 0.15117005168912012,
+              "unchangedShare": 0.0
+            },
+            "WR": {
+              "n": 177,
+              "spearmanLevel": 0.9229062091193958,
+              "r2LogLevel": 0.842459488873899,
+              "medianAbsLogReturn": 0.14263380852671226,
+              "unchangedShare": 0.0
+            },
+            "TE": {
+              "n": 71,
+              "spearmanLevel": 0.9225339123727763,
+              "r2LogLevel": 0.8731383992411846,
+              "medianAbsLogReturn": 0.11960830787972832,
+              "unchangedShare": 0.0
+            },
+            "IDP": {
+              "n": 365,
+              "spearmanLevel": 0.916046500491653,
+              "r2LogLevel": 0.8452787524032946,
+              "medianAbsLogReturn": 0.031888892873703334,
+              "unchangedShare": 0.043835616438356165
+            },
+            "PICK": {
+              "n": 24,
+              "spearmanLevel": null,
+              "r2LogLevel": null,
+              "medianAbsLogReturn": null,
+              "unchangedShare": null,
+              "reason": "only 24 paired rows (need 30)"
+            }
+          },
+          "boardObservationsAtOrigin": 0,
+          "identicalSourceSeriesAtOrigin": []
+        }
+      ],
+      "board": {
+        "status": "unavailable",
+        "reason": "the ledger holds no canonical_board observation on any fold origin. The committed archive carries the raw scraper payload, not the served board (no rankDerivedValue; audit W04-F009), so archive mode cannot measure the board. Run --ledger against a ledger that recorded the served board (origins live:server / migration:*)."
+      },
+      "sources": {
+        "idpTradeCalc": {
+          "provider": "idpTradeCalculator",
+          "sameProviderAsOffenseTarget": false,
+          "isIdpTarget": true,
+          "byGroup": {
+            "ALL": {
+              "foldsAttempted": 1,
+              "foldsUsable": 1,
+              "meanSpearman": -0.12472482904522526,
+              "medianSpearman": -0.12472482904522526,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 445,
+                  "rho": -0.12472482904522526,
+                  "partialR": -0.2084763784163509,
+                  "deltaR2": 0.006120057580970846
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": 0.029369841210461965,
+                  "beatenInFolds": 0
+                },
+                "random": {
+                  "meanSpearman": -0.08311740784007188,
+                  "beatenInFolds": 0
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 0,
+              "originsUnusable": [],
+              "meanPartialR": -0.2084763784163509,
+              "meanDeltaR2": 0.006120057580970846
+            },
+            "QB": {
+              "foldsAttempted": 1,
+              "foldsUsable": 1,
+              "meanSpearman": 0.037113895761832556,
+              "medianSpearman": 0.037113895761832556,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 67,
+                  "rho": 0.037113895761832556,
+                  "partialR": -0.057310234464128,
+                  "deltaR2": 0.0004356353229736913
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": 0.09533881395163223,
+                  "beatenInFolds": 0
+                },
+                "random": {
+                  "meanSpearman": -0.0087397238406896,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 1,
+              "originsUnusable": [],
+              "meanPartialR": -0.057310234464128,
+              "meanDeltaR2": 0.0004356353229736913
+            },
+            "RB": {
+              "foldsAttempted": 1,
+              "foldsUsable": 1,
+              "meanSpearman": -0.07887683577774174,
+              "medianSpearman": -0.07887683577774174,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 113,
+                  "rho": -0.07887683577774174,
+                  "partialR": -0.263874755447159,
+                  "deltaR2": 0.011037182402002162
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": 0.0559256764067349,
+                  "beatenInFolds": 0
+                },
+                "random": {
+                  "meanSpearman": -0.1647069097808425,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 0,
+              "originsUnusable": [],
+              "meanPartialR": -0.263874755447159,
+              "meanDeltaR2": 0.011037182402002162
+            },
+            "WR": {
+              "foldsAttempted": 1,
+              "foldsUsable": 1,
+              "meanSpearman": -0.22050783593731246,
+              "medianSpearman": -0.22050783593731246,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 171,
+                  "rho": -0.22050783593731246,
+                  "partialR": -0.3201201842107961,
+                  "deltaR2": 0.014387773843529574
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": 0.05742800948957681,
+                  "beatenInFolds": 0
+                },
+                "random": {
+                  "meanSpearman": 0.04311085511315909,
+                  "beatenInFolds": 0
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 0,
+              "originsUnusable": [],
+              "meanPartialR": -0.3201201842107961,
+              "meanDeltaR2": 0.014387773843529574
+            },
+            "TE": {
+              "foldsAttempted": 1,
+              "foldsUsable": 1,
+              "meanSpearman": -0.12766599597585512,
+              "medianSpearman": -0.12766599597585512,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 71,
+                  "rho": -0.12766599597585512,
+                  "partialR": -0.16160642985202997,
+                  "deltaR2": 0.0033131985246239682
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.141449878022057,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": -0.0976190476190476,
+                  "beatenInFolds": 0
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 0,
+              "originsUnusable": [],
+              "meanPartialR": -0.16160642985202997,
+              "meanDeltaR2": 0.0033131985246239682
+            },
+            "IDP": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "PICK": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 23,
+                  "reason": "only 23 paired rows (need 30)"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            }
+          }
+        },
+        "ktc": {
+          "provider": "keepTradeCut",
+          "sameProviderAsOffenseTarget": true,
+          "isIdpTarget": false,
+          "byGroup": {
+            "ALL": {
+              "foldsAttempted": 1,
+              "foldsUsable": 1,
+              "meanSpearman": -0.024744366263760108,
+              "medianSpearman": -0.024744366263760108,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 434,
+                  "rho": -0.024744366263760108,
+                  "partialR": -0.04975172063226898,
+                  "deltaR2": 0.0003855574475294455
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.009210947002762477,
+                  "beatenInFolds": 0
+                },
+                "random": {
+                  "meanSpearman": -0.025444601222635078,
+                  "beatenInFolds": 1
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 0,
+              "originsUnusable": [],
+              "meanPartialR": -0.04975172063226898,
+              "meanDeltaR2": 0.0003855574475294455
+            },
+            "QB": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 69,
+                  "reason": "correlation undefined (zero variance in signal or outcome)"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "RB": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 117,
+                  "reason": "correlation undefined (zero variance in signal or outcome)"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "WR": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 177,
+                  "reason": "correlation undefined (zero variance in signal or outcome)"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "TE": {
+              "foldsAttempted": 1,
+              "foldsUsable": 1,
+              "meanSpearman": -0.14064386317907443,
+              "medianSpearman": -0.14064386317907443,
+              "spearmanByFold": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 71,
+                  "rho": -0.14064386317907443,
+                  "partialR": -0.2170238700946836,
+                  "deltaR2": 0.005975100228530312
+                }
+              ],
+              "benchmarks": {
+                "marketValue": {
+                  "meanSpearman": -0.141449878022057,
+                  "beatenInFolds": 1
+                },
+                "random": {
+                  "meanSpearman": -0.0976190476190476,
+                  "beatenInFolds": 0
+                }
+              },
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
+              "foldsPositive": 0,
+              "originsUnusable": [],
+              "meanPartialR": -0.2170238700946836,
+              "meanDeltaR2": 0.005975100228530312
+            },
+            "IDP": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "PICK": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            }
+          }
+        },
+        "ktcCrowdSfTep": {
+          "provider": "keepTradeCut",
+          "sameProviderAsOffenseTarget": true,
+          "isIdpTarget": false,
+          "byGroup": {
+            "ALL": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "QB": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "RB": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "WR": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "TE": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "IDP": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "PICK": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            }
+          }
+        },
+        "ktcCrowdTradesSfTep": {
+          "provider": "keepTradeCut",
+          "sameProviderAsOffenseTarget": true,
+          "isIdpTarget": false,
+          "byGroup": {
+            "ALL": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "QB": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "RB": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "WR": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "TE": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "IDP": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "PICK": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            }
+          }
+        },
+        "ktcSfTep": {
+          "provider": "keepTradeCut",
+          "sameProviderAsOffenseTarget": true,
+          "isIdpTarget": false,
+          "byGroup": {
+            "ALL": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "QB": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "RB": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "WR": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "TE": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "this series is the market instrument for every scorable asset here"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "IDP": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "PICK": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "only 0 paired rows (need 30)"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            }
+          }
+        },
+        "ktcTradesSfTep": {
+          "provider": "keepTradeCut",
+          "sameProviderAsOffenseTarget": true,
+          "isIdpTarget": false,
+          "byGroup": {
+            "ALL": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "QB": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "RB": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "WR": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "TE": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "IDP": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            },
+            "PICK": {
+              "foldsAttempted": 1,
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 0,
+                  "reason": "no observation of this series on the origin date"
+                }
+              ],
+              "meanPartialR": null,
+              "meanDeltaR2": null
+            }
+          }
+        }
+      }
+    }
+  },
+  "realizedPoints": {
+    "state": "unavailable",
+    "reason": "No committed offline per-player realized fantasy points exist in the repository. src/nfl_data/realized_points scores nflverse weekly stat rows fetched over the network into a gitignored cache (src/nfl_data/cache.py); no tracked data/ file carries them, and this tool adds no network fetch."
+  },
+  "independentValidationCandidate": {
+    "registered": false,
+    "couldQualifyAsIs": false,
+    "reasons": [
+      "The offense and pick target is KTC (provider keepTradeCut), the training substrate of the OFFENSE Hill master. The registry's owner rule: KTC evidence alone is not independent for a KTC-trained curve.",
+      "No preregistration was committed before this measurement. A registry target needs a committed, unedited preregistration that precedes its registry entry.",
+      "This scores board and source gaps against later prices. A registry target is a pass/fail rule over champion and challenger Hill parameters.",
+      "The IDP target, idpTradeCalc, also votes in the board."
+    ],
+    "whatWouldBeNeeded": "A preregistered rule scored against a target with registered non-KTC provenance (for example the completed-trade ledger with its KTC components excluded), approved by the owner before registration."
+  },
+  "caveats": [
+    "In-sample with the target: KTC Crowd and KTC Trades vote in the served board, KTC Market is their published blend, and idpTradeCalc votes too. The board's deviation from the market is still a fair test of whether the market moves toward the board, but agreement from shared lineage is not independent evidence.",
+    "Per-source KTC rows (ktc, ktcSfTep, ktcCrowdSfTep, ktcTradesSfTep) are modes and calibration states of the target's own provider, not independent votes. KTC Market is the blend of Crowd and Trades, so a Crowd gap and a Trades gap against it are close to mirror images by construction.",
+    "Market movement, not production: the outcome is the cohort-excess change in the market's own price. Realized points are reported separately (realizedPoints).",
+    "Folds are non-overlapping and anchored at the panel's first date, so the fold count is small by construction. CE's verdict language needs 3 usable origins; below 2 no verdict is given.",
+    "Survivorship: an asset that leaves the market's board before the horizon has no outcome. Each fold reports that attrition by reason.",
+    "Day-granular: an observation dated D is 'as of D'. Archive scrape stamps are naive; the ledger records that rather than normalizing it."
+  ]
+}

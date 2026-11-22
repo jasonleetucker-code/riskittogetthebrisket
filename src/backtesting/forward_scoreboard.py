@@ -139,6 +139,9 @@ EXCLUDED_SOURCES: dict[str, str] = {
 # KTC's three published modes ride in the archive as site_raw CSVs only.
 # The live recorder stores all three (``record._CONTRACT_RETAIL_KEYS``);
 # the archive backfill reads the raw payload, which carries none of them.
+# The archive's Draft Sharks CSVs are NOT ingested: they are rank boards
+# (the source_value lane holds vendor values only), and no bundle's
+# manifest lists them as freshly fetched.
 SITE_RAW_KEYS: tuple[str, ...] = (KTC_CROWD_KEY, KTC_TRADES_KEY, KTC_MARKET_KEY)
 ORIGIN_SITE_RAW = "research:forward_scoreboard:site_raw"
 
