@@ -1060,3 +1060,502 @@ class TestOrderingAndCoverage:
         cov = transactions.crawl_coverage(ledger_path=db)
         assert cov["leaguesGone"] == 0
         assert cov["leaguesUncrawledReachable"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Week coverage (CTM-1, 2026-11-22)
+#
+# A backfilled league used to fetch ONLY the current week, and leagues are
+# visited oldest-first under a budget far smaller than the graph -- so a league
+# not visited while week N was current lost all of week N's trades for good,
+# and the next visit carried the cursor past them.  Each league now fetches
+# every week from the one after its last gap-free coverage to the current one.
+# ---------------------------------------------------------------------------
+
+SEASON = "2026"
+HOUR_MS = 3600 * 1000
+
+
+def clocked(week, season=SEASON):
+    return {f"{BASE}/state/nfl": {"week": week, "season": season}}
+
+
+def league_weeks(lid, by_week, *, week, season=SEASON):
+    """One league's responses: a clocked ``/state/nfl``, rosters, and the given
+    per-week transactions (every other week answers ``[]`` via FakeHttp)."""
+    resp = clocked(week, season)
+    resp[f"{BASE}/league/{lid}/rosters"] = [roster(1, "A"), roster(2, "B")]
+    for w, txs in by_week.items():
+        resp[f"{BASE}/league/{lid}/transactions/{w}"] = txs
+    return resp
+
+
+def _weeks_called(http, lid="L1"):
+    prefix = f"{BASE}/league/{lid}/transactions/"
+    return [int(u[len(prefix) :]) for u in http.calls if u.startswith(prefix)]
+
+
+def _coverage_rows(db):
+    conn = ledger.connect(db)
+    try:
+        return {
+            r["league_id"]: dict(r)
+            for r in conn.execute("SELECT * FROM sharp_league_week_coverage").fetchall()
+        }
+    finally:
+        conn.close()
+
+
+def _trade_ids(db):
+    conn = ledger.connect(db)
+    try:
+        return {
+            r["tx_id"]
+            for r in conn.execute("SELECT DISTINCT tx_id FROM asset_movements").fetchall()
+        }
+    finally:
+        conn.close()
+
+
+def _cov(resume, through=None, season=SEASON):
+    return transactions._WeekCoverage(
+        season=season,
+        through_week=resume if through is None else through,
+        resume_week=resume,
+    )
+
+
+BACKFILLED = {"backfilled": True, "lastFetchedMs": NOW - DAY_MS}
+
+
+def _plan(coverage, week, *, season=SEASON, in_grace=False, state=None, week_known=True):
+    return transactions._plan_weeks(
+        BACKFILLED if state is None else state,
+        coverage,
+        week=week,
+        season=season,
+        week_known=week_known,
+        in_grace=in_grace,
+        now_ms=NOW,
+    )
+
+
+class TestWeekPlan:
+    """The pure week-selection rule, every branch."""
+
+    def test_steady_state_is_the_current_week(self):
+        plan = _plan(_cov(12), 12)
+        assert plan.weeks == [12]
+        assert not plan.capped and not plan.caught_up
+
+    def test_inside_the_rollover_grace_the_previous_week_is_fetched_too(self):
+        assert _plan(_cov(12), 12, in_grace=True).weeks == [11, 12]
+
+    def test_missed_weeks_are_fetched_oldest_first(self):
+        plan = _plan(_cov(9), 12)
+        assert plan.weeks == [9, 10, 11, 12]
+        assert plan.caught_up and not plan.capped
+
+    def test_the_catch_up_is_capped_per_visit(self):
+        cap = transactions.CATCHUP_MAX_WEEKS_PER_VISIT
+        plan = _plan(_cov(1), 12)
+        assert plan.weeks == list(range(1, 1 + cap)), "oldest first, so progress is a prefix"
+        assert plan.capped
+
+    def test_resume_after_a_visit(self):
+        # complete visit: the next one resumes at the current week ...
+        assert transactions._next_resume_week(12, 12, in_grace=False) == 12
+        # ... or at the previous one if this visit was inside its rollover grace
+        assert transactions._next_resume_week(12, 12, in_grace=True) == 11
+        # capped visit: right after the last week it reached
+        assert transactions._next_resume_week(6, 12, in_grace=False) == 7
+        # offseason: both degenerate buckets stay open
+        assert transactions._next_resume_week(1, 0, in_grace=False) == 0
+        assert transactions._next_resume_week(1, 1, in_grace=False) == 0
+
+    def test_a_new_season_restarts_at_week_zero(self):
+        assert _plan(_cov(17, season="2025"), 3, season="2026").weeks == [0, 1, 2, 3]
+
+    def test_the_offseason_always_covers_both_degenerate_buckets(self):
+        assert _plan(_cov(17, season="2025"), 0, season="2026").weeks == [0, 1]
+        assert _plan(_cov(17, season="2025"), 1, season="2026").weeks == [0, 1]
+        assert _plan(_cov(0), 1).weeks == [0, 1]
+
+    def test_week_numbering_going_backwards_reads_as_a_new_season_when_unknown(self):
+        assert _plan(_cov(17, season=""), 2, season=None).weeks == [0, 1, 2]
+
+    def test_a_regressed_week_in_the_same_season_takes_the_steady_window(self):
+        assert _plan(_cov(12), 10, in_grace=False).weeks == [10]
+
+    def test_first_visit_is_the_crawlers_backfill_unchanged(self):
+        plan = _plan(None, 12, state={"backfilled": False})
+        assert plan.weeks == crawler._weeks_to_fetch(
+            {"fetchState": {"backfilled": False}}, 12, None, NOW
+        )
+        assert plan.mode == transactions._MODE_BACKFILL
+
+    def test_no_usable_week_keeps_the_old_rule_and_reads_no_coverage(self):
+        plan = _plan(_cov(3), 12, week_known=False)
+        assert plan.weeks == [12]
+        assert plan.mode == transactions._MODE_UNCLOCKED
+
+    def test_recovery_sweep_is_bounded_by_the_last_clean_visit(self):
+        state = {"backfilled": True, "lastFetchedMs": NOW - 5 * DAY_MS}
+        plan = _plan(None, 12, state=state)
+        # At most one rollover fits in 5 days, so that visit was in week >= 11;
+        # one more week for its own rollover grace -> start at 10.
+        assert plan.weeks == [10, 11, 12]
+        assert plan.mode == transactions._MODE_RECOVERY
+
+    def test_recovery_sweep_without_a_usable_stamp_is_the_backfill_window(self):
+        cap = transactions.CATCHUP_MAX_WEEKS_PER_VISIT
+        plan = _plan(None, 12, state={"backfilled": True, "lastFetchedMs": 0})
+        assert plan.weeks == list(range(12 - cap + 1, 13))
+        assert not plan.capped
+
+    def test_the_intel_crawlers_rule_is_untouched(self):
+        """The other caller of ``_weeks_to_fetch`` keeps its exact behaviour."""
+        entry = {"fetchState": {"backfilled": True}}
+        assert crawler._weeks_to_fetch(entry, 12, None, NOW) == [12]
+        assert crawler._weeks_to_fetch(entry, 12, NOW - HOUR_MS, NOW) == [12, 11]
+
+
+class TestAMissedWeekIsFetchedOnTheNextVisit:
+    def test_a_whole_missed_week_arrives_with_the_next_visit(self, db):
+        """Visited in week 10, not again until week 13: weeks 11 and 12 used to
+        be lost for good.  Week 11 sits below even the rollover-grace window,
+        so only the coverage catch-up can reach it."""
+        t10 = trade("t10", NOW - DAY_MS, {"p1": 1}, {"p1": 2})
+        _crawl(league_weeks("L1", {10: [t10]}, week=10), ledger_path=db)
+        resp = league_weeks(
+            "L1",
+            {
+                10: [t10],
+                11: [trade("t11", NOW + 8 * DAY_MS, {"p2": 1}, {"p2": 2})],
+                12: [trade("t12", NOW + 15 * DAY_MS, {"p3": 2}, {"p3": 1})],
+                13: [trade("t13", NOW + 21 * DAY_MS, {"p4": 1}, {"p4": 2})],
+            },
+            week=13,
+        )
+        result, http = _crawl(resp, ledger_path=db, now_ms=NOW + 22 * DAY_MS)
+        assert transactions._steady_floor(13, True) == 12, "week 11 is outside the steady window"
+        assert _weeks_called(http) == [9, 10, 11, 12, 13]
+        assert {"t11", "t12", "t13"} <= _trade_ids(db)
+        assert result.leagues_fetched == 1 and result.leagues_caught_up == 1
+        row = _coverage_rows(db)["L1"]
+        assert (row["season"], row["through_week"]) == (SEASON, 13)
+
+    def test_late_rows_in_the_previous_week_after_an_in_grace_visit(self, db):
+        """A visit inside the rollover grace resumes next time from the PREVIOUS
+        week, so a late row filed into it afterwards is still collected -- even
+        by a visit made after the grace has ended."""
+        _crawl(league_weeks("L1", {}, week=10), ledger_path=db)  # week 10 first seen at NOW
+        _, h2 = _crawl(league_weeks("L1", {}, week=10), ledger_path=db, now_ms=NOW + DAY_MS)
+        assert _weeks_called(h2) == [9, 10], "inside the grace"
+        late = trade("late9", NOW + DAY_MS + 12 * HOUR_MS, {"p9": 1}, {"p9": 2})
+        _, h3 = _crawl(
+            league_weeks("L1", {9: [late]}, week=10), ledger_path=db, now_ms=NOW + 3 * DAY_MS
+        )
+        assert _weeks_called(h3) == [9, 10], "the last visit was in the grace, so 9 again"
+        assert "late9" in _trade_ids(db)
+        _, h4 = _crawl(league_weeks("L1", {}, week=10), ledger_path=db, now_ms=NOW + 4 * DAY_MS)
+        assert _weeks_called(h4) == [10], "the last visit was past the grace: steady state"
+
+
+class TestCatchUpIsCappedAndRetried:
+    def _setup(self, db):
+        t2 = trade("t2", NOW - DAY_MS, {"p1": 1}, {"p1": 2})
+        _crawl(league_weeks("L1", {2: [t2]}, week=2), ledger_path=db)
+
+    def _week12(self, extra=None):
+        by_week = {
+            4: [trade("t4", NOW + 14 * DAY_MS, {"p4": 1}, {"p4": 2})],
+            10: [trade("t10", NOW + 56 * DAY_MS, {"p10": 2}, {"p10": 1})],
+        }
+        resp = league_weeks("L1", by_week, week=12)
+        resp.update(extra or {})
+        return resp
+
+    def test_a_capped_league_is_not_fetched_and_keeps_its_cursor(self, db):
+        self._setup(db)
+        before = _fetch_rows(db)["L1"]
+        result, http = _crawl(self._week12(), ledger_path=db, now_ms=NOW + 70 * DAY_MS)
+        cap = transactions.CATCHUP_MAX_WEEKS_PER_VISIT
+        assert _weeks_called(http) == list(range(1, 1 + cap))
+        assert result.leagues_catchup_capped == 1
+        assert result.leagues_fetched == 0, "capped is not 'fetched'"
+        assert result.leagues_failed == 0 and result.errors == {}
+        after = _fetch_rows(db)["L1"]
+        assert after["last_fetched_ms"] == before["last_fetched_ms"], "stays stalest"
+        assert after["max_created_ms"] == before["max_created_ms"], "cursor not advanced"
+        cov = _coverage_rows(db)["L1"]
+        assert (cov["through_week"], cov["resume_week"]) == (cap, cap + 1)
+        assert "t4" in _trade_ids(db), "what it reached is ingested"
+        assert "t10" not in _trade_ids(db)
+        payload = result.to_dict()
+        assert payload["leaguesCatchupCapped"] == 1 and payload["leaguesCaughtUp"] == 1
+
+    def test_the_capped_league_is_retried_first_and_completes(self, db):
+        self._setup(db)
+        resp = self._week12(league_weeks("L2", {}, week=12))
+        _crawl(resp, league_ids=["L1", "L2"], ledger_path=db, now_ms=NOW + 70 * DAY_MS)
+        conn = ledger.connect(db)
+        try:
+            order = transactions._league_order(["L2", "L1"], transactions._load_fetch_state(conn))
+        finally:
+            conn.close()
+        assert order == ["L1", "L2"], "the capped league heads the next run's queue"
+
+        result, http = _crawl(self._week12(), ledger_path=db, now_ms=NOW + 70 * DAY_MS + HOUR_MS)
+        assert _weeks_called(http) == [7, 8, 9, 10, 11, 12]
+        assert result.leagues_fetched == 1 and result.leagues_catchup_capped == 0
+        assert {"t2", "t4", "t10"} <= _trade_ids(db)
+        cov = _coverage_rows(db)["L1"]
+        assert cov["through_week"] == 12
+        assert cov["resume_week"] == 11, "week 12 was first seen an hour ago: inside the grace"
+        assert _fetch_rows(db)["L1"]["max_created_ms"] == NOW + 56 * DAY_MS
+
+    def test_the_coverage_metric_counts_the_league_as_behind(self, db, monkeypatch):
+        monkeypatch.setattr(
+            transactions.discovery,
+            "sharp_eligible_league_ids",
+            lambda *, ledger_path=None: ["L1", "L9"],
+        )
+        self._setup(db)
+        _crawl(self._week12(), ledger_path=db, now_ms=NOW + 70 * DAY_MS)
+        week_cov = transactions.crawl_coverage(ledger_path=db)["weekCoverage"]
+        assert week_cov == {
+            "season": SEASON,
+            "currentWeek": 12,
+            "leaguesWithWeekCoverage": 1,
+            "leaguesBehind": 1,
+            "leaguesTwoPlusWeeksBehind": 1,
+            "maxWeeksBehind": 12 - transactions.CATCHUP_MAX_WEEKS_PER_VISIT,
+            "leaguesWithoutWeekCoverage": 1,
+        }
+        assert "L1" not in json.dumps(week_cov) and "L9" not in json.dumps(week_cov)
+
+
+class TestNoDuplicatesFromRefetchedWeeks:
+    def test_an_overlapping_window_ingests_nothing_twice(self, db):
+        t10 = trade("t10", NOW - DAY_MS, {"p1": 1}, {"p1": 2})
+        resp = league_weeks("L1", {10: [t10]}, week=10)
+        _crawl(resp, ledger_path=db)
+        before = ledger.counts(path=db)
+        # Same week, inside the grace: weeks 9 and 10 are read again.
+        again, http = _crawl(resp, ledger_path=db, now_ms=NOW + HOUR_MS)
+        assert _weeks_called(http) == [9, 10]
+        assert again.movements_ingested == 0
+        assert ledger.counts(path=db) == before
+
+    def test_a_catch_up_over_already_stored_weeks_ingests_nothing_twice(self, db):
+        by_week = {
+            9: [trade("t9", NOW - 3 * DAY_MS, {"p9": 1}, {"p9": 2})],
+            10: [trade("t10", NOW - DAY_MS, {"p1": 1}, {"p1": 2})],
+        }
+        _crawl(league_weeks("L1", by_week, week=10), ledger_path=db)
+        before = ledger.counts(path=db)
+        result, http = _crawl(
+            league_weeks("L1", by_week, week=12), ledger_path=db, now_ms=NOW + 15 * DAY_MS
+        )
+        assert 9 in _weeks_called(http) and 10 in _weeks_called(http)
+        assert result.movements_ingested == 0
+        assert ledger.counts(path=db) == before
+
+
+class TestRecoverySweep:
+    """A league backfilled before week coverage existed has no row saying which
+    weeks it reached, and its cursor may sit past a week no visit fetched."""
+
+    def _legacy(self, db, *, max_created, last_fetched, boundary):
+        conn = ledger.connect(db)
+        try:
+            conn.execute("DELETE FROM sharp_league_week_coverage WHERE league_id='L1'")
+            conn.execute(
+                "UPDATE sharp_league_fetch SET max_created_ms=?, last_fetched_ms=?,"
+                " boundary_tx_ids=? WHERE league_id='L1'",
+                (max_created, last_fetched, json.dumps(boundary)),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def test_rows_behind_the_cursor_are_recovered_within_the_backfill_window(self, db):
+        t10 = trade("t10", NOW - DAY_MS, {"p1": 1}, {"p1": 2})
+        _crawl(league_weeks("L1", {10: [t10]}, week=10), ledger_path=db)
+        # The pre-coverage crawl visited in week 12 and fetched only week 12,
+        # carrying the cursor past week 11, which nothing ever fetched.
+        self._legacy(
+            db, max_created=NOW + 15 * DAY_MS, last_fetched=NOW + 15 * DAY_MS, boundary=["t12"]
+        )
+        assert "t11" not in _trade_ids(db)
+        now = NOW + 20 * DAY_MS
+        stale = trade("stale", now - 35 * DAY_MS, {"p8": 1}, {"p8": 2})
+        resp = league_weeks(
+            "L1",
+            {
+                10: [t10, stale],
+                11: [trade("t11", NOW + 8 * DAY_MS, {"p2": 1}, {"p2": 2})],
+                12: [trade("t12", NOW + 15 * DAY_MS, {"p3": 2}, {"p3": 1})],
+            },
+            week=12,
+        )
+        result, http = _crawl(resp, ledger_path=db, now_ms=now)
+        assert _weeks_called(http) == [10, 11, 12]
+        ids = _trade_ids(db)
+        assert {"t11", "t12"} <= ids, "recovered from behind the cursor"
+        assert "stale" not in ids, "never past the backfill age window"
+        assert result.movements_ingested == 4, "t10 was already stored: nothing twice"
+        assert result.leagues_recovery_swept == 1
+        assert _coverage_rows(db)["L1"]["through_week"] == 12
+
+        # From now on it is an ordinary catch-up league.
+        nxt, _ = _crawl(resp, ledger_path=db, now_ms=now + HOUR_MS)
+        assert nxt.leagues_recovery_swept == 0 and nxt.movements_ingested == 0
+
+
+class TestSeasonBoundary:
+    def test_a_new_season_starts_from_its_first_bucket(self, db):
+        _crawl(league_weeks("L1", {}, week=17, season="2025"), ledger_path=db)
+        assert _coverage_rows(db)["L1"]["season"] == "2025"
+        _, http = _crawl(
+            league_weeks("L1", {}, week=2, season="2026"),
+            ledger_path=db,
+            now_ms=NOW + 250 * DAY_MS,
+        )
+        assert _weeks_called(http) == [0, 1, 2]
+        row = _coverage_rows(db)["L1"]
+        assert (row["season"], row["through_week"]) == ("2026", 2)
+
+    def test_the_offseason_steady_state_is_both_degenerate_buckets(self, db):
+        _crawl(league_weeks("L1", {}, week=17, season="2025"), ledger_path=db)
+        _, http = _crawl(
+            league_weeks("L1", {}, week=0, season="2026"),
+            ledger_path=db,
+            now_ms=NOW + 200 * DAY_MS,
+        )
+        assert sorted(_weeks_called(http)) == [0, 1]
+        _, http = _crawl(
+            league_weeks("L1", {}, week=1, season="2026"),
+            ledger_path=db,
+            now_ms=NOW + 230 * DAY_MS,
+        )
+        assert sorted(_weeks_called(http)) == [0, 1]
+        assert _coverage_rows(db)["L1"]["resume_week"] == 0
+
+
+class TestBudgetAndBreakerDuringCatchUp:
+    def _setup(self, db):
+        t9 = trade("t9", NOW - DAY_MS, {"p1": 1}, {"p1": 2})
+        _crawl(league_weeks("L1", {9: [t9]}, week=9), ledger_path=db)
+        return _fetch_rows(db)["L1"]
+
+    def _week12(self, **overrides):
+        by_week = {
+            10: [trade("t10", NOW + 8 * DAY_MS, {"p2": 1}, {"p2": 2})],
+            11: [trade("t11", NOW + 15 * DAY_MS, {"p3": 1}, {"p3": 2})],
+        }
+        resp = league_weeks("L1", by_week, week=12)
+        resp.update(overrides)
+        return resp
+
+    def test_a_budget_cut_mid_catch_up_is_pending_and_resumes(self, db):
+        before = self._setup(db)
+        later = NOW + 21 * DAY_MS
+        # /state/nfl + rosters + weeks 8 and 9, then the budget is gone.
+        result, http = _crawl(self._week12(), ledger_path=db, budget=4, now_ms=later)
+        assert _weeks_called(http) == [8, 9]
+        assert result.stopped_reason == transactions.STOPPED_BUDGET_EXHAUSTED
+        assert result.leagues_pending == 1 and result.leagues_failed == 0
+        assert result.errors == {}
+        row = _fetch_rows(db)["L1"]
+        assert row["max_created_ms"] == before["max_created_ms"]
+        assert row["last_fetched_ms"] == before["last_fetched_ms"]
+        assert row["last_error"] == transactions.STOPPED_BUDGET_EXHAUSTED
+        cov = _coverage_rows(db)["L1"]
+        assert (cov["through_week"], cov["resume_week"]) == (9, 10), "never marked covered"
+
+        nxt, http = _crawl(self._week12(), ledger_path=db, now_ms=later + HOUR_MS)
+        assert _weeks_called(http) == [10, 11, 12]
+        assert nxt.leagues_fetched == 1
+        assert {"t9", "t10", "t11"} <= _trade_ids(db)
+
+    def test_a_failed_week_stops_the_coverage_before_it(self, db):
+        before = self._setup(db)
+        later = NOW + 21 * DAY_MS
+        resp = self._week12(**{f"{BASE}/league/L1/transactions/10": None})
+        result, http = _crawl(resp, ledger_path=db, now_ms=later)
+        assert _weeks_called(http) == [8, 9, 10, 11, 12]
+        assert result.errors["L1"] == "transactions_fetch_failed"
+        assert result.leagues_failed == 1
+        assert _fetch_rows(db)["L1"]["max_created_ms"] == before["max_created_ms"]
+        cov = _coverage_rows(db)["L1"]
+        assert (cov["through_week"], cov["resume_week"]) == (9, 10)
+        assert "t11" in _trade_ids(db), "clean weeks after the gap still ingest"
+
+        nxt, http = _crawl(self._week12(), ledger_path=db, now_ms=later + HOUR_MS)
+        assert _weeks_called(http) == [10, 11, 12], "the failed week is fetched again"
+        assert nxt.leagues_fetched == 1 and nxt.movements_ingested == 2
+        assert "t10" in _trade_ids(db)
+
+    def test_a_refused_call_mid_catch_up_stops_the_pass(self, db):
+        before = self._setup(db)
+        resp = self._week12(**{f"{BASE}/league/L1/transactions/10": transactions.BREAKER_OPEN})
+        result, http = _crawl(resp, ledger_path=db, now_ms=NOW + 21 * DAY_MS)
+        assert _weeks_called(http) == [8, 9, 10]
+        assert result.stopped_reason == transactions.STOPPED_BREAKER_OPEN
+        assert _fetch_rows(db)["L1"]["max_created_ms"] == before["max_created_ms"]
+        assert _coverage_rows(db)["L1"]["through_week"] == 9
+
+
+class TestUnclockedRunsLeaveCoverageAlone:
+    @pytest.mark.parametrize("state", [None, {}], ids=["failed", "no_week"])
+    def test_no_usable_week_keeps_the_old_rule(self, db, state):
+        _crawl(league_weeks("L1", {}, week=10), ledger_path=db)
+        before = _coverage_rows(db)["L1"]
+        resp = league_weeks("L1", {}, week=10)
+        resp[f"{BASE}/state/nfl"] = state
+        result, http = _crawl(resp, ledger_path=db, now_ms=NOW + DAY_MS)
+        assert result.week_clocked is False and result.week == 1
+        assert sorted(_weeks_called(http)) == [0, 1], "the old default-week rule"
+        assert _coverage_rows(db)["L1"] == before, "a week nobody observed records nothing"
+
+
+class TestWeekCoverageStorage:
+    def test_the_tables_are_additive_and_ride_no_migration(self, db):
+        conn = ledger.connect(db)
+        try:
+            transactions.ensure_week_coverage_schema(conn)
+            transactions.ensure_week_coverage_schema(conn)
+            assert transactions._load_week_coverage(conn) == {}
+            version = conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()
+        finally:
+            conn.close()
+        assert str(version[0]) == str(ledger.SCHEMA_VERSION)
+
+    def test_a_ledger_without_the_tables_reads_as_no_coverage(self, tmp_path):
+        import sqlite3
+
+        conn = sqlite3.connect(tmp_path / "bare.sqlite3")
+        conn.row_factory = sqlite3.Row
+        try:
+            assert transactions._load_week_coverage(conn) == {}
+            assert transactions._week_coverage_summary(conn, {"L1"})["currentWeek"] is None
+        finally:
+            conn.close()
+
+    def test_coverage_before_any_clocked_run_is_unmeasured_not_zero(self, db, monkeypatch):
+        monkeypatch.setattr(
+            transactions.discovery,
+            "sharp_eligible_league_ids",
+            lambda *, ledger_path=None: ["L1"],
+        )
+        week_cov = transactions.crawl_coverage(ledger_path=db)["weekCoverage"]
+        assert set(week_cov.values()) == {None}
+
+    def test_the_run_receipt_carries_the_new_counts(self, db):
+        result, _ = _crawl(league_weeks("L1", {}, week=10), ledger_path=db)
+        payload = result.to_dict()
+        assert payload["season"] == SEASON and payload["weekClocked"] is True
+        for key in ("leaguesCaughtUp", "leaguesCatchupCapped", "leaguesRecoverySwept"):
+            assert payload[key] == 0
