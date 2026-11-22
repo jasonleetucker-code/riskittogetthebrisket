@@ -118,7 +118,7 @@ function SuggestionCard({ suggestion: s, index, onApply }) {
           </Badge>
           <Badge tone={cb.tone}>{cb.label}</Badge>
           {s.strategy !== "neutral" ? (
-            <Badge tone="neutral">
+            <Badge tone="neutral" title={strategyBasisNote(s.strategyBasis)}>
               {s.strategy === "contender" ? "Contender move" : "Rebuilder move"}
             </Badge>
           ) : null}
@@ -129,6 +129,9 @@ function SuggestionCard({ suggestion: s, index, onApply }) {
           <span>{s.rationale}</span>
           {s.whyThisHelps ? (
             <span className={styles.suggestWhy}>{s.whyThisHelps}</span>
+          ) : null}
+          {s.strategy !== "neutral" ? (
+            <span data-testid="strategy-basis-note">{strategyBasisNote(s.strategyBasis)}</span>
           ) : null}
           {s.edgeExplanation ? <span>{s.edgeExplanation}</span> : null}
           {s.suggestedBalancers?.length > 0 ? (
@@ -178,6 +181,22 @@ const EMPTY_SUGGESTION_COPY = {
   positionalUpgrades:
     "No positional upgrades found. Your starters may already be top-tier, or no upgrade targets match your depth value.",
 };
+
+// Disclosure only: the move label is a rough proxy, never the team's
+// competitive posture.  Basis vocabulary is owned by
+// src/trade/suggestions.py (strategyBasis); unknown/missing says so.
+const STRATEGY_BASIS_NOTES = {
+  years_experience_proxy:
+    "Based on years in the league, not your team's competitive posture.",
+  value_threshold_7000:
+    "Based on the target's trade value, not your team's competitive posture.",
+  generator_default:
+    "Set by the kind of trade, not your team's competitive posture.",
+};
+
+export function strategyBasisNote(basis) {
+  return STRATEGY_BASIS_NOTES[basis] || "Not based on your team's competitive posture.";
+}
 
 export function SuggestionsDesk({
   sleeperTeams,

@@ -11,7 +11,7 @@ import { describe, expect, it, vi } from "vitest";
 import React from "react";
 import { render, screen } from "@testing-library/react";
 
-import { SuggestionsDesk } from "@/app/trade/trade-suggestions-desk";
+import { SuggestionsDesk, strategyBasisNote } from "@/app/trade/trade-suggestions-desk";
 import styles from "@/app/trade/trade.module.css";
 import { arbitrageHref } from "@/lib/arbitrage-links";
 
@@ -99,5 +99,33 @@ describe("suggestions draft-pick disclosure", () => {
   it("is absent before any suggestions arrive", () => {
     renderDesk(null);
     expect(screen.queryByTestId("suggestions-pick-disclosure")).toBeNull();
+  });
+});
+
+describe("suggestion strategy-basis disclosure (DYN10)", () => {
+  function withStrategy(strategy, strategyBasis) {
+    const sg = suggestionsWith({});
+    sg.sellHigh[0] = { ...sg.sellHigh[0], strategy, strategyBasis };
+    return sg;
+  }
+
+  it("states the basis next to a Contender/Rebuilder badge and on its title", () => {
+    renderDesk(withStrategy("rebuilder", "years_experience_proxy"));
+    const note = screen.getByTestId("strategy-basis-note");
+    expect(note).toHaveTextContent(
+      "Based on years in the league, not your team's competitive posture.",
+    );
+    expect(screen.getByText("Rebuilder move")).toHaveAttribute("title", note.textContent);
+  });
+
+  it("covers each backend basis and falls back honestly when it is absent", () => {
+    expect(strategyBasisNote("value_threshold_7000")).toMatch(/trade value/);
+    expect(strategyBasisNote("generator_default")).toMatch(/kind of trade/);
+    expect(strategyBasisNote(undefined)).toMatch(/Not based on your team's competitive posture/);
+  });
+
+  it("shows no basis note for a neutral suggestion (no badge)", () => {
+    renderDesk(withStrategy("neutral", "generator_default"));
+    expect(screen.queryByTestId("strategy-basis-note")).toBeNull();
   });
 });

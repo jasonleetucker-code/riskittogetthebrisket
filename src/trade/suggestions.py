@@ -390,6 +390,12 @@ class RosterAnalysis:
         return _identity_key(asset.name) in self.sendable_keys
 
 
+# ``strategyBasis`` vocabulary (disclosure only; ``strategy`` is unchanged).
+STRATEGY_BASIS_YEARS_EXPERIENCE = "years_experience_proxy"
+STRATEGY_BASIS_VALUE_THRESHOLD_7000 = "value_threshold_7000"
+STRATEGY_BASIS_GENERATOR_DEFAULT = "generator_default"
+
+
 @dataclass
 class TradeSuggestion:
     """A single trade suggestion."""
@@ -405,6 +411,9 @@ class TradeSuggestion:
     why_this_helps: str
     confidence: str  # "high", "medium", "low"
     strategy: str  # "contender", "rebuilder", "neutral"
+    # Disclosure only: WHY the label above was chosen.  Never your team's
+    # competitive posture (src/roster_intel/window.py owns that).
+    strategy_basis: str = STRATEGY_BASIS_GENERATOR_DEFAULT
 
 
 # ── Market-disagreement helpers ──────────────────────────────────────
@@ -978,6 +987,16 @@ def _fairness_label(gap: int, give_vals: list[int], recv_vals: list[int]) -> str
     return fairness_bands.legacy_magnitude(level)
 
 
+def _strategy_basis_for_player(player: PlayerAsset) -> str:
+    """Basis of ``_strategy_for_player``: a years-in-league proxy when it
+    decided, else the generator default (no proxy evidence -> "neutral")."""
+    if player.rookie or (player.years_exp is not None and player.years_exp <= 2):
+        return STRATEGY_BASIS_YEARS_EXPERIENCE
+    if player.years_exp is not None and player.years_exp >= 8:
+        return STRATEGY_BASIS_YEARS_EXPERIENCE
+    return STRATEGY_BASIS_GENERATOR_DEFAULT
+
+
 def _strategy_for_player(player: PlayerAsset) -> str:
     if player.rookie or (player.years_exp is not None and player.years_exp <= 2):
         return "rebuilder"
@@ -1260,6 +1279,7 @@ def _generate_sell_high(
                             min(sell.source_count, target.source_count)
                         ),
                         strategy=_strategy_for_player(sell),
+                        strategy_basis=_strategy_basis_for_player(sell),
                     )
                 )
 
@@ -1326,6 +1346,7 @@ def _generate_buy_low(
                                     min(sell.source_count, target.source_count)
                                 ),
                                 strategy="neutral",
+                                strategy_basis=STRATEGY_BASIS_GENERATOR_DEFAULT,
                             )
                         )
 
@@ -1432,6 +1453,11 @@ def _generate_consolidation(
                         f"depth into a higher-tier asset.",
                         confidence=_confidence_from_sources(target.source_count),
                         strategy="contender" if target.display_value >= 7000 else "neutral",
+                        strategy_basis=(
+                            STRATEGY_BASIS_VALUE_THRESHOLD_7000
+                            if target.display_value >= 7000
+                            else STRATEGY_BASIS_GENERATOR_DEFAULT
+                        ),
                     )
                 )
                 break
@@ -1548,6 +1574,7 @@ def _generate_positional_upgrades(
                     why_this_helps=f"Replaces your {pos}{need} with a higher-caliber {pos} starter.",
                     confidence=_confidence_from_sources(target.source_count),
                     strategy="contender",
+                    strategy_basis=STRATEGY_BASIS_GENERATOR_DEFAULT,
                 )
             )
 
@@ -2432,6 +2459,7 @@ def _serialize_suggestion(
         "whyThisHelps": s.why_this_helps,
         "confidence": s.confidence,
         "strategy": s.strategy,
+        "strategyBasis": s.strategy_basis,
     }
     # Rank score breakdown (explainability)
     result["rankScore"] = rank_score_breakdown(s, roster)

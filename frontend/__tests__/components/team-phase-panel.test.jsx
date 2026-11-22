@@ -75,6 +75,20 @@ describe("TeamPhasePanel (the whole body of /phases)", () => {
     expect(document.querySelectorAll("tbody tr").length).toBe(2);
   });
 
+  it("discloses that the quadrant is a median split, not the competitive posture", () => {
+    mockUseRosterIntelligence.mockReturnValue({
+      loading: false,
+      failure: null,
+      data: payload([
+        { ownerId: "own-a", teamName: "Alpha", strengthTotal: 17500, valueWeightedCoreAge: 22.5 },
+      ]),
+    });
+    render(<TeamPhasePanel />);
+    expect(screen.getByTestId("phase-basis-note")).toHaveTextContent(
+      "median split of team strength and age, a different measure from the competitive posture shown on the team page",
+    );
+  });
+
   it("shows a loading state instead of rendering nothing", () => {
     mockUseRosterIntelligence.mockReturnValue({ loading: true, failure: null, data: null });
     const { container } = render(<TeamPhasePanel />);
