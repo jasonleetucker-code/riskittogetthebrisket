@@ -79,7 +79,9 @@ Discipline, each pinned by a test:
   same floor applies to INFORMATIVE rows: a cross-section needs that many
   distinct non-zero gaps, so a series that equals the market on almost
   every asset cannot pass on a handful of rows.  The zero-gap share is
-  reported per cell.
+  reported per cell, and above ``MAX_ZERO_GAP_SHARE`` (0.5) the cell is
+  unusable: where most rows carry no disagreement it is not measuring
+  disagreement.
 * **No verdict below two usable origins.**
 """
 
@@ -126,6 +128,13 @@ MIN_PAIRS = bt.MIN_PAIRS_PER_FOLD
 
 # A gap this close to zero is the source agreeing with the market exactly.
 ZERO_GAP_EPS = 1e-12
+
+# A cross-section where most rows carry no disagreement is not measuring
+# disagreement: its rho is decided by the few rows that differ (measured:
+# ``ktc`` equals ``ktcSfTep`` on every QB, RB and WR before the KTC split,
+# so its ALL cell rested on about 68 TE rows with a zero-gap share of 0.85).
+# Above this share the cell is unusable, like the distinct-gap floor.
+MAX_ZERO_GAP_SHARE = 0.5
 
 # Below this many usable origins no verdict is given at all.
 MIN_USABLE_ORIGINS_FOR_VERDICT = 2
@@ -921,6 +930,16 @@ def measure_fold(
                     usable=False,
                     reason=f"only {distinct} distinct non-zero gaps (need {MIN_PAIRS})",
                 )
+            elif zero_share is not None and zero_share > MAX_ZERO_GAP_SHARE:
+                result = bt.FoldResult(
+                    fold=fold,
+                    n_pairs=len(paired),
+                    usable=False,
+                    reason=(
+                        f"zero-gap share {zero_share:.3f} exceeds {MAX_ZERO_GAP_SHARE}: "
+                        "most rows carry no disagreement"
+                    ),
+                )
             else:
                 result = bt.evaluate_fold(
                     fold,
@@ -1146,12 +1165,15 @@ def measure(
         ),
         "minPairsPerCrossSection": MIN_PAIRS,
         "minDistinctNonZeroGaps": MIN_PAIRS,
+        "maxZeroGapShare": MAX_ZERO_GAP_SHARE,
         "notFreshMasked": sorted([list(x) for x in reader.not_fresh]),
         "momentum": (
             "momentumControl per cell: the market's raw log return from the latest panel "
             "date on or before D-H to D (read at or before D only), its Spearman with the "
             "outcome (rhoMomentum), with the gap (rhoGapVsPriorReturn), and the Spearman "
-            "partial of gap and outcome given it (partialRhoGivenMomentum)"
+            "partial of gap and outcome given the prior return ONLY, not also log price "
+            "(partialRhoGivenMomentum). partialR / deltaR2 are a separate quantity: the "
+            "linear partial given log price at D (persistence)"
         ),
         "minUsableOriginsForVerdict": MIN_USABLE_ORIGINS_FOR_VERDICT,
         "groups": list(GROUPS),
@@ -1290,11 +1312,13 @@ def render_markdown(result: Mapping[str, Any], *, title: str) -> str:
             lines += _group_table(series_rows, _cell_rho)
             lines += [
                 "— means no usable origin: no observation, the series is the market itself, "
-                "too few pairs, or too few distinct non-zero gaps. The JSON gives the reason "
-                "for each origin.",
+                "too few pairs, too few distinct non-zero gaps, or a zero-gap share above "
+                f"{MAX_ZERO_GAP_SHARE}. The JSON gives the reason for each origin.",
                 "",
                 "Net of momentum: mean partial Spearman of gap and outcome given the market's "
-                "own prior-H log return (positive / origins with a momentum control):",
+                "own prior-H log return ONLY, not also log price (positive / origins with a "
+                "momentum control). The persistence `partialR` in the JSON is a separate "
+                "quantity: a linear partial given log price at D.",
                 "",
             ]
             lines += _group_table(series_rows, _cell_momentum)

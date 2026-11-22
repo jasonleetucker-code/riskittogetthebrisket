@@ -657,6 +657,29 @@ def test_a_usable_cell_reports_its_zero_gap_share(ledger: Path) -> None:
     assert summary["meanZeroGapShare"] == pytest.approx(8 / 40)
 
 
+@pytest.mark.parametrize(("zeros", "usable"), [(32, True), (33, False)])
+def test_a_majority_zero_gap_cell_is_unusable(ledger: Path, zeros: int, usable: bool) -> None:
+    # 32 informative rows always pass the distinct-gap floor.  With 32 zero
+    # rows the zero-gap share is exactly 0.5 (allowed); with 33 it is
+    # 33 / 65 > 0.5, and the cell no longer measures disagreement.
+    informative = 32
+    n = zeros + informative
+    returns = {i: 0.001 * i for i in range(1, n + 1)}
+    gaps = {i: (0.0 if i <= zeros else 0.01 * i) for i in range(1, n + 1)}
+    _write(ledger, _fold_rows(D0, D1, n, gaps, returns))
+    summary = _source_summary(fs.measure(ledger, horizons=(30,)), 30, "WR")
+    assert summary["foldsUsable"] == (1 if usable else 0)
+    if usable:
+        assert summary["spearmanByFold"][0]["zeroGapShare"] == pytest.approx(0.5)
+    else:
+        (unusable,) = summary["originsUnusable"]
+        assert unusable["n"] == n
+        assert unusable["zeroGapShare"] == pytest.approx(zeros / n)
+        assert unusable["reason"].startswith(
+            f"zero-gap share {zeros / n:.3f} exceeds {fs.MAX_ZERO_GAP_SHARE}"
+        )
+
+
 # ── Momentum control ────────────────────────────────────────────────────
 
 DP, DD, DH = "2026-07-15", "2026-08-14", "2026-09-13"  # 30 days apart
