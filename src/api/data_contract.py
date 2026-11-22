@@ -18627,21 +18627,32 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
                 # Exactly the slot range the tether covers (stamped by the
                 # guard): a vendor slot outside it was never tethered with
                 # the flag OFF either, so it is not this census's to own.
-                try:
-                    census_league_size = int(census_guard.get("leagueSize") or 0)
-                except (TypeError, ValueError):
-                    census_league_size = 0
-                try:
-                    census_rounds = int(census_guard.get("anchorRounds") or _ROOKIE_ANCHOR_ROUNDS)
-                except (TypeError, ValueError):
-                    census_rounds = _ROOKIE_ANCHOR_ROUNDS
+                # An unstated or malformed stamp bounds nothing (None), never
+                # a fabricated size: only a positive integer narrows the range.
+                raw_size = census_guard.get("leagueSize")
+                census_league_size = (
+                    raw_size
+                    if isinstance(raw_size, int) and not isinstance(raw_size, bool) and raw_size > 0
+                    else None
+                )
+                raw_rounds = census_guard.get("anchorRounds")
+                census_rounds = (
+                    raw_rounds
+                    if isinstance(raw_rounds, int)
+                    and not isinstance(raw_rounds, bool)
+                    and raw_rounds > 0
+                    else _ROOKIE_ANCHOR_ROUNDS
+                )
                 for nm, row in sorted(pick_rows_by_name.items()):
                     parsed_census_slot = _parse_pick_slot(nm)
                     if parsed_census_slot is None or parsed_census_slot[0] != census_current:
                         continue
                     if not (1 <= parsed_census_slot[1] <= census_rounds):
                         continue
-                    if census_league_size > 0 and parsed_census_slot[2] > census_league_size:
+                    if (
+                        census_league_size is not None
+                        and parsed_census_slot[2] > census_league_size
+                    ):
                         continue
                     v = row.get("rankDerivedValue")
                     if not (
