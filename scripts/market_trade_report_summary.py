@@ -110,10 +110,15 @@ def whitelist_report(report: Any) -> dict[str, Any]:
     estimator = estimator if isinstance(estimator, dict) else {}
     topology = ev.get("topology") if isinstance(ev.get("topology"), dict) else {}
     fmt = cov.get("formatCoverage") if isinstance(cov.get("formatCoverage"), dict) else {}
+    # ``coverage.underlyingTrades`` is the grouping volume block
+    # (``market_trade_groups``): a point estimate with lower / upper bounds.
+    volume = cov.get("underlyingTrades") if isinstance(cov.get("underlyingTrades"), dict) else {}
     return {
         "observations": _int(raw_obs.get("total")),
         "observationsBySource": _count_map(raw_obs.get("bySource")),
-        "groups": _int(cov.get("underlyingTrades")),
+        "groups": _int(volume.get("underlyingTradesPointEstimate")),
+        "groupsLowerBound": _int(volume.get("underlyingTradesLowerBound")),
+        "groupsUpperBound": _int(volume.get("underlyingTradesUpperBound")),
         "confirmedUniqueGroups": _int(cov.get("confirmedUniqueUnderlyingTrades")),
         "probableDuplicateGroups": _int(cov.get("probableDuplicateGroups")),
         "possibleOverlapGroups": _int(cov.get("possibleOverlapGroups")),
