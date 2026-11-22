@@ -1,7 +1,7 @@
 {
   "schema": "forward-scoreboard/v1",
-  "measuredAt": "2026-11-22T01:11:35.470196+00:00",
-  "codeSha": "078e271d2c9c324601eb84a60480c28b1a12df93",
+  "measuredAt": "2026-11-22T01:17:39.021179+00:00",
+  "codeSha": "a2816f9bbfd5b8e41df9d4f1a367ed2b99a1a20f",
   "codeDirty": false,
   "inputs": {
     "mode": "archive",
@@ -135,6 +135,7 @@
   "signal": "log((x + 1) / (market + 1)) at the origin (CE mispricing.log_gap); x is the board or source value. Spearman is rank-based, so (x - market) / market gives the identical rho",
   "minPairsPerCrossSection": 30,
   "minDistinctNonZeroGaps": 30,
+  "maxZeroGapShare": 0.5,
   "notFreshMasked": [
     [
       "2026-08-03",
@@ -145,7 +146,7 @@
       "idpTradeCalc"
     ]
   ],
-  "momentum": "momentumControl per cell: the market's raw log return from the latest panel date on or before D-H to D (read at or before D only), its Spearman with the outcome (rhoMomentum), with the gap (rhoGapVsPriorReturn), and the Spearman partial of gap and outcome given it (partialRhoGivenMomentum)",
+  "momentum": "momentumControl per cell: the market's raw log return from the latest panel date on or before D-H to D (read at or before D only), its Spearman with the outcome (rhoMomentum), with the gap (rhoGapVsPriorReturn), and the Spearman partial of gap and outcome given the prior return ONLY, not also log price (partialRhoGivenMomentum). partialR / deltaR2 are a separate quantity: the linear partial given log price at D (persistence)",
   "minUsableOriginsForVerdict": 2,
   "groups": [
     "ALL",
@@ -1318,41 +1319,10 @@
           "byGroup": {
             "ALL": {
               "foldsAttempted": 4,
-              "foldsUsable": 4,
-              "meanSpearman": 0.004935237511015903,
+              "foldsUsable": 2,
+              "meanSpearman": 0.004776395064894371,
               "medianSpearman": 0.004776395064894371,
               "spearmanByFold": [
-                {
-                  "origin": "2026-07-14",
-                  "n": 448,
-                  "rho": 0.021879732316538242,
-                  "partialR": -0.030201962640492748,
-                  "deltaR2": 2.4597819361834734e-05,
-                  "zeroGapShare": 0.8459821428571429,
-                  "distinctNonZeroGaps": 69,
-                  "unchangedSincePriorShare": null,
-                  "momentumN": 0,
-                  "rhoGapOnMomentumRows": null,
-                  "rhoMomentum": null,
-                  "rhoGapVsPriorReturn": null,
-                  "partialRhoGivenMomentum": null,
-                  "momentumReason": "only 0 rows with a prior return (need 30)"
-                },
-                {
-                  "origin": "2026-08-13",
-                  "n": 410,
-                  "rho": -0.011691572402263374,
-                  "partialR": -0.07458342025312996,
-                  "deltaR2": 0.00022247303637065768,
-                  "zeroGapShare": 0.8365853658536585,
-                  "distinctNonZeroGaps": 67,
-                  "unchangedSincePriorShare": 0.0024691358024691358,
-                  "momentumN": 405,
-                  "rhoGapOnMomentumRows": -0.0041983807807054905,
-                  "rhoMomentum": 0.1648219397329591,
-                  "rhoGapVsPriorReturn": -0.0285169774382589,
-                  "partialRhoGivenMomentum": 0.0005090084708378104
-                },
                 {
                   "origin": "2026-09-12",
                   "n": 418,
@@ -1386,33 +1356,46 @@
               ],
               "benchmarks": {
                 "marketValue": {
-                  "meanSpearman": -0.06022723707161391,
-                  "beatenInFolds": 4
+                  "meanSpearman": -0.07980165070856496,
+                  "beatenInFolds": 2
                 },
                 "random": {
-                  "meanSpearman": -0.022290930916716772,
-                  "beatenInFolds": 3
+                  "meanSpearman": -0.06340843744291697,
+                  "beatenInFolds": 2
                 }
               },
-              "verdict": "no effect detected (mean rho +0.005 over 4 non-overlapping folds; 2/4 folds positive; beat market-value benchmark in 4/4)",
-              "foldsPositive": 2,
-              "originsUnusable": [],
-              "meanPartialR": -0.007775128858296168,
-              "meanDeltaR2": 0.00012187172839748013,
+              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho +0.005 is reported for completeness only.",
+              "foldsPositive": 1,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 448,
+                  "reason": "zero-gap share 0.846 exceeds 0.5: most rows carry no disagreement",
+                  "zeroGapShare": 0.8459821428571429
+                },
+                {
+                  "origin": "2026-08-13",
+                  "n": 410,
+                  "reason": "zero-gap share 0.837 exceeds 0.5: most rows carry no disagreement",
+                  "zeroGapShare": 0.8365853658536585
+                }
+              ],
+              "meanPartialR": 0.03684243373021902,
+              "meanDeltaR2": 0.00012020802892871405,
               "deltaR2Range": [
                 7.612985512604356e-06,
                 0.00023280307234482375
               ],
-              "meanZeroGapShare": 0.4217810888432278,
-              "meanUnchangedSincePriorShare": 0.004039786323724336,
+              "meanZeroGapShare": 0.00227842333105491,
+              "meanUnchangedSincePriorShare": 0.004825111584351936,
               "momentumControl": {
-                "originsMeasured": 3,
-                "meanRhoGap": -0.007330882082657332,
-                "meanRhoMomentum": 0.11079171218014393,
-                "meanRhoGapVsPriorReturn": 0.21465499047429445,
-                "meanPartialRhoGivenMomentum": -0.02654378788370279,
-                "partialPositive": 1,
-                "verdict": "no effect detected net of momentum (mean partial rho -0.027 over 3 origins; 2/3 negative)"
+                "originsMeasured": 2,
+                "meanRhoGap": -0.008897132733633253,
+                "meanRhoMomentum": 0.08377659840373633,
+                "meanRhoGapVsPriorReturn": 0.3362409744305711,
+                "meanPartialRhoGivenMomentum": -0.040070186060973095,
+                "partialPositive": 0,
+                "verdict": "underpowered: mean partial rho -0.040 over 2 origins; 2/2 negative"
               }
             },
             "QB": {
@@ -4525,26 +4508,10 @@
           "byGroup": {
             "ALL": {
               "foldsAttempted": 2,
-              "foldsUsable": 2,
-              "meanSpearman": -0.008992016290720876,
-              "medianSpearman": -0.008992016290720876,
+              "foldsUsable": 1,
+              "meanSpearman": -0.015995348146182045,
+              "medianSpearman": -0.015995348146182045,
               "spearmanByFold": [
-                {
-                  "origin": "2026-07-14",
-                  "n": 404,
-                  "rho": -0.0019886844352597077,
-                  "partialR": -0.06652741417800273,
-                  "deltaR2": 0.00032551784934761627,
-                  "zeroGapShare": 0.8366336633663366,
-                  "distinctNonZeroGaps": 66,
-                  "unchangedSincePriorShare": null,
-                  "momentumN": 0,
-                  "rhoGapOnMomentumRows": null,
-                  "rhoMomentum": null,
-                  "rhoGapVsPriorReturn": null,
-                  "partialRhoGivenMomentum": null,
-                  "momentumReason": "only 0 rows with a prior return (need 30)"
-                },
                 {
                   "origin": "2026-09-12",
                   "n": 418,
@@ -4563,24 +4530,31 @@
               ],
               "benchmarks": {
                 "marketValue": {
-                  "meanSpearman": -0.08378674777749474,
-                  "beatenInFolds": 2
+                  "meanSpearman": -0.12871827552020415,
+                  "beatenInFolds": 1
                 },
                 "random": {
-                  "meanSpearman": 0.011846718104931798,
+                  "meanSpearman": -0.007752240805738934,
                   "beatenInFolds": 0
                 }
               },
-              "verdict": "underpowered: 2 usable fold(s). A direction cannot be called from this; mean rho -0.009 is reported for completeness only.",
+              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
               "foldsPositive": 0,
-              "originsUnusable": [],
-              "meanPartialR": -0.047344540087547654,
-              "meanDeltaR2": 0.00019642887094815426,
+              "originsUnusable": [
+                {
+                  "origin": "2026-07-14",
+                  "n": 404,
+                  "reason": "zero-gap share 0.837 exceeds 0.5: most rows carry no disagreement",
+                  "zeroGapShare": 0.8366336633663366
+                }
+              ],
+              "meanPartialR": -0.028161665997092585,
+              "meanDeltaR2": 6.733989254869228e-05,
               "deltaR2Range": [
                 6.733989254869228e-05,
-                0.00032551784934761627
+                6.733989254869228e-05
               ],
-              "meanZeroGapShare": 0.4195130039319721,
+              "meanZeroGapShare": 0.0023923444976076554,
               "meanUnchangedSincePriorShare": 0.0024449877750611247,
               "momentumControl": {
                 "originsMeasured": 1,
@@ -6804,47 +6778,24 @@
           "byGroup": {
             "ALL": {
               "foldsAttempted": 1,
-              "foldsUsable": 1,
-              "meanSpearman": -0.024744366263760108,
-              "medianSpearman": -0.024744366263760108,
-              "spearmanByFold": [
+              "foldsUsable": 0,
+              "meanSpearman": null,
+              "medianSpearman": null,
+              "spearmanByFold": [],
+              "benchmarks": {},
+              "verdict": "no verdict: 0 usable origin(s), fewer than 2",
+              "originsUnusable": [
                 {
                   "origin": "2026-07-14",
                   "n": 434,
-                  "rho": -0.024744366263760108,
-                  "partialR": -0.04975172063226898,
-                  "deltaR2": 0.0003855574475294455,
-                  "zeroGapShare": 0.836405529953917,
-                  "distinctNonZeroGaps": 71,
-                  "unchangedSincePriorShare": null,
-                  "momentumN": 0,
-                  "rhoGapOnMomentumRows": null,
-                  "rhoMomentum": null,
-                  "rhoGapVsPriorReturn": null,
-                  "partialRhoGivenMomentum": null,
-                  "momentumReason": "only 0 rows with a prior return (need 30)"
+                  "reason": "zero-gap share 0.836 exceeds 0.5: most rows carry no disagreement",
+                  "zeroGapShare": 0.836405529953917
                 }
               ],
-              "benchmarks": {
-                "marketValue": {
-                  "meanSpearman": -0.009210947002762477,
-                  "beatenInFolds": 0
-                },
-                "random": {
-                  "meanSpearman": -0.025444601222635078,
-                  "beatenInFolds": 1
-                }
-              },
-              "verdict": "no verdict: 1 usable origin(s), fewer than 2",
-              "foldsPositive": 0,
-              "originsUnusable": [],
-              "meanPartialR": -0.04975172063226898,
-              "meanDeltaR2": 0.0003855574475294455,
-              "deltaR2Range": [
-                0.0003855574475294455,
-                0.0003855574475294455
-              ],
-              "meanZeroGapShare": 0.836405529953917,
+              "meanPartialR": null,
+              "meanDeltaR2": null,
+              "deltaR2Range": null,
+              "meanZeroGapShare": null,
               "meanUnchangedSincePriorShare": null,
               "momentumControl": {
                 "originsMeasured": 0,
