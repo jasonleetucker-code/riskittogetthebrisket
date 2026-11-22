@@ -129,6 +129,7 @@ const DIMENSION_REASON_WORDS = {
   // DYN10 #4: served apart from the analysis (POST /api/trade/title-odds).
   deferred_async:
     "worked out separately so the recommendation never waits for it (see This season's odds)",
+  asset_only_mode: "not included in Asset-only analysis",
 };
 
 /**

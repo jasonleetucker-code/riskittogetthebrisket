@@ -86,9 +86,14 @@ computes nothing and hands Analyze Trade the :func:`deferred` envelope
 (``state: "unavailable"``, reason ``deferred_async``), so the packet names the
 dimension and says where it is served.  The odds come from
 ``POST /api/trade/title-odds`` (:data:`ASYNC_ROUTE`), which the War Room calls
-after the analysis has arrived; that route runs this module in the threadpool,
-bounded by a timeout (``title_odds_timeout``) and cached per (league, board
-generation, :func:`trade_signature`) by ``src/api/trade_title_odds_runtime.py``.
+after the analysis has arrived; that route runs this module in the threadpool
+under the route's admission bound (``src/api/compute_admission.py``: a full
+route answers ``title_odds_busy``, a caller waits at most its deadline and then
+gets ``title_odds_timeout``) and caches per (user, league, board generation,
+:func:`trade_signature`) in ``src/api/trade_title_odds_runtime.py``.
+``/api/trade/analyze-multi`` computes nothing either: it hands every team
+:func:`deferred_for_ledger` (``deferred_async`` for two teams,
+``not_computed_multi_team`` for three or more).
 
 The odds are uncalibrated
 ─────────────────────────
@@ -154,6 +159,12 @@ REASON_ASSET_ONLY = "asset_only_mode"
 REASON_DEFERRED_ASYNC = "deferred_async"
 #: The async route's computation did not finish inside its bound.
 REASON_TIMEOUT = "title_odds_timeout"
+#: The async route was already running as many season simulations as its
+#: admission bound allows (``src/api/compute_admission.py``); retryable.
+REASON_BUSY = "title_odds_busy"
+#: Multi-team analysis (``/api/trade/analyze-multi``) does not compute the odds
+#: for a trade of three or more teams; the async route serves 2-team trades.
+REASON_NOT_COMPUTED_MULTI_TEAM = "not_computed_multi_team"
 
 #: The private route that serves this lens (``server.py``).
 ASYNC_ROUTE = "/api/trade/title-odds"
@@ -213,6 +224,15 @@ _DETAIL = {
         "the season simulation did not finish in time; it keeps running, and asking "
         "again shortly returns its result."
     ),
+    REASON_BUSY: (
+        "the server is already running as many season simulations as it allows; "
+        "asking again in a moment starts this one."
+    ),
+    REASON_NOT_COMPUTED_MULTI_TEAM: (
+        "not computed for a trade of three or more teams (each extra changed roster adds "
+        "to a season simulation of several seconds); two-team trades are served by "
+        "POST /api/trade/title-odds."
+    ),
 }
 
 _LENS_ASSUMPTIONS = (
@@ -271,6 +291,21 @@ def deferred() -> dict[str, Any]:
     ``deferred_async`` — never a zero delta and never silently absent.
     """
     return unavailable(REASON_DEFERRED_ASYNC, route=ASYNC_ROUTE)
+
+
+def deferred_for_ledger(ledger: Any) -> dict[str, Any]:
+    """What ``/api/trade/analyze-multi`` hands every team's analysis with the
+    flag ON (its ``title_odds_provider``): nothing is computed there.
+
+    A 2-team ledger gets :func:`deferred` — :data:`ASYNC_ROUTE` serves that
+    trade.  Three or more teams get ``not_computed_multi_team``: the async
+    route answers 2-team trades only, so pointing there would be untrue.
+    Either way the dimension stays named and unavailable, never a zero.
+    """
+    teams = getattr(ledger, "teams", None) or ()
+    if len(teams) == 2:
+        return deferred()
+    return unavailable(REASON_NOT_COMPUTED_MULTI_TEAM)
 
 
 def league_configured(league_key: str | None) -> bool:
@@ -742,7 +777,12 @@ def title_odds_for_ledger(
     n_simulations: int = N_SIMULATIONS,
     twin_weeks: int = TWIN_WEEKS,
 ) -> dict[str, Any]:
-    """``/api/trade/analyze-multi``: the lens payload for one validated ledger."""
+    """The lens payload for one validated N-team ledger.
+
+    Not called by any route today: ``/api/trade/analyze-multi`` hands
+    :func:`deferred_for_ledger` instead of waiting for this.  Kept (and
+    pinned by ``tests/trade/test_title_odds_lens.py``) as the N-team
+    computation an async multi-team path would serve."""
     league_key = getattr(snap, "league_key", None)
     refused = _preflight(snapshot, league_key)
     if refused is not None:

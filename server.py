@@ -21830,7 +21830,8 @@ def _trade_title_odds_two_team(result: dict, league_key: str | None, contract) -
     )
 
 
-#: Bounded, shared, briefly cached lens computations for the async route.
+#: Admitted, bounded, per-user shared and briefly cached lens computations for
+#: the async route.
 _TRADE_TITLE_ODDS = _trade_title_odds_runtime.TitleOddsRuntime()
 
 
@@ -21852,10 +21853,15 @@ async def post_trade_title_odds(request: Request):
     "unavailable"`` with a ``reason`` (never a zero delta) — plus the transport
     fields ``leagueKey``, ``perspectiveOwnerId`` (the analysed team) and
     ``computation`` (``source``: ``computed`` / ``cache`` / ``joined`` /
-    ``timeout`` / ``not_computed``; ``ms``).  Asset-Only (``useTeamContext:
-    false``) answers ``asset_only_mode`` without computing.  The computation is
-    bounded (``title_odds_timeout``) and cached for a few minutes per league,
-    board generation and trade (``src/api/trade_title_odds_runtime.py``).
+    ``timeout`` / ``busy`` / ``not_computed``; ``ms``).  Asset-Only
+    (``useTeamContext: false``) answers ``asset_only_mode`` without computing.
+    Each computation takes a slot of the route's admission bound
+    (``src/api/compute_admission.py``, route ``trade_title_odds``): a full
+    route answers ``title_odds_busy`` (retryable) without starting one, and a
+    caller waits at most the route's deadline (``title_odds_timeout``).
+    Successful payloads are shared and cached for a few minutes per USER,
+    league, board generation and trade (``src/api/trade_title_odds_runtime.py``);
+    a session with no provable owner is computed alone, never shared.
     CONTEXT only: nothing here reaches ``trade_decision``.
     """
     from src.trade import title_odds_lens as _title_odds_lens  # noqa: PLC0415
@@ -21863,7 +21869,8 @@ async def post_trade_title_odds(request: Request):
 
     # Signed in first (as the cookie gate already requires), then the flag:
     # a signed-out caller learns nothing about the flag.
-    if not _get_auth_session(request):
+    session = _get_auth_session(request)
+    if not session:
         return JSONResponse(
             status_code=401,
             content={"error": "auth_required"},
@@ -21895,7 +21902,12 @@ async def post_trade_title_odds(request: Request):
         payload = _title_odds_lens.unavailable(_title_odds_lens.REASON_ASSET_ONLY)
         source = "not_computed"
     else:
+        # Scoped to the user (Analyze Trade's own in-flight identity): a cache
+        # hit or a joined computation, and its timing, never crosses users.
         key = _trade_title_odds_runtime.cache_key(
+            owner=_trade_analyze_runtime.session_owner(
+                session, request.cookies.get(JASON_AUTH_COOKIE_NAME)
+            ),
             league_key=league_key,
             board_generation=_trade_analyze_runtime.contract_generation(contract),
             trade_signature=_title_odds_lens.trade_signature(result),
@@ -21905,6 +21917,7 @@ async def post_trade_title_odds(request: Request):
             lambda: _trade_title_odds_two_team(result, league_key, contract),
             timeout_payload=lambda: _title_odds_lens.unavailable(_title_odds_lens.REASON_TIMEOUT),
             error_payload=lambda: _title_odds_lens.unavailable(_title_odds_lens.REASON_ERROR),
+            busy_payload=lambda: _title_odds_lens.unavailable(_title_odds_lens.REASON_BUSY),
         )
     team = result.get("team") if isinstance(result.get("team"), dict) else {}
     payload["leagueKey"] = league_key
@@ -22135,17 +22148,18 @@ async def post_trade_analyze_multi(request: Request):
 
     from src.trade import title_odds_lens as _title_odds_lens  # noqa: PLC0415
 
-    def _title_odds(validated):
-        # DYN10 #4 (owner-held flag, default OFF): ONE paired season
-        # simulation for the whole trade; each team's analysis shows its row.
-        return _title_odds_lens.guarded(
-            lambda: _title_odds_lens.title_odds_for_ledger(
-                validated, snap, snapshot=_title_odds_snapshot(league_key)
-            )
-        )
-
+    # DYN10 #4 (owner-held flag, default OFF).  ON, nothing is computed here
+    # either: the season simulation (~5.5 s plus ~1.4 s per extra changed
+    # roster) would run inside this route's admission slot for a lens the
+    # 3+-team War Room never shows.  Every team's analysis gets the deferred
+    # envelope instead (``deferred_async`` for 2 teams, served by
+    # ``POST /api/trade/title-odds``; ``not_computed_multi_team`` for 3+).
     # OFF passes no provider, so every team's analysis is byte-identical.
-    _title_odds_kw = {"title_odds_provider": _title_odds} if _title_odds_lens.enabled() else {}
+    _title_odds_kw = (
+        {"title_odds_provider": _title_odds_lens.deferred_for_ledger}
+        if _title_odds_lens.enabled()
+        else {}
+    )
 
     def _compute():
         return _svc.analyze_trade_n(

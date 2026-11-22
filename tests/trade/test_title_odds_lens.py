@@ -741,9 +741,9 @@ def test_the_public_advisor_never_builds_the_lens():
 def test_server_passes_the_lens_only_behind_the_flag():
     """Every private route reaches the lens only through ``enabled()``: OFF
     passes nothing, so ``analyze_for_team`` / ``analyze_trade_n`` see exactly
-    the pre-lens call and ``/api/trade/title-odds`` refuses.  The 2-team
-    analyze route hands in the deferred envelope and never computes the odds
-    (the async route does)."""
+    the pre-lens call and ``/api/trade/title-odds`` refuses.  Neither analyze
+    route computes the odds (the async route does): the 2-team route hands in
+    the deferred envelope, the multi-team route the deferred provider."""
     text = (_REPO / "server.py").read_text(encoding="utf-8")
     assert text.count("_title_odds_lens.enabled()") == 3
     assert "**_title_odds_extra" in text and "**_title_odds_kw" in text
@@ -753,10 +753,11 @@ def test_server_passes_the_lens_only_behind_the_flag():
     ]
     assert "_trade_title_odds_two_team" not in analyze
     assert 'clock.stage("titleOdds")' not in analyze
-    assert (
-        '_title_odds_kw = {"title_odds_provider": _title_odds} if _title_odds_lens.enabled() else {}'
-        in text
-    )
+    multi = text[text.index("async def post_trade_analyze_multi") :]
+    multi = multi[: multi.index("\n@app.")]
+    assert '{"title_odds_provider": _title_odds_lens.deferred_for_ledger}' in multi
+    assert "if _title_odds_lens.enabled()" in multi
+    assert "title_odds_for_ledger" not in multi and "_title_odds_snapshot" not in multi
 
 
 # ── the disclosure ───────────────────────────────────────────────────────

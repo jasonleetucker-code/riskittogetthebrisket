@@ -191,8 +191,10 @@ MODES: tuple[str, ...] = ("team_context", "asset_only", "market_fairness")
 #: route's own ``comparable_trades`` call for that team (N = 2 only).
 ComparablesProvider = Callable[[Any, dict[str, Any]], Any]
 #: ``title_odds_provider(ledger) -> title_odds_lens payload`` — the private
-#: route's whole-trade season-odds computation (flag ``trade_title_odds_lens``
-#: ON only).  Called ONCE per request, in ``team_context`` mode only.
+#: route's whole-trade season-odds payload (flag ``trade_title_odds_lens`` ON
+#: only; today the route passes ``title_odds_lens.deferred_for_ledger``, so
+#: nothing is simulated there).  Called ONCE per request, in ``team_context``
+#: mode only.
 TitleOddsProvider = Callable[[Any], Any]
 
 

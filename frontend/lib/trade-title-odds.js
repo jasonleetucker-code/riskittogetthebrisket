@@ -41,6 +41,8 @@ export const TITLE_ODDS_REASON_WORDS = {
   team_not_in_simulation: "this team is not in the season simulation",
   title_odds_error: "the calculation failed",
   title_odds_timeout: "it took too long; it is still finishing, so try again in a moment",
+  title_odds_busy:
+    "the server is busy with other season simulations right now, so try again in a moment",
   asset_only_mode: "it is not included in Asset-only analysis",
   playoff_seed_type_unknown:
     "this league's settings do not say how its playoff bracket is seeded, so the bracket cannot be played",
@@ -57,6 +59,14 @@ export function titleOddsReasonText(reason) {
   return GENERIC_REASON;
 }
 
+/**
+ * The shared trade-simulation path answers 503 `{"error": "No data available
+ * yet."}` before a board has loaded — a sentence, not a code.  Read it as the
+ * not-ready state it is, never as "the request was refused".
+ */
+const NO_DATA_YET = "No data available yet.";
+const NOT_READY = new Set(["data_not_ready", NO_DATA_YET, "HTTP 503"]);
+
 /** Errors Retry can plausibly fix (a refusal by the request itself cannot). */
 const RETRYABLE = new Set([
   "timeout",
@@ -64,6 +74,9 @@ const RETRYABLE = new Set([
   "upstream_unavailable",
   "title_odds_timeout",
   "title_odds_error",
+  "title_odds_busy",
+  "data_not_ready",
+  NO_DATA_YET,
 ]);
 
 export function titleOddsRetryable(code) {
@@ -79,12 +92,18 @@ export function titleOddsErrorText(code) {
   if (c === "network") return "the connection failed";
   if (c === "upstream_unavailable") return "the server could not be reached";
   if (c === "invalid_payload") return "the answer could not be read";
-  if (c === "data_not_ready" || c === "HTTP 503") return "the data is not ready yet";
+  if (NOT_READY.has(c)) return "the data is not ready yet";
   if (/^HTTP 5\d\d$/.test(c)) return "the server had a problem";
   if (Object.prototype.hasOwnProperty.call(TITLE_ODDS_REASON_WORDS, c)) {
     return TITLE_ODDS_REASON_WORDS[c];
   }
   return "the request was refused";
+}
+
+/** The panel's whole sentence for a request that did not return a lens payload. */
+export function titleOddsErrorSentence(code) {
+  if (NOT_READY.has(code)) return "Season odds are not ready yet.";
+  return `Season odds are unavailable: ${titleOddsErrorText(code)}.`;
 }
 
 function finite(x) {

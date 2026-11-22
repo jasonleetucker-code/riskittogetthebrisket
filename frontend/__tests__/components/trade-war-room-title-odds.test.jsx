@@ -21,6 +21,7 @@ import { ODDS_EXPERIMENTAL_DISCLOSURE } from "@/lib/odds-disclosure";
 import {
   formatPointChange,
   oddsCell,
+  titleOddsErrorSentence,
   titleOddsErrorText,
   titleOddsReasonText,
   titleOddsRetryable,
@@ -206,7 +207,7 @@ describe("capability on", () => {
       ODDS_EXPERIMENTAL_DISCLOSURE,
     );
     // A refusal Retry cannot fix offers no Retry.
-    expect(within(panel).queryByRole("button", { name: "Retry" })).toBeNull();
+    expect(within(panel).queryByRole("button", { name: "Retry season odds" })).toBeNull();
   });
 
   it("offers Retry after a timeout and asks again", async () => {
@@ -215,7 +216,7 @@ describe("capability on", () => {
     await renderRoom({ titleOddsAvailable: true });
     expect(screen.getByTestId("title-odds-unavailable")).toHaveTextContent("took too long");
     const panel = screen.getByTestId("war-room-title-odds");
-    fireEvent.click(within(panel).getByRole("button", { name: "Retry" }));
+    fireEvent.click(within(panel).getByRole("button", { name: "Retry season odds" }));
     await settle(0);
     expect(titleOddsCalls(fn)).toHaveLength(2);
     expect(screen.getByTestId("war-room-title-odds").querySelectorAll("tbody tr")).toHaveLength(2);
@@ -227,6 +228,36 @@ describe("capability on", () => {
     expect(screen.getByTestId("title-odds-error")).toHaveTextContent(
       "Season odds are unavailable: season odds are switched off.",
     );
+  });
+
+  it("says plainly that odds are not ready before a board loads, with Retry", async () => {
+    // The shared simulation path's 503 body is a sentence, not a code.
+    const answers = [ok({ error: "No data available yet." }, 503), ok(ODDS_OK)];
+    const fn = stubFetch(async () => answers.shift());
+    await renderRoom({ titleOddsAvailable: true });
+    const error = screen.getByTestId("title-odds-error");
+    expect(error).toHaveTextContent("Season odds are not ready yet.");
+    expect(error.textContent).not.toMatch(/refused/);
+    const panel = screen.getByTestId("war-room-title-odds");
+    fireEvent.click(within(panel).getByRole("button", { name: "Retry season odds" }));
+    await settle(0);
+    expect(titleOddsCalls(fn)).toHaveLength(2);
+    expect(screen.getByTestId("war-room-title-odds").querySelectorAll("tbody tr")).toHaveLength(2);
+  });
+
+  it("words a busy server (the admission bound) and offers Retry, never a zero", async () => {
+    const answers = [ok(unavailable("title_odds_busy")), ok(ODDS_OK)];
+    const fn = stubFetch(async () => answers.shift());
+    await renderRoom({ titleOddsAvailable: true });
+    const unavailableNote = screen.getByTestId("title-odds-unavailable");
+    expect(unavailableNote).toHaveTextContent(
+      "Season odds are unavailable: the server is busy with other season simulations right now, so try again in a moment.",
+    );
+    const panel = screen.getByTestId("war-room-title-odds");
+    expect(panel.textContent).not.toMatch(/\b0%/);
+    fireEvent.click(within(panel).getByRole("button", { name: "Retry season odds" }));
+    await settle(0);
+    expect(titleOddsCalls(fn)).toHaveLength(2);
   });
 
   it("names a team the simulation could not place, and a title odd it could not publish", async () => {
@@ -272,11 +303,21 @@ describe("wording helpers", () => {
     expect(titleOddsErrorText("upstream_unavailable")).toBe("the server could not be reached");
     expect(titleOddsErrorText("HTTP 500")).toBe("the server had a problem");
     expect(titleOddsErrorText("invalid_body")).toBe("the request was refused");
+    expect(titleOddsErrorText("No data available yet.")).toBe("the data is not ready yet");
+    expect(titleOddsErrorSentence("No data available yet.")).toBe("Season odds are not ready yet.");
+    expect(titleOddsErrorSentence("data_not_ready")).toBe("Season odds are not ready yet.");
+    expect(titleOddsErrorSentence("feature_disabled")).toBe(
+      "Season odds are unavailable: season odds are switched off.",
+    );
     expect(titleOddsRetryable("upstream_unavailable")).toBe(true);
     expect(titleOddsRetryable("HTTP 502")).toBe(true);
     expect(titleOddsRetryable("title_odds_timeout")).toBe(true);
+    expect(titleOddsRetryable("title_odds_busy")).toBe(true);
+    expect(titleOddsRetryable("No data available yet.")).toBe(true);
+    expect(titleOddsRetryable("data_not_ready")).toBe(true);
     expect(titleOddsRetryable("feature_disabled")).toBe(false);
     expect(titleOddsRetryable("no_remaining_schedule")).toBe(false);
+    expect(titleOddsReasonText("title_odds_busy")).toMatch(/busy/);
   });
 
   it("never shows a reason code", () => {
@@ -284,5 +325,34 @@ describe("wording helpers", () => {
       "the season simulation could not answer for this trade",
     );
     expect(titleOddsRows({ teams: [] }, "o1")).toEqual([]);
+  });
+});
+
+describe("Not included yet words the season-odds dimension's own reason", () => {
+  async function seasonLine(reason) {
+    const packet = structuredClone(CONSOLIDATION);
+    packet.analysis.unavailableDimensions = packet.analysis.unavailableDimensions.map((d) =>
+      d.dimension === "currentSeasonEquity" ? { ...d, reason } : d,
+    );
+    globalThis.fetch = vi.fn(async () => ok(packet));
+    const view = await renderRoom();
+    fireEvent.click(screen.getByRole("button", { name: "Sources, simulations and methodology" }));
+    const text = document.body.textContent;
+    view.unmount();
+    return text;
+  }
+
+  it("deferred_async (the flag ON on /api/trade/analyze)", async () => {
+    expect(await seasonLine("deferred_async")).toMatch(
+      /Change in this season's playoff and title odds\s*—\s*worked out separately so the recommendation never waits for it/,
+    );
+  });
+
+  it("asset_only_mode (Asset only with the flag ON), not the generic fallback", async () => {
+    const text = await seasonLine("asset_only_mode");
+    expect(text).toMatch(
+      /Change in this season's playoff and title odds\s*—\s*not included in Asset-only analysis/,
+    );
+    expect(text).not.toMatch(/Change in this season's playoff and title odds\s*—\s*not included yet/);
   });
 });

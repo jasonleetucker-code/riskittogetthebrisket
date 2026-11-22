@@ -22,7 +22,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ds";
 import { ODDS_EXPERIMENTAL_DISCLOSURE } from "@/lib/odds-disclosure";
 import {
-  titleOddsErrorText,
+  titleOddsErrorSentence,
   titleOddsReasonText,
   titleOddsRetryable,
   titleOddsRows,
@@ -120,7 +120,12 @@ export default function TitleOddsPanel({ body, requestKey }) {
     payload && payload.state === "ok" ? titleOddsRows(payload, payload.perspectiveOwnerId) : [];
   const retryCode = status === "error" ? state.error : unavailableReason;
   const retry = titleOddsRetryable(retryCode) ? (
-    <Button size="sm" variant="ghost" onClick={() => setAttempt((n) => n + 1)}>
+    <Button
+      size="sm"
+      variant="ghost"
+      aria-label="Retry season odds"
+      onClick={() => setAttempt((n) => n + 1)}
+    >
       Retry
     </Button>
   ) : null;
@@ -142,7 +147,7 @@ export default function TitleOddsPanel({ body, requestKey }) {
         </p>
       ) : status === "error" ? (
         <p className={styles.muted} data-testid="title-odds-error">
-          Season odds are unavailable: {titleOddsErrorText(state.error)}. {retry}
+          {titleOddsErrorSentence(state.error)} {retry}
         </p>
       ) : unavailableReason ? (
         <p className={styles.muted} data-testid="title-odds-unavailable">
