@@ -103,6 +103,50 @@ class TestChainWalk:
         records.crawl_records(league_ids=["L1"], http_get=http, ledger_path=db, sleep_s=0)
         assert not any(url.endswith("/league/0") for url in http.calls)
 
+    def _eligibility(self, db):
+        conn = ledger.connect(db)
+        try:
+            return {
+                (r["league_id"], r["user_id"]): r["sharp_eligible"]
+                for r in conn.execute(
+                    "SELECT league_id, user_id, sharp_eligible FROM manager_seasons"
+                )
+            }
+        finally:
+            conn.close()
+
+    def test_first_season_reached_from_a_newer_one_stays_sharp_eligible(self, db):
+        """DYN10-3: the age floor no longer reads Sleeper's "0" as a prior
+        season, but a league's FIRST season reached by walking back from its
+        second still belongs to a two-season lineage (``known_age_seasons``)."""
+        http = FakeSleeper(
+            {
+                f"{BASE}/league/L2026": league("L2026", "2026", previous="L2025"),
+                f"{BASE}/league/L2026/rosters": [roster(1, "a"), roster(2, "b")],
+                f"{BASE}/league/L2026/winners_bracket": bracket(1, 2),
+                f"{BASE}/league/L2025": league("L2025", "2025", previous="0"),
+                f"{BASE}/league/L2025/rosters": [roster(1, "a"), roster(2, "b")],
+                f"{BASE}/league/L2025/winners_bracket": bracket(2, 1),
+            }
+        )
+        records.crawl_records(league_ids=["L2026"], http_get=http, ledger_path=db, sleep_s=0)
+        elig = self._eligibility(db)
+        assert elig[("L2026", "a")] == 1
+        assert elig[("L2025", "a")] == 1
+
+    def test_a_first_season_start_league_is_not_sharp_eligible(self, db):
+        """A queued league whose own link is the "0" terminator is a startup
+        season: its rows are stored but cannot certify anyone."""
+        http = FakeSleeper(
+            {
+                f"{BASE}/league/L1": league("L1", "2026", previous="0"),
+                f"{BASE}/league/L1/rosters": [roster(1, "a"), roster(2, "b")],
+                f"{BASE}/league/L1/winners_bracket": bracket(1, 2),
+            }
+        )
+        records.crawl_records(league_ids=["L1"], http_get=http, ledger_path=db, sleep_s=0)
+        assert set(self._eligibility(db).values()) == {0}
+
     def test_loop_guard_stops_a_self_referential_chain(self, db):
         http = FakeSleeper(
             {
@@ -271,9 +315,12 @@ class TestDerivation:
 
 class TestFinishPercentiles:
     def test_first_place_is_one_and_last_is_zero(self, db):
+        # A real predecessor link: a queued league whose own link is the "0"
+        # terminator is a startup season and certifies nobody (DYN10-3).  The
+        # predecessor is never served, so the walk stops after this season.
         http = FakeSleeper(
             {
-                f"{BASE}/league/L1": league("L1", "2025", previous="0", teams=3),
+                f"{BASE}/league/L1": league("L1", "2025", previous="L0-unserved", teams=3),
                 f"{BASE}/league/L1/rosters": [
                     roster(1, "top", wins=12),
                     roster(2, "mid", wins=7),

@@ -392,3 +392,54 @@ def load_index(path: Path | None = None) -> OwnLeagueFormatIndex:
         state="available" if captures else "no_captures",
         observations=observations,
     )
+
+
+def load_league_chain(path: Path | None = None) -> tuple[dict[str, Any], str]:
+    """``({league_id: league_filter.ChainHop}, state)`` for the league-maturity
+    resolver, read through a ``mode=ro`` connection (never creating or
+    migrating the store).  A missing store is a STATE, never an error.
+
+    Every ``own_league_season_chain`` row was written from a successfully
+    fetched ``/league/{id}`` object (``refresh_own_league_formats``), so a NULL
+    ``previous_league_id`` there is the league STATING no predecessor
+    (Sleeper's ``"0"``, cleaned by :func:`_clean_id`) -- a terminator, unlike
+    a NULL in the intel ledger's ``leagues`` table.  Status, type and best-ball
+    come from this store's own capture / check tables
+    (``lfc.load_league_facts``)."""
+    from src.intel.league_filter import ChainHop  # noqa: PLC0415
+
+    p = Path(path) if path is not None else default_path()
+    if not p.exists():
+        return {}, "own_league_format_store_missing"
+    try:
+        conn = sqlite3.connect(f"file:{p.as_posix()}?mode=ro", uri=True)
+        try:
+            try:
+                rows = conn.execute(
+                    "SELECT league_id, season, previous_league_id FROM own_league_season_chain "
+                    "ORDER BY first_seen_ms, league_key, league_id"
+                ).fetchall()
+            except sqlite3.OperationalError as exc:
+                if "no such table" not in str(exc).lower():
+                    raise
+                rows = []
+            facts = lfc.load_league_facts(conn)
+        finally:
+            conn.close()
+    except sqlite3.DatabaseError as exc:
+        return {}, f"own_league_format_store_unreadable:{type(exc).__name__}"
+    out: dict[str, Any] = {}
+    for lid, season, prev in rows:
+        lid = _clean_id(lid)
+        if lid is None or lid in out:
+            continue
+        f = facts.get(lid) or {}
+        out[lid] = ChainHop(
+            league_id=lid,
+            previous_league_id=_clean_id(prev),
+            season=(str(season).strip() if season is not None else "") or f.get("season"),
+            league_type=f.get("leagueType"),
+            status=f.get("status"),
+            best_ball=f.get("bestBall"),
+        )
+    return out, ("available" if out else "empty")

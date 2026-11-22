@@ -29,6 +29,7 @@ _GOOD = {
     "replacement_level_li5_consolidation": False,
     "forced_drop_cheapest_legal": False,
     "trade_title_odds_lens": False,
+    "pick_class_tether_guard": False,
 }
 
 
@@ -86,9 +87,10 @@ def test_all_wrong_reports_all():
             replacement_level_li5_consolidation=True,
             forced_drop_cheapest_legal=True,
             trade_title_odds_lens=True,
+            pick_class_tether_guard=True,
         )
     )
-    assert len(out) == 7
+    assert len(out) == 8
 
 
 def test_depth_disclosure_shadow_on_fails_with_an_explicit_message():
@@ -133,6 +135,17 @@ def test_trade_title_odds_lens_on_fails_with_an_explicit_message():
     assert "trade_title_odds_lens is effectively ON" in msg and "must be OFF" in msg
     assert "RISKIT_FEATURE_TRADE_TITLE_ODDS_LENS" in msg and ".env" in msg
     assert "2026-11-21" in msg and "owner's activation decision" in msg
+
+
+def test_pick_class_tether_guard_on_fails_with_an_explicit_message():
+    """Owner-reserved activation (2026-11-21): the rookie-class tether guard
+    ships dormant; a live process with it ON fails the deploy."""
+    out = v.evaluate(_status(**{**_GOOD, "pick_class_tether_guard": True}))
+    assert len(out) == 1
+    msg = out[0]
+    assert "pick_class_tether_guard is effectively ON" in msg and "must be OFF" in msg
+    assert "RISKIT_FEATURE_PICK_CLASS_TETHER_GUARD" in msg and ".env" in msg
+    assert "owner-reserved" in msg and "owner's activation decision" in msg
 
 
 @pytest.mark.parametrize(
@@ -183,6 +196,7 @@ def test_the_live_registry_snapshot_shape_passes(monkeypatch):
         "RISKIT_FEATURE_REPLACEMENT_LEVEL_LI5_CONSOLIDATION",
         "RISKIT_FEATURE_FORCED_DROP_CHEAPEST_LEGAL",
         "RISKIT_FEATURE_TRADE_TITLE_ODDS_LENS",
+        "RISKIT_FEATURE_PICK_CLASS_TETHER_GUARD",
     )
     for env in envs:
         monkeypatch.delenv(env, raising=False)
@@ -200,6 +214,7 @@ def test_the_live_registry_snapshot_shape_passes(monkeypatch):
             "RISKIT_FEATURE_REPLACEMENT_LEVEL_LI5_CONSOLIDATION",
             "RISKIT_FEATURE_FORCED_DROP_CHEAPEST_LEGAL",
             "RISKIT_FEATURE_TRADE_TITLE_ODDS_LENS",
+            "RISKIT_FEATURE_PICK_CLASS_TETHER_GUARD",
         ):
             for other in envs:
                 monkeypatch.delenv(other, raising=False)
