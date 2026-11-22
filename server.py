@@ -8182,8 +8182,27 @@ async def post_waiver_suggestions(request: Request):
 
     if isinstance(result, dict):
         result["leagueKey"] = league_cfg.key
+        _stamp_roster_freshness(result, inputs)
     _stamp_valuation_mode(result, valuation_mode, valuation_note)
     return JSONResponse(content=result)
+
+
+def _stamp_roster_freshness(payload: dict, inputs: Mapping[str, Any]) -> None:
+    """Stamp which rosters a waiver route served and how fresh they are.
+
+    ONE place for every route fed by :func:`_waiver_engine_inputs`.
+    ``rosterFreshness.state`` is ``current`` / ``stale`` / ``unknown``
+    (``src/api/roster_freshness.py``); a client warns on anything but
+    ``current``.
+    """
+    payload["rosterSource"] = "live_overlay" if inputs.get("rosters_from_overlay") else "contract"
+    payload["rostersAsOf"] = inputs.get("rosters_as_of")
+    freshness = inputs.get("roster_freshness")
+    payload["rosterFreshness"] = (
+        dict(freshness)
+        if isinstance(freshness, Mapping)
+        else {"state": "unknown", "delivery": payload["rosterSource"]}
+    )
 
 
 def _faab_config_refusal() -> JSONResponse | None:
@@ -8289,10 +8308,25 @@ async def _waiver_engine_inputs(league_cfg: Any, team_owner_id: str | None) -> d
     except (TypeError, ValueError) as exc:
         _input_error = exc
 
+    # B3 (DYN10 waiver correctness): how fresh the rosters these routes
+    # SERVE are, judged by the one roster-freshness reader.  ``rosterSource``
+    # alone said "contract" for a block the scraper may have restored from a
+    # last-good snapshot after a failed Sleeper fetch, so a free agent claimed
+    # since could still be listed as available with nothing saying so.
+    from src.api.roster_freshness import served_roster_freshness  # noqa: PLC0415
+
+    _from_overlay = _suggestions_teams is not sleeper_teams
+    _roster_freshness = served_roster_freshness(
+        latest_contract_data,
+        from_overlay=_from_overlay,
+        overlay_fetched_at=_rosters_as_of,
+    )
+
     return {
         "teams": _suggestions_teams,
-        "rosters_from_overlay": _suggestions_teams is not sleeper_teams,
+        "rosters_from_overlay": _from_overlay,
         "rosters_as_of": _rosters_as_of,
+        "roster_freshness": _roster_freshness,
         "roster_settings": _roster_settings,
         "league_budget": _league_budget,
         "team_count": _team_count,
@@ -8390,7 +8424,11 @@ async def post_waiver_perfect(request: Request):
     )
     cached = _perfect_waivers_cache_get(cache_key)
     if cached is not None:
-        return JSONResponse(content=cached)
+        # Freshness is a property of NOW, not of when the plan was cached: a
+        # hit re-states it (a shallow copy — the cached payload is shared).
+        hit = dict(cached)
+        _stamp_roster_freshness(hit, inputs)
+        return JSONResponse(content=hit)
 
     def _compute() -> dict[str, Any]:
         targets = _waiver.find_waiver_targets(
@@ -8435,8 +8473,7 @@ async def post_waiver_perfect(request: Request):
         )
 
     payload["leagueKey"] = league_cfg.key
-    payload["rosterSource"] = "live_overlay" if inputs["rosters_from_overlay"] else "contract"
-    payload["rostersAsOf"] = inputs["rosters_as_of"]
+    _stamp_roster_freshness(payload, inputs)
     _stamp_valuation_mode(payload, valuation_mode, valuation_note)
     _perfect_waivers_cache_put(cache_key, payload)
     return JSONResponse(content=payload)
@@ -8545,8 +8582,7 @@ async def post_waiver_advisor(request: Request):
             status_code=503,
             content={"error": "waiver_advisor_unavailable", "leagueKey": league_cfg.key},
         )
-    payload["rosterSource"] = "live_overlay" if inputs["rosters_from_overlay"] else "contract"
-    payload["rostersAsOf"] = inputs["rosters_as_of"]
+    _stamp_roster_freshness(payload, inputs)
     _stamp_valuation_mode(payload, valuation_mode, valuation_note)
     return JSONResponse(content=payload)
 
@@ -8706,8 +8742,7 @@ async def post_waiver_streaming(request: Request):
             content={"error": "idp_streaming_unavailable", "leagueKey": league_cfg.key},
         )
     payload["advisoryOnly"] = True
-    payload["rosterSource"] = "live_overlay" if inputs["rosters_from_overlay"] else "contract"
-    payload["rostersAsOf"] = inputs["rosters_as_of"]
+    _stamp_roster_freshness(payload, inputs)
     _stamp_valuation_mode(payload, valuation_mode, valuation_note)
     return JSONResponse(content=payload)
 
@@ -10747,13 +10782,35 @@ async def get_roster_intelligence(request: Request):
         "yes",
     }
 
+    # B1 (DYN10 waiver correctness): the cut ladder honours the REQUESTER's
+    # persistent trade protections — but only on the requester's OWN team.
+    # Protections are a private per-(user, league) setting that binds the
+    # user's own roster (the ``/api/gameplan`` rule): another user asking for
+    # this team, or this user asking for another team, gets the unconstrained
+    # ladder, so no protection reaches a payload anyone else is served.  This
+    # route caches nothing and answers ``no-store``; the constrained ladder is
+    # computed per request.
+    drop_constraints = None
+    protections_reason = None
+    if want_drops:
+        requester = _requester_owner_id(request, league_cfg)
+        if requester and requester == owner_id:
+            drop_constraints = _constraints_for_request(
+                request, contract, league_cfg, surface="/api/roster/intelligence"
+            )
+        else:
+            protections_reason = "not_requesters_team" if requester else "requester_team_unknown"
+
     try:
         payload = await run_in_threadpool(
-            _roster_intelligence.get_team_roster_intelligence,
-            contract,
-            owner_id,
-            team_count=declared_teams,
-            include_droppability=want_drops,
+            lambda: _roster_intelligence.get_team_roster_intelligence(
+                contract,
+                owner_id,
+                team_count=declared_teams,
+                include_droppability=want_drops,
+                constraints=drop_constraints,
+                protections_not_applied_reason=protections_reason,
+            )
         )
     except _roster_intelligence.TeamNotInLeague:
         return JSONResponse(
@@ -10766,6 +10823,14 @@ async def get_roster_intelligence(request: Request):
         )
 
     payload["rosterMembership"] = roster_membership
+    # B3: the cut ladder is only as current as the rosters it was built on.
+    from src.api.roster_freshness import served_roster_freshness  # noqa: PLC0415
+
+    payload["rosterFreshness"] = served_roster_freshness(
+        latest_contract_data,
+        from_overlay=roster_membership.get("source") == "live_overlay",
+        overlay_fetched_at=roster_membership.get("asOf"),
+    )
     # Private roster intelligence — never cached by a shared proxy.
     return JSONResponse(content=payload, headers={"Cache-Control": "no-store"})
 

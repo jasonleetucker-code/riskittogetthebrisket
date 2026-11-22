@@ -34,6 +34,7 @@ import { useTeam } from "@/components/useTeam";
 import { useSettings } from "@/components/useSettings";
 import { useWaiverAnalysis } from "@/components/useWaiverAnalysis";
 import { waiverBidStateForRow } from "@/lib/waiver-faab";
+import { rosterFreshnessNotice } from "@/lib/waiver-logic";
 import WaiverBidFigure from "@/components/waivers/WaiverBidFigure";
 import RelatedLinks from "@/components/shell/RelatedLinks";
 import styles from "./waivers.module.css";
@@ -640,6 +641,9 @@ export default function WaiversPage() {
     // Optional render-time enrichment — null until (and unless) the
     // backend suggestions endpoint answers.  See useWaiverAnalysis.
     faabIndex,
+    // The server's roster-freshness stamp (DYN10 B3) — warned on below
+    // only when it is not "current".
+    rosterFreshness,
     // Why there is no index yet: "loading" / "failed" / null, and the
     // refetch a "failed" feed must offer.
     bidFeed,
@@ -735,8 +739,17 @@ export default function WaiversPage() {
     // Reached only with loading settled AND analysis present, so a
     // team is necessarily selected by here — the pre-skeleton branch
     // above owns the no-team case.
+    const freshnessNotice = rosterFreshnessNotice(rosterFreshness);
     return (
       <>
+        {freshnessNotice ? (
+          // Rosters restored after a failed refresh (or of unprovable age)
+          // can list a free agent who has since been claimed.  Shown only
+          // when the server's verdict is not "current".
+          <Banner tone="warning" title={freshnessNotice.title}>
+            <span data-testid="waivers-roster-freshness">{freshnessNotice.text}</span>
+          </Banner>
+        ) : null}
         {analysis.dropState?.state !== "ok" ? (
           // Stated, not an empty list: every add/drop pairing needs the
           // canonical cut ladder to know who may legally be released, so

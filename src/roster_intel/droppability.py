@@ -194,6 +194,34 @@ def _slots_for(
     return list(slots), str(source or "unresolved")
 
 
+def _protected_roster_entries(
+    assets: Sequence[RosterAsset], constraints: Any
+) -> list[dict[str, Any]]:
+    """The roster players the user's protections forbid releasing.
+
+    The rule is the constraint owner's (``TradeConstraints.block_reason``,
+    ``src/trade/constraints.py``), asked with the SAME asset fields Perfect
+    Waivers asks it with (``src/trade/perfect_waivers.py``), so the two drop
+    surfaces on /waivers cannot disagree about who is protected.  Nothing is
+    decided here.
+    """
+    out: list[dict[str, Any]] = []
+    for asset in assets:
+        reason = constraints.block_reason(
+            {"name": asset.name, "playerId": asset.player_id, "position": asset.position}
+        )
+        if reason is not None:
+            out.append(
+                {
+                    "playerId": asset.player_id,
+                    "name": asset.name,
+                    "position": asset.position,
+                    "reason": reason,
+                }
+            )
+    return out
+
+
 def team_droppability(
     contract: Mapping[str, Any] | None,
     *,
@@ -204,6 +232,7 @@ def team_droppability(
     scarcity: Mapping[str, Any] | None = None,
     unavailable_keys: Iterable[str] | None = None,
     max_rungs: int = MAX_LADDER_RUNGS,
+    constraints: Any = None,
 ) -> dict[str, Any]:
     """One team's cut ladder, from the canonical owner.
 
@@ -211,6 +240,21 @@ def team_droppability(
     for the same reason ``build_roster_context`` does: silently
     optimizing for whichever team sorted first is the worst possible
     failure mode for a team-specific answer.
+
+    ``constraints`` is the REQUESTING user's resolved
+    :class:`src.trade.constraints.TradeConstraints`, and a caller passes it
+    only for that user's OWN team — protections are private settings that
+    bind the requester's roster and nobody else's.  A protected player is
+    never a cut candidate: the ladder is rebuilt over the remaining players
+    through the owner's own ``candidate_ids`` seam, so he still counts
+    toward lineup feasibility and every later rung is validated with him
+    KEPT.  Skipping his rung after the fact would miss a player the
+    original ladder blocked only because he had been released first (two
+    TEs: the cheaper one goes, the other becomes required).  A
+    ``resolution_failed`` set proposes no cut at all (fail closed), the
+    posture Perfect Waivers takes.  ``None`` (the default) leaves the
+    ladder and the payload byte-identical to the unconstrained answer, and
+    adds no ``protections`` key.
     """
     teams = contract_teams(contract)
     if not teams:
@@ -254,6 +298,23 @@ def team_droppability(
     # "who can fill this slot" inside one league.  ``or None`` for the reason
     # ``pool_cut_ladder`` states.
     eligibility = contract_slot_eligibility(contract) or None
+
+    # Protections narrow who may be RELEASED, never who counts toward the
+    # lineup — exactly the owner's ``candidate_ids`` contract.  ``None`` is
+    # the unchanged ladder.
+    protections: dict[str, Any] | None = None
+    candidate_ids: frozenset[str] | None = None
+    if constraints is not None:
+        if bool(getattr(constraints, "resolution_failed", False)):
+            candidate_ids = frozenset()
+            protections = {"state": "unresolved", "protectedOnRoster": []}
+        else:
+            protected = _protected_roster_entries(assets, constraints)
+            blocked_ids = {p["playerId"] for p in protected}
+            candidate_ids = frozenset(a.player_id for a in assets if a.player_id not in blocked_ids)
+            protections = {"state": "applied", "protectedOnRoster": protected}
+        protections["source"] = "src/trade/constraints.py"
+
     ladder = build_cut_ladder(
         assets,
         slots,
@@ -261,9 +322,19 @@ def team_droppability(
         scarcity,
         slot_eligibility=eligibility,
         max_rungs=max_rungs,
+        candidate_ids=candidate_ids,
     )
 
     notes = list(ladder.notes)
+    if protections is not None and protections["state"] == "unresolved":
+        notes.append(
+            "your trade protections could not be read — no cut is proposed until they can be"
+        )
+    elif protections is not None and protections["protectedOnRoster"]:
+        notes.append(
+            f"{len(protections['protectedOnRoster'])} protected player(s) are never cut "
+            "candidates; the ladder is rebuilt over the rest with them kept"
+        )
     if not waiver_values:
         notes.append("no waiver-level values available — cut costs fall back to raw board value")
     if unmatched:
@@ -313,6 +384,10 @@ def team_droppability(
     if population is not None:
         # Additive, flag-ON only (design §4.6).
         payload["replacementPopulation"] = replacement_level_provenance(population)
+    if protections is not None:
+        # Additive, and present ONLY when the caller passed the requester's
+        # constraints for the requester's own team.
+        payload["protections"] = protections
     return payload
 
 

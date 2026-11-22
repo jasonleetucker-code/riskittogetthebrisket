@@ -259,9 +259,21 @@ export function useWaiverAnalysis({
     bidsEnabled && bidPayload?.identity === bidIdentity ? bidPayload.payload : null,
   ), [bidPayload, bidsEnabled, bidIdentity]);
 
+  // How fresh the rosters behind this answer are (DYN10 B3), as the server
+  // stamped it (``rosterFreshness``, ``src/api/roster_freshness.py``).  The
+  // cut ladder's payload first — it is this page's required feed and is
+  // built on the same live teams overlay /api/data serves — then the bid
+  // payload's.  Only THIS team's payloads count; ``null`` when neither has
+  // answered.
+  const ladderForTeam =
+    ladderEnabled && String(ladderPayload?.team?.ownerId ?? "") === ownerId ? ladderPayload : null;
+  const bidForTeam = bidsEnabled && bidPayload?.identity === bidIdentity ? bidPayload.payload : null;
+  const rosterFreshness = ladderForTeam?.rosterFreshness || bidForTeam?.rosterFreshness || null;
+
   return {
     analysis,
     faabIndex,
+    rosterFreshness,
     bidFeed,
     retryBids,
     loading: Boolean(loading) || ladderPending,
