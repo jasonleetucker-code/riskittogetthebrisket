@@ -42,6 +42,7 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from src.backtesting import forward_scoreboard as fs  # noqa: E402
+from src.history import store  # noqa: E402
 
 OUT_DIR = REPO / "docs" / "measurements"
 DEFAULT_ARCHIVE = REPO / "exports" / "archive"
@@ -137,7 +138,14 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"[forward-scoreboard] no ledger at {args.ledger}", file=sys.stderr)
                 return 1
             _copy_ledger(args.ledger, ledger)
-            inputs = {"mode": "ledger", "ledger": str(args.ledger)}
+            not_fresh: list[list[str]] = []
+            inputs = {
+                "mode": "ledger",
+                "ledger": str(args.ledger),
+                # Reads are not knowledge-time bounded (see CAVEATS), so say how
+                # many corrections the ledger holds.  Read from the COPY.
+                "ledgerCorrections": store.coverage(ledger).get("corrections"),
+            }
             log(f"measuring a read-only copy of {args.ledger}")
         else:
             try:
@@ -153,9 +161,11 @@ def main(argv: list[str] | None = None) -> int:
             except ValueError:
                 archive_dir = str(args.archive_dir)
             inputs = {"mode": "archive", "archiveDir": archive_dir, "ledgerBuild": build}
+            not_fresh = build["notFresh"]
             log(f"temporary ledger built: {build['payloadBackfill']}")
+            log(f"producer carry-forward masked: {not_fresh}")
 
-        result = fs.measure(ledger, horizons=args.horizons)
+        result = fs.measure(ledger, horizons=args.horizons, not_fresh=not_fresh)
 
     measured = any(
         (s.get("byGroup") or {}).get(fs.GROUP_ALL, {}).get("foldsUsable")

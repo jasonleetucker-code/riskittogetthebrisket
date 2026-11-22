@@ -4,9 +4,18 @@ This module is THE answer to "what did we actually know / store / serve
 at or before time T?" for asset values, ranks and their provenance.  It
 never answers the different question "what do we know today about the
 past" — no code path here can select an observation dated after the
-requested time, structurally: every SQL predicate is ``<=`` /
-``<`` against the requested bound and there is no API that accepts an
-undirected "nearest".
+requested time, structurally: every value-returning SQL predicate is
+``<=`` / ``<`` against the requested bound and there is no API that
+accepts an undirected "nearest".
+
+Two census reads return no value at all and are the only exceptions to
+that predicate shape: :func:`assets_observed_on` matches one date EXACTLY
+(``=``, so it still never reaches past the date it is asked about), and
+:func:`observed_dates` lists every date the ledger holds, which is a
+coverage question rather than an as-of one.  A caller that walks
+``observed_dates`` must itself respect its own as-of boundary, as
+``src/backtesting/forward_scoreboard.py`` does by reading values only
+through :func:`batch_as_of`.
 
 Fidelity vocabulary (the canonical labels from
 ``docs/C_SERIES_SCOPE_MANIFEST.md`` row `C1-HIST-01` and the replay

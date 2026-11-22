@@ -190,7 +190,7 @@ def test_a_series_with_no_observation_at_the_origin_is_unusable_with_reason(
     summary = _source_summary(fs.measure(ledger, horizons=(30,)), 30, "WR")
     assert summary["foldsUsable"] == 0
     assert summary["originsUnusable"] == [
-        {"origin": D0, "n": 0, "reason": fs.REASON_NO_OBSERVATION}
+        {"origin": D0, "n": 0, "reason": fs.REASON_NO_OBSERVATION, "zeroGapShare": None}
     ]
 
 
@@ -492,6 +492,9 @@ def _bundle(path: Path, day: str, *, fresh: list[str]) -> None:
         z.writestr(f"dynasty_data_{day}.json", json.dumps(raw))
         z.writestr("site_raw/ktcCrowdTradesSfTep.csv", market_csv)
         z.writestr("site_raw/ktcTradesSfTep.csv", market_csv)
+        # Payload-stage CSVs: their freshness gates the backfill's values.
+        z.writestr("site_raw/ktcSfTep.csv", "name,value,position,team\n")
+        z.writestr("site_raw/ktc.csv", "name,value,position,team\n")
 
 
 def test_archive_build_keys_csv_rows_like_the_payload_and_skips_stale_csvs(
@@ -503,7 +506,7 @@ def test_archive_build_keys_csv_rows_like_the_payload_and_skips_stale_csvs(
     _bundle(
         archive / "dynasty_export_20260910_200000.zip",
         "2026-09-10",
-        fresh=["ktcCrowdTradesSfTep.csv"],
+        fresh=["ktcCrowdTradesSfTep.csv", "ktc.csv"],
     )
     ledger = tmp_path / "ledger.sqlite"
     build = fs.build_archive_ledger(archive, ledger)
@@ -542,10 +545,24 @@ def test_archive_build_keys_csv_rows_like_the_payload_and_skips_stale_csvs(
     # Same bundle selection as the backfill.
     assert [d for d, _ in backfill._select_by_date(archive)] == ["2026-09-10"]
 
+    # Payload freshness gate: the bundle carries ktcSfTep.csv but does not
+    # list it as fresh, so the backfill's ktcSfTep values that day are a
+    # carry-forward and read as missing.  ktc.csv is fresh; idpTradeCalc.csv
+    # is absent (nothing to gate).
+    assert build["notFresh"] == [["2026-09-10", "ktcSfTep"]]
+    masked = fs._LedgerReader(ledger, build["notFresh"])
+    assert masked.exact("2026-09-10", store.LANE_SOURCE, "ktcSfTep") == {}
+    assert set(masked.exact("2026-09-10", store.LANE_SOURCE, "ktc")) == {pick_key}
+    assert set(fs._LedgerReader(ledger).exact("2026-09-10", store.LANE_SOURCE, "ktcSfTep")) == {
+        "player:111"
+    }
+
 
 def test_archive_build_refuses_the_production_ledger(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="production ledger"):
         fs.build_archive_ledger(tmp_path, store.DB_PATH)
+    with pytest.raises(ValueError, match="production ledger"):
+        fs.ingest_site_raw_market_modes(tmp_path, path=store.DB_PATH)
 
 
 def test_archive_build_without_bundles_is_unavailable(tmp_path: Path) -> None:
@@ -583,6 +600,7 @@ def test_cli_ledger_mode_reads_a_copy_and_writes_both_outputs(tmp_path: Path) ->
     assert hashlib.sha256(source.read_bytes()).hexdigest() == before
     payload = json.loads(out.read_text(encoding="utf-8"))
     assert payload["inputs"]["mode"] == "ledger"
+    assert payload["inputs"]["ledgerCorrections"] == 0
     assert payload["realizedPoints"]["state"] == "unavailable"
     assert payload["independentValidationCandidate"]["registered"] is False
     md = out.with_suffix(".md").read_text(encoding="utf-8")
@@ -593,3 +611,142 @@ def test_render_markdown_handles_an_empty_result() -> None:
     text = fs.render_markdown({"horizons": {}, "caveats": ["c"]}, title="t")
     assert text.startswith("# t") and "- c" in text
     assert isinstance(io.StringIO(text).read(), str)
+
+
+# ── Informative rows ────────────────────────────────────────────────────
+
+
+def test_an_all_zero_gap_group_is_unusable(ledger: Path) -> None:
+    n = 40
+    returns = {i: 0.001 * i for i in range(1, n + 1)}
+    rows = _fold_rows(D0, D1, n, {i: 0.0 for i in range(1, n + 1)}, returns)
+    _write(ledger, rows)
+    summary = _source_summary(fs.measure(ledger, horizons=(30,)), 30, "WR")
+    assert summary["foldsUsable"] == 0
+    (unusable,) = summary["originsUnusable"]
+    assert unusable["n"] == n
+    assert unusable["reason"] == f"only 0 distinct non-zero gaps (need {fs.MIN_PAIRS})"
+    assert unusable["zeroGapShare"] == 1.0
+
+
+def test_a_near_constant_gap_group_is_unusable_and_reports_its_zero_share(
+    ledger: Path,
+) -> None:
+    # 40 pairs, but the source equals the market on 35 of them: only 5 rows
+    # carry information, below the floor, although the pair count passes it.
+    n = 40
+    returns = {i: 0.001 * i for i in range(1, n + 1)}
+    gaps = {i: (0.01 * i if i > 35 else 0.0) for i in range(1, n + 1)}
+    _write(ledger, _fold_rows(D0, D1, n, gaps, returns))
+    summary = _source_summary(fs.measure(ledger, horizons=(30,)), 30, "WR")
+    assert summary["foldsUsable"] == 0
+    (unusable,) = summary["originsUnusable"]
+    assert unusable["reason"] == f"only 5 distinct non-zero gaps (need {fs.MIN_PAIRS})"
+    assert unusable["zeroGapShare"] == pytest.approx(35 / 40)
+
+
+def test_a_usable_cell_reports_its_zero_gap_share(ledger: Path) -> None:
+    n = 40
+    returns = {i: 0.001 * i for i in range(1, n + 1)}
+    gaps = {i: (0.01 * i if i > 8 else 0.0) for i in range(1, n + 1)}  # 32 informative
+    _write(ledger, _fold_rows(D0, D1, n, gaps, returns))
+    summary = _source_summary(fs.measure(ledger, horizons=(30,)), 30, "WR")
+    (fold,) = summary["spearmanByFold"]
+    assert fold["distinctNonZeroGaps"] == 32
+    assert fold["zeroGapShare"] == pytest.approx(8 / 40)
+    assert summary["meanZeroGapShare"] == pytest.approx(8 / 40)
+
+
+# ── Momentum control ────────────────────────────────────────────────────
+
+DP, DD, DH = "2026-07-15", "2026-08-14", "2026-09-13"  # 30 days apart
+
+
+def _momentum_rows(*, stale_source: bool, seed: int = 20261122) -> list[dict]:
+    """120 WR in one cohort.  The market moves m from DP to DD, then about
+    m / 2 more to DH (momentum).  A stale source repeats the DP price with
+    a little noise, so its gap is about -m; a genuine source carries
+    information independent of m that the outcome also loads on."""
+    import random
+
+    rng = random.Random(seed)
+    rows: list[dict] = []
+    for i in range(1, 121):
+        key = f"player:{i}"
+        p0 = 1100.0 + 14.0 * i  # 1114..2780, so 1060..2923 after m: tier "mid" throughout
+        m = 0.05 * rng.uniform(-1.0, 1.0)
+        info = 0.05 * rng.uniform(-1.0, 1.0)
+        p1 = p0 * math.exp(m)
+        if stale_source:
+            source = p0 * math.exp(0.01 * rng.gauss(0.0, 1.0))
+            r = 0.5 * m + 0.01 * rng.gauss(0.0, 1.0)
+        else:
+            source = _source_value(p1, info)
+            r = 0.5 * m + 0.5 * info + 0.01 * rng.gauss(0.0, 1.0)
+        rows.append(_obs(key, DP, p0))
+        rows.append(_obs(key, DD, p1))
+        rows.append(_obs(key, DH, p1 * (1.0 + r)))
+        rows.append(_obs(key, DD, source, source_key=SOURCE))
+    return rows
+
+
+def test_a_stale_source_gap_is_momentum_and_its_partial_is_near_zero(ledger: Path) -> None:
+    _write(ledger, _momentum_rows(stale_source=True))
+    result = fs.measure(ledger, horizons=(30,))
+    folds = result["horizons"]["30"]["folds"]
+    assert [f["origin"] for f in folds] == [DP, DD]
+    assert folds[0]["momentum"]["priorDate"] is None  # first origin: no lookback
+    assert folds[1]["momentum"]["priorDate"] == DP
+    summary = _source_summary(result, 30, "WR")
+    (fold,) = summary["spearmanByFold"]  # the source exists only at DD
+    assert fold["origin"] == DD
+    # The raw gap looks strongly predictive -- with the wrong sign for a
+    # "market moves toward the source" story -- because it IS minus the
+    # market's past move, and the market has momentum.
+    assert fold["rho"] < -0.6
+    assert fold["rhoGapVsPriorReturn"] < -0.9
+    assert fold["rhoMomentum"] > 0.8
+    assert fold["momentumN"] == 120
+    assert abs(fold["partialRhoGivenMomentum"]) < 0.15
+    # One origin with a momentum control: no verdict.
+    assert summary["momentumControl"]["originsMeasured"] == 1
+    assert summary["momentumControl"]["verdict"].startswith("no verdict")
+
+
+def test_a_genuine_edge_survives_the_momentum_control(ledger: Path) -> None:
+    _write(ledger, _momentum_rows(stale_source=False))
+    (fold,) = _source_summary(fs.measure(ledger, horizons=(30,)), 30, "WR")["spearmanByFold"]
+    assert abs(fold["rhoGapVsPriorReturn"]) < 0.3
+    assert fold["partialRhoGivenMomentum"] > 0.6
+
+
+def test_predictor_staleness_is_measured_against_the_lookback_date(ledger: Path) -> None:
+    rows = _momentum_rows(stale_source=False)
+    # The source also reported at DP: identical values on 30 of 120 assets.
+    for i in range(1, 121):
+        key = f"player:{i}"
+        at_dd = next(r for r in rows if r["asset_key"] == key and r["source_key"] == SOURCE)
+        value = at_dd["value"] if i <= 30 else at_dd["value"] * 1.1
+        rows.append(_obs(key, DP, value, source_key=SOURCE))
+    _write(ledger, rows)
+    folds = fs.measure(ledger, horizons=(30,))["horizons"]["30"]["folds"]
+    staleness = folds[1]["predictorStaleness"][SOURCE]
+    assert staleness == {"n": 120, "unchangedShare": pytest.approx(30 / 120)}
+    assert folds[0]["predictorStaleness"][SOURCE] == {"n": 0, "unchangedShare": None}
+
+
+def test_prior_date_snaps_backward() -> None:
+    available = [date(2026, 7, 14), date(2026, 7, 20), date(2026, 8, 13)]
+    assert fs.prior_date(date(2026, 8, 13), 30, available) == date(2026, 7, 14)
+    assert fs.prior_date(date(2026, 8, 25), 30, available) == date(2026, 7, 20)
+    assert fs.prior_date(date(2026, 8, 12), 30, available) is None
+
+
+def test_partial_rank_correlation_refuses_a_collinear_control() -> None:
+    xs = [float(i) for i in range(40)]
+    ys = [float((i * 7) % 40) for i in range(40)]
+    assert fs.partial_rank_correlation(xs, ys, [-x for x in xs]) is None
+    # With an unrelated control the partial is close to the plain rho.
+    zs = [float((i * 13) % 40) for i in range(40)]
+    plain = fs.bt.spearman(xs, ys)
+    assert fs.partial_rank_correlation(xs, ys, zs) == pytest.approx(plain, abs=0.2)

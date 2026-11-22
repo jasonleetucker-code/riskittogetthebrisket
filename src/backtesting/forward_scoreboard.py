@@ -16,6 +16,13 @@ The question, asked per origin date D and horizon H:
   number.
 * **Persistence.** How much of the market at D+H is the market at D
   ("the market stays put"), so any skill above is read against that.
+* **Momentum.** How much of any edge is the market's own recent move.  A
+  stale source's gap is roughly minus the market's past return, so a
+  market with short-term momentum makes that gap look predictive.  Each
+  cell reports the momentum benchmark (the market's prior-H log return at
+  D, read at the latest panel date on or before D-H) and the partial rank
+  correlation of the gap with the outcome given that prior return, plus
+  the predictor's own staleness over the same lookback.
 
 Reused rather than rebuilt (Consensus Edge already runs this measurement
 for its own components):
@@ -31,8 +38,14 @@ for its own components):
   form ``log((x + 1) / (market + 1))``.  Spearman is rank-based, so the
   plain ``(x - market) / market`` gap would give the identical rho;
 * every historical read: :mod:`src.history.asof` (``batch_as_of`` with
-  ``max_age_days=0``, so a value carried forward from an earlier day is
-  missing, not current).  Nothing here opens a raw store for values.
+  ``max_age_days=0``, so a value the LEDGER carried forward from an earlier
+  day is missing, not current).  Nothing here opens a raw store for values.
+  A value the PRODUCER carried forward is a different matter: an archive
+  bundle whose manifest does not list a source's CSV as freshly fetched
+  re-used yesterday's numbers, and the ledger cannot tell.  Archive mode
+  therefore masks those (date, source) pairs at read time (both stages:
+  the payload values the backfill wrote and the site_raw CSVs).  A
+  ``--ledger`` run has no manifests and no such mask.
 
 Market target, fixed per fold so a change of instrument can never register
 as a market move:
@@ -62,7 +75,11 @@ Discipline, each pinned by a test:
 * **No pooling.**  Each origin is its own cross-section; summaries average
   per-origin rhos and report every origin.
 * **A floor.**  Below ``backtest.MIN_PAIRS_PER_FOLD`` pairs a cross-section
-  is recorded as unusable with its count, not reported as a number.
+  is recorded as unusable with its count, not reported as a number.  The
+  same floor applies to INFORMATIVE rows: a cross-section needs that many
+  distinct non-zero gaps, so a series that equals the market on almost
+  every asset cannot pass on a handful of rows.  The zero-gap share is
+  reported per cell.
 * **No verdict below two usable origins.**
 """
 
@@ -77,7 +94,7 @@ import statistics
 import zipfile
 from collections import Counter
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
@@ -106,6 +123,9 @@ _OFFENSE_GROUPS = frozenset({"QB", "RB", "WR", "TE"})
 
 # A cross-section below this many pairs is noise; same floor CE uses.
 MIN_PAIRS = bt.MIN_PAIRS_PER_FOLD
+
+# A gap this close to zero is the source agreeing with the market exactly.
+ZERO_GAP_EPS = 1e-12
 
 # Below this many usable origins no verdict is given at all.
 MIN_USABLE_ORIGINS_FOR_VERDICT = 2
@@ -143,6 +163,8 @@ EXCLUDED_SOURCES: dict[str, str] = {
 # (the source_value lane holds vendor values only), and no bundle's
 # manifest lists them as freshly fetched.
 SITE_RAW_KEYS: tuple[str, ...] = (KTC_CROWD_KEY, KTC_TRADES_KEY, KTC_MARKET_KEY)
+# The payload keys the canonical backfill writes into the source lane.
+PAYLOAD_SOURCE_KEYS: tuple[str, ...] = backfill._RAW_RETAIL_KEYS
 ORIGIN_SITE_RAW = "research:forward_scoreboard:site_raw"
 
 # ``position_family`` only reads the family, so every IDP position cohorts
@@ -210,6 +232,20 @@ CAVEATS: tuple[str, ...] = (
     "outcome. Each fold reports that attrition by reason.",
     "Day-granular: an observation dated D is 'as of D'. Archive scrape stamps are "
     "naive; the ledger records that rather than normalizing it.",
+    "Momentum: a gap against a stale or slow source is close to minus the market's "
+    "own past move, so short-term market momentum alone can make it look predictive. "
+    "Read partialRhoGivenMomentum and unchangedSincePriorShare beside every rho. The "
+    "momentum control is the market's raw prior-H log return; it is unavailable at "
+    "the panel's first origin.",
+    "Knowledge time: the as-of reads bound the observation date, not when a row was "
+    "recorded. In --ledger mode a correction recorded after D would change D's "
+    "predictor. A knowledge-cutoff read does not fit here: backfilled and migrated "
+    "rows were recorded long after the dates they describe, so a cutoff at D would "
+    "drop the whole archive history. The ledger's correction count is reported "
+    "(inputs.ledgerCorrections in --ledger mode).",
+    "Producer carry-forward: archive mode masks a source on a date whose bundle "
+    "manifest does not list its CSV as freshly fetched (notFreshMasked). A --ledger "
+    "run has no manifests, so no such mask applies there.",
 )
 
 
@@ -364,10 +400,17 @@ def ingest_site_raw_market_modes(
     wins), so a CSV observation shares its date and identity evidence with
     the payload rows the backfill wrote.  A CSV the bundle's manifest does
     not list as freshly fetched is a carry-forward, not that day's
-    observation, and is skipped.  Never call this on
-    ``data/temporal_ledger.sqlite``; :func:`build_archive_ledger` refuses.
+    observation, and is skipped.
+
+    The same manifests also gate the payload stage, which the canonical
+    backfill writes without looking at them: ``payloadNotFresh`` lists the
+    ``[date, sourceKey]`` pairs whose payload values came from a CSV the
+    bundle did not freshly fetch.  :func:`measure` masks those at read time.
+    The production ledger is refused, as in :func:`build_archive_ledger`.
     """
+    _refuse_production_ledger(path)
     totals = Counter()
+    payload_not_fresh: list[list[str]] = []
     per_key: dict[str, Counter] = {k: Counter() for k in source_keys}
     for filename_date, candidates in backfill._select_by_date(archive_dir):
         chosen: tuple[Path, str, dict[str, Any]] | None = None
@@ -387,6 +430,12 @@ def ingest_site_raw_market_modes(
             names = set(z.namelist())
             fresh = _manifest(z).get("siteRawFresh")
             fresh_set = set(fresh) if isinstance(fresh, list) else None
+            if fresh_set is None:
+                totals["freshnessUnstatedDates"] += 1
+            for key in PAYLOAD_SOURCE_KEYS:
+                stale = fresh_set is not None and f"{key}.csv" not in fresh_set
+                if stale and f"site_raw/{key}.csv" in names:
+                    payload_not_fresh.append([effective_date, key])
             for key in source_keys:
                 member = f"site_raw/{key}.csv"
                 if member not in names:
@@ -412,19 +461,25 @@ def ingest_site_raw_market_modes(
     return {
         "totals": dict(sorted(totals.items())),
         "bySource": {k: dict(sorted(v.items())) for k, v in per_key.items()},
+        "payloadNotFresh": payload_not_fresh,
     }
+
+
+def _refuse_production_ledger(path: Path) -> None:
+    if Path(path).resolve() == store.DB_PATH.resolve():
+        raise ValueError(f"refusing to write the production ledger {store.DB_PATH}")
 
 
 def build_archive_ledger(archive_dir: Path, ledger: Path) -> dict[str, Any]:
     """Build a temporary ledger from the committed archive.
 
     Stage 1 is the canonical builder's own archive stage
-    (``backfill.backfill_archive``); stage 2 adds the KTC-mode CSVs.  The
-    production ledger path is refused outright: this tool writes only to a
-    path its caller owns.
+    (``backfill.backfill_archive``); stage 2 adds the KTC-mode CSVs and
+    reads every bundle's freshness claim.  ``notFresh`` is the read-time
+    mask for :func:`measure`.  The production ledger path is refused
+    outright: this tool writes only to a path its caller owns.
     """
-    if ledger.resolve() == store.DB_PATH.resolve():
-        raise ValueError(f"refusing to write the production ledger {store.DB_PATH}")
+    _refuse_production_ledger(ledger)
     if not archive_dir.is_dir() or not any(archive_dir.glob("dynasty_export_*.zip")):
         raise ArchiveUnavailable(f"no export bundles under {archive_dir}")
     payload = backfill.backfill_archive(archive_dir, path=ledger)
@@ -433,6 +488,7 @@ def build_archive_ledger(archive_dir: Path, ledger: Path) -> dict[str, Any]:
         "archive": archive_fingerprint(archive_dir),
         "payloadBackfill": payload["totals"],
         "siteRawIngest": site_raw,
+        "notFresh": site_raw["payloadNotFresh"],
     }
 
 
@@ -480,20 +536,26 @@ class _LedgerReader:
     """Exact-date reads through :mod:`src.history.asof`, memoized.
 
     Adjacent folds share a boundary date and every horizon reuses the same
-    origins, so each (date, lane, source) is read once.
+    origins, so each (date, lane, source) is read once.  ``not_fresh`` holds
+    ``(date, source_key)`` pairs the producer carried forward (archive
+    manifests); those read as missing.
     """
 
-    def __init__(self, ledger: Path):
+    def __init__(self, ledger: Path, not_fresh: Iterable[Sequence[str]] = ()):
         self.ledger = ledger
+        self.not_fresh = {(str(d), str(k)) for d, k in not_fresh}
         self._cache: dict[tuple[str, str, str], dict[str, dict[str, Any]]] = {}
 
     def exact(self, on_date: str, lane: str, source_key: str) -> dict[str, dict[str, Any]]:
         """``{asset_key: {value, assetClass, position}}`` observed EXACTLY on
         ``on_date``.  Nearest-prior answers are refused (``max_age_days=0``);
-        a non-positive value is missing."""
+        a non-positive value is missing, and so is a carried-forward source."""
         cache_key = (on_date, lane, source_key)
         if cache_key in self._cache:
             return self._cache[cache_key]
+        if lane == store.LANE_SOURCE and (on_date, source_key) in self.not_fresh:
+            self._cache[cache_key] = {}
+            return {}
         census = asof.assets_observed_on(
             on_date, lane=lane, source_key=source_key, path=self.ledger
         )
@@ -541,6 +603,76 @@ def _residuals(ys: Sequence[float], xs: Sequence[float]) -> list[float] | None:
         return None
     beta = sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / sxx
     return [y - (my + beta * (x - mx)) for x, y in zip(xs, ys)]
+
+
+def prior_date(origin: date, horizon_days: int, available: Sequence[date]) -> date | None:
+    """The latest available date at or before ``origin - horizon_days``.
+
+    The mirror of :func:`src.consensus_edge.outcomes.horizon_date`: snapping
+    BACKWARD guarantees the lookback is at least the horizon.  ``None`` when
+    the panel does not reach back that far (the first origin).
+    """
+    target = origin - timedelta(days=horizon_days)
+    best = None
+    for candidate in available:
+        if candidate <= target and (best is None or candidate > best):
+            best = candidate
+    return best
+
+
+def partial_rank_correlation(
+    xs: Sequence[float], ys: Sequence[float], zs: Sequence[float]
+) -> float | None:
+    """Spearman partial correlation of x and y given z.
+
+    ``(r_xy - r_xz r_yz) / sqrt((1 - r_xz^2)(1 - r_yz^2))`` over rank
+    correlations.  ``None`` when any pairwise rho is undefined or x or y is
+    (numerically) collinear with z: there is then nothing left to partial.
+    """
+    r_xy, r_xz, r_yz = bt.spearman(xs, ys), bt.spearman(xs, zs), bt.spearman(ys, zs)
+    if r_xy is None or r_xz is None or r_yz is None:
+        return None
+    denom = (1.0 - r_xz * r_xz) * (1.0 - r_yz * r_yz)
+    if denom <= 1e-12:
+        return None
+    return (r_xy - r_xz * r_yz) / math.sqrt(denom)
+
+
+def momentum_control(
+    keys_: Sequence[str],
+    gaps: Mapping[str, float],
+    outcome: Mapping[str, float],
+    prior_return: Mapping[str, float],
+) -> dict[str, Any]:
+    """The gap's edge once the market's own prior move is accounted for.
+
+    On the rows that carry a gap, an outcome AND a prior return:
+    ``rhoGap`` (the gap's rho on this subset), ``rhoMomentum`` (the
+    momentum benchmark: prior return vs outcome), ``rhoGapVsPriorReturn``
+    (how much the gap is the past move) and ``partialRhoGivenMomentum``.
+    Below the pair floor every number is ``None`` with a reason.
+    """
+    ks = [k for k in keys_ if k in gaps and k in outcome and k in prior_return]
+    out: dict[str, Any] = {"n": len(ks)}
+    if len(ks) < MIN_PAIRS:
+        out.update(
+            {
+                "rhoGap": None,
+                "rhoMomentum": None,
+                "rhoGapVsPriorReturn": None,
+                "partialRhoGivenMomentum": None,
+                "reason": f"only {len(ks)} rows with a prior return (need {MIN_PAIRS})",
+            }
+        )
+        return out
+    g = [gaps[k] for k in ks]
+    y = [outcome[k] for k in ks]
+    z = [prior_return[k] for k in ks]
+    out["rhoGap"] = bt.spearman(g, y)
+    out["rhoMomentum"] = bt.spearman(z, y)
+    out["rhoGapVsPriorReturn"] = bt.spearman(g, z)
+    out["partialRhoGivenMomentum"] = partial_rank_correlation(g, y, z)
+    return out
 
 
 def persistence(
@@ -627,16 +759,58 @@ def _identical_series(per_series: Mapping[str, Mapping[str, dict[str, Any]]]) ->
     return out
 
 
+def _market_prior_returns(
+    reader: _LedgerReader,
+    origin: str,
+    prior: str | None,
+    universe: Mapping[str, str],
+) -> tuple[dict[str, float], dict[str, Any]]:
+    """The market's own log return from ``prior`` to ``origin`` per asset.
+
+    Read only at ``prior`` and ``origin`` (both at or before D).  Per asset
+    class, the instrument is the first in :data:`MARKET_CHAINS` observed on
+    both dates, which may differ from the fold's outcome instrument (KTC
+    Market starts on 2026-09-09, so its prior returns do not reach back a
+    full horizon before that).  ``universe`` maps asset key to class.
+    """
+    if prior is None:
+        return {}, {"priorDate": None, "instruments": None, "n": 0}
+    instruments = fold_instruments(prior, origin, reader.classes_on)
+    out: dict[str, float] = {}
+    for inst in sorted({v for v in instruments.values() if v}):
+        classes = {c for c, v in instruments.items() if v == inst}
+        at_p = reader.exact(prior, store.LANE_SOURCE, inst)
+        at_d = reader.exact(origin, store.LANE_SOURCE, inst)
+        for key, cls in universe.items():
+            if cls in classes and key in at_p and key in at_d:
+                out[key] = math.log(at_d[key]["value"] / at_p[key]["value"])
+    return out, {"priorDate": prior, "instruments": instruments, "n": len(out)}
+
+
+def _informative(keys_: Iterable[str], gaps: Mapping[str, float]) -> tuple[int, float | None]:
+    """``(distinct non-zero gaps, zero-gap share)`` over ``keys_``."""
+    values = [gaps[k] for k in keys_]
+    if not values:
+        return 0, None
+    nonzero = [v for v in values if abs(v) > ZERO_GAP_EPS]
+    return len(set(nonzero)), (len(values) - len(nonzero)) / len(values)
+
+
 def measure_fold(
     fold: bt.Fold,
     *,
     reader: _LedgerReader,
     specs: Sequence[SeriesSpec],
+    horizon_days: int | None = None,
+    available: Sequence[date] = (),
 ) -> tuple[dict[str, Any], dict[tuple[str, str], tuple[bt.FoldResult, dict[str, Any]]]]:
     """One origin's cross-sections: fold metadata plus, per (series, group),
-    the CE ``FoldResult`` and the increment over persistence."""
+    the CE ``FoldResult`` and the cell's extras (informative rows, increment
+    over persistence, momentum control, predictor staleness)."""
     origin, horizon = fold.origin.isoformat(), fold.horizon.isoformat()
     instruments = fold_instruments(origin, horizon, reader.classes_on)
+    lookback = prior_date(fold.origin, horizon_days or fold.horizon_days, available)
+    prior = lookback.isoformat() if lookback is not None else None
 
     prices_d: dict[str, float] = {}
     prices_h: dict[str, float] = {}
@@ -675,6 +849,9 @@ def measure_fold(
 
     returns = oc.forward_returns(start, end)
     excess = {k: e["excessReturn"] for k, e in returns.items() if e["excessReturn"] is not None}
+    prior_returns, momentum_meta = _market_prior_returns(
+        reader, origin, prior, {k: start[k]["assetClass"] for k in start}
+    )
 
     def in_group(key: str, group: str) -> bool:
         return group == GROUP_ALL or group_of[key] == group
@@ -692,12 +869,17 @@ def measure_fold(
             g: persistence([k for k in prices_d if in_group(k, g)], prices_d, prices_h)
             for g in GROUPS
         },
+        "momentum": momentum_meta,
+        "predictorStaleness": {},
     }
 
     results: dict[tuple[str, str], tuple[bt.FoldResult, dict[str, Any]]] = {}
     source_values: dict[str, dict[str, dict[str, Any]]] = {}
     for spec in specs:
         values = reader.exact(origin, spec.lane, spec.source_key)
+        # The predictor's own value at the lookback date: a staleness
+        # diagnostic, read at or before D like every predictor read.
+        values_prior = reader.exact(prior, spec.lane, spec.source_key) if prior else {}
         if spec.lane == store.LANE_SOURCE:
             source_values[spec.series_id] = values
         if spec.series_id == BOARD_SERIES:
@@ -711,19 +893,34 @@ def measure_fold(
                 target_skips[group_of[key]] += 1
                 continue
             gaps[key] = log_gap(row["value"], prices_d[key])
+        meta["predictorStaleness"][spec.series_id] = _staleness(gaps, values, values_prior)
         for group in GROUPS:
             members = [k for k in prices_d if in_group(k, group)]
             signal = {k: gaps[k] for k in members if k in gaps}
             outcome = {k: excess[k] for k in members if k in excess}
+            paired = sorted(set(signal) & set(outcome))
+            distinct, zero_share = _informative(paired, gaps)
+            extras: dict[str, Any] = {
+                "distinctNonZeroGaps": distinct,
+                "zeroGapShare": zero_share,
+                "unchangedSincePriorShare": _staleness(
+                    {k: gaps[k] for k in paired}, values, values_prior
+                )["unchangedShare"],
+            }
             skipped = sum(n for g, n in target_skips.items() if group in (GROUP_ALL, g))
             if not values:
                 result = bt.FoldResult(
                     fold=fold, n_pairs=0, usable=False, reason=REASON_NO_OBSERVATION
                 )
-                inc: dict[str, Any] = {}
             elif not signal and skipped:
                 result = bt.FoldResult(fold=fold, n_pairs=0, usable=False, reason=REASON_IS_TARGET)
-                inc = {}
+            elif len(paired) >= MIN_PAIRS and distinct < MIN_PAIRS:
+                result = bt.FoldResult(
+                    fold=fold,
+                    n_pairs=len(paired),
+                    usable=False,
+                    reason=f"only {distinct} distinct non-zero gaps (need {MIN_PAIRS})",
+                )
             else:
                 result = bt.evaluate_fold(
                     fold,
@@ -731,35 +928,111 @@ def measure_fold(
                     outcome,
                     benchmarks={"marketValue": {k: prices_d[k] for k in members}},
                 )
-                inc = {}
                 if result.usable:
-                    paired = sorted(set(signal) & set(outcome))
-                    inc = increment_over_persistence(paired, gaps, prices_d, prices_h)
-            results[(spec.series_id, group)] = (result, inc)
+                    extras.update(increment_over_persistence(paired, gaps, prices_d, prices_h))
+                    extras["momentum"] = momentum_control(paired, gaps, excess, prior_returns)
+            results[(spec.series_id, group)] = (result, extras)
     meta["identicalSourceSeriesAtOrigin"] = _identical_series(source_values)
     return meta, results
 
 
+def _staleness(
+    gaps: Mapping[str, float],
+    values: Mapping[str, dict[str, Any]],
+    values_prior: Mapping[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Share of the predictor's values at D equal to its own values at the
+    lookback date, over the rows that carry a gap and a prior value."""
+    compared = [k for k in gaps if k in values and k in values_prior]
+    unchanged = sum(1 for k in compared if values[k]["value"] == values_prior[k]["value"])
+    return {
+        "n": len(compared),
+        "unchangedShare": (unchanged / len(compared)) if compared else None,
+    }
+
+
+def _mean(values: Iterable[float | None]) -> float | None:
+    got = [v for v in values if v is not None]
+    return statistics.fmean(got) if got else None
+
+
+def _momentum_summary(items: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    """The gap's edge net of the market's own prior move, over origins."""
+    measured = [i for i in items if i.get("partialRhoGivenMomentum") is not None]
+    n = len(measured)
+    out: dict[str, Any] = {
+        "originsMeasured": n,
+        "meanRhoGap": _mean(i.get("rhoGapOnMomentumRows") for i in measured),
+        "meanRhoMomentum": _mean(i.get("rhoMomentum") for i in measured),
+        "meanRhoGapVsPriorReturn": _mean(i.get("rhoGapVsPriorReturn") for i in measured),
+        "meanPartialRhoGivenMomentum": _mean(i["partialRhoGivenMomentum"] for i in measured),
+        "partialPositive": sum(1 for i in measured if i["partialRhoGivenMomentum"] > 0),
+    }
+    mean = out["meanPartialRhoGivenMomentum"]
+    if n < MIN_USABLE_ORIGINS_FOR_VERDICT:
+        out["verdict"] = (
+            f"no verdict: {n} origin(s) with a momentum control, fewer than "
+            f"{MIN_USABLE_ORIGINS_FOR_VERDICT}"
+        )
+        return out
+    positive = out["partialPositive"]
+    agreeing = positive if mean > 0 else n - positive
+    direction = "positive" if mean > 0 else "negative"
+    body = f"mean partial rho {mean:+.3f} over {n} origins; {agreeing}/{n} {direction}"
+    if n < bt.MIN_FOLDS_FOR_A_VERDICT:
+        out["verdict"] = f"underpowered: {body}"
+    elif abs(mean) < 0.05:
+        out["verdict"] = f"no effect detected net of momentum ({body})"
+    elif agreeing != n:
+        out["verdict"] = f"inconsistent across origins net of momentum ({body})"
+    else:
+        out["verdict"] = f"{direction} and consistent net of momentum ({body})"
+    return out
+
+
 def _summary(entries: Sequence[tuple[bt.FoldResult, dict[str, Any]]]) -> dict[str, Any]:
-    """CE ``summarise`` plus per-origin unusable reasons, the increment over
-    persistence, and the two-origin verdict floor."""
+    """CE ``summarise`` plus per-origin unusable reasons, the informative-row
+    census, the increment over persistence, the momentum control, predictor
+    staleness and the two-origin verdict floor."""
     fold_results = [r for r, _ in entries]
     out = bt.summarise(fold_results)
-    inc_by_origin = {r.fold.origin.isoformat(): inc for r, inc in entries if r.usable}
+    extras_by_origin = {r.fold.origin.isoformat(): ex for r, ex in entries}
     for item in out["spearmanByFold"]:
-        inc = inc_by_origin.get(item["origin"]) or {}
-        item["partialR"] = inc.get("partialR")
-        item["deltaR2"] = inc.get("deltaR2")
+        ex = extras_by_origin.get(item["origin"]) or {}
+        mom = ex.get("momentum") or {}
+        item["partialR"] = ex.get("partialR")
+        item["deltaR2"] = ex.get("deltaR2")
+        item["zeroGapShare"] = ex.get("zeroGapShare")
+        item["distinctNonZeroGaps"] = ex.get("distinctNonZeroGaps")
+        item["unchangedSincePriorShare"] = ex.get("unchangedSincePriorShare")
+        item["momentumN"] = mom.get("n")
+        item["rhoGapOnMomentumRows"] = mom.get("rhoGap")
+        item["rhoMomentum"] = mom.get("rhoMomentum")
+        item["rhoGapVsPriorReturn"] = mom.get("rhoGapVsPriorReturn")
+        item["partialRhoGivenMomentum"] = mom.get("partialRhoGivenMomentum")
+        if mom.get("reason"):
+            item["momentumReason"] = mom["reason"]
     out["originsUnusable"] = [
-        {"origin": r.fold.origin.isoformat(), "n": r.n_pairs, "reason": r.reason}
+        {
+            "origin": r.fold.origin.isoformat(),
+            "n": r.n_pairs,
+            "reason": r.reason,
+            "zeroGapShare": (extras_by_origin.get(r.fold.origin.isoformat()) or {}).get(
+                "zeroGapShare"
+            ),
+        }
         for r in fold_results
         if not r.usable
     ]
     del out["unusableReasons"]
-    partials = [i["partialR"] for i in out["spearmanByFold"] if i["partialR"] is not None]
-    deltas = [i["deltaR2"] for i in out["spearmanByFold"] if i["deltaR2"] is not None]
-    out["meanPartialR"] = statistics.fmean(partials) if partials else None
-    out["meanDeltaR2"] = statistics.fmean(deltas) if deltas else None
+    by_fold = out["spearmanByFold"]
+    deltas = [i["deltaR2"] for i in by_fold if i["deltaR2"] is not None]
+    out["meanPartialR"] = _mean(i["partialR"] for i in by_fold)
+    out["meanDeltaR2"] = _mean(deltas)
+    out["deltaR2Range"] = [min(deltas), max(deltas)] if deltas else None
+    out["meanZeroGapShare"] = _mean(i["zeroGapShare"] for i in by_fold)
+    out["meanUnchangedSincePriorShare"] = _mean(i["unchangedSincePriorShare"] for i in by_fold)
+    out["momentumControl"] = _momentum_summary(by_fold)
     if out["foldsUsable"] < MIN_USABLE_ORIGINS_FOR_VERDICT:
         out["verdict"] = (
             f"no verdict: {out['foldsUsable']} usable origin(s), fewer than "
@@ -782,9 +1055,14 @@ def measure(
     ledger: Path,
     *,
     horizons: Sequence[int] = DEFAULT_HORIZONS,
+    not_fresh: Iterable[Sequence[str]] = (),
 ) -> dict[str, Any]:
-    """The scoreboard over one ledger.  Reads only; never writes."""
-    reader = _LedgerReader(ledger)
+    """The scoreboard over one ledger.  Reads only; never writes.
+
+    ``not_fresh`` is archive mode's producer carry-forward mask
+    (``build_archive_ledger(...)["notFresh"]``).
+    """
+    reader = _LedgerReader(ledger, not_fresh)
     market_dates = {
         k: set(asof.observed_dates(lane=store.LANE_SOURCE, source_key=k, path=ledger))
         for k in _MARKET_KEYS
@@ -804,7 +1082,13 @@ def measure(
         fold_meta: list[dict[str, Any]] = []
         collected: dict[tuple[str, str], list[tuple[bt.FoldResult, dict[str, Any]]]] = {}
         for fold in fold_list:
-            meta, results = measure_fold(fold, reader=reader, specs=specs)
+            meta, results = measure_fold(
+                fold,
+                reader=reader,
+                specs=specs,
+                horizon_days=horizon_days,
+                available=available,
+            )
             fold_meta.append(meta)
             for key, entry in results.items():
                 collected.setdefault(key, []).append(entry)
@@ -861,6 +1145,14 @@ def measure(
             "the identical rho"
         ),
         "minPairsPerCrossSection": MIN_PAIRS,
+        "minDistinctNonZeroGaps": MIN_PAIRS,
+        "notFreshMasked": sorted([list(x) for x in reader.not_fresh]),
+        "momentum": (
+            "momentumControl per cell: the market's raw log return from the latest panel "
+            "date on or before D-H to D (read at or before D only), its Spearman with the "
+            "outcome (rhoMomentum), with the gap (rhoGapVsPriorReturn), and the Spearman "
+            "partial of gap and outcome given it (partialRhoGivenMomentum)"
+        ),
         "minUsableOriginsForVerdict": MIN_USABLE_ORIGINS_FOR_VERDICT,
         "groups": list(GROUPS),
         "excludedSources": EXCLUDED_SOURCES,
@@ -880,6 +1172,58 @@ def _fmt(value: Any, *, signed: bool = True) -> str:
     if isinstance(value, float):
         return f"{value:+.3f}" if signed else f"{value:.3f}"
     return str(value)
+
+
+def _cell_rho(s: Mapping[str, Any]) -> str:
+    usable = s.get("foldsUsable") or 0
+    if not usable:
+        return "—"
+    return f"{_fmt(s.get('meanSpearman'))} ({s.get('foldsPositive', 0)}/{usable})"
+
+
+def _cell_momentum(s: Mapping[str, Any]) -> str:
+    mom = s.get("momentumControl") or {}
+    n = mom.get("originsMeasured") or 0
+    if not n:
+        return "—"
+    return f"{_fmt(mom.get('meanPartialRhoGivenMomentum'))} ({mom.get('partialPositive', 0)}/{n})"
+
+
+def _group_table(
+    series_rows: Sequence[tuple[str, Mapping[str, Any]]],
+    cell: Callable[[Mapping[str, Any]], str],
+) -> list[str]:
+    lines = ["| series | " + " | ".join(GROUPS) + " |", "|---|" + "---|" * len(GROUPS)]
+    for name, by_group in series_rows:
+        cells = [cell(by_group.get(g) or {}) for g in GROUPS]
+        lines.append(f"| {name} | " + " | ".join(cells) + " |")
+    lines.append("")
+    return lines
+
+
+def _staleness_table(
+    folds: Sequence[Mapping[str, Any]],
+    names: Sequence[str],
+    block: Mapping[str, Any],
+) -> list[str]:
+    origins = [f for f in folds if (f.get("momentum") or {}).get("priorDate")]
+    if not origins:
+        return []
+    ids = ([BOARD_SERIES] if (block.get("board") or {}).get("status") == "measured" else []) + list(
+        (block.get("sources") or {}).keys()
+    )
+    header = "| series | " + " | ".join(
+        f"{f['origin']} (vs {f['momentum']['priorDate']})" for f in origins
+    )
+    lines = [header + " |", "|---|" + "---|" * len(origins)]
+    for series_id, name in zip(ids, names):
+        cells = []
+        for f in origins:
+            st = (f.get("predictorStaleness") or {}).get(series_id) or {}
+            share = st.get("unchangedShare")
+            cells.append("—" if share is None else f"{share:.2f} (n {st.get('n')})")
+        lines.append(f"| {name} | " + " | ".join(cells) + " |")
+    return lines
 
 
 def render_markdown(result: Mapping[str, Any], *, title: str) -> str:
@@ -942,31 +1286,39 @@ def render_markdown(result: Mapping[str, Any], *, title: str) -> str:
             label = f"{key} ({src.get('provider') or 'provider unknown'})"
             series_rows.append((label, src.get("byGroup") or {}))
         if series_rows:
-            lines.append("| series | " + " | ".join(GROUPS) + " |")
-            lines.append("|---|" + "---|" * len(GROUPS))
-            for name, by_group in series_rows:
-                cells = []
-                for g in GROUPS:
-                    s = by_group.get(g) or {}
-                    usable = s.get("foldsUsable") or 0
-                    if not usable:
-                        cells.append("—")
-                        continue
-                    cells.append(
-                        f"{_fmt(s.get('meanSpearman'))} ({s.get('foldsPositive', 0)}/{usable})"
-                    )
-                lines.append(f"| {name} | " + " | ".join(cells) + " |")
+            lines += ["Gap vs outcome, mean per-origin Spearman (positive / usable origins):", ""]
+            lines += _group_table(series_rows, _cell_rho)
             lines += [
-                "",
                 "— means no usable origin: no observation, the series is the market itself, "
-                "or too few pairs. The JSON gives the reason for each origin.",
+                "too few pairs, or too few distinct non-zero gaps. The JSON gives the reason "
+                "for each origin.",
+                "",
+                "Net of momentum: mean partial Spearman of gap and outcome given the market's "
+                "own prior-H log return (positive / origins with a momentum control):",
                 "",
             ]
-            verdicts = [
-                f"- `{name}` ALL: {(by_group.get(GROUP_ALL) or {}).get('verdict')}"
-                for name, by_group in series_rows
-            ]
-            lines += verdicts + [""]
+            lines += _group_table(series_rows, _cell_momentum)
+            lines.append("")
+            for name, by_group in series_rows:
+                cell = by_group.get(GROUP_ALL) or {}
+                mom = cell.get("momentumControl") or {}
+                lines.append(
+                    f"- `{name}` ALL: {cell.get('verdict')}. Mean zero-gap share "
+                    f"{_fmt(cell.get('meanZeroGapShare'), signed=False)}; mean share unchanged "
+                    f"since the lookback date "
+                    f"{_fmt(cell.get('meanUnchangedSincePriorShare'), signed=False)}. "
+                    f"Net of momentum: {mom.get('verdict')}."
+                )
+            lines.append("")
+            staleness = _staleness_table(folds, [n for n, _ in series_rows], block)
+            if staleness:
+                lines += [
+                    "Predictor staleness: share of each series' values at D unchanged since "
+                    "its own value at the lookback date (D-H, snapped back):",
+                    "",
+                    *staleness,
+                    "",
+                ]
     rp = result.get("realizedPoints") or {}
     lines += [
         "## Realized points",
