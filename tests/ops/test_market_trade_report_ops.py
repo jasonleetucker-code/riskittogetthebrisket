@@ -123,7 +123,12 @@ def test_whitelist_drops_unknown_and_private_fields():
         "canonicalLedger": "/secret/ledger",
         "coverage": {
             "rawSourceObservations": {"total": 7, "bySource": {"ktc": 4, "sleeper": 3}},
-            "underlyingTrades": 5,
+            "underlyingTrades": {
+                "underlyingTradesPointEstimate": 5,
+                "underlyingTradesLowerBound": 4,
+                "underlyingTradesUpperBound": 6,
+                "groupsByState": {"secret": 1},
+            },
             "dispositions": {"NATIVE_COMPARABLE": 2, "bad": "x"},
             "dateCoverage": {"ktc": {"oldest": "2026-01-02T03", "newest": "junk", "dated": 4}},
             "targetLeague": "dynasty_main",
@@ -143,6 +148,8 @@ def test_whitelist_drops_unknown_and_private_fields():
     for forbidden in ("secret", "Some Name", "123", "bob", "dynasty_main", "targetLeague"):
         assert forbidden not in blob
     assert out["observations"] == 7 and out["groups"] == 5
+    assert out["groupsLowerBound"] == 4 and out["groupsUpperBound"] == 6
+    assert "groupsByState" not in json.dumps(out)
     assert out["dispositions"] == {"NATIVE_COMPARABLE": 2}
     assert out["dateCoverage"]["ktc"] == {"oldest": "2026-01-02", "newest": None, "dated": 4}
     assert out["estimatorEvidence"]["maturityCohortsAmongRepresentable"] == {
@@ -181,7 +188,9 @@ def test_archive_stats_read_only_counts(tmp_path):
 
 def test_summary_fresh_stale_missing(tmp_path):
     _write_report(
-        tmp_path, (NOW - timedelta(hours=2)).isoformat(), coverage={"underlyingTrades": 9}
+        tmp_path,
+        (NOW - timedelta(hours=2)).isoformat(),
+        coverage={"underlyingTrades": {"underlyingTradesPointEstimate": 9}},
     )
     s = summ.build_summary(base=tmp_path, now=NOW)
     assert s["reportState"] == "fresh" and s["report"]["groups"] == 9
@@ -252,3 +261,10 @@ def test_workflow_drops_remote_stderr():
         encoding="utf-8"
     )
     assert "market_trade_report_summary.py --markdown 2>/dev/null" in text
+
+
+def test_groups_null_when_volume_block_is_not_the_known_shape():
+    """A bare number (or any other shape) is a schema change: reported as null, never guessed."""
+    for cov in ({"underlyingTrades": 9}, {"underlyingTrades": "9"}, {}):
+        out = summ.whitelist_report({"coverage": cov})
+        assert out["groups"] is None and out["groupsLowerBound"] is None
