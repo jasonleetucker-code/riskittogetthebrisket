@@ -15,13 +15,15 @@ Inputs, both read-only:
   dates only.
 
 Exit codes: 0 summary printed; 2 no report could be read (missing / unreadable /
-not provisioned -- stated, never silently empty).  Stale is reported, exit 0.
+not provisioned -- stated, never silently empty); 3 the summary itself failed
+(only the exception class is printed).  Stale is reported, exit 0.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import sqlite3
 import sys
 from datetime import datetime, timezone
@@ -36,14 +38,25 @@ from src.api import market_trade_report_health as health  # noqa: E402
 
 _ARCHIVE_FILENAME = "archive.sqlite"
 
+# A map label must look like an enum value (source family, disposition, cohort):
+# it starts with a letter.  Sleeper / KTC league and user ids are numeric, so a
+# future report keyed by an id is dropped here instead of reaching a public log.
+_LABEL_RE = re.compile(r"[A-Za-z][A-Za-z0-9_.:+-]{0,47}")
+
+
+def _label(raw: Any) -> str | None:
+    text = str(raw)
+    return text if _LABEL_RE.fullmatch(text) else None
+
 
 def _count_map(raw: Any) -> dict[str, int]:
     """``{label: int}`` -- labels are bounded enum-like strings; non-int values dropped."""
     out: dict[str, int] = {}
     if isinstance(raw, dict):
         for k, v in raw.items():
-            if isinstance(v, int) and not isinstance(v, bool):
-                out[str(k)[:64]] = v
+            label = _label(k)
+            if label is not None and isinstance(v, int) and not isinstance(v, bool):
+                out[label] = v
     return dict(sorted(out.items()))
 
 
@@ -66,8 +79,9 @@ def _date_coverage(raw: Any) -> dict[str, dict[str, Any]]:
     out: dict[str, dict[str, Any]] = {}
     if isinstance(raw, dict):
         for src, rng in raw.items():
-            if isinstance(rng, dict):
-                out[str(src)[:64]] = {
+            label = _label(src)
+            if label is not None and isinstance(rng, dict):
+                out[label] = {
                     "oldest": _date(rng.get("oldest")),
                     "newest": _date(rng.get("newest")),
                     "dated": _int(rng.get("dated")),
@@ -79,7 +93,9 @@ def _nested_counts(raw: Any) -> dict[str, dict[str, int]]:
     out: dict[str, dict[str, int]] = {}
     if isinstance(raw, dict):
         for k, v in raw.items():
-            out[str(k)[:64]] = _count_map(v)
+            label = _label(k)
+            if label is not None:
+                out[label] = _count_map(v)
     return dict(sorted(out.items()))
 
 
@@ -195,7 +211,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dir", type=Path, default=None, help="market_trades dir (tests)")
     parser.add_argument("--markdown", action="store_true", help="emit step-summary markdown")
     args = parser.parse_args(argv)
-    summary = build_summary(base=args.dir)
+    try:
+        summary = build_summary(base=args.dir)
+    except Exception as exc:  # noqa: BLE001 -- the log is public: class name only
+        print(f"summary failed: {type(exc).__name__}")
+        return 3
     print(render_markdown(summary) if args.markdown else json.dumps(summary, indent=1))
     ok = summary["reportState"] in (health.STATE_FRESH, health.STATE_STALE)
     return 0 if ok else 2

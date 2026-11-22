@@ -207,3 +207,48 @@ def test_workflow_shape():
     assert list(wf[True]) == ["workflow_dispatch"]  # dispatch only, no schedule
     assert wf["permissions"] == {"contents": "read"}
     assert wf["concurrency"]["group"] != "production-deploy"
+
+
+def test_whitelist_drops_numeric_id_labels():
+    """A map keyed by a (numeric) league / user id never reaches the public log."""
+    report = {
+        "coverage": {
+            "dispositions": {"NATIVE_COMPARABLE": 1, "123456789012345678": 7, "": 2},
+            "dateCoverage": {
+                "ktc": {"oldest": "2026-07-01"},
+                "987654321": {"oldest": "2026-07-02"},
+            },
+        },
+        "evaluation": {
+            "estimatorEvidence": {
+                "maturityCohortsAmongRepresentable": {
+                    "pointInTime": {"A": 1, "4455": 3},
+                    "777": {"A": 1},
+                }
+            }
+        },
+    }
+    out = summ.whitelist_report(report)
+    assert out["dispositions"] == {"NATIVE_COMPARABLE": 1}
+    assert list(out["dateCoverage"]) == ["ktc"]
+    assert out["estimatorEvidence"]["maturityCohortsAmongRepresentable"] == {
+        "pointInTime": {"A": 1}
+    }
+
+
+def test_cli_failure_prints_class_name_only(tmp_path, monkeypatch, capsys):
+    def boom(**_kw):
+        raise RuntimeError("/home/dynasty/app/data/market_trades/secret-path")
+
+    monkeypatch.setattr(summ, "build_summary", boom)
+    assert summ.main(["--dir", str(tmp_path)]) == 3
+    printed = capsys.readouterr().out
+    assert printed.strip() == "summary failed: RuntimeError"
+    assert "/home" not in printed
+
+
+def test_workflow_drops_remote_stderr():
+    text = (REPO / ".github" / "workflows" / "market-trade-ledger-report.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "market_trade_report_summary.py --markdown 2>/dev/null" in text
