@@ -1,0 +1,803 @@
+{
+  "contractVersion": "team-plan/2026-11-22.v1",
+  "flag": "team_advisor_plan",
+  "available": true,
+  "leagueKey": "dynasty_main",
+  "team": {
+    "ownerId": "o0",
+    "teamName": "Team o0",
+    "rosterId": 1
+  },
+  "requesterOwnsTeam": true,
+  "advisoryOnly": true,
+  "isVerdict": false,
+  "rosterFreshness": {
+    "state": "current",
+    "source": "live",
+    "fetchedAt": "x",
+    "ageHours": 1.0,
+    "owner": "src/api/roster_freshness.py::roster_age"
+  },
+  "posture": {
+    "available": true,
+    "unavailableReason": null,
+    "owner": "src/roster_intel/window.py::competitive_posture",
+    "bundleFreshness": "last_computed",
+    "posture": {
+      "label": "PUSH"
+    },
+    "appliedToOrdering": false,
+    "note": "context only: posture does not reorder, filter or re-weight any action (a posture-aware plan would be a new rule, which is owner-reserved)"
+  },
+  "teamStrength": {
+    "available": true,
+    "unavailableReason": null,
+    "owner": "src/roster_intel/strength.py",
+    "strength": {
+      "total": 30000.0,
+      "leagueRank": 2
+    },
+    "teamCount": 4,
+    "rankPopulation": "contract_board_priced_players",
+    "rosterSource": "canonical_contract",
+    "unpricedVisibility": "never zero"
+  },
+  "teamWeakness": {
+    "available": true,
+    "unavailableReason": null,
+    "owner": "src/roster_intel/weakness.py",
+    "weakness": {
+      "available": true,
+      "needs": [
+        {
+          "position": "TE",
+          "level": "high"
+        }
+      ],
+      "urgentPositions": [
+        "TE"
+      ]
+    },
+    "rosterSource": "canonical_contract",
+    "unpricedVisibility": "never zero"
+  },
+  "agePortfolio": {
+    "available": true,
+    "unavailableReason": null,
+    "owner": "src/roster_intel/age_portfolio.py",
+    "portfolio": {
+      "available": true,
+      "unavailableReason": null,
+      "youngCoreIndex": 40.0,
+      "youngCoreIndexStatus": "PRIOR",
+      "valueWeightedCoreAge": 26.4,
+      "byPosition": [
+        {
+          "position": "QB",
+          "value": 9000.0,
+          "valueShare": 0.2,
+          "valueWeightedAge": 29.5,
+          "youthScore": 0.3,
+          "coverage": {
+            "aged": 3,
+            "total": 3
+          },
+          "leagueRank": 1,
+          "leaguePercentile": 0.1,
+          "leagueMedianAge": 26.0,
+          "ageVsLeagueMedian": 3.5,
+          "isOldForLeague": true
+        }
+      ]
+    },
+    "rosterSource": "canonical_contract",
+    "unpricedVisibility": "never zero"
+  },
+  "draftCapital": {
+    "available": true,
+    "unavailableReason": null,
+    "owner": "server.py::get_draft_capital (/api/draft-capital)",
+    "freshness": "current",
+    "upcomingDraftYear": 2027,
+    "coveredPickYears": [
+      2027
+    ],
+    "teamTotalsState": "available",
+    "teamTotalsReason": null,
+    "budgetBasis": "per_class_pool",
+    "budgetStatus": "owner_confirmed",
+    "upcomingClass": {
+      "team": "T0",
+      "auctionDollars": 100,
+      "rosterId": 0,
+      "ownerId": "o0"
+    },
+    "upcomingClassUnavailableReason": null,
+    "allYears": {
+      "team": "T0",
+      "auctionDollars": 300,
+      "rank": 1,
+      "ownerId": "o0"
+    },
+    "allYearsUnavailableReason": null,
+    "pickOwnership": {
+      "state": "observed",
+      "reason": null,
+      "owner": "src/identity/picks.py (sleeper.teams[].pickOwnershipState)"
+    }
+  },
+  "sections": {
+    "buyTargets": {
+      "available": true,
+      "unavailableReason": null,
+      "owner": "src/roster_intel/targets.py::rank_target_players",
+      "freshness": null,
+      "sourceStamp": "stamp-1",
+      "corroborationYield": {
+        "recommended": 1,
+        "evaluated": 2
+      },
+      "candidatePolicyExhaustive": false,
+      "marketEdgeUnmeasured": {
+        "reason": "no ROS price"
+      },
+      "limitations": {
+        "scope": "current season"
+      },
+      "rosterAlignment": null,
+      "actions": [
+        {
+          "kind": "buy_target",
+          "owner": "src/roster_intel/targets.py::rank_target_players",
+          "ownerRank": 1,
+          "subject": {
+            "playerId": "t1",
+            "name": "Player t1",
+            "position": "WR"
+          },
+          "reason": "corroborated by lineup_fit; adds 2.00 pts (t1)",
+          "evidence": {
+            "recommended": true,
+            "signals": [
+              "lineup_fit"
+            ],
+            "corroborating": [
+              "lineup_fit"
+            ],
+            "lineupGain": 2.0,
+            "priority": 1.0,
+            "notes": [],
+            "modelVersion": "wsj.targets.2026-07-27.v1"
+          },
+          "uncertainty": {
+            "confidence": 0.5,
+            "marketEdge": null,
+            "availability": null
+          }
+        },
+        {
+          "kind": "buy_target",
+          "owner": "src/roster_intel/targets.py::rank_target_players",
+          "ownerRank": 2,
+          "subject": {
+            "playerId": "t2",
+            "name": "Player t2",
+            "position": "WR"
+          },
+          "reason": "corroborated by lineup_fit; adds 2.00 pts (t2)",
+          "evidence": {
+            "recommended": true,
+            "signals": [
+              "lineup_fit"
+            ],
+            "corroborating": [
+              "lineup_fit"
+            ],
+            "lineupGain": 2.0,
+            "priority": 1.0,
+            "notes": [],
+            "modelVersion": "wsj.targets.2026-07-27.v1"
+          },
+          "uncertainty": {
+            "confidence": 0.5,
+            "marketEdge": null,
+            "availability": null
+          }
+        }
+      ]
+    },
+    "sellHigh": {
+      "available": true,
+      "unavailableReason": null,
+      "owner": "src/trade/suggestions.py::generate_suggestions_from_pool",
+      "freshness": null,
+      "ownerNoResultReason": null,
+      "needSource": {
+        "source": "x"
+      },
+      "boardTopNFilter": 150,
+      "rosterUnpriced": null,
+      "constraintsBlockedOutgoing": null,
+      "constraintsBlockedReasons": null,
+      "warnings": [],
+      "otherTradeIdeas": {},
+      "actions": [
+        {
+          "kind": "sell_high",
+          "owner": "src/trade/suggestions.py::generate_suggestions_from_pool",
+          "ownerRank": 1,
+          "subject": {
+            "give": [
+              "A"
+            ],
+            "receive": [
+              "B"
+            ]
+          },
+          "reason": "sell A",
+          "evidence": {
+            "give": [
+              {
+                "name": "A",
+                "position": "RB",
+                "displayValue": 5000
+              }
+            ],
+            "receive": [
+              {
+                "name": "B",
+                "position": "WR",
+                "displayValue": 5100
+              }
+            ],
+            "giveTotal": 5000,
+            "receiveTotal": 5100,
+            "gap": 100,
+            "fairness": "even",
+            "whyThisHelps": "converts surplus",
+            "strategy": "balanced",
+            "rankScore": {
+              "total": 1.0
+            }
+          },
+          "uncertainty": {
+            "confidence": "medium"
+          }
+        }
+      ]
+    },
+    "waivers": {
+      "available": true,
+      "unavailableReason": null,
+      "owner": "src/trade/perfect_waivers.py::build_perfect_waivers",
+      "freshness": null,
+      "advisoryOnly": true,
+      "rosterSource": "live_overlay",
+      "rostersAsOf": "2026-11-21T10:00:00+00:00",
+      "stopRule": {
+        "stopBandClass": "PRIOR",
+        "nextBestMove": null
+      },
+      "budget": {
+        "state": "unknown"
+      },
+      "planSummary": {
+        "addCount": 3
+      },
+      "actions": [
+        {
+          "kind": "waiver_move",
+          "owner": "src/trade/perfect_waivers.py::build_perfect_waivers",
+          "ownerRank": 1,
+          "subject": {
+            "add": {
+              "playerId": "w1",
+              "name": "FA w1",
+              "position": "LB"
+            },
+            "release": {
+              "kind": "drop",
+              "playerId": "r1",
+              "name": "Rel",
+              "position": "LB"
+            }
+          },
+          "reason": null,
+          "evidence": {
+            "add": {
+              "playerId": "w1",
+              "name": "FA w1",
+              "position": "LB",
+              "value": 2562.0,
+              "bid": {
+                "recommended": null,
+                "confidence": "medium",
+                "balanceState": "unknown"
+              }
+            },
+            "release": {
+              "kind": "drop",
+              "playerId": "r1",
+              "name": "Rel",
+              "position": "LB"
+            },
+            "gain": 967.0,
+            "relativeGap": 0.4652,
+            "material": true,
+            "standsAlone": true
+          },
+          "uncertainty": {
+            "bidConfidence": "medium",
+            "solverProvenOptimal": true,
+            "solverStatus": "optimal",
+            "stopBandClass": "PRIOR",
+            "budgetState": "unknown"
+          }
+        },
+        {
+          "kind": "waiver_move",
+          "owner": "src/trade/perfect_waivers.py::build_perfect_waivers",
+          "ownerRank": 2,
+          "subject": {
+            "add": {
+              "playerId": "w2",
+              "name": "FA w2",
+              "position": "LB"
+            },
+            "release": {
+              "kind": "drop",
+              "playerId": "r1",
+              "name": "Rel",
+              "position": "LB"
+            }
+          },
+          "reason": null,
+          "evidence": {
+            "add": {
+              "playerId": "w2",
+              "name": "FA w2",
+              "position": "LB",
+              "value": 2562.0,
+              "bid": {
+                "recommended": null,
+                "confidence": "medium",
+                "balanceState": "unknown"
+              }
+            },
+            "release": {
+              "kind": "drop",
+              "playerId": "r1",
+              "name": "Rel",
+              "position": "LB"
+            },
+            "gain": 967.0,
+            "relativeGap": 0.4652,
+            "material": true,
+            "standsAlone": true
+          },
+          "uncertainty": {
+            "bidConfidence": "medium",
+            "solverProvenOptimal": true,
+            "solverStatus": "optimal",
+            "stopBandClass": "PRIOR",
+            "budgetState": "unknown"
+          }
+        },
+        {
+          "kind": "waiver_move",
+          "owner": "src/trade/perfect_waivers.py::build_perfect_waivers",
+          "ownerRank": 3,
+          "subject": {
+            "add": {
+              "playerId": "w3",
+              "name": "FA w3",
+              "position": "LB"
+            },
+            "release": {
+              "kind": "drop",
+              "playerId": "r1",
+              "name": "Rel",
+              "position": "LB"
+            }
+          },
+          "reason": null,
+          "evidence": {
+            "add": {
+              "playerId": "w3",
+              "name": "FA w3",
+              "position": "LB",
+              "value": 2562.0,
+              "bid": {
+                "recommended": null,
+                "confidence": "medium",
+                "balanceState": "unknown"
+              }
+            },
+            "release": {
+              "kind": "drop",
+              "playerId": "r1",
+              "name": "Rel",
+              "position": "LB"
+            },
+            "gain": 967.0,
+            "relativeGap": 0.4652,
+            "material": true,
+            "standsAlone": true
+          },
+          "uncertainty": {
+            "bidConfidence": "medium",
+            "solverProvenOptimal": true,
+            "solverStatus": "optimal",
+            "stopBandClass": "PRIOR",
+            "budgetState": "unknown"
+          }
+        }
+      ]
+    },
+    "pickActions": {
+      "available": false,
+      "unavailableReason": "no_canonical_pick_action_owner",
+      "owner": "none (no single-team pick-action owner exists)",
+      "actions": [],
+      "note": "No existing owner turns one team's draft capital or posture into a pick recommendation: the finder's posture-aware pick generator answers only against a named counterparty. Defining that rule is an owner decision, so pick actions are not assessed; draft capital is shown as context."
+    },
+    "agingAssets": {
+      "available": true,
+      "unavailableReason": null,
+      "owner": "src/roster_intel/age_portfolio.py::PositionAgeProfile.is_old_for_league",
+      "valueWeightedCoreAge": 26.4,
+      "youngCoreIndex": 40.0,
+      "youngCoreIndexStatus": "PRIOR",
+      "unassessedParts": [],
+      "actions": [
+        {
+          "kind": "aging_asset_risk",
+          "owner": "src/roster_intel/age_portfolio.py::PositionAgeProfile.is_old_for_league",
+          "ownerRank": 1,
+          "subject": {
+            "position": "QB"
+          },
+          "reason": "the age-portfolio owner flags this room as meaningfully older than league peers (isOldForLeague: value-weighted age at least a year above the league median; the owner labels the rule PRIOR)",
+          "evidence": {
+            "value": 9000.0,
+            "valueShare": 0.2,
+            "valueWeightedAge": 29.5,
+            "youthScore": 0.3,
+            "leagueRank": 1,
+            "leaguePercentile": 0.1,
+            "leagueMedianAge": 26.0,
+            "ageVsLeagueMedian": 3.5
+          },
+          "uncertainty": {
+            "coverage": {
+              "aged": 3,
+              "total": 3
+            },
+            "ruleStatus": "PRIOR",
+            "youngCoreIndexStatus": "PRIOR"
+          }
+        }
+      ]
+    }
+  },
+  "actions": [
+    {
+      "rank": 1,
+      "kind": "buy_target",
+      "owner": "src/roster_intel/targets.py::rank_target_players",
+      "ownerRank": 1,
+      "subject": {
+        "playerId": "t1",
+        "name": "Player t1",
+        "position": "WR"
+      },
+      "reason": "corroborated by lineup_fit; adds 2.00 pts (t1)",
+      "evidence": {
+        "recommended": true,
+        "signals": [
+          "lineup_fit"
+        ],
+        "corroborating": [
+          "lineup_fit"
+        ],
+        "lineupGain": 2.0,
+        "priority": 1.0,
+        "notes": [],
+        "modelVersion": "wsj.targets.2026-07-27.v1"
+      },
+      "uncertainty": {
+        "confidence": 0.5,
+        "marketEdge": null,
+        "availability": null
+      }
+    },
+    {
+      "rank": 2,
+      "kind": "sell_high",
+      "owner": "src/trade/suggestions.py::generate_suggestions_from_pool",
+      "ownerRank": 1,
+      "subject": {
+        "give": [
+          "A"
+        ],
+        "receive": [
+          "B"
+        ]
+      },
+      "reason": "sell A",
+      "evidence": {
+        "give": [
+          {
+            "name": "A",
+            "position": "RB",
+            "displayValue": 5000
+          }
+        ],
+        "receive": [
+          {
+            "name": "B",
+            "position": "WR",
+            "displayValue": 5100
+          }
+        ],
+        "giveTotal": 5000,
+        "receiveTotal": 5100,
+        "gap": 100,
+        "fairness": "even",
+        "whyThisHelps": "converts surplus",
+        "strategy": "balanced",
+        "rankScore": {
+          "total": 1.0
+        }
+      },
+      "uncertainty": {
+        "confidence": "medium"
+      }
+    },
+    {
+      "rank": 3,
+      "kind": "waiver_move",
+      "owner": "src/trade/perfect_waivers.py::build_perfect_waivers",
+      "ownerRank": 1,
+      "subject": {
+        "add": {
+          "playerId": "w1",
+          "name": "FA w1",
+          "position": "LB"
+        },
+        "release": {
+          "kind": "drop",
+          "playerId": "r1",
+          "name": "Rel",
+          "position": "LB"
+        }
+      },
+      "reason": null,
+      "evidence": {
+        "add": {
+          "playerId": "w1",
+          "name": "FA w1",
+          "position": "LB",
+          "value": 2562.0,
+          "bid": {
+            "recommended": null,
+            "confidence": "medium",
+            "balanceState": "unknown"
+          }
+        },
+        "release": {
+          "kind": "drop",
+          "playerId": "r1",
+          "name": "Rel",
+          "position": "LB"
+        },
+        "gain": 967.0,
+        "relativeGap": 0.4652,
+        "material": true,
+        "standsAlone": true
+      },
+      "uncertainty": {
+        "bidConfidence": "medium",
+        "solverProvenOptimal": true,
+        "solverStatus": "optimal",
+        "stopBandClass": "PRIOR",
+        "budgetState": "unknown"
+      }
+    },
+    {
+      "rank": 4,
+      "kind": "aging_asset_risk",
+      "owner": "src/roster_intel/age_portfolio.py::PositionAgeProfile.is_old_for_league",
+      "ownerRank": 1,
+      "subject": {
+        "position": "QB"
+      },
+      "reason": "the age-portfolio owner flags this room as meaningfully older than league peers (isOldForLeague: value-weighted age at least a year above the league median; the owner labels the rule PRIOR)",
+      "evidence": {
+        "value": 9000.0,
+        "valueShare": 0.2,
+        "valueWeightedAge": 29.5,
+        "youthScore": 0.3,
+        "leagueRank": 1,
+        "leaguePercentile": 0.1,
+        "leagueMedianAge": 26.0,
+        "ageVsLeagueMedian": 3.5
+      },
+      "uncertainty": {
+        "coverage": {
+          "aged": 3,
+          "total": 3
+        },
+        "ruleStatus": "PRIOR",
+        "youngCoreIndexStatus": "PRIOR"
+      }
+    },
+    {
+      "rank": 5,
+      "kind": "buy_target",
+      "owner": "src/roster_intel/targets.py::rank_target_players",
+      "ownerRank": 2,
+      "subject": {
+        "playerId": "t2",
+        "name": "Player t2",
+        "position": "WR"
+      },
+      "reason": "corroborated by lineup_fit; adds 2.00 pts (t2)",
+      "evidence": {
+        "recommended": true,
+        "signals": [
+          "lineup_fit"
+        ],
+        "corroborating": [
+          "lineup_fit"
+        ],
+        "lineupGain": 2.0,
+        "priority": 1.0,
+        "notes": [],
+        "modelVersion": "wsj.targets.2026-07-27.v1"
+      },
+      "uncertainty": {
+        "confidence": 0.5,
+        "marketEdge": null,
+        "availability": null
+      }
+    },
+    {
+      "rank": 6,
+      "kind": "waiver_move",
+      "owner": "src/trade/perfect_waivers.py::build_perfect_waivers",
+      "ownerRank": 2,
+      "subject": {
+        "add": {
+          "playerId": "w2",
+          "name": "FA w2",
+          "position": "LB"
+        },
+        "release": {
+          "kind": "drop",
+          "playerId": "r1",
+          "name": "Rel",
+          "position": "LB"
+        }
+      },
+      "reason": null,
+      "evidence": {
+        "add": {
+          "playerId": "w2",
+          "name": "FA w2",
+          "position": "LB",
+          "value": 2562.0,
+          "bid": {
+            "recommended": null,
+            "confidence": "medium",
+            "balanceState": "unknown"
+          }
+        },
+        "release": {
+          "kind": "drop",
+          "playerId": "r1",
+          "name": "Rel",
+          "position": "LB"
+        },
+        "gain": 967.0,
+        "relativeGap": 0.4652,
+        "material": true,
+        "standsAlone": true
+      },
+      "uncertainty": {
+        "bidConfidence": "medium",
+        "solverProvenOptimal": true,
+        "solverStatus": "optimal",
+        "stopBandClass": "PRIOR",
+        "budgetState": "unknown"
+      }
+    },
+    {
+      "rank": 7,
+      "kind": "waiver_move",
+      "owner": "src/trade/perfect_waivers.py::build_perfect_waivers",
+      "ownerRank": 3,
+      "subject": {
+        "add": {
+          "playerId": "w3",
+          "name": "FA w3",
+          "position": "LB"
+        },
+        "release": {
+          "kind": "drop",
+          "playerId": "r1",
+          "name": "Rel",
+          "position": "LB"
+        }
+      },
+      "reason": null,
+      "evidence": {
+        "add": {
+          "playerId": "w3",
+          "name": "FA w3",
+          "position": "LB",
+          "value": 2562.0,
+          "bid": {
+            "recommended": null,
+            "confidence": "medium",
+            "balanceState": "unknown"
+          }
+        },
+        "release": {
+          "kind": "drop",
+          "playerId": "r1",
+          "name": "Rel",
+          "position": "LB"
+        },
+        "gain": 967.0,
+        "relativeGap": 0.4652,
+        "material": true,
+        "standsAlone": true
+      },
+      "uncertainty": {
+        "bidConfidence": "medium",
+        "solverProvenOptimal": true,
+        "solverStatus": "optimal",
+        "stopBandClass": "PRIOR",
+        "budgetState": "unknown"
+      }
+    }
+  ],
+  "planState": "actions",
+  "completeness": {
+    "complete": false,
+    "assessableKindsComplete": true,
+    "assessedKinds": [
+      "buy_target",
+      "sell_high",
+      "waiver_move",
+      "aging_asset_risk"
+    ],
+    "unassessed": [],
+    "unmappedCandidates": [],
+    "notAssessable": [
+      {
+        "kind": "pick_action",
+        "reason": "no_canonical_pick_action_owner"
+      }
+    ]
+  },
+  "ordering": {
+    "kindOrder": [
+      "buy_target",
+      "sell_high",
+      "waiver_move",
+      "pick_action",
+      "aging_asset_risk"
+    ],
+    "rule": "interleave by kind in kindOrder, keeping each owner's own order: every kind's first action, then every kind's second, and so on. A presentation order, not a priority: no owner's score is compared with another's and posture reorders nothing (a posture-aware order would be a new recommendation rule, which is owner-reserved)."
+  },
+  "protections": {
+    "applied": false,
+    "reason": "constraints_not_resolved",
+    "owner": "src/trade/constraints.py"
+  },
+  "warnings": [
+    "buy targets: bundle age relative to the rosters is unknown"
+  ]
+}
