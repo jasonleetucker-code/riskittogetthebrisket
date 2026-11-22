@@ -21,9 +21,12 @@ from __future__ import annotations
 
 import json
 import random
+import subprocess
+import sys
 import threading
 import time
 import tracemalloc
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -380,16 +383,46 @@ def _build_production_shaped_ledger(path, *, managers: int, seasons: int) -> int
     return len(rows)
 
 
-def test_peak_per_row_is_a_fraction_of_the_retired_build(tmp_path, frozen_clock):
-    path = tmp_path / "ledger.sqlite3"
-    n_rows = _build_production_shaped_ledger(path, managers=1200, seasons=21)
+# The measurement runs in a fresh interpreter.  tracemalloc counts every
+# thread in the process, and earlier tests in the same pytest process leave
+# server warm threads running (team strength, roster construction): their
+# allocations landed inside this window and failed the bound on an unchanged
+# tree (release candidate 45055901343, shard 2: 3,151 B/row "streamed" against
+# 1,267 retired, with those warm jobs in the captured log).  A child process
+# holds no such threads, so the bound measures only the two builds.
+_PEAK_SCRIPT = """
+import json, sys, time
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+import tests.sharp.test_platform_records_streaming as t
+time.time = lambda: t.NOW_S
+path = Path(sys.argv[2])
+n_rows = t._build_production_shaped_ledger(path, managers=1200, seasons=21)
+legacy = t._traced_peak(lambda: t._legacy_build_manager_records(ledger_path=path))
+streamed = t._traced_peak(lambda: t.platform_records.build_manager_records(ledger_path=path))
+print(json.dumps({"n_rows": n_rows, "legacy": legacy, "streamed": streamed}))
+"""
 
-    legacy = _traced_peak(lambda: _legacy_build_manager_records(ledger_path=path))
-    streamed = _traced_peak(lambda: platform_records.build_manager_records(ledger_path=path))
 
-    # Measured: about 940 B/row retired, about 100 B/row streamed.  A fresh
-    # league-key string per row kept in a per-manager set (the first draft of
-    # this fix) measured about 260 B/row and fails this bound.
+def test_peak_per_row_is_a_fraction_of_the_retired_build(tmp_path):
+    repo = Path(__file__).resolve().parents[2]
+    proc = subprocess.run(
+        [sys.executable, "-c", _PEAK_SCRIPT, str(repo), str(tmp_path / "ledger.sqlite3")],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        timeout=600,
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr[-2000:]
+    measured = json.loads(proc.stdout.strip().splitlines()[-1])
+    n_rows, legacy, streamed = measured["n_rows"], measured["legacy"], measured["streamed"]
+    assert n_rows > 0
+
+    # Measured: about 940 B/row retired, about 100 B/row streamed (a child
+    # process on 2026-11-22: 944 and 102).  A fresh league-key string per row
+    # kept in a per-manager set (the first draft of this fix) measured about
+    # 260 B/row and fails this bound.
     assert streamed * 6 < legacy, (streamed / n_rows, legacy / n_rows)
 
 
