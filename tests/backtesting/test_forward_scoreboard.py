@@ -503,8 +503,9 @@ def test_archive_build_keys_csv_rows_like_the_payload_and_skips_stale_csvs(
     store._reset_setup_cache_for_tests()
     archive = tmp_path / "archive"
     archive.mkdir()
+    stamp = "20260910_200000"  # a synthetic bundle written to tmp_path, not the archive
     _bundle(
-        archive / "dynasty_export_20260910_200000.zip",
+        archive / f"dynasty_export_{stamp}.zip",
         "2026-09-10",
         fresh=["ktcCrowdTradesSfTep.csv", "ktc.csv"],
     )
