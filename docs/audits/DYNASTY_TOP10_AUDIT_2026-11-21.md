@@ -87,6 +87,12 @@ document says agents do not run it against production. It stays an owner/operato
 | KTC | Treat KTC trade rows as in-sample for every validation, and as training data only with a declared correlation with `ktcTradesSfTep` | Approve (already the code's posture) | Prevents double counting the evidence the board already votes |
 | PG | Turn on `pick_class_tether_guard` (top-10 #3, PR #2296; evidence `docs/picks/PICK_CLASS_GUARD_EVIDENCE_2026-11-21.md`) | **Keep OFF for now.** Decide together with PB | ON fixes the class error: no 2026 rookie prices a 2027 slot. It moves all 72 2027 slots: −8.7% in sum, max +43.5%, no non-pick row moves. Rounds 1–4 would then rest on one provider, IDP Trade Calculator's 2027 slot board: its pick rows have been byte-identical for 41 days, its board is steeper than both markets' tiers, and the result is a 2027/2028 fourth-round inversion against the vendors' own tiers |
 | PB | Pricing basis for a slotted class whose rookies are not yet known | Price those slots at **TIER grade from both markets** (the C1-U6-D2 unslotted-class treatment), then turn PG on | Gives a two-market price instead of one stale vendor. It is a methodology change, because it would suppress IDPTC's published slots as that year's evidence, so it needs its own owner decision and a separate implementation |
+| TO | Turn on `trade_title_odds_lens` (#2303) | **Keep OFF** until an async or cached path exists and the War Room renders the lens | The lens runs synchronously inside Analyze Trade (about +5.5 s per team-context analysis); the War Room does not render it yet |
+| TP1 | May `/api/team/plan` (#2306) run the buy-target (~0.6 s) and Perfect Waivers (~1.0 s) solves on a cold cache? | Allow, behind the same flag, once the panel ships | Warm-only leaves those sections usually unavailable in production |
+| TP2 | Should posture reorder or filter the plan's actions? | No for now | It would be a new recommendation rule table (owner-reserved); the fixed interleave keeps each owner's order |
+| TP3 | Should a pick-action rule exist (posture plus draft capital to a pick recommendation)? | Defer | No canonical single-team owner produces pick actions today; the plan reports them as not assessable |
+| TP4 | Turn on `team_advisor_plan` | After TP1 and the "This week" panel | The endpoint is dormant and owner-held |
+| IDP | Lineage-aware IDP cap (#2302) | **No cap** | No shared-data lineage evidence among the four IDP voters; similarity alone never caps a vote (2026-10-19 rule) |
 
 ## Deliverable B — Top 10 ranked improvements
 
