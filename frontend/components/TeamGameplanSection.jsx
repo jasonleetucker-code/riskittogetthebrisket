@@ -47,7 +47,7 @@ function Body({ view }) {
           <span style={subtle}>
             {" "}
             {posture.measured
-              ? "Directional estimate, not a verdict."
+              ? "Directional estimate, not a verdict. Uncalibrated: the percentage is a rough lean, not a measured probability."
               : "Not enough competitiveness evidence to lean either way."}
           </span>
         </p>

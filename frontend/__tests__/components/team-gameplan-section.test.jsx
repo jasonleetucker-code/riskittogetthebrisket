@@ -89,6 +89,8 @@ describe("TeamGameplanSection", () => {
     expand();
     await screen.findByText(/Push — competing now/);
     expect(screen.getByText(/62% leaning/)).toBeTruthy();
+    // DYN10: the percentage is a declared-prior lean, and says so.
+    expect(screen.getByText(/Uncalibrated: the percentage is a rough lean/)).toBeTruthy();
     expect(screen.getByText("Playoff contender")).toBeTruthy();
     expect(screen.getByText(/surplus depth/)).toBeTruthy();
     expect(screen.getByText(/Qb One, Qb Two/)).toBeTruthy();

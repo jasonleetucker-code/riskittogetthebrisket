@@ -210,6 +210,16 @@ export default function TeamPhasePanel() {
       title="Win-now vs Rebuild"
       subtitle={`Each team classified by Team Strength (meaningful core) × value-weighted core age, against the league medians (${fmtValue(analysis.leagueMedians.value)} strength · ${fmtAge(analysis.leagueMedians.age)} age).`}
     >
+      <p
+        className="muted"
+        role="note"
+        data-testid="phase-basis-note"
+        style={{ fontSize: "0.74rem", margin: "0 0 var(--space-3)" }}
+      >
+        This is a median split of team strength and age, a different measure from
+        the competitive posture shown on the team page.
+      </p>
+
       {myRow && (
         <div
           style={{
