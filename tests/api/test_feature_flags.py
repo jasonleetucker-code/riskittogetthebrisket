@@ -289,6 +289,11 @@ def test_every_flag_defaults_off_except_safe_additive():
         # is the owner's decision; tests/api/test_pick_class_guard_hold_locked.py
         # is the lock.
         "pick_class_tether_guard",
+        # Composed Team Advisor plan (GET /api/team/plan).  OWNER-HELD: it
+        # serves new recommendations, and turning any flag on is reserved by
+        # the 2026-11-21 authorization; tests/api/test_team_plan_hold_locked.py
+        # is the lock.
+        "team_advisor_plan",
         # DLF Values offense voting (D4).  HELD by the owner's decision of
         # 2026-10-20 ("Hold D4 for V2"): under the incumbent outlier filter it
         # newly drops other sources' valid votes on 12-13 offense rows (Theo
