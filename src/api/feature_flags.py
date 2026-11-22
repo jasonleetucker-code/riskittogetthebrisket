@@ -991,9 +991,12 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # ``playoff_sim.simulate_trade_impact`` call, bracket pinned to both arms).
     # Context only: ``votes=False``, never passed to ``trade_decision``, so no
     # verdict, gap, fairness band or value moves.  ON computes it on the
-    # private ``/api/trade/analyze`` and ``/api/trade/analyze-multi`` routes
+    # private ``POST /api/trade/title-odds`` (async, bounded and cached; the
+    # War Room's "This season's odds" panel, offered through the
+    # ``tradeTitleOdds`` capability) and ``/api/trade/analyze-multi`` routes
     # (never the public advisor), scoped to leagues with recorded playoff rules
-    # (``dynasty_main``).  OFF computes nothing and every payload is
+    # (``dynasty_main``); ``/api/trade/analyze`` never waits for it and names
+    # the dimension ``deferred_async``.  OFF computes nothing and every payload is
     # byte-identical (tests/trade/test_title_odds_lens.py).  HELD, DEFAULT OFF
     # (2026-11-21 directive: turning any flag ON is owner-reserved);
     # deploy/verify-deploy.sh fails a deploy whose effective flag is ON

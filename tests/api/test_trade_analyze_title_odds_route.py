@@ -2,11 +2,12 @@
 
 Flag OFF (the default): the route computes nothing, passes nothing, adds no
 timing stage, and the analysis is exactly the pre-lens one.  Flag ON: the
-lens payload the route computed appears as the non-voting
-``analysis.lenses.titleOdds`` and the decision is unchanged; under Asset-Only
-nothing is computed.  The lens computation itself is pinned in
-``tests/trade/test_title_odds_lens.py``; here it is replaced by a canned
-payload so the route's wiring is what is tested.
+route STILL computes nothing — the odds cost ~5.5 s and are served by
+``POST /api/trade/title-odds`` (``tests/api/test_trade_title_odds_async_route.py``)
+— so the non-voting ``analysis.lenses.titleOdds`` is named unavailable with the
+reason ``deferred_async``, no ``titleOdds`` stage is timed and the decision is
+unchanged; under Asset-Only the lens is excluded by mode.  The lens computation
+itself is pinned in ``tests/trade/test_title_odds_lens.py``.
 """
 
 from __future__ import annotations
@@ -89,26 +90,36 @@ def test_flag_off_route_is_the_pre_lens_analysis(client, flag, monkeypatch):  # 
     assert reasons["currentSeasonEquity"] == "counterfactual_not_wired"
 
 
-def test_flag_on_route_adds_the_lens_and_moves_no_decision(client, flag, monkeypatch):  # noqa: F811
+def test_flag_on_route_defers_the_lens_and_moves_no_decision(client, flag, monkeypatch):  # noqa: F811
+    """The War Room never waits for the season simulation: with the flag ON the
+    analyze route computes nothing, times no ``titleOdds`` stage, and names the
+    dimension ``deferred_async`` — unavailable, never a zero delta."""
     flag(False)
     off = _strip(client.post("/api/trade/analyze", json=_BODY).json())
     flag(True)
-    seen = []
-
-    def fake(result, league_key, contract):
-        seen.append((result["team"]["ownerId"], league_key))
-        return _canned()
-
-    monkeypatch.setattr(server, "_trade_title_odds_two_team", fake)
+    monkeypatch.setattr(
+        server,
+        "_trade_title_odds_two_team",
+        lambda *_a, **_k: pytest.fail("/api/trade/analyze must not compute the season odds"),
+    )
     res = client.post("/api/trade/analyze", json=_BODY)
     assert res.status_code == 200, res.text
     on = res.json()
-    assert seen and seen[0][0] == "o1"
-    assert "titleOdds" in [s["stage"] for s in on["analysisTiming"]["stages"]]
+    assert [s["stage"] for s in on["analysisTiming"]["stages"]] == STAGES
     lens = on["analysis"]["lenses"]["titleOdds"]
-    assert lens["votes"] is False and lens["available"] is True
-    assert lens["detail"]["playoff"]["delta"] == 0.07
+    assert lens["votes"] is False and lens["available"] is False
+    assert lens["unavailableReason"] == tol.REASON_DEFERRED_ASYNC
+    assert "direction" not in lens
     assert lens["detail"]["disclosure"]["text"] == tol.ODDS_DISCLOSURE
+    assert tol.ASYNC_ROUTE in lens["detail"]["note"]
+    # The "not included yet" entry states the lens's own reason, not the
+    # pre-lens "not wired" one.
+    entries = [
+        d
+        for d in on["analysis"]["unavailableDimensions"]
+        if d["dimension"] == "currentSeasonEquity"
+    ]
+    assert [d["reason"] for d in entries] == [tol.REASON_DEFERRED_ASYNC]
     on = _strip(on)
     for key in ("decision", "statusQuo", "recommendation", "confidence", "reasonsFor"):
         assert json.dumps(on["analysis"][key], sort_keys=True) == json.dumps(
@@ -132,6 +143,8 @@ def test_flag_on_asset_only_computes_nothing(client, flag, monkeypatch):  # noqa
     assert called == []
     assert lens["available"] is False and lens["votes"] is False
     assert lens["unavailableReason"] == tol.REASON_ASSET_ONLY
+    reasons = {d["dimension"]: d["reason"] for d in res.json()["analysis"]["unavailableDimensions"]}
+    assert reasons["currentSeasonEquity"] == tol.REASON_ASSET_ONLY
 
 
 def test_the_route_helper_refuses_an_unconfigured_league_without_reading_anything(monkeypatch):

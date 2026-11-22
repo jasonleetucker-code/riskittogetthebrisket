@@ -76,8 +76,19 @@ once per arm.  Measured 2026-11-22 on a 12-team, 57-man best-ball fixture with
 each further changed roster adds about 1.4 s.  The bridge's own sampling
 noise on that trade, across six seeds at 200 weeks, was a standard deviation
 of 0.46-0.64 points a week on deltas of 17-20 — disclosed in ``assumptions``
-because it is not inside the odds interval.  The route times the lens as the
-``titleOdds`` stage of ``analysisTiming``.
+because it is not inside the odds interval.  The async route reports its own
+wall time as ``computation.ms``.
+
+Served asynchronously (activation lane, 2026-11-22)
+───────────────────────────────────────────────────
+``/api/trade/analyze`` never waits for those seconds.  With the flag ON it
+computes nothing and hands Analyze Trade the :func:`deferred` envelope
+(``state: "unavailable"``, reason ``deferred_async``), so the packet names the
+dimension and says where it is served.  The odds come from
+``POST /api/trade/title-odds`` (:data:`ASYNC_ROUTE`), which the War Room calls
+after the analysis has arrived; that route runs this module in the threadpool,
+bounded by a timeout (``title_odds_timeout``) and cached per (league, board
+generation, :func:`trade_signature`) by ``src/api/trade_title_odds_runtime.py``.
 
 The odds are uncalibrated
 ─────────────────────────
@@ -89,6 +100,8 @@ Every payload carries the owner-approved disclosure (``ODR-ODDS-WORDING``,
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 from dataclasses import dataclass
 from typing import Any, Iterable, Mapping, Sequence
@@ -137,6 +150,13 @@ REASON_NO_DISTRIBUTIONS = "no_team_distributions"
 REASON_TEAM_NOT_SIMULATED = "team_not_in_simulation"
 REASON_ERROR = "title_odds_error"
 REASON_ASSET_ONLY = "asset_only_mode"
+#: Analyze Trade does not compute the odds; :data:`ASYNC_ROUTE` serves them.
+REASON_DEFERRED_ASYNC = "deferred_async"
+#: The async route's computation did not finish inside its bound.
+REASON_TIMEOUT = "title_odds_timeout"
+
+#: The private route that serves this lens (``server.py``).
+ASYNC_ROUTE = "/api/trade/title-odds"
 
 _DETAIL = {
     REASON_LEAGUE_NOT_CONFIGURED: (
@@ -185,6 +205,14 @@ _DETAIL = {
     REASON_TEAM_NOT_SIMULATED: "this team has no row in the season simulation.",
     REASON_ERROR: "the title-odds computation failed.",
     REASON_ASSET_ONLY: "not included in Asset-Only analysis.",
+    REASON_DEFERRED_ASYNC: (
+        "computed separately (POST /api/trade/title-odds) so the analysis never waits "
+        "for the season simulation."
+    ),
+    REASON_TIMEOUT: (
+        "the season simulation did not finish in time; it keeps running, and asking "
+        "again shortly returns its result."
+    ),
 }
 
 _LENS_ASSUMPTIONS = (
@@ -233,6 +261,16 @@ def unavailable(reason: str, detail: str | None = None, **extra: Any) -> dict[st
 
 
 ASSET_ONLY_MARKER: dict[str, Any] = {"state": STATE_UNAVAILABLE, "reason": REASON_ASSET_ONLY}
+
+
+def deferred() -> dict[str, Any]:
+    """What ``/api/trade/analyze`` hands Analyze Trade with the flag ON.
+
+    The odds are served by :data:`ASYNC_ROUTE`, so the analysis never waits for
+    them; the dimension stays named, ``state: "unavailable"`` with the reason
+    ``deferred_async`` — never a zero delta and never silently absent.
+    """
+    return unavailable(REASON_DEFERRED_ASYNC, route=ASYNC_ROUTE)
 
 
 def league_configured(league_key: str | None) -> bool:
@@ -377,6 +415,48 @@ def moves_from_two_team(
     (other,) = sorted(counterparties)
     moves = tuple((pid, me, other) for pid in out_ids) + tuple((pid, other, me) for pid in in_ids)
     return TradeMoves(teams=(me, other), player_moves=moves, counterparty_inferred=True)
+
+
+def trade_signature(simulation: Mapping[str, Any]) -> str:
+    """Canonical identity of a 2-team trade AS THIS LENS READS IT.
+
+    Exactly the simulation fields :func:`moves_from_two_team` consumes: the
+    analysed team, each moving asset's kind and Sleeper id (a pick contributes
+    only that it is a pick — picks do not play this season), whether anything
+    was unresolved, and the incoming owned-pick holders (they can name the
+    counterparty).  Asset order does not matter.  Two requests with the same
+    signature, league and board are the same lens question; the async route's
+    cache keys on it (``src/api/trade_title_odds_runtime.py``).
+    """
+    team = simulation.get("team") if isinstance(simulation.get("team"), Mapping) else {}
+
+    def _identity(asset: Mapping[str, Any]) -> list[str]:
+        if not _is_player(asset):
+            return ["pick", ""]
+        pid = str(asset.get("playerId") or "").strip()
+        # A player without an id is refused by the lens; his name still keeps
+        # two such trades apart.
+        return ["player", pid] if pid else ["player", "name:" + str(asset.get("name") or "")]
+
+    def _assets(key: str) -> list[list[str]]:
+        return sorted(_identity(a) for a in simulation.get(key) or [] if isinstance(a, Mapping))
+
+    checks = simulation.get("ownedPickChecks")
+    holders = checks.get("incomingPickHolders") if isinstance(checks, Mapping) else None
+    canonical = {
+        "version": LENS_VERSION,
+        "team": str(team.get("ownerId") or "").strip(),
+        "sending": _assets("sending"),
+        "receiving": _assets("receiving"),
+        "unresolved": bool(simulation.get("unresolvedIn") or simulation.get("unresolvedOut")),
+        "incomingPickHolders": sorted(
+            [str(h.get("ownershipState") or ""), str(h.get("holderRosterId") or "")]
+            for h in (holders if isinstance(holders, list) else [])
+            if isinstance(h, Mapping)
+        ),
+    }
+    blob = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
 
 def moves_from_ledger(ledger: Any, snap: Any) -> TradeMoves:

@@ -1,6 +1,7 @@
 /**
- * The two War Room bridges — POST /api/trade/analyze (2 teams) and
- * POST /api/trade/analyze-multi (3+ teams).  Production never reaches them
+ * The War Room bridges — POST /api/trade/analyze (2 teams),
+ * POST /api/trade/analyze-multi (3+ teams) and POST /api/trade/title-odds (the
+ * season-odds panel, DYN10 #4).  Production never reaches them
  * (nginx sends /api/* to FastAPI); `next start` without a proxy — the E2E
  * stack — reaches ONLY them.  The 2-team bridge was missing, so every real,
  * unmocked 2-team War Room in the E2E stack rendered "the server refused the
@@ -12,6 +13,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST as analyzePost } from "@/app/api/trade/analyze/route.js";
 import { POST as analyzeMultiPost } from "@/app/api/trade/analyze-multi/route.js";
+import { POST as titleOddsPost } from "@/app/api/trade/title-odds/route.js";
 
 beforeEach(() => {
   vi.stubGlobal(
@@ -37,6 +39,8 @@ const req = (path, body) =>
 describe.each([
   ["/api/trade/analyze", analyzePost],
   ["/api/trade/analyze-multi", analyzeMultiPost],
+  // DYN10 #4: the War Room's season-odds panel (owner-held flag, default OFF).
+  ["/api/trade/title-odds", titleOddsPost],
 ])("%s bridge", (path, POST) => {
   it("forwards the body and the session cookie to the same backend path", async () => {
     const body = { teamName: "Jason", playersOut: ["A"], playersIn: ["B"] };
