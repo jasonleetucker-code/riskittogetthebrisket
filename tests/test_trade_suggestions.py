@@ -2893,3 +2893,41 @@ class TestBoardTopNFilterPrecondition:
         _assign_board_ranks(pool)
         kept = _apply_board_top_n_filter(pool, 3)
         assert [p.name for p in kept] == ["P0", "P1", "P2"]
+
+
+# -- the sell-high edge direction (dynasty top-10 audit, 2026-11-21) -------------------
+def _edge_case(give_val: int, recv_val: int, give_cv: float | None = 0.30):
+    s = TradeSuggestion(
+        type="sell_high",
+        give=[PlayerAsset("Volatile Seller", "WR", give_val, give_val, 6, dispersion_cv=give_cv)],
+        receive=[PlayerAsset("Steady Target", "WR", recv_val, recv_val, 6, dispersion_cv=0.05)],
+        give_total=give_val,
+        receive_total=recv_val,
+        gap=give_val - recv_val,
+        fairness="even",
+        rationale="",
+        why_this_helps="",
+        confidence="high",
+        strategy="neutral",
+    )
+    return _suggestions._edge_for_suggestion(s)
+
+
+def test_sell_high_edge_never_rewards_an_overpay():
+    """gap > 0 means the user gives more than they get: not a sell-high.  The
+    note used to fire exactly here (and the +1.0 edge bonus fed ranking)."""
+    edge, note = _edge_case(5000, 4000)
+    assert edge != "market_premium", note
+
+
+def test_sell_high_edge_applies_when_the_user_gets_fair_value_or_more():
+    for give_val, recv_val in ((5000, 6000), (5000, 5000)):
+        edge, note = _edge_case(give_val, recv_val)
+        assert edge == "market_premium", (give_val, recv_val)
+        assert "Volatile Seller" in note
+        assert "corrects down" not in note, "dispersion is not directional"
+
+
+def test_sell_high_edge_needs_high_dispersion_on_the_given_asset():
+    edge, _ = _edge_case(5000, 6000, give_cv=0.05)
+    assert edge is None
