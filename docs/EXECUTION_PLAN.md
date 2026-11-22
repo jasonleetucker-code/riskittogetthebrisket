@@ -31,6 +31,23 @@
   functional UI on existing components is in scope.
 - **Unaffected:** the production stabilization closeout below (#2287–#2291 train 1121) continues first.
 
+**Progress, first batch.** States use the Agent OS vocabulary. The ranking and plan are in
+`docs/audits/DYNASTY_TOP10_AUDIT_2026-11-21.md`. Every item is non-voting, and nothing was activated.
+
+| Unit | Top-10 item | PR | State | Note |
+|---|---|---|---|---|
+| A1 ledger memory | #7 CTM | #2295 | READY_FOR_INTEGRATION | Shares per-format objects. About 40% less build memory on a box-sized benchmark, with byte-identical ledger and report |
+| A1b stale-report alert | #7 CTM | — | IMPLEMENTING | Alert when the daily ledger report stops updating |
+| A2 league maturity | #7 CTM | #2297 | IN REVIEW | Sleeper `"0"` league-age fix; `resolve_league_maturity` wired into the daily report |
+| A3 aggregate report workflow | #7 CTM | — | IMPLEMENTING | Read-only, dispatch-only, aggregate counts only |
+| B1 pick-class guard | #3 | #2296 | IN REVIEW | Flag `pick_class_tether_guard` default OFF; activation is an owner decision |
+| C1 sell-high sign | #10 | #2293 | READY_FOR_INTEGRATION | The edge fired on an overpay |
+| D1 waiver protections | #6 | — | IMPLEMENTING | Protections on the greedy lists; roster freshness stamp |
+| D2 rookie coverage | #8 | #2298 | IN REVIEW | Display-only voting-source line on /draft |
+| V1 forward scoreboard | #1 | — | IMPLEMENTING | Research tool over the committed archive; changes nothing served |
+
+Items #2, #4, #5 and #9, and CTM-4 to CTM-8, are the next batch. Their order and owner gates are in the audit document.
+
 ## Production stabilization and final closeout — owner, 2026-11-19
 
 **AUTHORIZED NOW.** Intake STAB-1 … STAB-12 (`docs/OWNER_REQUESTED_TODO.md`); live tracker
