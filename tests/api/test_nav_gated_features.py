@@ -353,7 +353,71 @@ def test_the_capability_asks_the_feature_rather_than_reading_a_flag(monkeypatch)
         assert c.get("/api/auth/status").json()["features"]["consensusEdge"]["available"] is False
 
 
-# ── 5. tradeTitleOdds: the War Room's season-odds panel (DYN10 #4) ───
+# ── 5. teamAdvisorPlan: the home "This week" panel's request gate ────
+#
+# Not a nav destination: the signed-in home asks ``GET /api/team/plan`` only
+# while this is true, so a flag-off home makes no request at all (DYN10 #5).
+# It mirrors the route's own gates in the route's order: the owner-held flag
+# ``team_advisor_plan`` (``feature_disabled``), then a loaded board with
+# ``playersArray`` (``data_not_ready``) — the shape the waiver capability uses.
+
+
+def _set_board(monkeypatch, loaded: bool) -> None:
+    monkeypatch.setattr(
+        server,
+        "latest_contract_data",
+        {"playersArray": [{"playerId": "p1"}]} if loaded else None,
+        raising=False,
+    )
+
+
+@pytest.mark.parametrize(
+    ("flag_on", "board_loaded", "expected"),
+    [
+        (True, True, True),  # the only state in which the home may ask
+        (True, False, False),  # the route would answer 503 data_not_ready
+        (False, True, False),  # the route would answer 503 feature_disabled
+        (False, False, False),
+    ],
+)
+def test_team_advisor_plan_requires_flag_and_board(monkeypatch, flag_on, board_loaded, expected):
+    _set_flag(monkeypatch, "team_advisor_plan", flag_on)
+    _set_board(monkeypatch, board_loaded)
+    assert server._team_advisor_plan_available() is expected
+    assert server._nav_gated_features()["teamAdvisorPlan"] == {"available": expected}
+
+
+def test_team_advisor_plan_needs_the_board_rows_not_just_a_contract(monkeypatch):
+    _set_flag(monkeypatch, "team_advisor_plan", True)
+    for contract in ({}, {"players": {}}, {"playersArray": []}):
+        monkeypatch.setattr(server, "latest_contract_data", contract, raising=False)
+        assert server._nav_gated_features()["teamAdvisorPlan"] == {"available": False}
+
+
+def test_team_advisor_plan_is_off_by_registry_default(monkeypatch):
+    """Nothing turns the owner-held flag on, so the capability is closed."""
+    monkeypatch.delenv("RISKIT_FEATURE_TEAM_ADVISOR_PLAN", raising=False)
+    feature_flags.reload()
+    _set_board(monkeypatch, True)
+    assert server._nav_gated_features()["teamAdvisorPlan"] == {"available": False}
+
+
+def test_team_advisor_plan_fails_closed_when_resolution_raises(monkeypatch):
+    def boom(name, *a, **k):
+        raise RuntimeError("flag store unreadable")
+
+    monkeypatch.setattr(feature_flags, "is_enabled", boom)
+    _set_board(monkeypatch, True)
+    assert server._nav_gated_features()["teamAdvisorPlan"] == {"available": False}
+
+
+# Agreement with the ROUTE itself (capability true exactly when
+# ``/api/team/plan`` does not refuse with 503) needs a league registry, which
+# this module's environment does not load: it lives beside the route's own
+# fixture in tests/api/test_team_plan_route.py.
+
+
+# ── 6. tradeTitleOdds: the War Room's season-odds panel (DYN10 #4) ───
 
 
 @pytest.mark.parametrize(

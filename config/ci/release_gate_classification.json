@@ -1268,6 +1268,12 @@
     "market-trade-ledger-report.yml::report-summary::Summarize ledger report on production": {
       "category": "blocking"
     },
+    "forward-scoreboard-onbox.yml::scoreboard::Configure production SSH": {
+      "category": "blocking"
+    },
+    "forward-scoreboard-onbox.yml::scoreboard::Measure forward scoreboard on production": {
+      "category": "blocking"
+    },
     "v1-49-host-native-scoring-activation.yml::v1-49-activation::Backup, activate, rebuild, measure": {
       "category": "blocking"
     },

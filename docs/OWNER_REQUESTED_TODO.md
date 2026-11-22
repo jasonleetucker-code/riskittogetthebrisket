@@ -15,6 +15,30 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
+## Added 2026-11-20 — Master implementation directive: complete all remaining work
+
+Owner directive 2026-11-20 (chat): finish everything remaining from the 2026-11-18 audit and the 2026-11-19
+stabilization closeout. Implement, validate, merge, deploy and verify; keep owner-only gates blocked with exact
+blockers. Up to four parallel agents. Record: `docs/audits/CLOSEOUT_IMPLEMENTATION_2026_11_20.md`.
+
+| ID | Requirement | Status |
+|---|---|---|
+| CLO-0 | DLF rookie-board scrapers (P0): diagnose, repair, fail closed, preserve class semantics | see record §1 |
+| CLO-1 | Production alert delivery (P1) | see record |
+| CLO-2 | Branch protection apply and verify (P1) | see record §3 |
+| CLO-3 | Signals data sources (P1) | see record §4 |
+| CLO-4 | Node 22 migration (P1) | see record |
+| CLO-5 | Off-box backups (P1) | see record |
+| CLO-6 | Credentials (P2) | see record |
+| CLO-7 | Public-repo data protection (P2) | see record |
+| CLO-8 | Mobile and browser verification (P2) | see record |
+| CLO-9 | Ubuntu package-install reliability (P2) | see record |
+| CLO-10 | Zombie deploy run 43096180672 (P2) | see record |
+| CLO-11 | Sharp smoke credential and honesty (P2) | see record |
+| CLO-12 | 2030 draft-pick policy decision (P2) | see record |
+| CLO-13 | Data-only deploy evidence (P2) | see record |
+| CLO-14 | Close every unfinished 2026-11-18 audit item | see record §17 |
+
 ## Added 2026-11-20 — Remove the fixed agent cap
 
 Owner instruction 2026-11-20 (chat): "Let's remove the max agents we use for now. We don't have to go crazy with

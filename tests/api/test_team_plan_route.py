@@ -339,6 +339,27 @@ def test_no_contract_is_503(env, monkeypatch):
     assert res.status_code == 503 and res.json()["error"] == "data_not_ready"
 
 
+@pytest.mark.parametrize(
+    ("flag_on", "board_loaded"),
+    [(True, True), (True, False), (False, True), (False, False)],
+)
+def test_home_capability_and_the_route_never_disagree(env, monkeypatch, flag_on, board_loaded):
+    """``features.teamAdvisorPlan`` on ``/api/auth/status`` gates the home panel's
+    one request, so it must be true exactly when this route does not refuse
+    with 503 (``feature_disabled`` or ``data_not_ready``)."""
+    env.flag["on"] = flag_on
+    if not board_loaded:
+        monkeypatch.setattr(server, "latest_contract_data", None)
+    status = env.client.get("/api/auth/status", headers=OWNER).json()
+    reported = status["features"]["teamAdvisorPlan"]["available"]
+    res = env.client.get(URL, headers=OWNER)
+    assert reported is (res.status_code != 503), (
+        f"capability says available={reported} but the route answered {res.status_code} "
+        f"{res.json().get('error')} (flag_on={flag_on}, board_loaded={board_loaded})"
+    )
+    assert reported is (flag_on and board_loaded)
+
+
 def test_unknown_team_is_404_and_no_team_is_400(env):
     res = env.client.get(URL, params={"team": "ghost"}, headers=OWNER)
     assert res.status_code == 404 and res.json()["error"] == "team_not_found"
