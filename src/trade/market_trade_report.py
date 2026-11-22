@@ -90,9 +90,13 @@ def build_ledger(
             roster_positions=target_roster_positions,
         )
     )
+    # One comparability block per distinct format, not per group (memory; the
+    # dispositions are unchanged): groups of one league share a format object.
+    interner = mtf.FormatInterner()
+    unknown_format = mtf.TradeMarketFormat(source=mtf.SOURCE_UNKNOWN)
     for g in grouping.groups:
-        fmt = g.get("_format") or mtf.TradeMarketFormat(source=mtf.SOURCE_UNKNOWN)
-        d = mtf.disposition(fmt, tgt, observation=g, registry=registry)
+        fmt = g.get("_format") or unknown_format
+        d = mtf.disposition(fmt, tgt, observation=g, registry=registry, interner=interner)
         g["targetLeague"] = target_league
         g["disposition"] = d["disposition"]
         g["strongestUnsupportedAxis"] = d["strongestUnsupportedAxis"]

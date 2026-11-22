@@ -459,8 +459,12 @@ def normalize_ktc_row(
     ctx: IdentityContext,
     *,
     first_fetched_at: str | None = None,
+    interner: mtf.FormatInterner | None = None,
 ) -> dict[str, Any]:
     """One archived KTC revision -> one normalized observation.
+
+    ``interner`` shares the format object among rows with the same lineup
+    settings (memory only; the observation is otherwise identical).
 
     ``first_fetched_at`` is when the archive first saw this trade id at all
     (its oldest revision); without it the revision's own fetch time stands in.
@@ -504,7 +508,11 @@ def normalize_ktc_row(
         "occurredDate": observed_date(payload),
         "occurredAtMs": None,
         "timeFidelity": "day",
-        "_format": mtf.format_from_ktc_settings(settings),
+        "_format": (
+            interner.ktc(settings)
+            if interner is not None
+            else mtf.format_from_ktc_settings(settings)
+        ),
         "formatSource": "ktc_vendor_settings",
         "sides": sides,
         "teamCount": 2,
@@ -532,7 +540,10 @@ def normalize_ktc_row(
 
 
 def ktc_observations(
-    *, archive_path: Path | None = None, ctx: IdentityContext
+    *,
+    archive_path: Path | None = None,
+    ctx: IdentityContext,
+    interner: mtf.FormatInterner | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Latest revision per KTC trade id, normalized.  ``(rows, laneStatus)``."""
     raws = archive.read_observations(SOURCE_KTC, path=archive_path)
@@ -558,7 +569,11 @@ def ktc_observations(
             identity_cache[sha] = identity_from_rows(rows or [], source="archived_snapshot")
         out.append(
             normalize_ktc_row(
-                r, identity_cache[sha], ctx, first_fetched_at=first_seen.get(r["sourceNativeId"])
+                r,
+                identity_cache[sha],
+                ctx,
+                first_fetched_at=first_seen.get(r["sourceNativeId"]),
+                interner=interner,
             )
         )
     # A row without a revision count is not counted as revised (unknown is
@@ -718,6 +733,21 @@ FORMAT_SOURCE_PARTIAL = "discovery_row_partial"
 FORMAT_SOURCE_KTC_HOST_UPGRADE = "host_capture_via_discovery"
 
 
+def _league_format_candidates(
+    league_id: str, settings: Any, captures: Sequence[Mapping[str, Any]] | None
+) -> list[Mapping[str, Any]]:
+    """The dated captures a league's trades choose from: the capture index's
+    rows plus the legacy ``settings_json.marketFormat`` snapshot, if any.  A
+    property of the LEAGUE, so the build computes it once per league."""
+    from src.sharp import league_format_capture as lfc  # noqa: PLC0415
+
+    candidates = list(captures or [])
+    legacy = lfc.legacy_settings_capture(league_id, settings if isinstance(settings, dict) else {})
+    if legacy is not None:
+        candidates.append(legacy)
+    return candidates
+
+
 def _sleeper_league_format(
     league_row: Mapping[str, Any],
     settings: Any,
@@ -725,6 +755,8 @@ def _sleeper_league_format(
     captures: list[Mapping[str, Any]] | None = None,
     observations: list[Mapping[str, Any]] | None = None,
     trade_ms: int | None = None,
+    candidates: Sequence[Mapping[str, Any]] | None = None,
+    interner: mtf.FormatInterner | None = None,
 ) -> tuple[mtf.TradeMarketFormat, str, dict[str, Any]]:
     """``(format, formatSource, formatEvidence)`` for one Sharp-discovery trade.
 
@@ -741,15 +773,20 @@ def _sleeper_league_format(
     With no capture, only the facts the discovery row itself carries (type,
     best-ball, roster count) are known and everything else is UNKNOWN — never
     inferred from the discovering user.
+
+    ``candidates`` is :func:`_league_format_candidates` for this league when
+    the caller already holds it (it then replaces ``captures``); ``interner``
+    shares the format object among the league's trades.  Neither changes the
+    answer.
     """
     from src.sharp import league_format_capture as lfc  # noqa: PLC0415
 
     settings = settings if isinstance(settings, dict) else {}
     season = str(league_row.get("season")) if league_row.get("season") else None
-    candidates = list(captures or [])
-    legacy = lfc.legacy_settings_capture(str(league_row.get("league_id") or ""), settings)
-    if legacy is not None:
-        candidates.append(legacy)
+    if candidates is None:
+        candidates = _league_format_candidates(
+            str(league_row.get("league_id") or ""), settings, captures
+        )
     cap, timing, confirmation = lfc.bracketed_capture(
         candidates, observations, trade_ms, season=season
     )
@@ -759,11 +796,12 @@ def _sleeper_league_format(
             if timing == lfc.TIMING_AT_OR_BEFORE
             else FORMAT_SOURCE_CAPTURE_POST_TRADE
         )
-        return (
-            mtf.format_from_sleeper_league(cap["payload"], captured_at=cap.get("capturedAt")),
-            label,
-            lfc.evidence_dict(cap, timing, confirmation),
+        fmt = (
+            interner.sleeper(cap["payload"], captured_at=cap.get("capturedAt"))
+            if interner is not None
+            else mtf.format_from_sleeper_league(cap["payload"], captured_at=cap.get("capturedAt"))
         )
+        return fmt, label, lfc.evidence_dict(cap, timing, confirmation)
     teams = league_row.get("total_rosters")
     partial = {
         "total_rosters": teams if isinstance(teams, int) else None,
@@ -771,7 +809,9 @@ def _sleeper_league_format(
         "settings": {"type": settings.get("type"), "best_ball": settings.get("bestBall")},
     }
     return (
-        mtf.format_from_sleeper_league(partial),
+        interner.sleeper(partial, by_content=True)
+        if interner is not None
+        else mtf.format_from_sleeper_league(partial),
         FORMAT_SOURCE_PARTIAL,
         lfc.evidence_dict(None, None),
     )
@@ -885,7 +925,10 @@ def sleeper_discovery_observations(
     captures: Mapping[str, list[dict[str, Any]]] | None = None,
     observations: Mapping[str, list[dict[str, Any]]] | None = None,
     side_key_secret: bytes | None = None,
+    interner: mtf.FormatInterner | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """The Sharp-discovery lane.  ``interner`` shares format objects among a
+    league's trades (memory only; the observations are otherwise identical)."""
     if ledger_path is None:
         try:
             from src.intel import ledger as intel_ledger  # noqa: PLC0415
@@ -952,12 +995,24 @@ def sleeper_discovery_observations(
     out: list[dict[str, Any]] = []
     format_sources: dict[str, int] = {}
     collection_paths: dict[str, int] = {}
+    # A league's settings and format candidates are LEAGUE facts: computed once
+    # per league, not once per trade (the movements arrive league by league;
+    # a league seen again later is simply recomputed, to the same values).
+    league_inputs: tuple[str, dict[str, Any], Any, list[Mapping[str, Any]]] | None = None
     for (league_id, tx_id), group in grouped.items():
-        lg = leagues.get(league_id) or {}
-        try:
-            settings = json.loads(lg.get("settings_json") or "{}")
-        except (TypeError, ValueError):
-            settings = {}
+        if league_inputs is None or league_inputs[0] != league_id:
+            lg_row = leagues.get(league_id) or {}
+            try:
+                parsed = json.loads(lg_row.get("settings_json") or "{}")
+            except (TypeError, ValueError):
+                parsed = {}
+            league_inputs = (
+                league_id,
+                lg_row,
+                parsed,
+                _league_format_candidates(league_id, parsed, captures.get(league_id)),
+            )
+        _, lg, settings, candidates = league_inputs
         created = group[0].get("created_ms")
         if created is None:
             created = group[0].get("ts")
@@ -987,9 +1042,10 @@ def sleeper_discovery_observations(
         fmt, fmt_source, fmt_evidence = _sleeper_league_format(
             {**lg, "league_id": league_id},
             settings,
-            captures=captures.get(league_id),
             observations=observations.get(league_id),
             trade_ms=int(created) if created is not None else None,
+            candidates=candidates,
+            interner=interner,
         )
         format_sources[fmt_source] = format_sources.get(fmt_source, 0) + 1
         out.append(
@@ -1378,13 +1434,18 @@ def build_observations(
 ) -> dict[str, Any]:
     """Every requested lane, normalized.  ``side_key_secret`` (box-local,
     supplied by the caller -- never generated or stored here) enables the
-    pseudonymous per-side ``managerKey``; without it every key is ``None``."""
+    pseudonymous per-side ``managerKey``; without it every key is ``None``.
+
+    Observations that share a format share ONE format object and ONE
+    ``marketFormat`` dict (:class:`market_trade_format.FormatInterner`): the
+    build's memory used to carry a fresh copy per observation."""
     ctx = ctx if ctx is not None else IdentityContext.load_default()
     wanted = set(lanes)
     observations: list[dict[str, Any]] = []
     status: dict[str, Any] = {}
+    interner = mtf.FormatInterner()
     if SOURCE_KTC in wanted:
-        rows, st = ktc_observations(archive_path=archive_path, ctx=ctx)
+        rows, st = ktc_observations(archive_path=archive_path, ctx=ctx, interner=interner)
         observations += rows
         status[SOURCE_KTC] = st
     captures: dict[str, list[dict[str, Any]]] = {}
@@ -1402,6 +1463,7 @@ def build_observations(
             captures=captures,
             observations=format_observations,
             side_key_secret=side_key_secret,
+            interner=interner,
         )
         observations += rows
         status[SOURCE_SLEEPER_DISCOVERY] = st
@@ -1421,9 +1483,10 @@ def build_observations(
         captures=captures,
         league_seasons=league_seasons,
         format_observations=format_observations,
+        interner=interner,
     )
     for obs in observations:
-        obs["marketFormat"] = obs["_format"].to_dict()
+        obs["marketFormat"] = interner.as_dict(obs["_format"])
     return {
         "observations": observations,
         "lanes": status,
@@ -1466,6 +1529,7 @@ def attach_host_formats(
     captures: Mapping[str, list[Mapping[str, Any]]] | None = None,
     league_seasons: Mapping[str, str] | None = None,
     format_observations: Mapping[str, list[Mapping[str, Any]]] | None = None,
+    interner: mtf.FormatInterner | None = None,
 ) -> int:
     """Give a vendor observation its HOST-captured format when one exists.
 
@@ -1492,6 +1556,9 @@ def attach_host_formats(
     observation (``format_observations`` or a later capture) at or after the
     LATEST possible instant.  The fallback index (no ``captures``) carries no
     observations, so it is never exact.
+
+    ``interner`` shares the upgraded format (and the ``vendorFormat`` dict)
+    among rows citing the same capture; the rows are otherwise identical.
     """
     from src.sharp import league_format_capture as lfc  # noqa: PLC0415
 
@@ -1537,9 +1604,17 @@ def attach_host_formats(
             )
             evidence["confirmedAt"] = None
         else:
-            fmt = mtf.format_from_sleeper_league(cap["payload"], captured_at=cap.get("capturedAt"))
+            fmt = (
+                interner.sleeper(cap["payload"], captured_at=cap.get("capturedAt"))
+                if interner is not None
+                else mtf.format_from_sleeper_league(
+                    cap["payload"], captured_at=cap.get("capturedAt")
+                )
+            )
             evidence = lfc.evidence_dict(cap, timing, confirmation)
-        obs["vendorFormat"] = obs["_format"].to_dict()
+        obs["vendorFormat"] = (
+            interner.as_dict(obs["_format"]) if interner is not None else obs["_format"].to_dict()
+        )
         obs["_format"] = fmt
         obs["formatSource"] = (
             FORMAT_SOURCE_KTC_HOST_UPGRADE
