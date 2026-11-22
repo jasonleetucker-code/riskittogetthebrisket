@@ -234,3 +234,27 @@ def test_our_rookie_pool_stamps_coverage_without_changing_value(monkeypatch):
     assert [r["value"] for r in pool] == [4999.0, 4998.0]
     assert pool[0]["sourceCoverage"]["votingSourceCount"] == 2
     assert pool[1]["sourceCoverage"]["votingSourceCount"] is None
+
+
+def test_empty_pool_is_unavailable_not_all_missing():
+    c = {
+        "playersArray": [],
+        "sourceVotingStatus": {"sources": [_entry("a", "active_100", "rookie")]},
+    }
+    pool = rsc.build_pool_coverage(c)
+    assert pool["state"] == "unavailable" and pool["reason"] == "empty_pool"
+    assert pool["votingCount"] is None and pool["sources"] == []
+
+
+def test_coverage_build_failure_degrades_without_failing_the_board(server_mod, monkeypatch):
+    monkeypatch.setattr(server_mod, "_our_rookie_pool", lambda *_a, **_k: _pool(True))
+
+    def boom(*_a, **_k):
+        raise ValueError("unexpected shape")
+
+    monkeypatch.setattr(rsc, "build_pool_coverage", boom)
+    result = _run(server_mod, monkeypatch)
+    block = result["rookieSourceCoverage"]
+    assert block["state"] == "unavailable" and block["reason"] == "coverage_build_failed"
+    assert block["votingCount"] is None
+    assert any(p.get("rookieName") for p in result["picks"])

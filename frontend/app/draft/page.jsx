@@ -3713,6 +3713,9 @@ export default function DraftDashboardPage() {
       return;
     autoSyncKeyRef.current = draftStorageKey;
     let cancelled = false;
+    // A league switch must not carry the previous league's coverage markers
+    // (joined by name) onto this league's rookies while the fetch is pending.
+    setRookieCoverage(null);
     (async () => {
       try {
         const capitalData = await capitalLoaderRef.current(selectedLeagueKey);
@@ -3797,6 +3800,7 @@ export default function DraftDashboardPage() {
         });
       } catch {
         /* network blip — user can still hit "Sync from contract" manually */
+        if (!cancelled) setRookieCoverage(null);
       }
     })();
     return () => {

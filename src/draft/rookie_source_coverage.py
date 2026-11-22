@@ -135,6 +135,10 @@ def build_pool_coverage(contract: Mapping[str, Any] | None, top_n: int = 72) -> 
     entries = status_block.get("sources") if isinstance(status_block, Mapping) else None
     if not isinstance(entries, list) or not entries:
         return _unavailable("source_voting_status_unavailable", pool_size)
+    if pool_size == 0:
+        # An empty / unmatched pool says nothing about vendors; do not let every
+        # board read "missing".
+        return _unavailable("empty_pool", pool_size)
 
     per_row = [row_coverage(r) for r in rows]
     rows_pricing: dict[str, int] = {}

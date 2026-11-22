@@ -15163,7 +15163,20 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     if rookie_source == "ours_filtered":
         from src.draft.rookie_source_coverage import build_pool_coverage  # noqa: PLC0415
 
-        rookie_source_coverage = build_pool_coverage(latest_contract_data, _KTC_TOTAL_PICKS)
+        try:
+            rookie_source_coverage = build_pool_coverage(latest_contract_data, _KTC_TOTAL_PICKS)
+        except Exception:  # noqa: BLE001 — display-only stamp must never fail the board
+            logging.warning("draft-capital: rookie source coverage build failed", exc_info=True)
+            rookie_source_coverage = {
+                "version": "rookie-source-coverage/v1",
+                "state": "unavailable",
+                "reason": "coverage_build_failed",
+                "votingCount": None,
+                "relevantCount": None,
+                "lowCoverageRows": None,
+                "unknownRows": None,
+                "sources": [],
+            }
     else:
         rookie_source_coverage = None
 
