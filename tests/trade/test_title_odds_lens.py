@@ -414,6 +414,60 @@ def test_two_team_counterparty_states_that_cannot_be_resolved():
     assert tol.moves_from_two_team(_sim(), rows) == tol.TradeMoves(teams=("a",))
 
 
+def test_trade_signature_is_the_trade_as_the_lens_reads_it():
+    """The async route's cache key: order does not matter, which picks move
+    does not matter (picks do not play), but the team, every moving player,
+    an unresolved asset and an incoming pick's holder all do."""
+    base = tol.trade_signature(_sim(["a_qb", "a_rb"], ["b_qb"]))
+    assert base == tol.trade_signature(_sim(["a_rb", "a_qb"], ["b_qb"]))
+    sim = _sim(["a_qb", "a_rb"], ["b_qb"])
+    sim["sending"].append({"name": "2028 Round 2", "pos": "PICK", "assetClass": "pick"})
+    with_pick = tol.trade_signature(sim)
+    sim["sending"][-1] = {"name": "2029 Round 1", "pos": "PICK", "assetClass": "pick"}
+    assert tol.trade_signature(sim) == with_pick != base
+    assert tol.trade_signature(_sim(["a_qb"], ["b_qb"])) != base
+    assert tol.trade_signature(_sim(["a_qb", "a_rb"], ["b_rb"])) != base
+    assert tol.trade_signature(_sim(["a_qb", "a_rb"], ["b_qb"], owner="z")) != base
+    assert tol.trade_signature({**_sim(["a_qb", "a_rb"], ["b_qb"]), "unresolvedIn": ["X"]}) != base
+    assert tol.trade_signature(_sim(["a_qb"], picks_from=3)) != tol.trade_signature(
+        _sim(["a_qb"], picks_from=4)
+    )
+    # A player without an id is told apart by name, never collapsed.
+    nameless = _sim()
+    nameless["sending"] = [{"name": "One", "pos": "WR"}]
+    other = _sim()
+    other["sending"] = [{"name": "Two", "pos": "WR"}]
+    assert tol.trade_signature(nameless) != tol.trade_signature(other)
+
+
+def test_the_deferred_envelope_is_unavailable_never_zero(war_room_sim):
+    """``/api/trade/analyze`` with the flag ON: the odds are served by the async
+    route, so the packet names the dimension deferred — unavailable, no rows,
+    the disclosure attached, and the "not included yet" entry carries the
+    lens's own reason."""
+    env = tol.deferred()
+    assert env["state"] == "unavailable" and env["reason"] == tol.REASON_DEFERRED_ASYNC
+    assert env["teams"] == [] and env["route"] == tol.ASYNC_ROUTE
+    assert env["disclosure"]["text"] == tol.ODDS_DISCLOSURE
+    packet = analyze_trade(war_room_sim, title_odds=env)
+    lens = packet["lenses"]["titleOdds"]
+    assert lens["available"] is False and lens["votes"] is False
+    assert lens["unavailableReason"] == tol.REASON_DEFERRED_ASYNC
+    assert tol.ASYNC_ROUTE in lens["detail"]["note"]
+    entries = [d for d in packet["unavailableDimensions"] if d["dimension"] == TITLE_ODDS_DIMENSION]
+    assert entries == [
+        {
+            "dimension": TITLE_ODDS_DIMENSION,
+            "reason": tol.REASON_DEFERRED_ASYNC,
+            "notes": tol._DETAIL[tol.REASON_DEFERRED_ASYNC],
+        }
+    ]
+    # The deferred lens never moves the decision either.
+    without = analyze_trade(war_room_sim)
+    for key in ("decision", "statusQuo", "recommendation", "confidence", "basis"):
+        assert packet[key] == without[key], key
+
+
 def test_two_team_entry_point_composes_the_inferred_trade(league):
     payload = tol.title_odds_for_two_team(
         _sim(["a_qb"], ["b_qb"]),
@@ -685,16 +739,25 @@ def test_the_public_advisor_never_builds_the_lens():
 
 
 def test_server_passes_the_lens_only_behind_the_flag():
-    """Both private routes reach the lens only through ``enabled()``: OFF
+    """Every private route reaches the lens only through ``enabled()``: OFF
     passes nothing, so ``analyze_for_team`` / ``analyze_trade_n`` see exactly
-    the pre-lens call."""
+    the pre-lens call and ``/api/trade/title-odds`` refuses.  Neither analyze
+    route computes the odds (the async route does): the 2-team route hands in
+    the deferred envelope, the multi-team route the deferred provider."""
     text = (_REPO / "server.py").read_text(encoding="utf-8")
-    assert text.count("_title_odds_lens.enabled()") == 2
+    assert text.count("_title_odds_lens.enabled()") == 3
     assert "**_title_odds_extra" in text and "**_title_odds_kw" in text
-    assert (
-        '_title_odds_kw = {"title_odds_provider": _title_odds} if _title_odds_lens.enabled() else {}'
-        in text
-    )
+    assert '_title_odds_extra["title_odds"] = _title_odds_lens.deferred()' in text
+    analyze = text[
+        text.index("async def _compute_trade_analysis") : text.index("def _title_odds_snapshot")
+    ]
+    assert "_trade_title_odds_two_team" not in analyze
+    assert 'clock.stage("titleOdds")' not in analyze
+    multi = text[text.index("async def post_trade_analyze_multi") :]
+    multi = multi[: multi.index("\n@app.")]
+    assert '{"title_odds_provider": _title_odds_lens.deferred_for_ledger}' in multi
+    assert "if _title_odds_lens.enabled()" in multi
+    assert "title_odds_for_ledger" not in multi and "_title_odds_snapshot" not in multi
 
 
 # ── the disclosure ───────────────────────────────────────────────────────

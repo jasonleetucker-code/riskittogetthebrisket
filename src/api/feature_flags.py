@@ -990,10 +990,15 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # the LI-8 roster bridge ``league_intel/twin.py`` into ONE
     # ``playoff_sim.simulate_trade_impact`` call, bracket pinned to both arms).
     # Context only: ``votes=False``, never passed to ``trade_decision``, so no
-    # verdict, gap, fairness band or value moves.  ON computes it on the
-    # private ``/api/trade/analyze`` and ``/api/trade/analyze-multi`` routes
-    # (never the public advisor), scoped to leagues with recorded playoff rules
-    # (``dynasty_main``).  OFF computes nothing and every payload is
+    # verdict, gap, fairness band or value moves.  ON computes it ONLY on the
+    # private ``POST /api/trade/title-odds`` (async; admission-bounded via
+    # ``src/api/compute_admission.py`` route ``trade_title_odds``, deadline and
+    # per-user cache; the War Room's "This season's odds" panel, offered
+    # through the ``tradeTitleOdds`` capability; never the public advisor),
+    # scoped to leagues with recorded playoff rules (``dynasty_main``).
+    # ``/api/trade/analyze`` and ``/api/trade/analyze-multi`` never wait for
+    # it: they name the dimension ``deferred_async`` (``not_computed_multi_team``
+    # for a 3+-team trade).  OFF computes nothing and every payload is
     # byte-identical (tests/trade/test_title_odds_lens.py).  HELD, DEFAULT OFF
     # (2026-11-21 directive: turning any flag ON is owner-reserved);
     # deploy/verify-deploy.sh fails a deploy whose effective flag is ON

@@ -1,4 +1,4 @@
-"""Per-route admission control for the N-team trade analyze routes (R2-5).
+"""Per-route admission control for the trade analyze routes (R2-5).
 
 The ONE owner of "may this request start an engine computation, and how long
 will its caller wait for it?" for:
@@ -6,7 +6,12 @@ will its caller wait for it?" for:
 * ``POST /api/public/league/trade-advisor/analyze`` (route key
   ``public_advisor_analyze``, ``src/api/public_trade_advisor_api.py``);
 * ``POST /api/trade/analyze-multi`` (route key ``trade_analyze_multi``,
-  ``server.py``).
+  ``server.py``);
+* ``POST /api/trade/title-odds`` (route key ``trade_title_odds``,
+  ``src/api/trade_title_odds_runtime.py``; DYN10 #4).  Its season simulation
+  is ~5.5 s of GIL-bound work per distinct trade, so without a bound every
+  distinct trade would start one in the shared threadpool and keep it running
+  past its caller's deadline.
 
 Why it exists: the analyze work is pure Python and GIL-bound.  Measured
 locally (Lane E-4), one process saturates at ~12-14 worst-case public analyses
@@ -29,10 +34,11 @@ Two independent controls, both fail closed with a RETRYABLE refusal:
   is therefore a bound on real work, not on waiting callers), and an identical
   retry joins it through the route's single-flight instead of starting another.
 
-Sizes live in ``config/trade/analyze_admission.json`` and are PENDING OWNER
-CONFIRMATION (directive 2026-10-20 §16 gate 7).  A missing, unreadable or
-malformed entry falls back to :data:`DEFAULTS`; a non-positive or non-numeric
-size is never read as "unlimited".
+Sizes live in ``config/trade/analyze_admission.json``.  The two analyze routes'
+sizes are OWNER-CONFIRMED (owner decision 6, 2026-11-01); the title-odds route's
+are a PENDING OWNER-CONFIRMABLE default (PR #2312, labelled on its own entry).
+A missing, unreadable or malformed entry falls back to :data:`DEFAULTS`; a
+non-positive or non-numeric size is never read as "unlimited".
 """
 
 from __future__ import annotations
@@ -53,6 +59,7 @@ T = TypeVar("T")
 
 ROUTE_PUBLIC_ADVISOR = "public_advisor_analyze"
 ROUTE_ANALYZE_MULTI = "trade_analyze_multi"
+ROUTE_TRADE_TITLE_ODDS = "trade_title_odds"
 
 _CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "trade" / "analyze_admission.json"
 
@@ -63,11 +70,15 @@ class AdmissionSpec:
     timeout_seconds: float
 
 
-#: Conservative defaults, PENDING OWNER CONFIRMATION — identical to the
-#: committed config so an unreadable file changes nothing.
+#: Conservative defaults — identical to the committed config so an unreadable
+#: file changes nothing.  ``trade_title_odds`` is PENDING OWNER CONFIRMATION:
+#: two season simulations at once (each ~5.5 s of GIL-bound work, measured on
+#: the lens's 12-team fixture), and a caller waits 40 s — below nginx's 120 s
+#: ``/api/`` read timeout and the War Room panel's own 60 s request ceiling.
 DEFAULTS: dict[str, AdmissionSpec] = {
     ROUTE_PUBLIC_ADVISOR: AdmissionSpec(max_concurrent=2, timeout_seconds=5.0),
     ROUTE_ANALYZE_MULTI: AdmissionSpec(max_concurrent=2, timeout_seconds=30.0),
+    ROUTE_TRADE_TITLE_ODDS: AdmissionSpec(max_concurrent=2, timeout_seconds=40.0),
 }
 
 #: The ``Retry-After`` hint on a refusal.  A hint, not a limit: a busy slot

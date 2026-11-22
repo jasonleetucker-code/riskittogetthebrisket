@@ -94,6 +94,7 @@ import {
   SEASON_ODDS_CAVEAT,
 } from "@/lib/trade-war-room-copy";
 import { RECOMMENDATION_ONLY_TEXT } from "@/components/help/TradeHelp";
+import TitleOddsPanel from "./TitleOddsPanel";
 import styles from "./war-room.module.css";
 
 const DEBOUNCE_MS = 700;
@@ -125,7 +126,31 @@ const DIMENSION_REASON_WORDS = {
   // Older payloads (and the multi-team fixtures) still carry this reason.
   unaudited_model: "its model has not passed review yet, so it is left out",
   counterfactual_not_wired: "not connected to the analysis yet",
+  // DYN10 #4: served apart from the analysis (POST /api/trade/title-odds).
+  deferred_async:
+    "worked out separately so the recommendation never waits for it (see This season's odds)",
+  asset_only_mode: "not included in Asset-only analysis",
 };
+
+/**
+ * The trade body both War Room requests send: `/api/trade/analyze` (with the
+ * strategy override) and `/api/trade/title-odds` (without; it ignores one).
+ */
+function analyzeBody(request, leagueKey, useTeamContext, teamGoal) {
+  const body = {
+    teamName: request.teamName,
+    playersIn: request.playersIn,
+    playersOut: request.playersOut,
+    picksIn: request.picksIn,
+    picksOut: request.picksOut,
+    pickAssetIdsIn: request.pickAssetIdsIn || [],
+    pickAssetIdsOut: request.pickAssetIdsOut || [],
+    useTeamContext: useTeamContext !== false,
+  };
+  if (leagueKey) body.leagueKey = leagueKey;
+  if (teamGoal) body.teamGoal = teamGoal;
+  return body;
+}
 
 function humanizeKey(key) {
   const s = String(key || "")
@@ -623,6 +648,10 @@ export default function TradeWarRoom({
   // under the at-a-glance rows (the dual-VA lane's ValueAdjustmentComparison,
   // built by the page from per-side values the War Room does not hold).
   vaSlot = null,
+  // The server's `tradeTitleOdds` capability (owner-held flag
+  // `trade_title_odds_lens`, default OFF).  False: no season-odds panel and
+  // no request to /api/trade/title-odds.
+  titleOddsAvailable = false,
 }) {
   const basisNotice = overrideBasisNotice(overrideCount);
   const multi = sideCount > 2;
@@ -711,18 +740,7 @@ export default function TradeWarRoom({
       const current = () => controllerRef.current === controller;
       const fail = (error) => setState({ status: "error", payload: null, error, key });
       try {
-        const body = {
-          teamName: request.teamName,
-          playersIn: request.playersIn,
-          playersOut: request.playersOut,
-          picksIn: request.picksIn,
-          picksOut: request.picksOut,
-          pickAssetIdsIn: request.pickAssetIdsIn || [],
-          pickAssetIdsOut: request.pickAssetIdsOut || [],
-          useTeamContext: useTeamContext !== false,
-        };
-        if (leagueKey) body.leagueKey = leagueKey;
-        if (teamGoal) body.teamGoal = teamGoal;
+        const body = analyzeBody(request, leagueKey, useTeamContext, teamGoal);
         const res = await fetch("/api/trade/analyze", {
           method: "POST",
           credentials: "same-origin",
@@ -1119,6 +1137,15 @@ export default function TradeWarRoom({
 
       {/* Value Adjustment comparison slot — dual-VA lane mounts ValueAdjustmentComparison here */}
       {vaSlot}
+
+      {/* This season's odds (DYN10 #4): asked for only after the analysis has
+          arrived, only with the capability on, and only in Team context. */}
+      {titleOddsAvailable && analysis && useTeamContext !== false ? (
+        <TitleOddsPanel
+          body={analyzeBody(request, leagueKey, useTeamContext, null)}
+          requestKey={analyzeRequestKey(request, leagueKey, useTeamContext, null)}
+        />
+      ) : null}
 
       {analysis ? (
         <div className={styles.disclosures}>
