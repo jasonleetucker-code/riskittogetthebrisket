@@ -1117,11 +1117,12 @@ def _trade_ids(db):
         conn.close()
 
 
-def _cov(resume, through=None, season=SEASON):
+def _cov(resume, through=None, season=SEASON, updated_ms=NOW - DAY_MS):
     return transactions._WeekCoverage(
         season=season,
         through_week=resume if through is None else through,
         resume_week=resume,
+        updated_ms=updated_ms,
     )
 
 
@@ -1194,9 +1195,9 @@ class TestWeekPlan:
         assert _plan(_cov(10, through=10), 12).caught_up, "week 11 was never covered"
         assert not _plan(_cov(11, through=12), 12, in_grace=True).caught_up
 
-    def test_a_season_restart_is_one_bounded_sweep(self):
-        """Review NIT 5: a season-string change (spurious or not) mid-season is
-        one sweep of the backfill window, never a re-walk from week 0."""
+    def test_a_season_restart_on_a_recent_row_is_one_bounded_sweep(self):
+        """Review NIT 5: a season-string change on a league visited a day ago
+        (a spurious flip) is one ``cap``-week sweep, never a walk from week 0."""
         cap = transactions.CATCHUP_MAX_WEEKS_PER_VISIT
         plan = _plan(_cov(12, season="2026"), 12, season="2027")
         assert plan.weeks == list(range(12 - cap + 1, 13))
@@ -1206,6 +1207,17 @@ class TestWeekPlan:
         assert plan.weeks == list(range(15 - cap + 1, 16)) and plan.restarted
         # a real new season is first seen in the offseason: the sweep reaches 0
         assert _plan(_cov(17, season="2025"), 0, season="2026").weeks == [0, 1]
+
+    def test_a_season_restart_on_a_dormant_row_walks_the_new_season_from_week_0(self):
+        """Re-review IMPORTANT (probe P8): a row untouched since last season must
+        not skip the new season's early weeks.  The cap walks it forward."""
+        cap = transactions.CATCHUP_MAX_WEEKS_PER_VISIT
+        dormant = _cov(17, season="2025", updated_ms=NOW - 250 * DAY_MS)
+        plan = _plan(dormant, 10, season="2026")
+        assert plan.weeks == list(range(0, cap)) and plan.capped and plan.restarted
+        # no usable stamp: dormancy unknown, which is not "recent"
+        unknown = _cov(17, season="2025", updated_ms=None)
+        assert _plan(unknown, 10, season="2026").weeks == list(range(0, cap))
 
     def test_a_regressed_week_in_the_same_season_takes_the_steady_window(self):
         assert _plan(_cov(12), 10, in_grace=False).weeks == [10]
@@ -1222,23 +1234,32 @@ class TestWeekPlan:
         assert plan.weeks == [12]
         assert plan.mode == transactions._MODE_UNCLOCKED
 
-    def test_recovery_sweep_is_the_backfill_window_whatever_the_last_visit(self):
-        """Review NIT 4: the one-time sweep used to start at the last old-code
-        visit's week minus one, which missed late-filed rows in older weeks.  It
-        now always covers ``week - cap + 1 .. week`` (still bounded by the
-        30-day read-back), about three more calls per league, once."""
+    def test_a_recently_seen_legacy_league_sweeps_the_backfill_window(self):
+        """Review NIT 4: never narrower than ``week - cap + 1 .. week`` (still
+        bounded by the 30-day read-back), so recent weeks are re-read for late
+        rows."""
         cap = transactions.CATCHUP_MAX_WEEKS_PER_VISIT
-        for last in (NOW - 5 * DAY_MS, NOW - HOUR_MS, NOW - 60 * DAY_MS):
+        for last in (NOW - 5 * DAY_MS, NOW - HOUR_MS):
             plan = _plan(None, 12, state={"backfilled": True, "lastFetchedMs": last})
             assert plan.weeks == list(range(12 - cap + 1, 13))
             assert plan.mode == transactions._MODE_RECOVERY
-            assert not plan.capped, "a sweep is never more than one visit"
+            assert not plan.capped
 
-    def test_recovery_sweep_without_a_usable_stamp_is_the_backfill_window(self):
+    def test_a_dormant_legacy_league_sweeps_everything_since_its_last_visit(self):
+        """Re-review IMPORTANT (probe P7): 60 days unseen fits at most nine
+        rollovers, so its last visit was in week 3 or later; one more week for
+        that visit's own grace -> start at week 2, walked forward by the cap."""
         cap = transactions.CATCHUP_MAX_WEEKS_PER_VISIT
-        plan = _plan(None, 12, state={"backfilled": True, "lastFetchedMs": 0})
-        assert plan.weeks == list(range(12 - cap + 1, 13))
-        assert not plan.capped
+        plan = _plan(None, 12, state={"backfilled": True, "lastFetchedMs": NOW - 60 * DAY_MS})
+        assert plan.weeks == list(range(2, 2 + cap))
+        assert plan.capped and plan.mode == transactions._MODE_RECOVERY
+
+    def test_recovery_sweep_without_a_usable_stamp_starts_at_week_0(self):
+        """Unknown dormancy is not "recent": the sweep walks from week 0."""
+        cap = transactions.CATCHUP_MAX_WEEKS_PER_VISIT
+        for last in (0, NOW + DAY_MS, None):
+            plan = _plan(None, 12, state={"backfilled": True, "lastFetchedMs": last})
+            assert plan.weeks == list(range(0, cap)) and plan.capped
 
     def test_the_intel_crawlers_rule_is_untouched(self):
         """The other caller of ``_weeks_to_fetch`` keeps its exact behaviour."""
@@ -1641,13 +1662,19 @@ class TestWeekCoverageStorage:
 MAX_ATTEMPTS = transactions.WEEK_FETCH_MAX_ATTEMPTS
 
 
-def _progress(weeks, outcomes, fail_week=None, fail_count=0, abandon_below=99):
+MIN_FAILING_MS = transactions.WEEK_FETCH_MIN_FAILING_HOURS * HOUR_MS
+OLD_FAILURE = NOW - MIN_FAILING_MS - HOUR_MS  # first failure old enough to abandon
+
+
+def _progress(weeks, outcomes, fail_week=None, fail_count=0, abandon_below=99, first=OLD_FAILURE):
     return transactions._week_progress(
         weeks,
         outcomes,
         prior_fail_week=fail_week,
         prior_fail_count=fail_count,
+        prior_fail_first_ms=first if fail_week is not None else None,
         abandon_below=abandon_below,
+        now_ms=NOW,
     )
 
 
@@ -1693,6 +1720,35 @@ class TestWeekProgress:
         p = _progress([12, 13], {12: False, 13: True}, 12, MAX_ATTEMPTS + 3, abandon_below=13)
         assert (p.through, p.abandoned) == (13, (12,))
 
+    def test_a_first_failure_starts_the_clock_and_a_repeat_keeps_it(self):
+        assert _progress([5, 6], {5: False}).stall_first_ms == NOW
+        p = _progress([5, 6], {5: False}, fail_week=5, fail_count=1, first=NOW - HOUR_MS)
+        assert (p.stall_count, p.stall_first_ms) == (2, NOW - HOUR_MS)
+
+    def test_enough_attempts_inside_the_time_floor_is_not_enough(self):
+        """Re-review NIT 1: a failing league is retried every run, so three
+        attempts take about 12 h.  The week also needs its first failure to be
+        ``WEEK_FETCH_MIN_FAILING_HOURS`` old."""
+        young = NOW - MIN_FAILING_MS + HOUR_MS
+        p = _progress([5, 6], {5: False, 6: True}, 5, MAX_ATTEMPTS + 5, first=young)
+        assert (p.stall_week, p.stall_count, p.abandoned) == (5, MAX_ATTEMPTS + 6, ())
+        # exactly at the floor it goes
+        p = _progress([5, 6], {5: False, 6: True}, 5, MAX_ATTEMPTS, first=NOW - MIN_FAILING_MS)
+        assert p.abandoned == (5,)
+
+    def test_a_pending_failure_with_no_recorded_start_restarts_its_clock(self):
+        """A row from before ``fail_first_ms`` existed: unknown is never old enough."""
+        p = transactions._week_progress(
+            [5, 6],
+            {5: False, 6: True},
+            prior_fail_week=5,
+            prior_fail_count=MAX_ATTEMPTS + 5,
+            prior_fail_first_ms=None,
+            abandon_below=99,
+            now_ms=NOW,
+        )
+        assert (p.abandoned, p.stall_first_ms) == ((), NOW)
+
     def test_a_week_that_answers_clears_the_count(self):
         p = _progress([5, 6], {5: True, 6: True}, fail_week=5, fail_count=2)
         assert (p.through, p.stall_week, p.stall_count) == (6, None, 0)
@@ -1711,8 +1767,9 @@ class TestAWeekThatKeepsFailingCannotStallTheLeague:
     week 15.  The catch-up used to fetch ``[4..9]`` forever: the gap-free run
     never passed week 4, the cap never let it reach week 10, and the league,
     never clean, kept its old ``lastFetchedMs`` and headed the queue every run
-    -- weeks 10-14 were never stored.  Week 4 is now abandoned after
-    ``WEEK_FETCH_MAX_ATTEMPTS`` visits, counted, and the league moves on."""
+    -- weeks 10-14 were never stored.  Week 4 is now abandoned once it has
+    failed ``WEEK_FETCH_MAX_ATTEMPTS`` times over ``WEEK_FETCH_MIN_FAILING_HOURS``,
+    counted, and the league moves on."""
 
     def _setup(self, db):
         _crawl(league_weeks("L1", {}, week=2), ledger_path=db)
@@ -1733,12 +1790,16 @@ class TestAWeekThatKeepsFailingCannotStallTheLeague:
         )
         self._setup(db)
         start = NOW + 91 * DAY_MS
+        # A failing league heads the queue, so it is visited on every run, 6 h
+        # apart.  Week 4 fails on each until its first failure is old enough.
+        failing_runs = transactions.WEEK_FETCH_MIN_FAILING_HOURS // 6 + 1
+        assert failing_runs >= MAX_ATTEMPTS
         runs = []
-        for i in range(MAX_ATTEMPTS + 1):
+        for i in range(failing_runs + 1):
             runs.append(_crawl(self._week15(), ledger_path=db, now_ms=start + i * 6 * HOUR_MS))
 
         calls_to_week_4 = sum(_weeks_called(http).count(4) for _r, http in runs)
-        assert calls_to_week_4 == MAX_ATTEMPTS, "week 4 is tried, then given up on"
+        assert calls_to_week_4 == failing_runs, "week 4 is tried for 48 h, then given up on"
         ids = _trade_ids(db)
         assert {f"t{w}" for w in range(10, 15)} <= ids, "weeks 10-14 now arrive"
         assert {f"t{w}" for w in (1, 2, 3, 5, 6, 7, 8, 9)} <= ids
@@ -1746,8 +1807,8 @@ class TestAWeekThatKeepsFailingCannotStallTheLeague:
 
         results = [r for r, _h in runs]
         assert sum(r.weeks_abandoned for r in results) == 1
-        assert [r.leagues_with_abandoned_week for r in results] == [0] * (MAX_ATTEMPTS - 1) + [1, 0]
-        assert results[MAX_ATTEMPTS - 1].to_dict()["weeksAbandoned"] == 1
+        assert [r.leagues_with_abandoned_week for r in results] == [0] * (failing_runs - 1) + [1, 0]
+        assert results[failing_runs - 1].to_dict()["weeksAbandoned"] == 1
         assert results[-1].leagues_fetched == 1, "the league completes a clean visit"
         assert _fetch_rows(db)["L1"]["max_created_ms"] == NOW + 14 * DAY_MS, "cursor advanced"
 
@@ -1763,7 +1824,7 @@ class TestAWeekThatKeepsFailingCannotStallTheLeague:
         _crawl(self._week15(), ledger_path=db, now_ms=start)
         cov = _coverage_rows(db)["L1"]
         assert (cov["through_week"], cov["resume_week"]) == (3, 4)
-        assert (cov["fail_week"], cov["fail_count"]) == (4, 1)
+        assert (cov["fail_week"], cov["fail_count"], cov["fail_first_ms"]) == (4, 1, start)
         # Second visit: week 4 is the plan's first week and fails again.  The
         # row is still written, so the count survives a visit with no progress.
         _crawl(self._week15(), ledger_path=db, now_ms=start + 6 * HOUR_MS)
@@ -1781,6 +1842,27 @@ class TestAWeekThatKeepsFailingCannotStallTheLeague:
             trade("t4", NOW + 4 * DAY_MS, {"p4": 1}, {"p4": 2})
         ]
         result, _ = _crawl(healthy, ledger_path=db, now_ms=start + 12 * HOUR_MS)
+        assert result.weeks_abandoned == 0
+        assert "t4" in _trade_ids(db)
+        cov = _coverage_rows(db)["L1"]
+        assert (cov["fail_week"], cov["fail_count"], cov["abandoned_weeks"]) == (None, 0, 0)
+
+    def test_three_failures_inside_twelve_hours_are_not_enough(self, db):
+        """Re-review NIT 1 (probe P2): week 4 fails at +0, +6 and +12 h and is
+        back at +18 h.  It used to be abandoned at +12 h and its trade lost."""
+        self._setup(db)
+        start = NOW + 91 * DAY_MS
+        results = [
+            _crawl(self._week15(), ledger_path=db, now_ms=start + h * HOUR_MS)[0]
+            for h in (0, 6, 12)
+        ]
+        assert [r.weeks_abandoned for r in results] == [0, 0, 0]
+        assert _coverage_rows(db)["L1"]["fail_count"] == 3
+        healthy = self._week15()
+        healthy[f"{BASE}/league/L1/transactions/4"] = [
+            trade("t4", NOW + 4 * DAY_MS, {"p4": 1}, {"p4": 2})
+        ]
+        result, _ = _crawl(healthy, ledger_path=db, now_ms=start + 18 * HOUR_MS)
         assert result.weeks_abandoned == 0
         assert "t4" in _trade_ids(db)
         cov = _coverage_rows(db)["L1"]
@@ -1928,3 +2010,164 @@ class TestWeekCoverageColumnsAreAddedToAnExistingTable:
         assert result.leagues_fetched == 1
         row = _coverage_rows(db)["L1"]
         assert (row["through_week"], row["fail_count"], row["abandoned_weeks"]) == (9, 0, 0)
+
+
+# ---------------------------------------------------------------------------
+# Re-review fixes (PR #2311, 2026-11-22)
+# ---------------------------------------------------------------------------
+
+
+class TestLongDormantLeaguesAreSweptFromWhereTheyLeftOff:
+    """Re-review IMPORTANT.  Both one-time sweeps used to start at
+    ``week - cap + 1`` however long the league had been unseen, then wrote
+    coverage through the current week: the earlier weeks were never planned,
+    their trades (ahead of the cursor, so real) were lost, nothing counted them
+    and ``weekCoverage`` showed lag 0."""
+
+    def test_a_legacy_league_last_seen_in_week_2_collects_weeks_3_to_6(self, db):
+        """Probe P7: last clean visit in week 2, next visit in week 12.  The
+        sweeps used to be [7..12], [11, 12], [11, 12]."""
+        t2 = trade("t2", NOW - DAY_MS, {"p2": 1}, {"p2": 2})
+        _crawl(league_weeks("L1", {2: [t2]}, week=2), ledger_path=db)
+        conn = ledger.connect(db)
+        try:  # backfilled before week coverage existed
+            conn.execute("DELETE FROM sharp_league_week_coverage WHERE league_id = 'L1'")
+            conn.commit()
+        finally:
+            conn.close()
+        by_week = {
+            w: [trade(f"t{w}", NOW + (w - 2) * 7 * DAY_MS - DAY_MS, {f"p{w}": 1}, {f"p{w}": 2})]
+            for w in range(3, 13)
+        }
+        start = NOW + 70 * DAY_MS
+        cap = transactions.CATCHUP_MAX_WEEKS_PER_VISIT
+        r1, h1 = _crawl(league_weeks("L1", by_week, week=12), ledger_path=db, now_ms=start)
+        assert _weeks_called(h1) == list(range(0, cap)), "from where it left off, capped"
+        assert r1.leagues_recovery_swept == 1 and r1.leagues_catchup_capped == 1
+        _, h2 = _crawl(
+            league_weeks("L1", by_week, week=12), ledger_path=db, now_ms=start + 6 * HOUR_MS
+        )
+        assert _weeks_called(h2) == list(range(cap, 2 * cap))
+        r3, _ = _crawl(
+            league_weeks("L1", by_week, week=12), ledger_path=db, now_ms=start + 12 * HOUR_MS
+        )
+        assert r3.leagues_fetched == 1
+        ids = _trade_ids(db)
+        assert {"t3", "t4", "t5", "t6"} <= ids, "the weeks the old sweep skipped"
+        assert {f"t{w}" for w in range(3, 13)} <= ids
+        cov = _coverage_rows(db)["L1"]
+        assert cov["through_week"] == 12 and cov["abandoned_weeks"] == 0
+
+    def test_a_league_dormant_across_the_season_rollover_walks_the_new_season(self, db):
+        """Probe P8: a 2025 row's first 2026 visit is in week 10.  The sweeps
+        used to be [5..10], [9, 10], [9, 10], losing new-season weeks 0-4."""
+        _crawl(league_weeks("L1", {}, week=17, season="2025"), ledger_path=db)
+        start = NOW + 250 * DAY_MS
+        by_week = {
+            w: [trade(f"n{w}", start - 60 * DAY_MS + w * DAY_MS, {f"q{w}": 1}, {f"q{w}": 2})]
+            for w in range(0, 10)
+        }
+        resp = league_weeks("L1", by_week, week=10, season="2026")
+        cap = transactions.CATCHUP_MAX_WEEKS_PER_VISIT
+        r1, h1 = _crawl(resp, ledger_path=db, now_ms=start)
+        assert _weeks_called(h1) == list(range(0, cap)) and r1.leagues_catchup_capped == 1
+        r2, h2 = _crawl(resp, ledger_path=db, now_ms=start + 6 * HOUR_MS)
+        assert _weeks_called(h2) == list(range(cap, 11)) and r2.leagues_fetched == 1
+        ids = _trade_ids(db)
+        assert {"n0", "n1", "n2", "n3", "n4"} <= ids, "the new season's early weeks"
+        row = _coverage_rows(db)["L1"]
+        assert (row["season"], row["through_week"], row["abandoned_weeks"]) == ("2026", 10, 0)
+
+
+class TestAbandonmentCountsOnlyWeeksNeverCovered:
+    def test_a_failed_re_read_of_a_covered_week_is_not_a_lost_week(self, db):
+        """Re-review NIT 2 (probe P9): an in-grace visit covered week 10; the
+        post-grace re-read of week 9 then fails for 48 h and is given up on.
+        Week 9 had been covered, so it is not counted in ``abandoned_weeks``."""
+        _crawl(league_weeks("L1", {}, week=10), ledger_path=db)  # through 10, resume 9
+        resp = league_weeks("L1", {}, week=10)
+        resp[f"{BASE}/league/L1/transactions/9"] = None
+        runs = [_crawl(resp, ledger_path=db, now_ms=NOW + d * DAY_MS)[0] for d in (3, 4, 5)]
+        last = runs[-1]
+        assert [r.leagues_failed for r in runs] == [1, 1, 0], "given up on at the third"
+        assert last.weeks_abandoned == 0 and last.leagues_with_abandoned_week == 0
+        assert last.covered_week_rereads_abandoned == 1
+        assert last.to_dict()["coveredWeekRereadsAbandoned"] == 1
+        cov = _coverage_rows(db)["L1"]
+        assert (cov["abandoned_weeks"], cov["fail_week"], cov["resume_week"]) == (0, None, 10)
+
+
+class TestTheAbandoningVisitIsAnOrdinaryCleanVisit:
+    def test_abandoning_a_week_frees_the_cursor_and_the_queue_position(self, db):
+        """Re-review NIT 3: the visit that abandons a week is clean -- fetched,
+        not failed, cursor and ``lastFetchedMs`` advanced -- so the league
+        leaves the head of the queue."""
+        t9 = trade("t9", NOW - DAY_MS, {"p9": 1}, {"p9": 2})
+        _crawl(league_weeks("L1", {9: [t9]}, week=9), ledger_path=db)  # through 9, resume 8
+        resp = league_weeks(
+            "L1",
+            {
+                11: [trade("t11", NOW + 15 * DAY_MS, {"p1": 1}, {"p1": 2})],
+                12: [trade("t12", NOW + 20 * DAY_MS, {"p2": 1}, {"p2": 2})],
+            },
+            week=12,
+        )
+        resp[f"{BASE}/league/L1/transactions/10"] = None
+        start = NOW + 21 * DAY_MS
+        r1, h1 = _crawl(resp, ledger_path=db, now_ms=start)
+        assert _weeks_called(h1) == [8, 9, 10, 11, 12] and r1.leagues_failed == 1
+        r2, _ = _crawl(resp, ledger_path=db, now_ms=start + 24 * HOUR_MS)
+        assert r2.leagues_failed == 1
+        assert _fetch_rows(db)["L1"]["last_fetched_ms"] == NOW, "pinned while failing"
+        r3, h3 = _crawl(resp, ledger_path=db, now_ms=start + 50 * HOUR_MS)
+        assert _weeks_called(h3) == [10, 11, 12]
+        assert r3.weeks_abandoned == 1
+        assert r3.leagues_fetched == 1 and r3.leagues_failed == 0 and r3.errors == {}
+        row = _fetch_rows(db)["L1"]
+        assert row["last_fetched_ms"] == start + 50 * HOUR_MS, "the queue position moved"
+        assert row["max_created_ms"] == NOW + 20 * DAY_MS, "the cursor moved"
+        assert row["last_error"] is None
+        assert {"t11", "t12"} <= _trade_ids(db)
+
+
+class TestAddingColumnsSurvivesAConcurrentCrawl:
+    """Re-review NIT 4: two crawls on the first run after a deploy both see a
+    column missing; the second ALTER fails with "duplicate column name".  That
+    is the outcome both wanted, so it must not fail the run."""
+
+    def test_losing_the_race_for_a_column_is_not_an_error(self, db):
+        conn = ledger.connect(db)
+        try:
+            transactions.ensure_week_coverage_schema(conn)
+            assert transactions._add_week_coverage_column(conn, "fail_week", "INTEGER") is False
+        finally:
+            conn.close()
+
+    def test_ensure_with_a_stale_column_read_does_not_raise(self, db, monkeypatch):
+        conn = ledger.connect(db)
+        try:
+            transactions.ensure_week_coverage_schema(conn)  # the other crawl won
+            real = transactions._week_coverage_columns
+            calls = []
+
+            def stale_first(c):
+                calls.append(1)
+                if len(calls) == 1:  # read before the other crawl's ALTER landed
+                    return {"league_id", "season", "through_week", "resume_week", "updated_ms"}
+                return real(c)
+
+            monkeypatch.setattr(transactions, "_week_coverage_columns", stale_first)
+            transactions.ensure_week_coverage_schema(conn)
+            assert len(calls) > 1, "each failed ALTER was re-checked"
+        finally:
+            conn.close()
+
+    def test_any_other_alter_failure_still_raises(self, tmp_path):
+        import sqlite3
+
+        conn = sqlite3.connect(tmp_path / "bare.sqlite3")
+        try:
+            with pytest.raises(sqlite3.OperationalError):
+                transactions._add_week_coverage_column(conn, "fail_week", "INTEGER")
+        finally:
+            conn.close()
