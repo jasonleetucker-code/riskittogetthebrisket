@@ -84,6 +84,106 @@ GONE_RECHECK_MAX_PER_RUN = 20
 STOPPED_BUDGET_EXHAUSTED = "budget_exhausted"
 STOPPED_BREAKER_OPEN = "sleeper_breaker_open"
 
+# ── Week coverage (CTM-1 data completeness, 2026-11-22) ─────────────────────
+#
+# THE DEFECT THIS CLOSES.  A backfilled league used to fetch ONLY the current
+# week (``crawler._weeks_to_fetch`` with no rollover clock, so not even the
+# 48 h previous-week grace).  Leagues are visited oldest-first under a call
+# budget far smaller than the graph, so a league is visited every few days,
+# not every run -- and a league NOT visited while week N was current lost all
+# of week N's trades for good, as did every transaction filed into week N's
+# bucket after its last week-N visit.  Perishable: the next visit advanced the
+# ``maxCreatedSeen`` cursor past them.
+#
+# THE RULE NOW.  Each league remembers, per NFL season, the first week its
+# next visit must (re)fetch (``resume_week``) and the highest week it has
+# fetched cleanly without a gap (``through_week``).  A visit fetches every week
+# from ``resume_week`` through the current week, oldest first, at most
+# ``CATCHUP_MAX_WEEKS_PER_VISIT`` of them.  A visit inside the rollover grace
+# of the current week resumes next time from the PREVIOUS week, because late
+# transactions keep landing in the old bucket for a while.  A week whose fetch
+# keeps failing is abandoned after ``WEEK_FETCH_MAX_ATTEMPTS`` visits spanning
+# ``WEEK_FETCH_MIN_FAILING_HOURS`` (counted, never silent), so it cannot stall
+# every later week.  A run whose
+# ``/state/nfl`` gave no usable week moves no cursor, coverage or backfill
+# mark: every one of those would be planned from a week nobody observed.
+#
+# It changes WHICH WEEKS are fetched, never how a transaction is parsed,
+# keyed, attributed or valued: extraction is ``crawler._events_from_tx`` and
+# movements dedupe on the roster-slot key (``INSERT OR IGNORE``), so a week
+# fetched twice ingests nothing twice.
+
+# Per-visit cap on catch-up weeks, so one long-stale league cannot eat a run's
+# budget.  Mirrors the first-run backfill bound (``crawler.BACKFILL_MAX_WEEKS``)
+# rather than inventing a second number.  A capped league keeps its fetch
+# cursor (so it stays at the stale head of the queue), resumes from the week
+# after the last one it fetched, and is never recorded as current.  The
+# one-time sweeps (a league backfilled before week coverage existed, and a
+# season restart) start at the earlier of ``week - cap + 1`` and the first week
+# the league can have missed since it was last seen, and the cap walks them
+# forward like any catch-up (:func:`_sweep_start`).
+CATCHUP_MAX_WEEKS_PER_VISIT = crawler.BACKFILL_MAX_WEEKS
+_ROLLOVER_GRACE_MS = crawler.WEEK_ROLLOVER_GRACE_HOURS * 3600 * 1000
+_WEEK_MS = 7 * 24 * 3600 * 1000
+
+# A week whose fetch keeps failing (a timeout, a 5xx, a 404 / null body) is
+# ABANDONED once at least this many consecutive visits stopped on it AND its
+# first failure is at least ``WEEK_FETCH_MIN_FAILING_HOURS`` old, so it cannot
+# stall the league's catch-up for the rest of the season: oldest-first with a
+# per-visit cap means every later week sits behind it, and a league that fails
+# keeps its old ``lastFetchedMs``, so it would head the queue every run.  An
+# abandoned week is counted (``weeksAbandoned`` on the run receipt and in
+# ``crawl_coverage().weekCoverage``) -- a visible loss, never a silent one.
+#
+# Both numbers are PRIORS, not fitted.  The time floor is the one that bites:
+# a failing league heads the queue, so it is retried on every run (about 6 h
+# apart at four runs a day) and the attempt count alone would give up after
+# about 12 h, inside an ordinary Sleeper incident.  48 h mirrors the rollover
+# grace (``crawler.WEEK_ROLLOVER_GRACE_HOURS``) rather than inventing a number.
+WEEK_FETCH_MAX_ATTEMPTS = 3
+WEEK_FETCH_MIN_FAILING_HOURS = crawler.WEEK_ROLLOVER_GRACE_HOURS
+_MIN_FAILING_MS = WEEK_FETCH_MIN_FAILING_HOURS * 3600 * 1000
+
+# How a visit chose its weeks (internal; only counts are published).
+_MODE_BACKFILL = "backfill"  # first visit: the crawler's backfill walk
+_MODE_UNCLOCKED = "unclocked"  # /state/nfl gave no usable week: the old rule
+_MODE_CATCHUP = "catchup"  # resume_week .. current week
+_MODE_RECOVERY = "recovery_sweep"  # backfilled before week coverage existed
+
+# ``fail_week`` / ``fail_count`` / ``fail_first_ms``: the week the league's
+# gap-free run last stopped on because its fetch failed, how many consecutive
+# visits stopped there, and when the first of them did (see
+# :data:`WEEK_FETCH_MAX_ATTEMPTS`).  ``abandoned_weeks``: how many weeks of
+# ``season`` this league has given up on that it had never covered.  These
+# were added after the table first shipped, so
+# :func:`ensure_week_coverage_schema` also adds them to an existing table
+# (:data:`_WEEK_COVERAGE_ADDED_COLUMNS`).
+_WEEK_COVERAGE_SCHEMA = """
+CREATE TABLE IF NOT EXISTS sharp_league_week_coverage (
+  league_id       TEXT PRIMARY KEY,
+  season          TEXT NOT NULL,
+  through_week    INTEGER NOT NULL,
+  resume_week     INTEGER NOT NULL,
+  updated_ms      INTEGER NOT NULL,
+  fail_week       INTEGER,
+  fail_count      INTEGER NOT NULL DEFAULT 0,
+  fail_first_ms   INTEGER,
+  abandoned_weeks INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS sharp_tx_week_first_seen (
+  season        TEXT NOT NULL,
+  week          INTEGER NOT NULL,
+  first_seen_ms INTEGER NOT NULL,
+  PRIMARY KEY (season, week)
+);
+"""
+_WEEK_COVERAGE_ADDED_COLUMNS = (
+    ("fail_week", "INTEGER"),
+    ("fail_count", "INTEGER NOT NULL DEFAULT 0"),
+    ("fail_first_ms", "INTEGER"),
+    ("abandoned_weeks", "INTEGER NOT NULL DEFAULT 0"),
+)
+
 
 class _Outcome:
     """A named, non-payload answer from the fetcher (compared by identity)."""
@@ -124,6 +224,69 @@ def ensure_gone_schema(conn: sqlite3.Connection) -> None:
     ``roster_store.ensure_roster_schema``.)  ``executescript`` commits, so call
     it ONCE per run, before any transaction that must stay open."""
     conn.executescript(_GONE_SCHEMA)
+
+
+def ensure_week_coverage_schema(conn: sqlite3.Connection) -> None:
+    """Additive ``CREATE TABLE IF NOT EXISTS`` for the per-league week coverage
+    and the crawl's own week clock -- not wired to ``ledger.SCHEMA_VERSION``,
+    for the reason :func:`ensure_gone_schema` gives.  ``executescript`` commits,
+    so call it ONCE per run, before any transaction that must stay open.
+    Columns added after the table first shipped are added to an existing table
+    here (a guarded ``ALTER TABLE ... ADD COLUMN``), so a ledger that already
+    holds the table gains them on its next run.
+
+    **A coverage row is honoured only for a backfilled league, and only a
+    backfill that rewrites it can make a league backfilled.**  The crawl reads
+    a coverage row only when the league's ``sharp_league_fetch`` cursor says
+    ``backfilled``.  A visit sets ``backfilled`` only when it read the week from
+    ``/state/nfl`` and its backfill walk was clean, and that visit writes the
+    league's coverage row; any backfill that ends without writing one deletes
+    the old row.  So a migration that clears the cursor (the v2 step in
+    ``_MIGRATION_CLEARS``, which lives in ``src/intel/ledger.py``) sends the
+    league back through the backfill walk, and the crawl never resumes from a
+    stale row past data the migration deleted.
+
+    **A migration that clears ``sharp_league_fetch`` must clear
+    ``sharp_league_week_coverage`` in the same step.**  The crawl is safe
+    without it (above), but ``crawl_coverage().weekCoverage`` reads every
+    coverage row, so a stale row would report weeks as covered whose
+    movements the migration deleted.  Today no such migration can meet this
+    table: v2 runs inside ``ledger.connect`` before this function first
+    creates it.  ``tests/sharp/test_transactions.py`` pins the rule for any
+    later step."""
+    conn.executescript(_WEEK_COVERAGE_SCHEMA)
+    have = _week_coverage_columns(conn)
+    added = False
+    for name, decl in _WEEK_COVERAGE_ADDED_COLUMNS:
+        if name not in have:
+            added = _add_week_coverage_column(conn, name, decl) or added
+    if added:
+        conn.commit()
+
+
+def _week_coverage_columns(conn: sqlite3.Connection) -> set[str]:
+    return {
+        str(r[1]) for r in conn.execute("PRAGMA table_info(sharp_league_week_coverage)").fetchall()
+    }
+
+
+def _add_week_coverage_column(conn: sqlite3.Connection, name: str, decl: str) -> bool:
+    """``ALTER TABLE ... ADD COLUMN``, safe against a concurrent crawl.
+
+    Two crawls starting together on the first run after a deploy both see the
+    column missing, and the second ALTER then fails with "duplicate column
+    name".  That is the outcome both wanted, so a failed ALTER is re-checked
+    and raised only if the column is still missing.  Returns whether this call
+    added it.  ``name`` / ``decl`` are fixed literals from
+    :data:`_WEEK_COVERAGE_ADDED_COLUMNS`, never caller input.
+    """
+    try:
+        conn.execute(f"ALTER TABLE sharp_league_week_coverage ADD COLUMN {name} {decl}")
+    except sqlite3.OperationalError:
+        if name in _week_coverage_columns(conn):
+            return False
+        raise
+    return True
 
 
 def _default_http_get(url: str) -> Any:
@@ -171,6 +334,35 @@ class SharpCrawlResult:
     transactions_seen: int = 0
     calls_used: int = 0
     week: int | None = None
+    # The NFL season ``/state/nfl`` reported this run (``None`` when it did not).
+    season: str | None = None
+    # Whether this run had a usable week from ``/state/nfl``.  Week coverage is
+    # read and written only then; otherwise every league takes the old
+    # current-week rule and its coverage row is left untouched.
+    week_clocked: bool = False
+    # Leagues whose clean visit fetched weeks BEFORE the steady-state window
+    # (current week, plus the previous one inside the rollover grace) that no
+    # earlier visit had covered.  The routine re-read of the previous week
+    # after an in-grace visit is NOT a catch-up and is not counted.
+    leagues_caught_up: int = 0
+    # Leagues whose catch-up hit ``CATCHUP_MAX_WEEKS_PER_VISIT``: fetched
+    # cleanly as far as the cap, still behind, cursor NOT advanced -- they stay
+    # at the stale head of the queue and continue next run.  Not "fetched".
+    leagues_catchup_capped: int = 0
+    # Leagues backfilled before week coverage existed whose first sweep ran
+    # this run (from :func:`_sweep_start`; a long sweep continues as an
+    # ordinary capped catch-up on later runs).
+    leagues_recovery_swept: int = 0
+    # Weeks the league had never covered, given up on this run after at least
+    # :data:`WEEK_FETCH_MAX_ATTEMPTS` consecutive failed visits over at least
+    # :data:`WEEK_FETCH_MIN_FAILING_HOURS`, and how many leagues gave one up.
+    # Their movements are lost; the counts exist so that loss is never silent.
+    weeks_abandoned: int = 0
+    leagues_with_abandoned_week: int = 0
+    # Re-reads of a week the league had ALREADY covered (the previous week,
+    # re-read after an in-grace visit) given up on the same way.  Only rows
+    # filed into it after it was covered are lost, so it is counted apart.
+    covered_week_rereads_abandoned: int = 0
     # Why the pass ended before its queue did: ``budget_exhausted`` or
     # ``sleeper_breaker_open`` (the shared breaker refused a call, so the rest of
     # the queue was NOT attempted).  ``None`` = the queue was walked to the end.
@@ -192,6 +384,14 @@ class SharpCrawlResult:
             "transactionsSeen": self.transactions_seen,
             "callsUsed": self.calls_used,
             "week": self.week,
+            "season": self.season,
+            "weekClocked": self.week_clocked,
+            "leaguesCaughtUp": self.leagues_caught_up,
+            "leaguesCatchupCapped": self.leagues_catchup_capped,
+            "leaguesRecoverySwept": self.leagues_recovery_swept,
+            "weeksAbandoned": self.weeks_abandoned,
+            "leaguesWithAbandonedWeek": self.leagues_with_abandoned_week,
+            "coveredWeekRereadsAbandoned": self.covered_week_rereads_abandoned,
             "stoppedReason": self.stopped_reason,
             "errors": dict(self.errors),
         }
@@ -338,29 +538,392 @@ def _league_order(league_ids: Sequence[str], fetch_state: dict[str, dict[str, An
     )
 
 
-def _current_week(budget: crawler._CallBudget) -> tuple[int, bool]:
-    """``(week, confirmed)``: Sleeper's current NFL week, defaulting
-    conservatively, and whether ``/state/nfl`` ANSWERED THIS RUN with a dict.
+@dataclass(frozen=True)
+class _NflState:
+    """What this run's ``/state/nfl`` call established.
 
-    Week 0 is REAL — Sleeper files preseason trades there — so it is
-    never coerced up to 1 (same rule as the intel crawler).
+    ``week`` is Sleeper's current NFL week, defaulting conservatively to 1.
+    Week 0 is REAL — Sleeper files preseason trades there — so it is never
+    coerced up to 1 (same rule as the intel crawler).
 
-    ``confirmed`` is the run's canary.  ``/state/nfl`` always exists, so a run in
-    which it did not answer (no call budget, a failure, a 404, a refused call, a
-    non-object body) cannot read a 404 on a league as "this league is deleted":
-    :func:`crawl_transactions` records gone marks only when this is True.  A dict
-    with an unusable ``week`` still confirms (the endpoint answered); the week
-    then defaults.
+    ``confirmed`` is the run's canary.  ``/state/nfl`` always exists, so a run
+    in which it did not answer (no call budget, a failure, a 404, a refused
+    call, a non-object body) cannot read a 404 on a league as "this league is
+    deleted": :func:`crawl_transactions` records gone marks only when this is
+    True.  A dict with an unusable ``week`` still confirms (the endpoint
+    answered); the week then defaults.
+
+    ``week_known`` says the week was READ, not defaulted.  Week coverage is
+    keyed on it: a defaulted week would record coverage for a week nobody
+    observed.  ``season`` is ``None`` when the answer carried none.
     """
+
+    week: int
+    confirmed: bool
+    week_known: bool
+    season: str | None
+
+
+def _nfl_state(budget: crawler._CallBudget) -> _NflState:
     if not budget.can_call():
-        return 1, False
+        return _NflState(week=1, confirmed=False, week_known=False, season=None)
     state = budget.get(f"{crawler.SLEEPER_BASE}/state/nfl")
-    if isinstance(state, dict):
-        try:
-            return max(0, min(18, int(state.get("week")))), True
-        except (TypeError, ValueError):
-            return 1, True
-    return 1, False
+    if not isinstance(state, dict):
+        return _NflState(week=1, confirmed=False, week_known=False, season=None)
+    raw_season = state.get("season")
+    season = str(raw_season).strip() if raw_season is not None else ""
+    try:
+        week = max(0, min(18, int(state.get("week"))))
+    except (TypeError, ValueError):
+        return _NflState(week=1, confirmed=True, week_known=False, season=season or None)
+    return _NflState(week=week, confirmed=True, week_known=True, season=season or None)
+
+
+@dataclass(frozen=True)
+class _WeekCoverage:
+    season: str
+    through_week: int
+    resume_week: int
+    # The week the gap-free run last stopped on because its fetch failed, how
+    # many consecutive visits stopped there, and when the first one did.
+    # ``None`` / 0 = none pending.
+    fail_week: int | None = None
+    fail_count: int = 0
+    fail_first_ms: int | None = None
+    # Weeks of ``season`` this league has abandoned that it had never covered.
+    abandoned_weeks: int = 0
+    # When the row was last written -- the last visit that read a week for this
+    # league.  Bounds a season-restart sweep (:func:`_sweep_start`).
+    updated_ms: int | None = None
+
+
+def _added_column(row: sqlite3.Row, key: str, *, column_default: int | None) -> int | None:
+    """A column from :data:`_WEEK_COVERAGE_ADDED_COLUMNS`.  A table written
+    before the column existed answers with the column's own declared DEFAULT
+    -- exactly what ``ALTER TABLE ... ADD COLUMN`` gives that row -- never a
+    guess."""
+    if key not in row.keys() or row[key] is None:
+        return column_default
+    return int(row[key])
+
+
+def _load_week_coverage(conn) -> dict[str, _WeekCoverage]:
+    """``{league_id: coverage}``.  A ledger without the table reads as "no
+    coverage recorded", never as an error, and a table from before the
+    failure columns existed reads them as "nothing pending, nothing
+    abandoned" (``crawl_coverage`` reads without running the schema step)."""
+    try:
+        rows = conn.execute("SELECT * FROM sharp_league_week_coverage").fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    return {
+        str(r["league_id"]): _WeekCoverage(
+            season=str(r["season"]),
+            through_week=int(r["through_week"]),
+            resume_week=int(r["resume_week"]),
+            fail_week=_added_column(r, "fail_week", column_default=None),
+            fail_count=int(_added_column(r, "fail_count", column_default=0)),
+            fail_first_ms=_added_column(r, "fail_first_ms", column_default=None),
+            abandoned_weeks=int(_added_column(r, "abandoned_weeks", column_default=0)),
+            updated_ms=None if r["updated_ms"] is None else int(r["updated_ms"]),
+        )
+        for r in rows
+    }
+
+
+def _save_week_coverage(
+    conn,
+    league_id: str,
+    *,
+    season: str,
+    through_week: int,
+    resume_week: int,
+    now_ms: int,
+    fail_week: int | None = None,
+    fail_count: int = 0,
+    fail_first_ms: int | None = None,
+    abandoned_weeks: int = 0,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO sharp_league_week_coverage
+          (league_id, season, through_week, resume_week, updated_ms,
+           fail_week, fail_count, fail_first_ms, abandoned_weeks)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(league_id) DO UPDATE SET
+          season          = excluded.season,
+          through_week    = excluded.through_week,
+          resume_week     = excluded.resume_week,
+          updated_ms      = excluded.updated_ms,
+          fail_week       = excluded.fail_week,
+          fail_count      = excluded.fail_count,
+          fail_first_ms   = excluded.fail_first_ms,
+          abandoned_weeks = excluded.abandoned_weeks
+        """,
+        (
+            str(league_id),
+            season,
+            int(through_week),
+            int(resume_week),
+            int(now_ms),
+            None if fail_week is None else int(fail_week),
+            int(fail_count),
+            None if fail_first_ms is None else int(fail_first_ms),
+            int(abandoned_weeks),
+        ),
+    )
+
+
+def _delete_week_coverage(conn, league_id: str) -> None:
+    conn.execute("DELETE FROM sharp_league_week_coverage WHERE league_id = ?", (str(league_id),))
+
+
+def _week_first_seen_ms(conn, *, season: str, week: int, now_ms: int) -> int:
+    """When this crawl FIRST saw ``(season, week)`` as current -- the clock the
+    rollover grace is measured from.  Recorded once and committed at once.
+
+    The first sighting is never earlier than the real rollover, so a grace
+    measured from it is never shorter than the real one: the error is in the
+    direction of fetching the previous week once more, never of skipping it.
+    """
+    conn.execute(
+        "INSERT OR IGNORE INTO sharp_tx_week_first_seen (season, week, first_seen_ms)"
+        " VALUES (?, ?, ?)",
+        (season, int(week), int(now_ms)),
+    )
+    row = conn.execute(
+        "SELECT first_seen_ms FROM sharp_tx_week_first_seen WHERE season = ? AND week = ?",
+        (season, int(week)),
+    ).fetchone()
+    conn.commit()
+    return int(row["first_seen_ms"]) if row is not None else int(now_ms)
+
+
+def _same_season(stored: str, current: str | None) -> bool:
+    """Whether a coverage row's week numbers belong to the current season.
+    Unknown on either side cannot prove a difference; a rollover is then still
+    caught by the week numbering going backwards (:func:`_plan_weeks`)."""
+    if not stored or not current:
+        return True
+    return stored == current
+
+
+def _steady_floor(week: int, in_grace: bool) -> int:
+    """The lowest week a visit NOW fetches even when nothing was missed: the
+    current week; the previous one too inside the rollover grace; and both
+    degenerate offseason buckets (0 and 1) whenever ``week <= 1``."""
+    if week <= 1:
+        return 0
+    return week - 1 if in_grace else week
+
+
+@dataclass(frozen=True)
+class _WeekPlan:
+    weeks: list[int]
+    mode: str
+    # More weeks were due than the per-visit cap allowed.
+    capped: bool = False
+    # The plan fetches weeks before the steady-state window that no earlier
+    # visit covered (not the routine re-read of an in-grace week).
+    caught_up: bool = False
+    # The stored row belongs to an earlier season (or the week numbering
+    # restarted), so none of its state carries into this visit.
+    restarted: bool = False
+
+
+def _plan_weeks(
+    fetch_state: dict[str, Any],
+    coverage: _WeekCoverage | None,
+    *,
+    week: int,
+    season: str | None,
+    week_known: bool,
+    in_grace: bool,
+    now_ms: int,
+    cap: int = CATCHUP_MAX_WEEKS_PER_VISIT,
+) -> _WeekPlan:
+    """Which transaction weeks one league's visit fetches, and in what order.
+
+    * first visit (not ``backfilled``): the crawler's backfill walk, unchanged
+      (current week down, age stop, reaching week 0);
+    * no usable week this run: the old current-week rule, unchanged -- coverage
+      is neither read nor written on a week nobody observed;
+    * otherwise every week from ``resume_week`` through the current week,
+      OLDEST FIRST, at most ``cap`` of them.  Oldest first is what makes a
+      capped visit progress: the weeks it reached form a gap-free prefix the
+      next visit resumes after.
+
+    Two one-time sweeps start at :func:`_sweep_start` and are walked forward
+    by the same cap: a league backfilled BEFORE week coverage existed (nothing
+    records which weeks it reached; dormancy is measured from its
+    ``lastFetchedMs``), and a season restart (a new season string, or the week
+    numbering going backwards with the season unknown; dormancy is measured
+    from the coverage row's ``updated_ms``).  A spurious season-string change
+    on a recently visited league therefore stays one ``cap``-week sweep, while
+    a league dormant across the rollover walks the new season from week 0.
+    """
+    backfilled = bool(fetch_state.get("backfilled"))
+    if not backfilled or not week_known:
+        weeks = crawler._weeks_to_fetch(
+            {"fetchState": {"backfilled": backfilled}}, week, None, now_ms
+        )
+        return _WeekPlan(weeks=weeks, mode=_MODE_UNCLOCKED if backfilled else _MODE_BACKFILL)
+    floor = _steady_floor(week, in_grace)
+    mode = _MODE_CATCHUP
+    restarted = False
+    if coverage is None:
+        start = _sweep_start(week, cap, fetch_state.get("lastFetchedMs"), now_ms)
+        missed_from = start
+        mode = _MODE_RECOVERY
+    elif coverage.resume_week <= week and _same_season(coverage.season, season):
+        start = coverage.resume_week
+        # ``resume_week`` can sit BELOW the first uncovered week: after an
+        # in-grace visit it is the previous week, re-read for late rows.  Only
+        # weeks past ``through_week`` were never covered.
+        missed_from = max(start, coverage.through_week + 1)
+    elif coverage.season and season and coverage.season == season:
+        # Same season, yet the stored resume is AHEAD of today's week: a
+        # regressed week report.  Fetch the steady window.
+        start = floor
+        missed_from = floor
+    else:
+        # A new season (or the week numbering restarted): a sweep bounded by
+        # how long the row has been untouched.
+        start = _sweep_start(week, cap, coverage.updated_ms, now_ms)
+        missed_from = start
+        restarted = True
+    start = max(0, min(start, floor))
+    missed_from = max(start, missed_from)
+    hi = max(week, 1)  # week <= 1: both degenerate offseason buckets
+    due = list(range(start, hi + 1))
+    limit = max(2, int(cap))
+    return _WeekPlan(
+        weeks=due[:limit],
+        mode=mode,
+        capped=len(due) > limit,
+        caught_up=missed_from < floor,
+        restarted=restarted,
+    )
+
+
+def _sweep_start(week: int, cap: int, last_seen_ms: Any, now_ms: int) -> int:
+    """First week of a one-time sweep: the earlier of the backfill window
+    (``week - cap + 1``) and the first week the league can have missed since
+    it was last seen.
+
+    At most ``floor(gap / 7 days) + 1`` week rollovers fit in the gap since
+    ``last_seen_ms``, so that visit's week was at least ``week`` minus that;
+    one more week because that visit may itself have been inside its week's
+    rollover grace.  The window keeps a recently seen league's sweep at
+    ``cap`` weeks, which re-reads its recent weeks for late rows.  With no
+    usable stamp the dormancy is UNKNOWN, which is not "recent": the sweep
+    starts at week 0.  The caller clamps to ``0 .. floor``; the per-visit cap
+    walks a long sweep forward.
+    """
+    window = week - int(cap) + 1
+    if isinstance(last_seen_ms, bool) or not isinstance(last_seen_ms, int):
+        return 0
+    if last_seen_ms <= 0 or last_seen_ms > now_ms:
+        return 0
+    return min(window, week - ((now_ms - last_seen_ms) // _WEEK_MS + 1) - 1)
+
+
+def _next_resume_week(through_week: int, week: int, in_grace: bool) -> int:
+    """The first week the NEXT visit must fetch: right after the last week
+    fetched without a gap, but never past the steady floor -- a week still
+    inside its rollover grace may receive late transactions after this visit."""
+    return min(through_week + 1, _steady_floor(week, in_grace))
+
+
+@dataclass(frozen=True)
+class _WeekProgress:
+    """How far one ascending visit got, gap-free."""
+
+    # Last week of the gap-free run from the plan's first week (one below it
+    # when that week was not fetched cleanly).  Abandoned weeks count as
+    # passed: they are below the steady floor, so no visit plans them again.
+    through: int
+    # The week the run stopped on because its fetch failed, with the number of
+    # consecutive visits that stopped there and when the first one did;
+    # ``None`` / 0 / ``None`` when it did not.
+    stall_week: int | None
+    stall_count: int
+    stall_first_ms: int | None
+    # Weeks given up on during this visit.
+    abandoned: tuple[int, ...]
+
+
+def _week_progress(
+    weeks: Sequence[int],
+    outcomes: dict[int, bool],
+    *,
+    prior_fail_week: int | None,
+    prior_fail_count: int,
+    prior_fail_first_ms: int | None,
+    abandon_below: int,
+    now_ms: int,
+    max_attempts: int = WEEK_FETCH_MAX_ATTEMPTS,
+    min_failing_ms: int = _MIN_FAILING_MS,
+) -> _WeekProgress:
+    """Walk an ascending plan's outcomes (``True`` clean, ``False`` failed,
+    absent = not reached: a budget cut or a refused call) and find where the
+    gap-free run ends.
+
+    A failed week is counted against ``prior_fail_*``: the same week failing
+    on consecutive visits.  Once it has failed ``max_attempts`` times AND its
+    first failure is ``min_failing_ms`` old, it is ABANDONED and the run
+    continues past it, so one bad week cannot stall every later one.  A visit
+    that does not reach the pending failed week (cut short before it) neither
+    counts it again nor clears it.  A pending failure with no recorded first
+    time (a row from before that column) starts its clock now: unknown is
+    never "old enough".
+
+    Only a week below ``abandon_below`` (the steady floor) can be abandoned.
+    A week inside the steady window is fetched on every visit anyway and
+    stalls nothing behind it, so it keeps counting; once it leaves the window
+    its next failure abandons it.  That keeps "abandoned" true -- an abandoned
+    week is never planned again -- and each week counted at most once.
+    """
+    through = weeks[0] - 1 if weeks else -1
+    abandoned: list[int] = []
+    for w in weeks:
+        ok = outcomes.get(w)
+        if ok is True:
+            through = w
+            continue
+        if ok is False:
+            if prior_fail_week == w:
+                count = int(prior_fail_count) + 1
+                first = now_ms if prior_fail_first_ms is None else int(prior_fail_first_ms)
+            else:
+                count, first = 1, now_ms
+            if count >= max_attempts and now_ms - first >= min_failing_ms and w < abandon_below:
+                abandoned.append(w)
+                through = w
+                continue
+            return _WeekProgress(
+                through=through,
+                stall_week=w,
+                stall_count=count,
+                stall_first_ms=first,
+                abandoned=tuple(abandoned),
+            )
+        break  # not reached
+    if prior_fail_week is not None and prior_fail_week > through:
+        return _WeekProgress(
+            through=through,
+            stall_week=prior_fail_week,
+            stall_count=int(prior_fail_count),
+            stall_first_ms=prior_fail_first_ms,
+            abandoned=tuple(abandoned),
+        )
+    return _WeekProgress(
+        through=through,
+        stall_week=None,
+        stall_count=0,
+        stall_first_ms=None,
+        abandoned=tuple(abandoned),
+    )
 
 
 def crawl_transactions(
@@ -427,8 +990,10 @@ def crawl_transactions(
             return result
 
         ensure_gone_schema(conn)
+        ensure_week_coverage_schema(conn)
         fetch_state = _load_fetch_state(conn)
         gone_state = _load_gone_state(conn)
+        week_coverage = _load_week_coverage(conn)
         if skip_gone:
             healthy, recheck, skipped = _split_gone(targets, gone_state, now_ms=now)
             # The re-check trickle goes first: it is capped, so it costs at most
@@ -439,9 +1004,16 @@ def crawl_transactions(
             skipped = []
             ordered = _league_order(targets, fetch_state)
         result.leagues_gone_skipped = len(skipped)
-        week, state_confirmed = _current_week(b)
+        nfl = _nfl_state(b)
+        week, state_confirmed = nfl.week, nfl.confirmed
         result.week = week
         result.state_nfl_confirmed = state_confirmed
+        result.season = nfl.season
+        result.week_clocked = nfl.week_known
+        in_grace = False
+        if nfl.week_known:
+            first_seen = _week_first_seen_ms(conn, season=nfl.season or "", week=week, now_ms=now)
+            in_grace = (now - first_seen) <= _ROLLOVER_GRACE_MS
 
         for idx, lid in enumerate(ordered):
             if not b.can_call(_MIN_CALLS_PER_LEAGUE):
@@ -512,26 +1084,40 @@ def crawl_transactions(
             boundary_ids = {str(t) for t in state.get("boundaryTxIds") or []}
             is_backfill = not state.get("backfilled")
 
-            weeks = crawler._weeks_to_fetch(
-                {"fetchState": {"backfilled": state.get("backfilled")}}, week, None, now
+            plan = _plan_weeks(
+                state,
+                week_coverage.get(lid),
+                week=week,
+                season=nfl.season,
+                week_known=nfl.week_known,
+                in_grace=in_grace,
+                now_ms=now,
             )
+            weeks = plan.weeks
+            recovery = plan.mode == _MODE_RECOVERY
+            # Catch-up and recovery walk OLDEST FIRST, so the weeks a visit
+            # reached cleanly form a gap-free run from the plan's first week.
+            ascending = plan.mode in (_MODE_CATCHUP, _MODE_RECOVERY)
             backfill_cutoff = now - crawler.BACKFILL_MAX_DAYS * 24 * 3600 * 1000
 
             fetched: list[tuple[int, dict[str, Any]]] = []
-            weeks_clean = True
+            # week -> True (answered with a list) / False (failed); a week the
+            # loop never reached (budget cut, refused call, age stop) is absent.
+            outcomes: dict[int, bool] = {}
             breaker_open = False
+            budget_cut = False
             for w in weeks:
                 if not b.can_call():
-                    weeks_clean = False
+                    budget_cut = True
                     break
                 txs = b.get(f"{crawler.SLEEPER_BASE}/league/{lid}/transactions/{w}")
                 if txs is BREAKER_OPEN:
-                    weeks_clean = False
                     breaker_open = True
                     break
                 if not isinstance(txs, list):
-                    weeks_clean = False
+                    outcomes[w] = False
                     continue
+                outcomes[w] = True
                 created = [
                     crawler._tx_created_ms(t)
                     for t in txs
@@ -544,15 +1130,44 @@ def crawl_transactions(
                 if is_backfill and w > 1 and created and max(created) < backfill_cutoff:
                     break
 
+            # Where the gap-free run ends, counting a failed week against the
+            # same week's failures on earlier visits (abandoned at the limit).
+            prior = week_coverage.get(lid)
+            carry = prior is not None and not plan.restarted
+            progress: _WeekProgress | None = None
+            if nfl.week_known and ascending and weeks:
+                progress = _week_progress(
+                    weeks,
+                    outcomes,
+                    prior_fail_week=prior.fail_week if carry else None,
+                    prior_fail_count=prior.fail_count if carry else 0,
+                    prior_fail_first_ms=prior.fail_first_ms if carry else None,
+                    abandon_below=_steady_floor(week, in_grace),
+                    now_ms=now,
+                )
+            abandoned = set(progress.abandoned) if progress is not None else set()
+            failed_weeks = {w for w, ok in outcomes.items() if not ok}
+            # Clean = no budget cut, no refused call, and no week this visit
+            # reached failed -- except one abandoned just now.  An abandoned
+            # week no longer holds the cursor back: its rows are given up on,
+            # and counted.
+            weeks_clean = not budget_cut and not breaker_open and not (failed_weeks - abandoned)
+
             known: set[str] = set()
             events: list[dict[str, Any]] = []
             new_max = max_seen
             for w, tx in fetched:
                 created_ms = crawler._tx_created_ms(tx)
                 tx_id = str(tx.get("transaction_id") or "")
-                if created_ms < max_seen:
-                    continue
-                if created_ms == max_seen and tx_id in boundary_ids:
+                behind_cursor = created_ms < max_seen or (
+                    created_ms == max_seen and tx_id in boundary_ids
+                )
+                # The recovery sweep also reads rows BEHIND the cursor: before
+                # week coverage, a visit could carry ``maxCreatedSeen`` past a
+                # week no visit had fetched.  Movement ids dedupe, so a row
+                # already stored inserts nothing, and the backfill age window
+                # bounds what the sweep may add.
+                if behind_cursor and not (recovery and created_ms >= backfill_cutoff):
                     continue
                 if created_ms > new_max:
                     new_max = created_ms
@@ -564,6 +1179,67 @@ def crawl_transactions(
             if events:
                 ingest = ledger.ingest_events(events, conn=conn)
                 result.movements_ingested += ingest.movements_inserted
+
+            # Week coverage: only on a week this run READ.  A catch-up records
+            # the gap-free run it reached even when cut short (so it never
+            # re-walks those weeks) and the failure it stopped on (so a week
+            # that keeps failing is abandoned rather than stalling the league);
+            # a backfill counts only when it finished cleanly (otherwise it is
+            # simply walked again).
+            coverage_written = False
+            if progress is not None and outcomes:
+                # A week the league had already covered (the post-grace re-read
+                # of the previous week) is not a lost week: only its late rows
+                # are given up on.  It is counted apart, never in
+                # ``abandoned_weeks``.
+                lost = {w for w in abandoned if not carry or w > prior.through_week}
+                abandoned_total = (prior.abandoned_weeks if carry else 0) + len(lost)
+                # A failed re-read of a week already covered (the in-grace
+                # re-read) does not uncover it: ``through_week`` never moves
+                # back within a season, while the resume follows the run.
+                through_week = progress.through
+                if carry:
+                    through_week = max(through_week, prior.through_week)
+                _save_week_coverage(
+                    conn,
+                    lid,
+                    season=nfl.season or (prior.season if prior is not None else ""),
+                    through_week=through_week,
+                    resume_week=_next_resume_week(progress.through, week, in_grace),
+                    now_ms=now,
+                    fail_week=progress.stall_week,
+                    fail_count=progress.stall_count,
+                    fail_first_ms=progress.stall_first_ms,
+                    abandoned_weeks=abandoned_total,
+                )
+                coverage_written = True
+                if lost:
+                    result.weeks_abandoned += len(lost)
+                    result.leagues_with_abandoned_week += 1
+                result.covered_week_rereads_abandoned += len(abandoned - lost)
+            elif nfl.week_known and plan.mode == _MODE_BACKFILL and weeks_clean and weeks:
+                # A fresh start: no failure pending, nothing abandoned yet.
+                _save_week_coverage(
+                    conn,
+                    lid,
+                    season=nfl.season or (prior.season if prior is not None else ""),
+                    through_week=max(weeks),
+                    resume_week=_next_resume_week(max(weeks), week, in_grace),
+                    now_ms=now,
+                )
+                coverage_written = True
+
+            if budget_cut:
+                # The run's budget ended inside this league.  That is not a
+                # fetch failure, so the league is PENDING, not failed.  Its
+                # cursor is not advanced (the weeks it did not reach would be
+                # filtered out); the weeks it did reach are kept in its
+                # coverage, so the next visit resumes after them.
+                _save_fetch_state(conn, lid, state, error=STOPPED_BUDGET_EXHAUSTED)
+                conn.commit()
+                result.leagues_pending = len(ordered) - idx
+                result.stopped_reason = STOPPED_BUDGET_EXHAUSTED
+                break
 
             if not weeks_clean:
                 # Do NOT advance the cursor past a week we failed to
@@ -579,6 +1255,42 @@ def crawl_transactions(
                     result.stopped_reason = STOPPED_BREAKER_OPEN
                     break
                 continue
+
+            if not nfl.week_known:
+                # Nobody observed the week this run: the visit used a DEFAULTED
+                # week.  What it fetched is ingested (movements dedupe), but no
+                # state that a later visit plans from may move on it: the cursor
+                # stays where it was (rows from a guessed week could carry it
+                # past weeks never fetched), the league is NOT marked backfilled
+                # (a backfill of a guessed week is no backfill; it walks again
+                # from the real week), and ``lastFetchedMs`` stays (so it keeps
+                # its place in the queue, and nothing reads this visit as a
+                # clean one).
+                _save_fetch_state(conn, lid, state, error=None)
+                conn.commit()
+                result.leagues_fetched += 1
+                continue
+
+            if plan.caught_up:
+                result.leagues_caught_up += 1
+            if recovery:
+                result.leagues_recovery_swept += 1
+            if plan.capped:
+                # Clean as far as the per-visit cap, still behind.  The fetch
+                # cursor is NOT advanced: a ``maxCreatedSeen`` taken from these
+                # older weeks could filter the later weeks' rows out, and the
+                # old ``lastFetchedMs`` keeps the league at the stale head of
+                # the queue so the next run continues the catch-up.  Its
+                # coverage (written above) never claims the weeks it skipped.
+                conn.commit()
+                result.leagues_catchup_capped += 1
+                continue
+
+            if is_backfill and not coverage_written:
+                # The league becomes backfilled below; a coverage row it did not
+                # just write is stale (e.g. left behind when a migration cleared
+                # its cursor) and must never be resumed from.
+                _delete_week_coverage(conn, lid)
 
             new_boundary = {
                 str(tx.get("transaction_id") or "")
@@ -627,7 +1339,8 @@ def _log_summary(result: SharpCrawlResult) -> None:
     2 means "leagues remain" however the pass ended)."""
     line = (
         "sharp transaction crawl: considered=%d fetched=%d failed=%d gone=%d "
-        "not_found_unconfirmed=%d gone_skipped=%d recovered=%d pending=%d calls=%d stopped=%s"
+        "not_found_unconfirmed=%d gone_skipped=%d recovered=%d pending=%d calls=%d stopped=%s "
+        "caught_up=%d catchup_capped=%d recovery_swept=%d weeks_abandoned=%d week_clocked=%s"
     )
     args = (
         result.leagues_considered,
@@ -640,6 +1353,11 @@ def _log_summary(result: SharpCrawlResult) -> None:
         result.leagues_pending,
         result.calls_used,
         result.stopped_reason or "none",
+        result.leagues_caught_up,
+        result.leagues_catchup_capped,
+        result.leagues_recovery_swept,
+        result.weeks_abandoned,
+        result.week_clocked,
     )
     if result.stopped_reason == STOPPED_BREAKER_OPEN:
         log.error(
@@ -656,6 +1374,17 @@ def _log_summary(result: SharpCrawlResult) -> None:
             "so %d league 404(s) were NOT marked gone (not_found_unconfirmed); "
             "gone marks are written only when the canary endpoint answers",
             result.leagues_not_found_unconfirmed,
+        )
+    if result.weeks_abandoned or result.covered_week_rereads_abandoned:
+        log.warning(
+            "sharp transaction crawl: %d week(s) in %d league(s) were ABANDONED after "
+            "at least %d failed visits over at least %d h; their transactions are not "
+            "collected (plus %d re-read(s) of already-covered weeks given up on)",
+            result.weeks_abandoned,
+            result.leagues_with_abandoned_week,
+            WEEK_FETCH_MAX_ATTEMPTS,
+            WEEK_FETCH_MIN_FAILING_HOURS,
+            result.covered_week_rereads_abandoned,
         )
 
 
@@ -683,9 +1412,10 @@ def crawl_coverage(*, ledger_path: Path | None = None) -> dict[str, Any]:
             ).fetchall()
         }
         gone_ids = set(_load_gone_state(conn))
+        eligible_ids = {str(lid) for lid in eligible}
+        week_cov = _week_coverage_summary(conn, eligible_ids - gone_ids)
     finally:
         conn.close()
-    eligible_ids = {str(lid) for lid in eligible}
     gone_eligible = eligible_ids & gone_ids
     return {
         "sharpEligibleLeagues": len(eligible),
@@ -696,4 +1426,67 @@ def crawl_coverage(*, ledger_path: Path | None = None) -> dict[str, Any]:
         "leaguesGone": len(gone_eligible),
         "leaguesUncrawledReachable": len(eligible_ids - crawled_ids - gone_ids),
         "oldestCrawlMs": oldest,
+        "weekCoverage": week_cov,
+    }
+
+
+def _week_coverage_summary(conn, reachable_ids: set[str]) -> dict[str, Any]:
+    """How far behind the current NFL week the reachable eligible leagues are.
+
+    Aggregate integers only -- no league id leaves this function.  "Current
+    week" is the latest week a crawl run has READ from ``/state/nfl`` (the week
+    clock), so this needs no network call.  A league is ``behind`` when the
+    highest week it has fetched without a gap (``through_week``) is below the
+    current week; two or more weeks behind means at least one whole past week
+    is still unfetched (it is recovered by that league's next visit).
+
+    MISSING IS NEVER ZERO: before any run has read a week, every lag figure is
+    ``None``.  A league with no coverage row for the current season (never
+    crawled, crawled before week coverage existed, or not yet visited this
+    season) is counted in ``leaguesWithoutWeekCoverage``, never as current.
+
+    ``weeksAbandoned`` / ``leaguesWithAbandonedWeek``: weeks this season the
+    crawl gave up on, never having covered them, after
+    :data:`WEEK_FETCH_MAX_ATTEMPTS` failed visits over
+    :data:`WEEK_FETCH_MIN_FAILING_HOURS` (an abandoned week counts as passed in
+    ``through_week``, so the lag figures alone would hide it).
+    """
+    unmeasured: dict[str, Any] = {
+        "season": None,
+        "currentWeek": None,
+        "leaguesWithWeekCoverage": None,
+        "leaguesBehind": None,
+        "leaguesTwoPlusWeeksBehind": None,
+        "maxWeeksBehind": None,
+        "leaguesWithoutWeekCoverage": None,
+        "weeksAbandoned": None,
+        "leaguesWithAbandonedWeek": None,
+    }
+    try:
+        clock = conn.execute(
+            "SELECT season, week FROM sharp_tx_week_first_seen"
+            " ORDER BY first_seen_ms DESC, week DESC LIMIT 1"
+        ).fetchone()
+    except sqlite3.OperationalError:
+        return unmeasured
+    if clock is None:
+        return unmeasured
+    season = str(clock["season"])
+    week = int(clock["week"])
+    current = [
+        cov
+        for lid, cov in _load_week_coverage(conn).items()
+        if lid in reachable_ids and _same_season(cov.season, season or None)
+    ]
+    lags = [week - cov.through_week for cov in current]
+    return {
+        "season": season or None,
+        "currentWeek": week,
+        "leaguesWithWeekCoverage": len(lags),
+        "leaguesBehind": sum(1 for lag in lags if lag >= 1),
+        "leaguesTwoPlusWeeksBehind": sum(1 for lag in lags if lag >= 2),
+        "maxWeeksBehind": max(max(lags), 0) if lags else None,
+        "leaguesWithoutWeekCoverage": len(reachable_ids) - len(lags),
+        "weeksAbandoned": sum(cov.abandoned_weeks for cov in current),
+        "leaguesWithAbandonedWeek": sum(1 for cov in current if cov.abandoned_weeks > 0),
     }
