@@ -4,9 +4,18 @@ This module is THE answer to "what did we actually know / store / serve
 at or before time T?" for asset values, ranks and their provenance.  It
 never answers the different question "what do we know today about the
 past" — no code path here can select an observation dated after the
-requested time, structurally: every SQL predicate is ``<=`` /
-``<`` against the requested bound and there is no API that accepts an
-undirected "nearest".
+requested time, structurally: every value-returning SQL predicate is
+``<=`` / ``<`` against the requested bound and there is no API that
+accepts an undirected "nearest".
+
+Two census reads return no value at all and are the only exceptions to
+that predicate shape: :func:`assets_observed_on` matches one date EXACTLY
+(``=``, so it still never reaches past the date it is asked about), and
+:func:`observed_dates` lists every date the ledger holds, which is a
+coverage question rather than an as-of one.  A caller that walks
+``observed_dates`` must itself respect its own as-of boundary, as
+``src/backtesting/forward_scoreboard.py`` does by reading values only
+through :func:`batch_as_of`.
 
 Fidelity vocabulary (the canonical labels from
 ``docs/C_SERIES_SCOPE_MANIFEST.md`` row `C1-HIST-01` and the replay
@@ -973,6 +982,88 @@ def previous_board_ranks(
         best = _select_best(candidates)
         if best is not None and best["rank"] is not None:
             out[key] = (str(best["observed_date"]), int(best["rank"]))
+    return out
+
+
+def observed_dates(
+    *,
+    lane: str,
+    source_key: str | None = None,
+    path: Path | None = None,
+) -> list[str]:
+    """Every UTC date holding at least one observation in ``lane``, ascending.
+
+    With ``source_key`` the census is limited to that one quantity (``""``
+    is the canonical board's key).  Read-only, like every read here: a
+    missing ledger answers ``[]`` without creating the file.  Superseded
+    observations do not count — a date whose only row was corrected away
+    holds no current observation.  This answers WHICH dates exist, never a
+    value; values still go through :func:`value_as_of` / :func:`batch_as_of`.
+    """
+    conn = _connect_readonly(path)
+    if conn is None:
+        return []
+    try:
+        q = (
+            "SELECT DISTINCT observed_date FROM observations WHERE lane=? "
+            "AND id NOT IN (SELECT superseded_id FROM corrections)"
+        )
+        params: list[Any] = [lane]
+        if source_key is not None:
+            q += " AND source_key=?"
+            params.append(source_key)
+        rows = conn.execute(q + " ORDER BY observed_date", params).fetchall()
+    finally:
+        conn.close()
+    return [str(r["observed_date"]) for r in rows]
+
+
+def assets_observed_on(
+    on_date: date | datetime | str,
+    *,
+    lane: str,
+    source_key: str | None = None,
+    path: Path | None = None,
+) -> dict[str, dict[str, Any]]:
+    """``{asset_key: {assetClass, position, displayName}}`` for every asset
+    with an observation dated EXACTLY ``on_date`` in ``lane``.
+
+    Exact-date only: an asset last observed the day before is absent, never
+    carried forward, and nothing dated after ``on_date`` is read.  When an
+    asset has several rows on the date (several scrapes, several origins),
+    the descriptive fields come from the row the as-of tie rule would select
+    (:func:`_select_best`), so the census is deterministic.  Read-only;
+    corrections are honoured.  The census names assets; it returns no value.
+    """
+    requested = store.as_of_date(on_date)
+    conn = _connect_readonly(path)
+    if conn is None:
+        return {}
+    try:
+        q = (
+            f"SELECT {_SELECT_COLS} FROM observations WHERE observed_date=? AND lane=? "
+            "AND id NOT IN (SELECT superseded_id FROM corrections)"
+        )
+        params: list[Any] = [requested, lane]
+        if source_key is not None:
+            q += " AND source_key=?"
+            params.append(source_key)
+        rows = conn.execute(q, params).fetchall()
+    finally:
+        conn.close()
+    by_asset: dict[str, list[sqlite3.Row]] = {}
+    for r in rows:
+        by_asset.setdefault(str(r["asset_key"]), []).append(r)
+    out: dict[str, dict[str, Any]] = {}
+    for key in sorted(by_asset):
+        best = _select_best(by_asset[key])
+        if best is None:
+            continue
+        out[key] = {
+            "assetClass": best["asset_class"],
+            "position": best["position"],
+            "displayName": best["display_name"],
+        }
     return out
 
 
