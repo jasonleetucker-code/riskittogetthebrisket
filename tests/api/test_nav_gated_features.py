@@ -415,3 +415,55 @@ def test_team_advisor_plan_fails_closed_when_resolution_raises(monkeypatch):
 # ``/api/team/plan`` does not refuse with 503) needs a league registry, which
 # this module's environment does not load: it lives beside the route's own
 # fixture in tests/api/test_team_plan_route.py.
+
+
+# ── 6. tradeTitleOdds: the War Room's season-odds panel (DYN10 #4) ───
+
+
+@pytest.mark.parametrize(
+    ("flag_on", "contract_loaded", "expected"),
+    [(True, True, True), (True, False, False), (False, True, False), (False, False, False)],
+)
+def test_trade_title_odds_capability_requires_flag_and_board(
+    monkeypatch, flag_on, contract_loaded, expected
+):
+    """``POST /api/trade/title-odds`` refuses ``feature_disabled`` with the
+    owner-held flag OFF and 503s with no board loaded, so the War Room may call
+    it only when both hold.  A client told ``False`` makes no request."""
+    _authed(monkeypatch)
+    _set_flag(monkeypatch, "trade_title_odds_lens", flag_on)
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _set_contract(monkeypatch, contract_loaded)  # after startup — see above
+        body = c.get("/api/auth/status").json()
+    assert body["features"]["tradeTitleOdds"] == {"available": expected}
+
+
+def test_trade_title_odds_capability_is_off_by_default(monkeypatch):
+    """The flag is owner-held OFF, so with default flags nothing is offered."""
+    _authed(monkeypatch)
+    monkeypatch.delenv("RISKIT_FEATURE_TRADE_TITLE_ODDS_LENS", raising=False)
+    feature_flags.reload()
+    try:
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            _set_contract(monkeypatch, True)
+            body = c.get("/api/auth/status").json()
+    finally:
+        feature_flags.reload()
+    assert body["features"]["tradeTitleOdds"]["available"] is False
+
+
+def test_trade_title_odds_capability_and_the_route_never_disagree(monkeypatch):
+    """Capability ``False`` exactly when the route refuses as switched off or
+    not ready; ``True`` exactly when it gets past both gates."""
+    _authed(monkeypatch)
+    for flag_on in (True, False):
+        _set_flag(monkeypatch, "trade_title_odds_lens", flag_on)
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            _set_contract(monkeypatch, True)
+            reported = c.get("/api/auth/status").json()["features"]["tradeTitleOdds"]["available"]
+            # A non-object body: past both gates it is refused as a bad request.
+            res = c.post("/api/trade/title-odds", content=b"[]")
+        assert reported is (res.status_code != 503), (
+            f"capability says available={reported} but the route answered "
+            f"{res.status_code} (flag_on={flag_on})"
+        )

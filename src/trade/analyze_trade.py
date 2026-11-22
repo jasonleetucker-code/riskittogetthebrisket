@@ -966,6 +966,18 @@ def _title_odds_lens(title_odds: Any, simulation: dict[str, Any]) -> DimensionRe
     return DimensionResult(**base, available=True, direction="context", detail=view["detail"])
 
 
+def _season_unavailable_entry(season: DimensionResult) -> dict[str, str]:
+    """The ``unavailableDimensions`` entry for a handed-in but unavailable
+    season-odds lens: its own reason and note, in the entry's usual shape."""
+    reason = str(season.unavailable_reason or "not_computed")
+    note = (season.detail or {}).get("note") if isinstance(season.detail, dict) else None
+    return {
+        "dimension": TITLE_ODDS_DIMENSION,
+        "reason": reason,
+        "notes": str(note) if note else f"Season odds unavailable: {reason}.",
+    }
+
+
 def _excluded_by_mode(name: str, lineage: str) -> DimensionResult:
     return DimensionResult(
         name=name,
@@ -1000,9 +1012,10 @@ def analyze_trade(
     ``title_odds`` is the ``src.trade.title_odds_lens`` payload (flag
     ``trade_title_odds_lens`` ON only).  ``None`` — the flag OFF — leaves the
     packet byte-identical to the pre-lens one.  Given, it becomes the
-    non-voting ``currentSeasonEquity`` dimension (``lenses.titleOdds``) and the
-    dimension leaves ``unavailableDimensions``; nothing it carries reaches
-    ``trade_decision``.
+    non-voting ``currentSeasonEquity`` dimension (``lenses.titleOdds``); computed
+    odds retire its ``unavailableDimensions`` entry, an unavailable lens (e.g.
+    ``deferred_async`` from ``/api/trade/analyze``) keeps the entry with the
+    lens's own reason.  Nothing it carries reaches ``trade_decision``.
     """
     cfg = _config()
     team_context_block = simulation.get("teamContext") or {"applied": True, "mode": "team"}
@@ -1076,6 +1089,15 @@ def analyze_trade(
         if season.available:
             unavailable_dimensions = [
                 d for d in unavailable_dimensions if d["dimension"] != TITLE_ODDS_DIMENSION
+            ]
+        else:
+            # Handed in but unavailable: the entry states the lens's OWN
+            # reason (``deferred_async``, ``no_remaining_schedule``,
+            # ``asset_only_mode`` ...), never the pre-lens "not wired" one,
+            # which stops being true once the lens exists.
+            unavailable_dimensions = [
+                _season_unavailable_entry(season) if d["dimension"] == TITLE_ODDS_DIMENSION else d
+                for d in unavailable_dimensions
             ]
 
     return AnalyzeTradeResult(

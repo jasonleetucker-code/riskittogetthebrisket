@@ -350,7 +350,13 @@ const ScreenshotImportDialog = dyn(
 export default function TradePage() {
   const { loading, error, failure, retry, rows, rawData } = useDynastyData();
   const { settings } = useSettings();
-  const { openPlayerPopup, registerAddToTrade } = useApp();
+  const { openPlayerPopup, registerAddToTrade, capabilities } = useApp();
+  // The War Room's season-odds panel (DYN10 #4) is offered only when the
+  // server says its route answers (owner-held flag, default OFF).  Read from
+  // AppShell's context, never the auth context module: importing
+  // AppShellWrapper here regrouped webpack's shared chunks and put /league
+  // over its bundle budget.
+  const titleOddsAvailable = capabilities?.tradeTitleOdds?.available === true;
   // Trade math is canonical, always (TC-A P0-4): the retired "Raw" mode read
   // the legacy scraper composite.  Kept as a name so every call site states
   // the basis it computes on.
@@ -3020,6 +3026,7 @@ export default function TradePage() {
                   onDecision={setDecisionSummary}
                   valueSummary={warRoomValueSummary}
                   vaSlot={vaComparison}
+                  titleOddsAvailable={titleOddsAvailable}
                 />
               ) : multiPath ? (
                 // Owner directive 2026-10-20 §7: every team of a 3+-team trade

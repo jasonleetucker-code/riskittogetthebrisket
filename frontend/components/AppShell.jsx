@@ -112,6 +112,10 @@ const AppContext = createContext({
   registerAddToTrade: () => {},
   privateDataEnabled: true,
   searchEnabled: false,
+  // The server capability map (`/api/auth/status` features), the same object
+  // the nav reads.  null means "not told", which every reader treats as
+  // "do not offer".
+  capabilities: null,
 });
 
 export function useApp() {
@@ -437,6 +441,12 @@ function InnerAppShell({ loading, error, failure, retry, rows, siteKeys, rawData
         // contract (it searches players), so hiding it is the honest
         // outcome, not a compromise.
         searchEnabled,
+        // The capability map AppShellWrapper already hands this shell, so a
+        // page can read a flag-gated capability (e.g. /trade's
+        // `tradeTitleOdds`) without importing the auth context module: a new
+        // import edge to AppShellWrapper regroups webpack's shared chunks and
+        // pushed /league over its bundle budget (PR #2312).
+        capabilities,
       }}
     >
       {children}
