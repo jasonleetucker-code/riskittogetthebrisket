@@ -127,7 +127,15 @@ describe("Package Builder view", () => {
     await user.selectOptions(screen.getByLabelText("From team"), "Them");
     await user.click(screen.getByRole("button", { name: "Build packages" }));
     expect(await screen.findByText("Choose a different team to trade with.")).toBeInTheDocument();
-    expect(screen.queryByText("unknown_opponent")).toBeNull();
+    // The code is never shown INSTEAD of the sentence: it travels only as the
+    // banner's "(code: …)" detail, as on every other trade-tool view.
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent.indexOf("Choose a different team")).toBeLessThan(
+      alert.textContent.indexOf("unknown_opponent"),
+    );
+    expect(screen.getByText("unknown_opponent").tagName).toBe("CODE");
+    // A deterministic 400 refusal offers no retry.
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
     rerender(<PackageBuilderView myTeam="Them" leagueKey="lg" ownerKey="me" teams={TEAMS} />);
     await waitFor(() =>
       expect(screen.getByLabelText("Player or pick you want (optional)")).toHaveValue(""),

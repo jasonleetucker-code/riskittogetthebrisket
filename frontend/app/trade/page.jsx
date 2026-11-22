@@ -13,6 +13,7 @@ import {
 import { useDynastyData } from "@/components/useDynastyData";
 import { isFairGap } from "@/lib/fairness-bands";
 import { failureForDisplay } from "@/lib/contract-failure";
+import { failureFromError, tradeToolFailure } from "@/lib/trade-finder-errors";
 import {
   ACTIVE_PACKAGE_MODEL_ID,
   PACKAGE_MODELS,
@@ -133,6 +134,24 @@ import styles from "./trade.module.css";
 // responses — no trade math was moved, added, or reimplemented here.
 
 const ROSTER_KEY = "next_trade_roster_v1";
+
+// A failed trade-tool request, classified for TradeToolErrorBanner (the
+// suggestion desk and the KTC import row): a readable sentence, never a bare
+// code or a transport string.  Only a 5xx / 429 is worth a retry — a 4xx
+// refusal answers the same way again.
+function requestFailure(status, body, tool) {
+  return { ...tradeToolFailure(status, body, { tool }), retryable: status >= 500 || status === 429 };
+}
+
+// The KTC import route states its refusal as a user-facing SENTENCE in
+// `error` and keeps technical text in `detail`, which the shared normaliser
+// reads first — so that sentence is kept; a bridge outage (which carries a
+// transport detail) or a bare code still classifies.
+function ktcImportFailure(status, body) {
+  const failure = requestFailure(status, body, "KTC import");
+  const said = typeof body?.error === "string" ? body.error.trim() : "";
+  return !failure.detail && /\s/.test(said) ? { ...failure, message: said } : failure;
+}
 // The balancer answer while the deferred search is catching up (TC-E).
 const NO_BALANCERS = Object.freeze({ list: [], teamName: null });
 const TEAM_KEY = "next_trade_team_v1";
@@ -1769,7 +1788,7 @@ export default function TradePage() {
         return;
       }
       if (!res.ok || data?.ok === false) {
-        setKtcImportError(data?.error || `HTTP ${res.status}`);
+        setKtcImportError(ktcImportFailure(res.status, data));
         return;
       }
 
@@ -1846,7 +1865,7 @@ export default function TradePage() {
       }
     } catch (err) {
       if (seq !== ktcImportSeqRef.current) return;
-      setKtcImportError(err?.message || "Import failed");
+      setKtcImportError(failureFromError(err, { tool: "KTC import" }));
     } finally {
       if (seq === ktcImportSeqRef.current) setKtcImportBusy(false);
     }
@@ -2350,13 +2369,13 @@ export default function TradePage() {
       const data = await res.json().catch(() => ({}));
       if (!current()) return;
       if (!res.ok) {
-        setSuggestionsError(data.error || `Server error (${res.status})`);
+        setSuggestionsError(requestFailure(res.status, data, "Trade suggestions"));
         return;
       }
       setSuggestions(data);
     } catch (err) {
       if (!current()) return;
-      setSuggestionsError("Could not reach suggestion service.");
+      setSuggestionsError(failureFromError(err, { tool: "Trade suggestions" }));
     } finally {
       if (current()) {
         suggestionsInFlightRef.current = false;

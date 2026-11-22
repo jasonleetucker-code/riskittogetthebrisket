@@ -1,9 +1,10 @@
 """Fail a deploy whose RUNNING process has an owner-held vote flag in the
 wrong state.
 
-The repository locks six owner-held flags by owner decision (three
-source-vote flags, one shadow-measurement flag, one dormant
-replacement-level flag and one dormant forced-drop flag):
+The repository locks nine owner-held flags (three source-vote flags, one
+shadow-measurement flag, one dormant replacement-level flag, one dormant
+forced-drop flag, one owner-reserved pick-tether flag, one dormant trade
+title-odds lens and one owner-reserved recommendation-surface flag):
 
 * ``dlf_offense_only_vote`` must be effectively **ON** -- the DLF IDP / DLF
   Rookie IDP vote hold (owner Option 3, 2026-10-20;
@@ -27,7 +28,20 @@ replacement-level flag and one dormant forced-drop flag):
 * ``forced_drop_cheapest_legal`` must be effectively **OFF** -- the
   forced-drop correctness fix (#1890): dormant merge approved, activation not
   authorized (owner decision 2026-10-21, LVA Package 1, item 3 "Keep
-  forced_drop_cheapest_legal OFF"; ``tests/api/test_forced_drop_hold_locked.py``).
+  forced_drop_cheapest_legal OFF"; ``tests/api/test_forced_drop_hold_locked.py``);
+* ``pick_class_tether_guard`` must be effectively **OFF** -- the rookie-class
+  guard on the current-year pick tether: it moves canonical pick values, so
+  activation is owner-reserved and no owner decision has authorized it
+  (2026-11-21, ``docs/picks/PICK_CLASS_GUARD_EVIDENCE_2026-11-21.md``;
+  ``tests/api/test_pick_class_guard_hold_locked.py``);
+* ``trade_title_odds_lens`` must be effectively **OFF** -- Analyze Trade's
+  non-voting season-odds lens (DYN10 #4): built behind a default-OFF flag,
+  turning it ON is owner-reserved (owner directive 2026-11-21;
+  ``tests/api/test_title_odds_lens_hold_locked.py``);
+* ``team_advisor_plan`` must be effectively **OFF** -- the composed Team
+  Advisor plan (``GET /api/team/plan``): it serves new recommendations, and
+  turning any flag on is owner-reserved under the 2026-11-21 authorization
+  (``docs/EXECUTION_PLAN.md``; ``tests/api/test_team_plan_hold_locked.py``).
 
 A flag ABSENT from the snapshot fails closed, exactly as for D4: this check
 runs after the restart, against the process the deploy just started, and
@@ -114,6 +128,28 @@ OWNER_HELD_FLAGS: dict[str, tuple[bool, str, str]] = {
         "dormant; activation is the owner's separate decision after the box replay",
         "the cheapest-legal forced-drop selection is CHOOSING and CHARGING trade releases "
         "in production",
+    ),
+    "pick_class_tether_guard": (
+        False,
+        "owner-reserved activation (2026-11-21, docs/picks/PICK_CLASS_GUARD_EVIDENCE_"
+        "2026-11-21.md): the rookie-class guard on the current-year pick tether moves "
+        "canonical pick values, and no owner decision has authorized it",
+        "the rookie-class tether guard is REPRICING current-year slot picks in production",
+    ),
+    "trade_title_odds_lens": (
+        False,
+        "owner directive 2026-11-21 (DYN10 #4, docs/EXECUTION_PLAN.md 2026-11-21 section): "
+        "the trade title-odds lens ships behind a default-OFF flag and turning it ON is "
+        "owner-reserved",
+        "Analyze Trade is SERVING playoff / championship odds deltas in production",
+    ),
+    "team_advisor_plan": (
+        False,
+        "owner-reserved activation (2026-11-21 authorization, docs/EXECUTION_PLAN.md: "
+        "'turning any flag ON' is reserved): the composed Team Advisor plan serves new "
+        "recommendations, and no owner decision has authorized it",
+        "the composed Team Advisor plan is SERVING recommendations on /api/team/plan in "
+        "production",
     ),
 }
 

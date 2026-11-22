@@ -465,10 +465,11 @@ def served_section(status: Mapping[str, Any] | None) -> dict[str, Any]:
 
 
 #: Units that send an owner push from their OWN environment (a systemd drop-in),
-#: not the app ``.env``: the uptime probe and the session-renewal timer.
+#: not the app ``.env``: the uptime probe, the session-renewal timer and the liveness watchdog.
 PUSH_DROPIN_UNITS: dict[str, str] = {
     "uptimeProbeNtfyConfigured": "riskit-uptime.service",
     "renewalNtfyConfigured": "dynasty-signals-auth-renew.service",
+    "healthcheckNtfyConfigured": "dynasty-healthcheck.service",
 }
 _DROPIN_WEBHOOK = re.compile(r"(?:^|\s)NOTIFY_WEBHOOK_URL=(\S+)")
 
@@ -501,8 +502,14 @@ def alert_routing_section(app_dir: Path, units: Mapping[str, Any], show: ShowFn)
 
     The app ``.env`` feeds the backend and the alert-sweep timer (ntfy first,
     e-mail fallback: ``src/utils/owner_alerts.py``); two units push from their
-    own drop-in.  ``None`` = could not be read (unknown, never "configured")."""
-    from src.utils import owner_alerts  # noqa: PLC0415
+    own drop-in.  ``None`` = could not be read (unknown, never "configured").
+
+    ``ntfyState`` says WHY ``ntfyConfigured`` is false: ``unset`` or
+    ``rejected_<reason>`` (``owner_notify.validate``'s answer with ``:`` written
+    as ``_``, because this projection admits identifier-shaped strings only).
+    Every webhook value here, ``.env`` and drop-in alike, is judged by that ONE
+    validator."""
+    from src.utils import owner_alerts, owner_notify  # noqa: PLC0415
 
     env = _env_file(Path(app_dir) / ".env")
     channels = owner_alerts.channels_configured(env) if env is not None else None
@@ -510,6 +517,9 @@ def alert_routing_section(app_dir: Path, units: Mapping[str, Any], show: ShowFn)
         "sweepTimerActive": (units.get("alertSweep") or {}).get("timerActive"),
         "envFileReadable": env is not None,
         "ntfyConfigured": channels["ntfy"] if channels else None,
+        "ntfyState": (
+            owner_notify.public_state(owner_alerts.ntfy_state(env)) if env is not None else None
+        ),
         "emailConfigured": channels["email"] if channels else None,
     }
     for field, unit in PUSH_DROPIN_UNITS.items():
@@ -518,7 +528,7 @@ def alert_routing_section(app_dir: Path, units: Mapping[str, Any], show: ShowFn)
             out[field] = None
             continue
         match = _DROPIN_WEBHOOK.search(props.get("Environment") or "")
-        out[field] = bool(match and match.group(1).startswith("https://"))
+        out[field] = bool(match) and owner_notify.validate(match.group(1)) == owner_notify.STATE_OK
     return out
 
 
@@ -613,9 +623,11 @@ PUBLIC_PATHS: tuple[str, ...] = (
     "alertRouting.sweepTimerActive",
     "alertRouting.envFileReadable",
     "alertRouting.ntfyConfigured",
+    "alertRouting.ntfyState",
     "alertRouting.emailConfigured",
     "alertRouting.uptimeProbeNtfyConfigured",
     "alertRouting.renewalNtfyConfigured",
+    "alertRouting.healthcheckNtfyConfigured",
     "memAvailableMb",
 )
 

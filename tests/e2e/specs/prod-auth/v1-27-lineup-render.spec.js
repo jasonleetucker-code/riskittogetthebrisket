@@ -28,7 +28,6 @@ const {
   getJson,
   annotate,
   normName,
-  desktopOnly,
 } = require("./helpers");
 
 /** Loose person-name match: exact normalized, or last token + first initial. */
@@ -76,10 +75,9 @@ async function blockUserStateWrites(page) {
 }
 
 test.describe("V1-27: lineup render consumes the optimalLineup stamp", () => {
-  test("terminal portfolio renders the stamped starter/bench split for a real team", async ({
+  test("@desktop-only terminal portfolio renders the stamped starter/bench split for a real team", async ({
     prodPage: page,
   }, testInfo) => {
-    desktopOnly(test, testInfo);
     test.setTimeout(240_000);
     await blockUserStateWrites(page);
 
@@ -268,10 +266,9 @@ test.describe("V1-27: lineup render consumes the optimalLineup stamp", () => {
     }
   });
 
-  test("/rosters 'Starters only' scope is stamped-lineup-driven, with an honest unavailable state", async ({
+  test("@desktop-only /rosters 'Starters only' scope is stamped-lineup-driven, with an honest unavailable state", async ({
     prodPage: page,
   }, testInfo) => {
-    desktopOnly(test, testInfo);
     await blockUserStateWrites(page);
 
     const { status, body: contract } = await getJson(page, "/api/data?view=app");

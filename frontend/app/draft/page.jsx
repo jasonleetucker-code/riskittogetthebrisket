@@ -89,6 +89,12 @@ import {
   formatBdvmValue,
 } from "@/lib/bdvm";
 import {
+  buildRookieCoverageIndex,
+  coverageForName,
+  coverageLine,
+  coverageMarker,
+} from "@/lib/rookie-source-coverage";
+import {
   Badge,
   Banner,
   Button,
@@ -1236,6 +1242,7 @@ export function RookieBoard({
   onTagFilterChange,
   onAdd,
   bdvmIndex,
+  rookieCoverage,
 }) {
   const [sort, setSort] = useState({ col: "myWinningBid", asc: false });
 
@@ -1313,6 +1320,8 @@ export function RookieBoard({
 
   const teamName = (idx) => workspace.teams[idx]?.name || `Team ${idx + 1}`;
 
+  const coverageLineText = coverageLine(rookieCoverage?.pool);
+
   // Sortable header.  The draft board keeps its own hand-rolled
   // ``.draft-table`` (migrating it to the ds DataTable is a separate
   // job), so it borrows the ds table's SORT SEMANTICS directly: a real
@@ -1388,6 +1397,15 @@ export function RookieBoard({
           <AddPlayerInline onAdd={onAdd} />
         </div>
       </div>
+      {coverageLineText && (
+        <div
+          className="muted"
+          data-testid="rookie-source-coverage-line"
+          style={{ fontSize: 12, padding: "0 12px 6px" }}
+        >
+          {coverageLineText}
+        </div>
+      )}
       <div className="draft-tag-tabs">
         {tagTab("all", "All", tagCounts.all, "var(--cyan)")}
         {tagTab("target", "Targets", tagCounts.target, "var(--green)")}
@@ -1544,7 +1562,26 @@ export function RookieBoard({
                         <span className="muted">—</span>
                       )}
                     </td>
-                    <td>{p.name}</td>
+                    <td>
+                      {p.name}
+                      {(() => {
+                        const marker = coverageMarker(
+                          coverageForName(rookieCoverage, p.name),
+                          rookieCoverage?.pool?.lowCoverageBelow,
+                        );
+                        return marker ? (
+                          <span
+                            className="muted"
+                            data-testid="rookie-low-coverage"
+                            data-kind={marker.kind}
+                            title={marker.title}
+                            style={{ marginLeft: 6, fontSize: 11 }}
+                          >
+                            {marker.text}
+                          </span>
+                        ) : null;
+                      })()}
+                    </td>
                     <td>
                       <input
                         type="number"
@@ -3485,6 +3522,8 @@ export default function DraftDashboardPage() {
     ktc: new Map(),
     idp: new Map(),
   });
+  // Rookie-source coverage from /api/draft-capital (display only; DYN10).
+  const [rookieCoverage, setRookieCoverage] = useState(null);
   const [hydrated, setHydrated] = useState(false);
   // WHICH storage key the current `workspace` was hydrated from.  `hydrated`
   // alone cannot say whether the workspace belongs to the ACTIVE league: it is
@@ -3674,10 +3713,14 @@ export default function DraftDashboardPage() {
       return;
     autoSyncKeyRef.current = draftStorageKey;
     let cancelled = false;
+    // A league switch must not carry the previous league's coverage markers
+    // (joined by name) onto this league's rookies while the fetch is pending.
+    setRookieCoverage(null);
     (async () => {
       try {
         const capitalData = await capitalLoaderRef.current(selectedLeagueKey);
         if (cancelled) return;
+        setRookieCoverage(buildRookieCoverageIndex(capitalData));
         const picks = Array.isArray(capitalData?.picks)
           ? capitalData.picks
           : [];
@@ -3757,6 +3800,7 @@ export default function DraftDashboardPage() {
         });
       } catch {
         /* network blip — user can still hit "Sync from contract" manually */
+        if (!cancelled) setRookieCoverage(null);
       }
     })();
     return () => {
@@ -5085,6 +5129,7 @@ export default function DraftDashboardPage() {
         onTagFilterChange={setTagFilter}
         onAdd={onAdd}
         bdvmIndex={bdvmIndex}
+        rookieCoverage={rookieCoverage}
       />
 
       {bdvmPickRows.length > 0 && (

@@ -501,3 +501,379 @@ def test_values_board_failure_does_not_block_rank_boards(dlf_module):
     for key in ("dlfSf", "dlfIdp", "dlfRookieSf", "dlfRookieIdp"):
         assert dlf_module.BOARDS[key].get("kind") is None
         assert not dlf_module.BOARDS[key].get("require_native_value")
+
+
+# ── rookie class guard (2026-11-20) ───────────────────────────────────
+#
+# Synthetic shapes only (never captured vendor HTML).  Probed on the box
+# 2026-11-20 (DLF diagnostics 44737613322): both rookie pages are titled
+# "2026 Rookie … Rankings For Dynasty Fantasy Football - DLF".  Their empty
+# ``table#avgTable`` turned out to be a vendor-empty board (no expert columns,
+# no rows; diagnostics 44742643782), not a client-rendered one.
+
+
+def _rookie_page(title_year: str | None) -> str:
+    title = (
+        f"{title_year} Rookie Superflex Rankings For Dynasty Fantasy Football - DLF"
+        if title_year
+        else "Rookie Rankings - DLF"
+    )
+    return f"<html><head><title>{title}</title></head><body></body></html>"
+
+
+def _rows(teams: list[str]) -> list[dict]:
+    return [{"name": f"Player {i}", "avg": str(i), "team": t} for i, t in enumerate(teams, 1)]
+
+
+def test_rookie_boards_declare_their_class(dlf_module):
+    for key in ("dlfRookieSf", "dlfRookieIdp"):
+        cfg = dlf_module.BOARDS[key]
+        assert cfg["rookie_class_year"] == 2026
+        assert cfg["rookie_class_stage"] == "drafted"
+    # Non-rookie boards carry no class and are never class-gated.
+    for key in ("dlfSf", "dlfIdp"):
+        assert "rookie_class_year" not in dlf_module.BOARDS[key]
+
+
+def test_page_class_year_reads_the_title(dlf_module):
+    assert dlf_module._page_class_year(_rookie_page("2026")) == 2026
+    assert dlf_module._page_class_year(_rookie_page("2027")) == 2027
+    assert dlf_module._page_class_year(_rookie_page(None)) is None
+    assert dlf_module._page_class_year("") is None
+    assert dlf_module._page_class_year(None) is None
+
+
+def test_page_class_year_tolerates_title_wording(dlf_module):
+    def page(title: str) -> str:
+        return f"<html><head><title>{title}</title></head><body></body></html>"
+
+    for title, year in (
+        ("2027 Dynasty Rookie Rankings - DLF", 2027),
+        ("2027 Superflex Rookie Rankings", 2027),
+        ("Rookie Rankings: 2027 Class - DLF", 2027),
+        ("2026\n  Rookie IDP Rankings", 2026),
+        ("2026 rookie superflex rankings", 2026),
+    ):
+        assert dlf_module._page_class_year(page(title)) == year, title
+    # Two different years: the title cannot say which class the rows are.
+    assert dlf_module._page_class_year(page("Rookie Rankings 2026 | 2027 Class Preview")) is None
+    assert dlf_module._page_class_year(page("2026 Rookie Rankings (2026 update)")) == 2026
+    # A year far from the word "rookie" is not a class year: fail closed.
+    assert (
+        dlf_module._page_class_year(
+            page("Updated 2026 with the latest moves from every team in the league - Rookies")
+        )
+        is None
+    )
+
+
+def test_class_guard_accepts_the_configured_drafted_class(dlf_module):
+    cfg = dlf_module.BOARDS["dlfRookieSf"]
+    rows = _rows(["ARI", "LV", "NYJ", "KC", "FA"] * 10)
+    assert dlf_module._board_verdict(cfg, rows, _rookie_page("2026")) == (True, "ok")
+
+
+def test_class_guard_refuses_the_next_class(dlf_module):
+    """A page that moved on to the 2027 class must not overwrite the 2026 CSV."""
+    cfg = dlf_module.BOARDS["dlfRookieSf"]
+    rows = _rows(["ARI"] * 50)
+    ok, reason = dlf_module._board_verdict(cfg, rows, _rookie_page("2027"))
+    assert not ok and "2027 rookie class" in reason and "configured for 2026" in reason
+
+
+def test_class_guard_fails_closed_without_a_title_year(dlf_module):
+    cfg = dlf_module.BOARDS["dlfRookieIdp"]
+    ok, reason = dlf_module._board_verdict(cfg, _rows(["ARI"] * 30), _rookie_page(None))
+    assert not ok and "names no rookie class year" in reason
+    # The real run always passes the html; a call without it cannot verify.
+    ok, _ = dlf_module._board_verdict(cfg, _rows(["ARI"] * 30))
+    assert not ok
+
+
+def test_class_guard_refuses_college_teams_on_a_drafted_board(dlf_module):
+    """Same title year, but the rows are an undrafted class (college teams)."""
+    cfg = dlf_module.BOARDS["dlfRookieSf"]
+    rows = _rows(["Notre Dame", "Indiana", "Ohio State", "Alabama", "LSU"] * 10)
+    ok, reason = dlf_module._board_verdict(cfg, rows, _rookie_page("2026"))
+    assert not ok and "name an NFL team" in reason
+    ok, reason = dlf_module._board_verdict(cfg, _rows([""] * 50), _rookie_page("2026"))
+    assert not ok and "no Team cells" in reason
+
+
+def test_row_floor_is_checked_before_the_class(dlf_module):
+    cfg = dlf_module.BOARDS["dlfRookieSf"]
+    ok, reason = dlf_module._board_verdict(cfg, _rows(["ARI"] * 5), _rookie_page("2026"))
+    assert not ok and reason.startswith("parsed only 5 rows")
+
+
+def test_probe_prints_no_script_text_and_drops_off_host_script_paths(dlf_module):
+    html = """<html><body>
+    <script src="https://dynastyleaguefootball.com/wp-content/plugins/dlf-rank/table.js?ver=9"></script>
+    <script src="//cdn.example.test/dlf-rank/table.js"></script>
+    <script src="https://cdn.example.test/dlf-rank/player.js"></script>
+    <script>jQuery('#avgTable').DataTable({ajax: {data: {nonce: 'a1b2c3d4e5', who: 'jtucker'}}});</script>
+    </body></html>"""
+    out = "\n".join(dlf_module._probe_page(html))
+    assert "/wp-content/plugins/dlf-rank/table.js" in out
+    assert "cdn.example.test" not in out and out.count("table.js") == 1
+    assert "player.js" not in out
+    assert "a1b2c3d4e5" not in out and "jtucker" not in out and "?ver" not in out
+
+
+def test_probe_drops_data_uri_scripts_and_prints_rest_namespaces_only(dlf_module):
+    import base64
+
+    body = base64.b64encode(
+        b"var t={name:'jtucker',nonce:'a1b2c3d4e5f6'}; // dlf rank table"
+    ).decode()
+    html = f"""<html><body>
+    <script src="data:text/javascript;base64,{body}"></script>
+    <script src="blob:https://dynastyleaguefootball.com/0f3c-rank"></script>
+    <script src="dlf-rank/relative-no-slash.js"></script>
+    <link rel="https://api.w.org/" href="/wp-json/wp/v2/users/jtucker-42">
+    </body></html>"""
+    out = "\n".join(dlf_module._probe_page(html))
+    assert "script_srcs" not in out
+    assert body[-40:] not in out and "jtucker" not in out
+    assert "rest_paths=['/wp-json/wp/v2']" in out
+
+
+def test_probe_fetches_each_url_once_and_reports_where_it_landed(dlf_module, capsys):
+    class _Hop:
+        status_code = 301
+        url = "https://dynastyleaguefootball.com/old-rookie-rankings/?ref=x"
+
+    class _Resp:
+        status_code = 200
+        text = _PROBE_HTML
+        url = "https://dynastyleaguefootball.com/dynasty-rookie-superflex-rankings/?ref=x"
+        history = [_Hop()]
+
+    class _Session:
+        calls = 0
+
+        def get(self, *a, **k):
+            _Session.calls += 1
+            return _Resp()
+
+    url = "https://dynastyleaguefootball.com/old-rookie-rankings/"
+    assert dlf_module._probe(_Session(), url) == 0
+    assert _Session.calls == 1
+    out = capsys.readouterr().out
+    assert "status=200 final_path='/dynasty-rookie-superflex-rankings/'" in out
+    assert "301:/old-rookie-rankings/" in out and "ref=x" not in out
+
+
+def test_probe_reports_a_non_200_and_fails(dlf_module, capsys):
+    class _Resp:
+        status_code = 404
+        text = "<html>gone</html>"
+
+    class _Session:
+        def get(self, *a, **k):
+            return _Resp()
+
+    assert dlf_module._probe(_Session(), "https://dynastyleaguefootball.com/x/") == 1
+    assert "status=404" in capsys.readouterr().out
+
+
+# ── vendor-empty boards (2026-11-20) ──────────────────────────────────
+#
+# Synthetic shapes of what the box measured (DLF diagnostics 44742643782):
+# the rookie pages render the RankingEngine table with ZERO expert columns
+# and ZERO rows; the working Superflex page renders expert columns and rows.
+
+_EMPTY_ROOKIE_PAGE = """<html><head><title>2026 Rookie Superflex Rankings For Dynasty Fantasy Football - DLF</title></head>
+<body><table id="avgTable" class="display dlf_rankings-table avgtable startup-table">
+<thead><tr><th>Rank</th><th>Avg</th><th>Pos</th><th>Name</th><th>Team</th><th>Age</th><th>Value</th><th>Follow</th></tr></thead>
+<tbody></tbody></table><button>Load More</button></body></html>"""
+
+_EXPERTS_NO_ROWS_PAGE = """<html><body><table id="avgTable" class="dlf_rankings-table">
+<thead><tr><th>Rank</th><th>Avg</th><th>Pos</th><th>Name</th><th>Team</th><th>Age</th>
+<th>Expert A Last Updated: 11/17</th><th>Value</th></tr></thead><tbody></tbody></table></body></html>"""
+
+
+def _board_page(n: int, title: str = "Dynasty Superflex Rankings") -> str:
+    rows = "".join(
+        f"<tr><td>{i}</td><td>{i}.5</td><td>QB{i}</td><td>Player {i}</td><td>ARI</td><td>25</td><td>{i}</td><td></td><td></td></tr>"
+        for i in range(1, n + 1)
+    )
+    return (
+        f"<html><head><title>{title}</title></head><body><table id='avgTable' class='dlf_rankings-table'>"
+        "<thead><tr><th>Rank</th><th>Avg</th><th>Pos</th><th>Name</th><th>Team</th><th>Age</th>"
+        "<th>Expert A Last Updated: 11/17</th><th>Value</th><th>Follow</th></tr></thead>"
+        f"<tbody>{rows}</tbody></table></body></html>"
+    )
+
+
+def test_empty_board_reason_names_a_vendor_empty_board(dlf_module):
+    rookie = dlf_module.BOARDS["dlfRookieSf"]
+    assert dlf_module._parse_rankings(_EMPTY_ROOKIE_PAGE) == []
+    state, reason = dlf_module._empty_board_reason(_EMPTY_ROOKIE_PAGE, rookie)
+    assert state == "vendor_empty" and "0 expert columns" in reason
+
+
+def test_only_the_rookie_boards_may_be_labelled_vendor_empty(dlf_module):
+    declared = {k for k, cfg in dlf_module.BOARDS.items() if cfg.get("may_publish_empty")}
+    assert declared == {"dlfRookieSf", "dlfRookieIdp"}
+    # The same empty page on a board that does not declare it is a failure.
+    for key in ("dlfSf", "dlfIdp"):
+        state, reason = dlf_module._empty_board_reason(_EMPTY_ROOKIE_PAGE, dlf_module.BOARDS[key])
+        assert state == "parse_failed" and "may_publish_empty" in reason
+    assert dlf_module._empty_board_reason(_EMPTY_ROOKIE_PAGE)[0] == "parse_failed"
+
+
+def test_empty_board_reason_keeps_parse_failures_as_failures(dlf_module):
+    rookie = dlf_module.BOARDS["dlfRookieSf"]
+    state, _ = dlf_module._empty_board_reason(_EXPERTS_NO_ROWS_PAGE, rookie)
+    assert state == "parse_failed"
+    assert (
+        dlf_module._empty_board_reason("<html><body><p>nothing</p></body></html>", rookie)[0]
+        == "parse_failed"
+    )
+    assert dlf_module._empty_board_reason("", rookie)[0] == "parse_failed"
+    assert dlf_module._empty_board_reason(_board_page(20), rookie) is None
+
+
+def _run_main(dlf_module, monkeypatch, tmp_path, pages: dict, boards: dict, extra_argv=()):
+    monkeypatch.setattr(dlf_module, "REPO", tmp_path)
+    monkeypatch.setattr(dlf_module, "BOARDS", boards)
+    monkeypatch.setattr(dlf_module, "_load_env_dotfile", lambda path: None)
+    monkeypatch.setattr(dlf_module, "_build_session", lambda: object())
+    monkeypatch.setattr(dlf_module, "_ensure_logged_in", lambda session: None)
+    monkeypatch.setattr(dlf_module, "_fetch_rankings_html", lambda session, url: pages[url])
+    states = tmp_path / "states.json"
+    written = tmp_path / "written.json"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "fetch_dlf.py",
+            "--board-states",
+            str(states),
+            "--written-manifest",
+            str(written),
+            *extra_argv,
+        ],
+    )
+    code = dlf_module.main()
+    import json as _json
+
+    return (
+        code,
+        _json.loads(states.read_text(encoding="utf-8")),
+        _json.loads(written.read_text(encoding="utf-8")),
+    )
+
+
+def test_main_vendor_empty_board_keeps_last_good_and_still_fails(
+    dlf_module, monkeypatch, tmp_path, capsys
+):
+    rookie = dict(
+        dlf_module.BOARDS["dlfRookieSf"], url="https://example.test/rookie", out="out/rookie.csv"
+    )
+    sf = dict(
+        dlf_module.BOARDS["dlfIdp"], url="https://example.test/sf", out="out/sf.csv", min_rows=20
+    )
+    last_good = tmp_path / "out" / "rookie.csv"
+    last_good.parent.mkdir(parents=True)
+    last_good.write_text(
+        "name,rank,value,position,team\nKept Player,1.00,,RB1,ARI\n", encoding="utf-8"
+    )
+    pages = {rookie["url"]: _EMPTY_ROOKIE_PAGE, sf["url"]: _board_page(25)}
+    code, states, written = _run_main(
+        dlf_module, monkeypatch, tmp_path, pages, {"dlfRookieSf": rookie, "dlfIdp": sf}
+    )
+    # Still a failure: only the seasonal-policy owner may make an empty board
+    # an expected state.  The label says which kind of failure it is.
+    assert code == 1
+    assert not hasattr(dlf_module, "EXIT_VENDOR_EMPTY")
+    assert states["dlfRookieSf"]["state"] == "vendor_empty"
+    assert states["dlfIdp"] == {"state": "written", "reason": "25 rows"}
+    assert written == ["dlfIdp"]
+    assert "Kept Player" in last_good.read_text(encoding="utf-8")  # never zeroed, never overwritten
+    err = capsys.readouterr().err
+    # The journal line the performance inventory counts is unchanged.
+    assert "[DLF] WARN: no rows extracted for dlfRookieSf\n" in err
+    assert "[DLF] dlfRookieSf: vendor published no rankings (vendor_empty)" in err
+
+
+def test_main_fetch_failure_records_a_fixed_reason_code(dlf_module, monkeypatch, tmp_path):
+    board = dict(dlf_module.BOARDS["dlfIdp"], url="https://example.test/idp", out="out/idp.csv")
+
+    def _boom(session, url):
+        raise RuntimeError("DLF rankings GET https://example.test/idp?token=SECRET failed")
+
+    monkeypatch.setattr(dlf_module, "REPO", tmp_path)
+    monkeypatch.setattr(dlf_module, "BOARDS", {"dlfIdp": board})
+    monkeypatch.setattr(dlf_module, "_load_env_dotfile", lambda path: None)
+    monkeypatch.setattr(dlf_module, "_build_session", lambda: object())
+    monkeypatch.setattr(dlf_module, "_ensure_logged_in", lambda session: None)
+    monkeypatch.setattr(dlf_module, "_fetch_rankings_html", _boom)
+    states = tmp_path / "states.json"
+    monkeypatch.setattr(sys, "argv", ["fetch_dlf.py", "--board-states", str(states)])
+    assert dlf_module.main() == 1
+    import json as _json
+
+    recorded = _json.loads(states.read_text(encoding="utf-8"))
+    assert recorded == {"dlfIdp": {"state": "fetch_failed", "reason": "fetch_error:RuntimeError"}}
+
+
+def test_dry_run_records_no_board_state(dlf_module, monkeypatch, tmp_path):
+    board = dict(
+        dlf_module.BOARDS["dlfIdp"], url="https://example.test/idp", out="out/idp.csv", min_rows=20
+    )
+    code, states, written = _run_main(
+        dlf_module,
+        monkeypatch,
+        tmp_path,
+        {board["url"]: _board_page(25)},
+        {"dlfIdp": board},
+        extra_argv=("--dry-run",),
+    )
+    assert code == 0 and states == {} and written == []
+    assert not (tmp_path / "out" / "idp.csv").exists()
+
+
+def test_main_vendor_empty_never_masks_a_real_failure(dlf_module, monkeypatch, tmp_path):
+    rookie = dict(
+        dlf_module.BOARDS["dlfRookieSf"], url="https://example.test/rookie", out="out/rookie.csv"
+    )
+    broken = dict(
+        dlf_module.BOARDS["dlfIdp"], url="https://example.test/broken", out="out/broken.csv"
+    )
+    pages = {rookie["url"]: _EMPTY_ROOKIE_PAGE, broken["url"]: _EXPERTS_NO_ROWS_PAGE}
+    code, states, written = _run_main(
+        dlf_module, monkeypatch, tmp_path, pages, {"dlfRookieSf": rookie, "dlfIdp": broken}
+    )
+    assert code == 1
+    assert states["dlfIdp"]["state"] == "parse_failed"
+    assert states["dlfRookieSf"]["state"] == "vendor_empty"
+    assert written == []
+
+
+def test_main_refuses_the_next_rookie_class(dlf_module, monkeypatch, tmp_path):
+    rookie = dict(
+        dlf_module.BOARDS["dlfRookieSf"], url="https://example.test/rookie", out="out/rookie.csv"
+    )
+    page = _board_page(
+        60, title="2027 Rookie Superflex Rankings For Dynasty Fantasy Football - DLF"
+    )
+    code, states, written = _run_main(
+        dlf_module, monkeypatch, tmp_path, {rookie["url"]: page}, {"dlfRookieSf": rookie}
+    )
+    assert code == 2 and states["dlfRookieSf"]["state"] == "refused" and written == []
+    assert not (tmp_path / "out" / "rookie.csv").exists()
+
+
+def test_push_script_keeps_board_states_box_local_and_clears_stale_outputs():
+    """The board-state file names a paid vendor (tracked-exposure guard), so it
+    stays in the box work dir; and a fetcher that dies early must not leave
+    the previous run's manifest to be read as this run's."""
+    repo = Path(__file__).resolve().parents[2]
+    text = (repo / "deploy" / "dlf_fetch_and_push.sh").read_text(encoding="utf-8")
+    assert 'rm -f "${MANIFEST}" "${BOARD_STATES_RUN}"' in text
+    assert 'BOARD_STATES_FILE="${WORK_DIR}/dlf_board_states.json"' in text
+    assert "data/scrape_state/dlf_board_states.json" not in text
+    # States are merged before the "wrote no board" exit.
+    assert text.index("dlf_board_states.py merge") < text.index("and wrote no board")

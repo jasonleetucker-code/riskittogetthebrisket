@@ -15,7 +15,10 @@ Subcommands
                and that run's jobs (the full gate's verdict).
 ``compare``    Join the classification receipt, the data-gate receipt and the
                full verdict into one shadow verdict (+ a job-summary table).
-``aggregate``  Fold many shadow verdicts into the activation metrics.
+``aggregate``  Fold many shadow verdicts into the activation metrics: one per
+               deploy run (its latest attempt), and only LIVE observations
+               count toward the delivery count and the window (a backfill is
+               reported beside them; ``observation_kind`` defines both).
 ``backtest``   Replay the classifier over a ``deploy.yml`` run listing (offline).
 
 WHICH COMMIT A RUN DEPLOYED
@@ -106,6 +109,25 @@ NOT_APPLICABLE = "NOT_APPLICABLE"
 #: only what ``aggregate`` reports; the owner decides activation.
 MIN_COMPARED_DATA_ONLY = 30
 MIN_WINDOW_DAYS = 14
+
+#: How an observation relates to the deploy it observed (``observation_kind``).
+#: Only a LIVE observation -- made when the deploy completed -- counts toward the
+#: activation count and window; a BACKFILL re-evaluates an old deploy run later,
+#: so a day of backfills could otherwise fill a 14-day window on day one.
+OBSERVATION_LIVE = "live"
+OBSERVATION_BACKFILL = "backfill"
+#: A dispatched shadow that starts more than this long after the deploy run
+#: completed is a backfill.  A live dispatch comes from the deploy run's own
+#: last jobs (deploy.yml ``dispatch-data-delivery-shadow``) and starts within
+#: minutes; the measured backfills (2026-11-19, of deploys from 2026-11-05/06)
+#: started 13 days late.
+BACKFILL_LAG_HOURS = 6.0
+#: Verdicts recorded before observations were stamped carry neither the trigger
+#: nor the deploy's completion time, only ``deployCreatedAt`` and the compare
+#: time ``generatedAt``.  The gap between those also spans the deploy's queue
+#: wait and full gate (a few hours at most: the production-deploy group holds
+#: one pending run), so the legacy bound is a day.
+LEGACY_BACKFILL_LAG_HOURS = 24.0
 
 Fetch = Callable[[str], object]
 
@@ -219,6 +241,7 @@ def find_base_run(get_json: Fetch, observed: dict, max_pages: int = 5) -> dict |
 def _run_brief(run: dict) -> dict:
     keys = (
         "id",
+        "run_attempt",
         "event",
         "status",
         "conclusion",
@@ -368,8 +391,54 @@ def full_timing(run: dict, jobs: list[dict]) -> dict:
     }
 
 
+def _hours(seconds: float) -> float:
+    return round(seconds / 3600, 2)
+
+
+def observation_kind(
+    shadow_event: str | None, observed_at: datetime | None, observed_run: dict
+) -> dict:
+    """Whether this shadow observed its deploy run LIVE or as a BACKFILL.
+
+    Precisely:
+
+    * ``workflow_run`` trigger -> live.  GitHub starts it on the deploy run's
+      ``completed`` event (a re-run of the shadow keeps that trigger).
+    * ``workflow_dispatch`` trigger (deploy.yml's own dispatch for bot-started
+      deploys, or a person re-evaluating a run by ``deploy_run_id``):
+        - the deploy run had not completed when it was read -> live: only the
+          running deploy itself dispatches that early;
+        - it completed at ``updated_at`` and this shadow started at
+          ``observed_at`` no more than ``BACKFILL_LAG_HOURS`` later -> live;
+        - later than that -> backfill;
+        - either instant unknown -> backfill (not proven live).
+    * any other trigger, or none (a hand-run ``compare``) -> backfill.
+    """
+    out = {"shadowEvent": shadow_event, "lagHours": None}
+    if shadow_event == "workflow_run":
+        return {**out, "kind": OBSERVATION_LIVE, "reason": "workflow_run_on_deploy_completion"}
+    if shadow_event != "workflow_dispatch":
+        reason = f"not_triggered_by_a_deploy:{shadow_event or 'none'}"
+        return {**out, "kind": OBSERVATION_BACKFILL, "reason": reason}
+    status = observed_run.get("status")
+    if status and status != "completed":
+        return {**out, "kind": OBSERVATION_LIVE, "reason": "deploy_still_running_when_observed"}
+    finished = _ts(observed_run.get("updated_at"))
+    if finished is None or observed_at is None:
+        return {**out, "kind": OBSERVATION_BACKFILL, "reason": "dispatch_lag_unknown"}
+    lag = _hours((observed_at - finished).total_seconds())
+    if lag <= BACKFILL_LAG_HOURS:
+        return {**out, "lagHours": lag, "kind": OBSERVATION_LIVE, "reason": "dispatch_within_lag"}
+    return {**out, "lagHours": lag, "kind": OBSERVATION_BACKFILL, "reason": "dispatch_after_lag"}
+
+
 def compare(
-    inputs: dict, classification: dict, gates: dict | None, started_at: float | None
+    inputs: dict,
+    classification: dict,
+    gates: dict | None,
+    started_at: float | None,
+    *,
+    shadow_event: str | None = None,
 ) -> dict:
     jobs = inputs.get("observedJobs") or []
     run = inputs.get("observedRun") or {}
@@ -392,12 +461,18 @@ def compare(
         outcome = CONSERVATIVE_DISAGREEMENT
     shadow_wall = round(time.time() - started_at, 1) if started_at else None
     timing = full_timing(run, jobs)
+    observed_at = datetime.fromtimestamp(started_at if started_at else time.time(), tz=timezone.utc)
+    observation = observation_kind(shadow_event, observed_at, run)
+    observation["observedAt"] = observed_at.isoformat(timespec="seconds")
     return {
         "schema": SCHEMA,
         "generatedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "deployRunId": inputs.get("deployRunId"),
+        "runAttempt": run.get("run_attempt"),
+        "observation": observation,
         "deployEvent": run.get("event"),
         "deployCreatedAt": run.get("created_at"),
+        "deployFinishedAt": run.get("updated_at") if run.get("status") == "completed" else None,
         "deployConclusion": run.get("conclusion"),
         "target": classification.get("target", {}).get("sha"),
         "base": classification.get("base", {}).get("sha"),
@@ -414,6 +489,7 @@ def compare(
             "wouldShip": gates.get("wouldShip"),
             "blockingFailures": gates.get("blockingFailures"),
             "advisoryFailures": gates.get("advisoryFailures"),
+            "advisoryDeclared": gates.get("advisoryDeclared"),
             "gateSeconds": gates.get("seconds"),
             "gates": {g["name"]: g["status"] for g in gates.get("gates") or []},
         },
@@ -430,10 +506,17 @@ def render_summary(verdict: dict) -> str:
     fast = verdict.get("fastPath") or {}
     full = verdict["fullVerdict"]
     timing = verdict["timing"]
+    observation = verdict.get("observation") or {}
     rows = [
         (
             "Deploy run",
-            f"{verdict['deployRunId']} ({verdict['deployEvent']}, {verdict['deployConclusion']})",
+            f"{verdict['deployRunId']} attempt {verdict.get('runAttempt')} "
+            f"({verdict['deployEvent']}, {verdict['deployConclusion']})",
+        ),
+        (
+            "Observation",
+            f"{observation.get('kind')} ({observation.get('reason')}; "
+            f"lag {observation.get('lagHours')} h)",
         ),
         ("Target", f"`{verdict['target']}`"),
         ("Base (last fully validated deploy)", f"`{verdict['base']}` — {verdict['baseSource']}"),
@@ -479,7 +562,58 @@ def render_summary(verdict: dict) -> str:
 # ── aggregate ──────────────────────────────────────────────────────────────
 
 
+def verdict_observation(verdict: dict) -> str:
+    """``live`` / ``backfill`` for one verdict.
+
+    A verdict stamps its own ``observation`` (``observation_kind``).  One recorded
+    before that field existed is classified from what it does carry: live when
+    its compare time ``generatedAt`` is within ``LEGACY_BACKFILL_LAG_HOURS`` of
+    ``deployCreatedAt``, else -- or when either is missing -- backfill."""
+    stamped = verdict.get("observation")
+    if isinstance(stamped, dict) and stamped.get("kind") in (
+        OBSERVATION_LIVE,
+        OBSERVATION_BACKFILL,
+    ):
+        return str(stamped["kind"])
+    created, generated = _ts(verdict.get("deployCreatedAt")), _ts(verdict.get("generatedAt"))
+    if created is None or generated is None:
+        return OBSERVATION_BACKFILL
+    lag = (generated - created).total_seconds() / 3600
+    return OBSERVATION_LIVE if lag <= LEGACY_BACKFILL_LAG_HOURS else OBSERVATION_BACKFILL
+
+
+def latest_per_deploy_run(verdicts: list[dict]) -> list[dict]:
+    """One verdict per ``deployRunId``: its LATEST observed attempt.
+
+    A deploy run re-run after a failure is observed once per attempt, and a run
+    can be re-evaluated by hand; each is the same delivery, so it must count once.
+    Preference: the highest ``runAttempt`` (the deploy's final verdict; a legacy
+    verdict without one ranks below any stamped attempt), then a live observation
+    over a backfill of that same attempt, then the latest ``generatedAt``.  A
+    verdict with no ``deployRunId`` cannot be matched and is kept as is."""
+    best: dict[object, dict] = {}
+    unmatched: list[dict] = []
+
+    def rank(v: dict) -> tuple:
+        attempt = v.get("runAttempt")
+        return (
+            attempt if isinstance(attempt, int) else 0,
+            verdict_observation(v) == OBSERVATION_LIVE,
+            str(v.get("generatedAt") or ""),
+        )
+
+    for v in verdicts:
+        key = v.get("deployRunId")
+        if key is None:
+            unmatched.append(v)
+        elif key not in best or rank(v) > rank(best[key]):
+            best[key] = v
+    return [*best.values(), *unmatched]
+
+
 def aggregate(verdicts: list[dict]) -> dict:
+    observations = len(verdicts)
+    verdicts = latest_per_deploy_run(verdicts)
     by_class: dict[str, int] = {}
     by_outcome: dict[str, int] = {}
     for v in verdicts:
@@ -487,13 +621,18 @@ def aggregate(verdicts: list[dict]) -> dict:
             by_class.get(v.get("classification") or "?", 0) + 1
         )
         by_outcome[v.get("outcome") or "?"] = by_outcome.get(v.get("outcome") or "?", 0) + 1
-    compared = [
+    compared_all = [
         v
         for v in verdicts
         if v.get("outcome")
         in (AGREE_SHIP, AGREE_REFUSE, UNSAFE_DISAGREEMENT, CONSERVATIVE_DISAGREEMENT)
     ]
-    shipped = [v for v in compared if v.get("outcome") == AGREE_SHIP]
+    # Only live observations count toward the activation count and window: a
+    # backfill re-evaluates an old deploy run, so it says nothing about how many
+    # deliveries the shadow has watched happen, or over how many days.
+    compared = [v for v in compared_all if verdict_observation(v) == OBSERVATION_LIVE]
+    compared_backfill = len(compared_all) - len(compared)
+    shipped = [v for v in compared_all if v.get("outcome") == AGREE_SHIP]
     saved = [
         (v["timing"].get("preDeployRunnerMinutes") or 0)
         - (v["timing"].get("shadowJobWallMinutes") or 0)
@@ -515,10 +654,17 @@ def aggregate(verdicts: list[dict]) -> dict:
     }
     return {
         "schema": SCHEMA + "#aggregate",
+        "observations": observations,
+        "duplicateObservationsDropped": observations - len(verdicts),
         "verdicts": len(verdicts),
+        "byObservation": {
+            kind: sum(1 for v in verdicts if verdict_observation(v) == kind)
+            for kind in (OBSERVATION_LIVE, OBSERVATION_BACKFILL)
+        },
         "byClassification": dict(sorted(by_class.items())),
         "byOutcome": dict(sorted(by_outcome.items())),
         "comparedDataOnly": len(compared),
+        "comparedDataOnlyBackfill": compared_backfill,
         "windowDays": window_days,
         "unsafeDisagreements": [
             {
@@ -660,6 +806,10 @@ def main(argv: list[str] | None = None) -> int:
     p_compare.add_argument("--classification", type=Path, required=True)
     p_compare.add_argument("--gates", type=Path, help="absent when the fast path did not run")
     p_compare.add_argument("--started-at", type=float, help="shadow job start, unix seconds")
+    p_compare.add_argument(
+        "--shadow-event",
+        help="the shadow run's trigger (default: $GITHUB_EVENT_NAME); decides live vs backfill",
+    )
     p_compare.add_argument("--out", type=Path, required=True)
     p_compare.add_argument("--summary", type=Path, help="append a markdown table here")
 
@@ -706,7 +856,15 @@ def main(argv: list[str] | None = None) -> int:
         if inputs is None or classification is None:
             print("::error title=Data delivery shadow::inputs or classification receipt missing")
             return 1
-        verdict = compare(inputs, classification, _read_json(args.gates), args.started_at)
+        verdict = compare(
+            inputs,
+            classification,
+            _read_json(args.gates),
+            args.started_at,
+            # The shadow run's own trigger (Actions sets it in every step);
+            # unset on a hand run, which therefore never counts as live.
+            shadow_event=args.shadow_event or os.environ.get("GITHUB_EVENT_NAME"),
+        )
         _write_json(args.out, verdict)
         summary = render_summary(verdict)
         if args.summary:

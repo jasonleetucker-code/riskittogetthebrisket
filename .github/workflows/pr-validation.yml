@@ -560,19 +560,58 @@ jobs:
           # "shallow boundary" on every PR running the backend suite.
           git fetch --no-tags origin main || true
 
+      # tesseract-ocr, in four steps (CI-1c): resolve the .deb list from the
+      # freshly signature-checked index -> restore the cache into a quarantine
+      # -> install (each cached file is used only after its size and hash
+      # match the index; the rest is downloaded under a wall-clock cap) ->
+      # save, on main only.  scripts/ci/install_apt_packages.sh is the one CI
+      # apt install (bounded retries, the STAB-10 runner apt-source repair);
+      # it installs every package or fails, and never skips.  On a PR the save
+      # never runs (github.ref is the merge ref); PRs read main's cache.
+      - name: Resolve tesseract-ocr apt packages (cache key)
+        id: apt-resolve
+        timeout-minutes: 20
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash scripts/ci/install_apt_packages.sh --resolve tesseract-ocr
+
+      - name: Restore verified apt package cache
+        id: apt-cache
+        # Advisory: a cache outage costs a download, never the gate.
+        continue-on-error: true
+        timeout-minutes: 10
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ runner.temp }}/apt-quarantine
+          key: ${{ steps.apt-resolve.outputs.key }}
+          restore-keys: ${{ steps.apt-resolve.outputs.restore-prefix }}
+
       - name: Install tesseract-ocr (screenshot import OCR tests)
         # The screenshot trade importer (C3-IMPORT-IMAGE) shells out to the
         # tesseract binary.  Installing it here makes the real-OCR tests
         # (``@pytest.mark.tesseract``) RUN in the hard gate instead of
         # skipping; without the binary they skip and only the fake-engine
-        # tests cover the pipeline.  scripts/ci/install_apt_packages.sh is the
-        # one CI apt install: bounded retries, plus the STAB-10 repair of a
-        # runner whose apt sources carry no Ubuntu archive.  It never skips.
+        # tests cover the pipeline.
+        id: apt-install
+        timeout-minutes: 20
         shell: bash
         run: |
           set -Eeuo pipefail
           bash scripts/ci/install_apt_packages.sh tesseract-ocr
           tesseract --version | head -1
+
+      - name: Save verified apt package cache
+        # Same path as the restore (actions/cache versions an entry by its
+        # path list); the installer has replaced its contents with only the
+        # files it verified.  Main only, only on a miss.
+        if: ${{ github.ref == 'refs/heads/main' && steps.apt-cache.outputs.cache-hit != 'true' && steps.apt-install.outputs.saved != '0' }}
+        continue-on-error: true
+        timeout-minutes: 10
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ runner.temp }}/apt-quarantine
+          key: ${{ steps.apt-resolve.outputs.key }}
 
       - name: Run unit tests (hard gate — pure logic)
         shell: bash

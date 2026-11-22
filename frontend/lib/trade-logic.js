@@ -12,6 +12,7 @@
 // (including the KTC-VA parity pins) until the 2026-07-25 audit (F-4).
 import { effectiveAuctionPowerExact } from "./auction-power.js";
 import { MARKET_GAP_MIN_VALUE_RATIO } from "./thresholds.js";
+import { csvLine } from "./csv-cell.js";
 import {
   classifyGap,
   fairnessBase,
@@ -2576,10 +2577,9 @@ export function tradeWorkspaceToJSON(sides, valueMode, activeSide) {
 // break — but the default says "unspecified", never "Market", because
 // guessing the basis is the exact error this column exists to prevent.
 export function tradeWorkspaceToCSV(sides, valueMode = "full", valueBasis = "") {
-  const esc = (v) => {
-    const s = v == null ? "" : String(v);
-    return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
+  // Every cell through the one CSV owner (lib/csv-cell): side labels are
+  // Sleeper team names, which a spreadsheet would otherwise execute when one
+  // starts with = + - @.  Values stay numbers.
   const pickVal = (r) => {
     const vals = (r && r.values) || {};
     // Canonical only (TC-A P0-4): the legacy composite (``values.raw``) is
@@ -2598,9 +2598,7 @@ export function tradeWorkspaceToCSV(sides, valueMode = "full", valueBasis = "") 
   for (const s of sides || []) {
     for (const r of s.assets || []) {
       lines.push(
-        [s.label, r.name, r.pos || "", r.team || "", pickVal(r), basis, r.assetId || ""]
-          .map(esc)
-          .join(","),
+        csvLine([s.label, r.name, r.pos || "", r.team || "", pickVal(r), basis, r.assetId || ""]),
       );
     }
   }

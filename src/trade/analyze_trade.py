@@ -33,10 +33,15 @@ The packet answers separate questions in separate LENSES
   NEVER votes: it interprets the same evidence the roster lens and the playoff
   odds already carry, so a vote would count it twice; and the owner decision
   says posture is never a veto.  Excluded by mode under Asset-Only.
-* **currentSeasonEquity** — named UNAVAILABLE: the playoff simulator's trade
-  counterfactual (``playoff_sim.simulate_trade_impact``) takes a weekly-mean
-  shift only and is not wired.  Unavailable is not neutral and is never read
-  as zero.
+* **currentSeasonEquity** (``lenses.titleOdds``) — this season's playoff and
+  title odds before / after the trade, with a paired interval and a
+  ``significant`` flag (DYN10 #4, ``src.trade.title_odds_lens``).  CONTEXT,
+  NEVER votes: built by the route like the comparables payload and handed in,
+  never passed to ``trade_decision``.  Behind the owner-held flag
+  ``trade_title_odds_lens`` (default OFF); OFF, nothing is computed, the
+  dimension stays named UNAVAILABLE (``counterfactual_not_wired``) and the
+  packet is byte-identical to the pre-lens one.  Excluded by mode under
+  Asset-Only.  Unavailable is not neutral and is never read as zero.
 
 Use Team Context (#842)
 ───────────────────────
@@ -85,6 +90,10 @@ LINEAGE_TEAM_STRATEGY = "team_strategy_context"
 #: so it cannot be counted alongside the market lens that already prices the
 #: same assets.
 LINEAGE_REAL_TRADES = "real_trade_ledger"
+#: The season simulator's playoff / title odds (``src.ros.playoff_sim``) —
+#: context, never a vote: it reads the same rosters the roster lens and the
+#: posture already interpret.
+LINEAGE_SEASON_SIMULATION = "season_simulation"
 #: How many comparable trades the packet carries.
 COMPARABLES_SHOWN = 3
 
@@ -839,9 +848,22 @@ class AnalyzeTradeResult:
     team_context: dict[str, Any]
     #: NO TRANSACTION as a named comparator (``trade_decision.status_quo``).
     status_quo: dict[str, Any] | None = None
+    #: The title-odds lens was handed in (flag ON).  False keeps the packet
+    #: byte-identical to the pre-lens one: no ``lenses.titleOdds`` key.
+    title_odds_included: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         by_name = {d.name: d.to_dict() for d in self.dimensions}
+        lenses = {
+            "market": by_name.get("equity"),
+            "roster": by_name.get("rosterUtility"),
+            "feasibility": by_name.get("feasibility"),
+            "evidence": by_name.get("evidence"),
+            "posture": by_name.get("strategicPosture"),
+            "comparables": by_name.get("marketCorroboration"),
+        }
+        if self.title_odds_included:
+            lenses["titleOdds"] = by_name.get(TITLE_ODDS_DIMENSION)
         return {
             "version": PACKET_VERSION,
             # The ONE top-line answer (src.trade.trade_decision).  The UI's
@@ -859,14 +881,7 @@ class AnalyzeTradeResult:
             "reasonsAgainst": self.reasons_against,
             "uncertainty": self.uncertainty,
             "topUncertainty": self.uncertainty[0] if self.uncertainty else None,
-            "lenses": {
-                "market": by_name.get("equity"),
-                "roster": by_name.get("rosterUtility"),
-                "feasibility": by_name.get("feasibility"),
-                "evidence": by_name.get("evidence"),
-                "posture": by_name.get("strategicPosture"),
-                "comparables": by_name.get("marketCorroboration"),
-            },
+            "lenses": lenses,
             "dimensions": [d.to_dict() for d in self.dimensions],
             "unavailableDimensions": list(self.unavailable_dimensions),
         }
@@ -919,6 +934,38 @@ def _posture_lens(simulation: dict[str, Any]) -> DimensionResult:
     )
 
 
+#: The packet's name for the season-odds dimension (``lenses.titleOdds``): the
+#: slot ``_UNAVAILABLE_DIMENSIONS`` named before the lens existed.
+TITLE_ODDS_DIMENSION = "currentSeasonEquity"
+
+
+def _title_odds_lens(title_odds: Any, simulation: dict[str, Any]) -> DimensionResult:
+    """This season's playoff / title odds before and after the trade, as
+    CONTEXT (DYN10 #4).
+
+    ``title_odds`` is the ``src.trade.title_odds_lens`` payload the route
+    computed for the WHOLE trade (every team's row from one paired season
+    simulation); this projects the analysed team's own row.  Like the
+    comparables lens it carries ``votes=False`` and is never passed to
+    ``trade_decision``: it cannot move the decision, the leaning, the gap, the
+    fairness band or the confidence.  An unavailable payload stays unavailable
+    with its reason — never a zero delta.
+    """
+    from src.trade import title_odds_lens  # noqa: PLC0415
+
+    base = {"name": TITLE_ODDS_DIMENSION, "votes": False, "lineage": LINEAGE_SEASON_SIMULATION}
+    team = simulation.get("team") if isinstance(simulation.get("team"), dict) else {}
+    view = title_odds_lens.lens_detail(title_odds, str(team.get("ownerId") or "") or None)
+    if not view.get("available"):
+        return DimensionResult(
+            **base,
+            available=False,
+            unavailable_reason=str(view.get("unavailableReason") or "not_computed"),
+            detail=dict(view.get("detail") or {}),
+        )
+    return DimensionResult(**base, available=True, direction="context", detail=view["detail"])
+
+
 def _excluded_by_mode(name: str, lineage: str) -> DimensionResult:
     return DimensionResult(
         name=name,
@@ -936,6 +983,7 @@ def analyze_trade(
     team_goal: Any = None,
     provenance: dict[str, Any] | None = None,
     counterfactuals: bool = True,
+    title_odds: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Synthesize one Analyze Trade packet from a ``simulate_trade`` payload.
 
@@ -948,6 +996,13 @@ def analyze_trade(
 
     ``counterfactuals`` is forwarded to :func:`trade_decision.decide` (the
     "what would change it" search; it never changes the decision).
+
+    ``title_odds`` is the ``src.trade.title_odds_lens`` payload (flag
+    ``trade_title_odds_lens`` ON only).  ``None`` — the flag OFF — leaves the
+    packet byte-identical to the pre-lens one.  Given, it becomes the
+    non-voting ``currentSeasonEquity`` dimension (``lenses.titleOdds``) and the
+    dimension leaves ``unavailableDimensions``; nothing it carries reaches
+    ``trade_decision``.
     """
     cfg = _config()
     team_context_block = simulation.get("teamContext") or {"applied": True, "mode": "team"}
@@ -1004,6 +1059,25 @@ def analyze_trade(
         team_context=team_context,
     )
 
+    dimensions = [market, roster, feasibility, evidence, posture, comps]
+    unavailable_dimensions = list(_UNAVAILABLE_DIMENSIONS)
+    if title_odds is not None:
+        # Built AFTER the decision, from nothing the decision read: context
+        # only, never a vote (``votes=False`` in either branch).
+        if team_context:
+            season = _title_odds_lens(title_odds, simulation)
+        else:
+            season = _excluded_by_mode(TITLE_ODDS_DIMENSION, LINEAGE_SEASON_SIMULATION)
+            season.votes = False
+        dimensions.append(season)
+        # Only computed odds retire the "not included yet" entry: an
+        # unavailable or mode-excluded lens leaves the dimension unavailable,
+        # so the client's caveat never disappears with nothing in its place.
+        if season.available:
+            unavailable_dimensions = [
+                d for d in unavailable_dimensions if d["dimension"] != TITLE_ODDS_DIMENSION
+            ]
+
     return AnalyzeTradeResult(
         decision=decision,
         recommendation=recommendation,
@@ -1012,11 +1086,12 @@ def analyze_trade(
         reasons_for=reasons_for,
         reasons_against=reasons_against,
         uncertainty=uncertainty,
-        dimensions=[market, roster, feasibility, evidence, posture, comps],
-        unavailable_dimensions=list(_UNAVAILABLE_DIMENSIONS),
+        dimensions=dimensions,
+        unavailable_dimensions=unavailable_dimensions,
         team_context={
             "applied": team_context,
             "mode": "team" if team_context else "asset_only",
         },
         status_quo=status_quo,
+        title_odds_included=title_odds is not None,
     ).to_dict()

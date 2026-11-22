@@ -21,6 +21,13 @@ import {
   SkeletonTable,
 } from "@/components/ds";
 import { withValuationMode } from "@/lib/valuation-mode";
+import TradeToolErrorBanner from "@/components/arbitrage/TradeToolErrorBanner";
+import {
+  TradeToolRequestError,
+  failureFromError,
+  tradeToolFailure,
+} from "@/lib/trade-finder-errors";
+import { normalizeFailureBody } from "@/lib/contract-failure";
 import { buildShareUrl } from "@/lib/trade-share";
 import { deskBodyFromOffer } from "@/lib/trade-desk";
 import SaveToDeskButton from "@/components/trade/SaveToDeskButton";
@@ -71,6 +78,21 @@ const CONTEXT_OPTIONS = [
   { value: "asset", label: "Asset only" },
 ];
 
+/**
+ * Why a Package Builder request failed, as a classified trade-tool failure
+ * (lib/trade-finder-errors).  The builder's own sentence for its own
+ * validation codes (lib/package-builder::requestErrorText) is used when the
+ * server stated no reason; a deterministic 4xx refusal is not retryable.
+ */
+function builderFailure(status, body) {
+  const failure = tradeToolFailure(status, body, { tool: "Package Builder" });
+  const ownText = failure.code ? requestErrorText(failure.code) : "";
+  const known = ownText && ownText !== requestErrorText("");
+  const message = known && !normalizeFailureBody(body).message ? ownText : failure.message;
+  const retryable = status >= 500 || status === 429;
+  return { ...failure, message, retryable };
+}
+
 function calcUrl(myTeam, pkg) {
   const asName = (a) => a.boardRowName || a.name;
   try {
@@ -118,7 +140,8 @@ export default function PackageBuilderView({
   const [refinement, setRefinement] = useState(emptyRefinement);
   const [result, setResult] = useState(null);
   const [running, setRunning] = useState(false);
-  const [error, setError] = useState("");
+  // A classified failure ({message, code, detail, retryable}) or null.
+  const [error, setError] = useState(null);
   const seq = useRef(0);
 
   useEffect(() => {
@@ -129,7 +152,7 @@ export default function PackageBuilderView({
     setSellAsset("");
     setTarget("");
     setOpponent("");
-    setError("");
+    setError(null);
     setRefinement(loadRefinement(storageKey));
   }, [storageKey]);
 
@@ -175,7 +198,7 @@ export default function PackageBuilderView({
     if (!myTeam || !fields.ready) return;
     const mine = ++seq.current;
     setRunning(true);
-    setError("");
+    setError(null);
     try {
       const res = await fetch("/api/trade/package-builder", {
         method: "POST",
@@ -204,10 +227,10 @@ export default function PackageBuilderView({
         ),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(requestErrorText(data?.error));
+      if (!res.ok) throw new TradeToolRequestError(builderFailure(res.status, data));
       if (mine === seq.current) setResult(data);
     } catch (err) {
-      if (mine === seq.current) setError(err?.message || "Request failed");
+      if (mine === seq.current) setError(failureFromError(err, { tool: "Package Builder" }));
     } finally {
       if (mine === seq.current) setRunning(false);
     }
@@ -432,7 +455,7 @@ export default function PackageBuilderView({
         onClear={refine.onClear}
         disabled={running}
       />
-      {error ? <Banner tone="negative">{error}</Banner> : null}
+      <TradeToolErrorBanner failure={error} onRetry={() => void run()} />
       {running ? <SkeletonTable rows={4} /> : null}
       {!running && result ? (
         <p className={styles.count} role="status">

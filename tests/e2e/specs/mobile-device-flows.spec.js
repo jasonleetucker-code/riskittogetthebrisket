@@ -213,6 +213,19 @@ const SW_VERSION_RE = /chaseupside-v(\d+)/;
 // settles when nothing activates, which burned the whole 150 s test budget on
 // mobile-390 (E2E run 44519478798) and left no evidence.  This fails in 30 s
 // with the registration states instead.
+//
+// Call it on the page whose ServiceWorkerRegistrar is registering, and do not
+// navigate that page until it returns.  WebKit loses a register() job when
+// the document that scheduled it is stopped (navigated away) before the
+// server has asked that document to fetch the script: the stopped
+// ServiceWorkerContainer drops the job without telling the server (it only
+// reports a job whose script load had started), the server's later fetch
+// request is posted to the stopped document and finds no job, and the server
+// job queue for scope "/" then waits forever.  What is left is a
+// registration with no worker at all, and every later register() for "/"
+// queues behind the lost job.  That is the state E2E runs 44533702571,
+// 44744152284 and 44750782840 recorded.  (A worker whose install hung or
+// failed after its script was fetched would show as ``installing``.)
 async function waitForActiveWorker(page, timeoutMs = 30_000) {
   const state = await page.evaluate(async (ms) => {
     const outcome = await Promise.race([
@@ -222,6 +235,7 @@ async function waitForActiveWorker(page, timeoutMs = 30_000) {
     const regs = await navigator.serviceWorker.getRegistrations();
     return {
       outcome,
+      page: location.pathname,
       controlled: Boolean(navigator.serviceWorker.controller),
       registrations: regs.map((r) => ({
         scope: r.scope,
@@ -240,14 +254,26 @@ test.describe("service worker update path @mobile-only", () => {
     authedPage: page,
     context,
   }) => {
-    await page.goto(pageUrl("/rankings"), { waitUntil: "domcontentloaded" });
+    // The fixture left this page open on "/", and that page's
+    // ServiceWorkerRegistrar is registering "/sw.js".  Wait for THAT
+    // registration to activate before navigating anywhere.  Navigating to
+    // /rankings straight away stopped the "/" document inside the window
+    // where WebKit loses its register() job (see waitForActiveWorker).  The
+    // passing retries' traces show the window is entered on every run: this
+    // test's goto("/rankings") was issued 11-22 ms after the fixture's
+    // goto("/") resolved, and "/"'s mount effects (the register() among
+    // them) fired 8-14 ms after that.  In 44750782840's retry "/"'s own
+    // /sw.js fetch had started and was cancelled by the navigation (WebKit
+    // reports that and recovers); in 44744152284's it had not started.  Which
+    // side of that IPC race won decided pass or fail.
     if (!(await page.evaluate(() => "serviceWorker" in navigator))) {
       // Recorded as a SKIP (listed in tests/e2e/skip-baseline.json as
       // unsupported-environment), never a silent pass.
       test.skip(true, "this engine exposes no navigator.serviceWorker on http://127.0.0.1");
     }
     await waitForActiveWorker(page);
-    await page.reload({ waitUntil: "domcontentloaded" });
+    // A navigation after activation is controlled from its first request.
+    await page.goto(pageUrl("/rankings"), { waitUntil: "domcontentloaded" });
     await expect
       .poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)), { timeout: 30_000 })
       .toBe(true);
@@ -367,20 +393,20 @@ test.describe("service worker update path @mobile-only", () => {
       )
       .toBe(true);
     await expect(page.locator("body")).toBeVisible();
-    // Hand the next test a NORMAL worker.  Under Playwright, WebKit shares
-    // service-worker registrations across browser contexts of one browser, so
-    // whatever this test leaves is inherited: the simulated "/sw.js?deploy=2"
-    // left in place, or an unregistered (empty) registration, made the next
-    // SW test on mobile-390 wait forever (E2E 44519478798 and 44533702571,
-    // diagnostics: one registration at "/", no installing/waiting/active
-    // worker), while a fresh browser always passed.  Every other test leaves
-    // an active "/sw.js", so restore exactly that.  Production never registers
-    // a second script URL.
+    // Hand any later test a NORMAL worker: every other test leaves an active
+    // "/sw.js", so restore exactly that.  Production never registers a second
+    // script URL.  (This was added on the hypothesis that WebKit shares
+    // registrations across Playwright contexts.  That was never shown: the
+    // empty registration it was meant to explain recurred in the other SW
+    // test after that test was moved ahead of this one (E2E 44744152284,
+    // 44750782840), so nothing this test leaves caused it.  The lost
+    // register() job described at waitForActiveWorker explains it from
+    // inside the failing test alone.)
     await page
       .evaluate(() => navigator.serviceWorker.register("/sw.js", { scope: "/" }).then(() => true))
       .catch(() => {});
-    // Best effort, recorded either way: this restores shared browser state
-    // for later tests; it is not part of what this test proves.
+    // Best effort, recorded either way: this restores browser state for
+    // later tests; it is not part of what this test proves.
     let restored = null;
     for (let i = 0; i < 30 && restored !== "/sw.js"; i += 1) {
       restored = await page

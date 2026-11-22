@@ -1,8 +1,9 @@
 """Stale-source health alerts.
 
 Detects when a ranking source hasn't refreshed in longer than its
-configured ``maxStaleHours`` and emits a one-shot alert (email,
-reusing the existing SMTP pipe from signal alerts).
+configured ``maxStaleHours`` and emits a one-shot owner alert through the
+caller's delivery callable -- in production ``server._deliver_owner_alert``
+(``src/utils/owner_alerts.py``: push first, e-mail as the fallback).
 
 Per-source staleness thresholds live in
 ``config/source_staleness.json``.  Default policy: every source is
@@ -13,15 +14,22 @@ alert fatigue.  Slower vendor cadences are irrelevant because the
 fetcher overwrites the CSV with whatever the page currently
 serves; mtime tracks scrape health, not vendor publish events.
 
-Cooldown: once an alert fires for a source, don't re-fire until
+Cooldown: once an alert is DELIVERED for a source, don't re-fire until
 either (a) the source recovers (fresh fetch observed) or (b)
 ``_REALERT_COOLDOWN_HOURS`` have passed.  Cooldown state lives
 in ``user_kv`` keyed under ``sourceHealthAlertState`` so it
-survives restart.
+survives restart.  "We decided to alert" (``attemptedAt``) and "the
+owner was told" (``lastDeliveredAt``) are different facts, and only the
+second spends the window -- the rule ``ops_alerts`` has followed since
+audit F-20.  An unconfigured, failing or raising delivery therefore
+spends nothing: the next sweep tries again.  A pre-upgrade entry
+carrying only ``lastAlertedAt`` keeps suppressing what it already
+suppressed, so an upgrade does not burst.
 
-Recovery alerts: when a previously-stale source comes back, emit
-a one-shot "is back" email.  Bi-directional so Jason always
-knows the current health state.
+Recovery alerts: when a stale source the owner was TOLD about comes
+back, emit a one-shot "is back" notice; it is retried every sweep until
+it is delivered.  A stale episode the owner never heard about ends silently --
+a recovery for an incident nobody announced is noise.
 
 Integration point: the signal-alert cron calls ``check_and_alert()``
 as part of its sweep — no new cron required.
@@ -40,8 +48,36 @@ from src.api import user_kv
 
 _LOGGER = logging.getLogger(__name__)
 
-# Default cooldown between re-alerts for the same source.
+# Default cooldown between re-alerts for the same source.  Measured from the
+# last DELIVERED alert, never from a decision or an attempt.
 _REALERT_COOLDOWN_HOURS = 72.0
+
+# A sweep holds a short claim (``sendingAt``) on what it is delivering, so an
+# overlapping sweep does not send the same notice twice.  Delivery is bounded
+# (ntfy 5 s, SMTP 15 s per port); a claim older than this belongs to a sweep
+# that died mid-delivery and is ignored.
+_IN_FLIGHT_CLAIM_SEC = 900.0
+
+# When the owner was last TOLD about a source's current episode.
+# ``lastAlertedAt`` is the pre-2026-11-20 field, written at DECISION time
+# whether or not anything was delivered; it is honoured so an upgrade keeps
+# suppressing what it already suppressed, and never written again.
+_LEGACY_TOLD_KEY = "lastAlertedAt"
+_TOLD_KEYS = ("lastDeliveredAt", _LEGACY_TOLD_KEY)
+
+
+def _told_at(entry: dict[str, Any]) -> float | None:
+    """Epoch the owner was last told about this episode, or ``None`` (never)."""
+    for key in _TOLD_KEYS:
+        if key not in entry:
+            continue
+        value = entry.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            # An unreadable stamp is "never told": fire rather than stay silent.
+            return None
+        return float(value)
+    return None
+
 
 _DEFAULT_STALENESS_HOURS: dict[str, float] = {
     # Universal 24h policy: every source is fetched on the 2h cron
@@ -460,10 +496,15 @@ def check_and_alert(
     Returns a summary dict for logging::
 
         {"stale": int, "recovered": int, "delivered": int,
-         "skipped_cooldown": int}
+         "skipped_cooldown": int, "skipped_in_flight": int,
+         "deliveryConfigured": bool}
+
+    ``deliveryConfigured`` keeps "nothing to send" and "nobody to send it to"
+    apart, as ``ops_alerts`` does.
     """
     state_user = "_system_source_health"
     now = time.time()
+    cooldown_sec = cooldown_hours * 3600.0
     stale = detect_stale_sources(
         source_health,
         thresholds=thresholds,
@@ -472,62 +513,95 @@ def check_and_alert(
     ) + detect_content_alerts(source_weighting)
     stale_sources = {a.source for a in stale}
 
-    summary = {"stale": 0, "recovered": 0, "delivered": 0, "skipped_cooldown": 0}
+    delivery_configured = delivery is not None and bool(to_email)
+    summary: dict[str, Any] = {
+        "stale": 0,
+        "recovered": 0,
+        "delivered": 0,
+        "skipped_cooldown": 0,
+        "skipped_in_flight": 0,
+        # "nothing to send" and "could not send" must not read the same.
+        "deliveryConfigured": delivery_configured,
+    }
     to_send: list[StaleSourceAlert] = []
 
-    # The cooldown / recovery decision is made on the CURRENT state, inside
-    # the user_kv write lock, and persisted in the same transaction BEFORE
-    # sending (so a delivery crash doesn't cause re-alerts next pass).
-    # Deciding on a copy read earlier let two overlapping sweeps both send
-    # the same alert, and the later write discarded the earlier's state.
+    def _claimed(entry: dict[str, Any]) -> bool:
+        """Another sweep is delivering this entry right now."""
+        sending = entry.get("sendingAt")
+        return _number(sending) is not None and now - float(sending) < _IN_FLIGHT_CLAIM_SEC
+
+    # The cooldown / recovery DECISION is made on the CURRENT state, inside the
+    # user_kv write lock, and a short in-flight claim (``sendingAt``) is
+    # persisted in the same transaction BEFORE sending, so two overlapping
+    # sweeps cannot both send the same alert.  What the decision may NOT do is
+    # record the owner as told: ``lastDeliveredAt`` is written only by
+    # ``_settle`` below, after the delivery callable returned True.
     def _decide(state: dict[str, Any]) -> None:
         to_send.clear()
-        for k in ("stale", "recovered", "skipped_cooldown"):
+        for k in ("stale", "recovered", "skipped_cooldown", "skipped_in_flight"):
             summary[k] = 0
         alert_state = dict(state.get("sourceHealthAlertState") or {})
 
-        # Detect recovery transitions — sources in alert_state marked stale
-        # that are NO longer stale now.
+        # Recovery transitions -- sources marked stale that are NO longer stale.
         recovery_alerts: list[StaleSourceAlert] = []
         for src, entry in list(alert_state.items()):
-            if not isinstance(entry, dict):
+            if not isinstance(entry, dict) or not entry.get("currentlyStale"):
                 continue
-            if entry.get("currentlyStale") and src not in stale_sources:
-                recovery_alerts.append(
-                    StaleSourceAlert(
-                        source=src,
-                        last_seen_iso=str(entry.get("lastAlertedAt") or ""),
-                        hours_stale=0.0,
-                        threshold_hours=0.0,
-                        transition="recovered",
-                    )
+            if src in stale_sources:
+                continue
+            if _claimed(entry):
+                summary["skipped_in_flight"] += 1
+                continue
+            if _told_at(entry) is None:
+                # The owner never heard about this episode, so there is
+                # nothing to un-say: it ends silently.
+                alert_state[src] = {"currentlyStale": False, "clearedAt": now}
+                continue
+            recovery_alerts.append(
+                StaleSourceAlert(
+                    source=src,
+                    last_seen_iso=str(entry.get("lastSeenIso") or ""),
+                    hours_stale=0.0,
+                    threshold_hours=0.0,
+                    transition="recovered",
                 )
+            )
+            # Still stale on record until the recovery is DELIVERED, so an
+            # undelivered recovery is found again (and retried) next sweep.
+            alert_state[src] = {**entry, "attemptedAt": now, "sendingAt": now}
 
-        # Stale alerts — apply cooldown.
+        # Stale alerts -- the cooldown is measured from the last DELIVERY.
         for alert in stale:
-            prev = alert_state.get(alert.source) or {}
-            last_alerted = float(prev.get("lastAlertedAt") or 0)
-            cooldown_sec = cooldown_hours * 3600.0
-            if prev.get("currentlyStale") and (now - last_alerted) < cooldown_sec:
+            prev = alert_state.get(alert.source)
+            prev = prev if isinstance(prev, dict) else {}
+            if _claimed(prev):
+                summary["skipped_in_flight"] += 1
+                continue
+            told = _told_at(prev) if prev.get("currentlyStale") else None
+            if told is not None and (now - told) < cooldown_sec:
                 summary["skipped_cooldown"] += 1
                 continue
             to_send.append(alert)
-            alert_state[alert.source] = {
+            entry: dict[str, Any] = {
                 "currentlyStale": True,
-                "lastAlertedAt": now,
+                "attemptedAt": now,
+                "sendingAt": now,
                 "lastSeenIso": alert.last_seen_iso,
                 "hoursStale": alert.hours_stale,
             }
+            if prev.get("currentlyStale"):
+                # Same episode: keep when the owner was last told (an
+                # undelivered re-alert must not erase the previous delivery).
+                for key in _TOLD_KEYS:
+                    if key in prev:
+                        entry[key] = prev[key]
+            alert_state[alert.source] = entry
             summary["stale"] += 1
 
-        # Recovery alerts always fire (they're inherently rate-limited by
-        # the "was previously stale" precondition).
+        # Recoveries are rate-limited by their own precondition (a told,
+        # currently-stale episode), so no cooldown applies.
         for r in recovery_alerts:
             to_send.append(r)
-            alert_state[r.source] = {
-                "currentlyStale": False,
-                "lastAlertedAt": now,
-            }
             summary["recovered"] += 1
 
         state["sourceHealthAlertState"] = alert_state
@@ -536,16 +610,73 @@ def check_and_alert(
 
     if not to_send:
         return summary
-    if delivery is None or not to_email:
-        return summary
-    subject = _format_subject(to_send)
-    body = _format_body(to_send)
+
+    delivered = False
+    if not delivery_configured:
+        _LOGGER.warning(
+            "source_health alerts: %d notice(s) to deliver but no owner alert channel is "
+            "configured (NOTIFY_WEBHOOK_URL or ALERT_*); nothing sent, retried next sweep",
+            len(to_send),
+        )
+    else:
+        subject = _format_subject(to_send)
+        body = _format_body(to_send)
+        try:
+            delivered = bool(delivery(to_email, subject, body))
+        except Exception as exc:  # noqa: BLE001
+            _LOGGER.warning("source_health alert delivery failed: %s", exc)
+            delivered = False
+        if not delivered:
+            _LOGGER.warning(
+                "source_health alerts: %d notice(s) NOT delivered (every channel failed); "
+                "retried next sweep",
+                len(to_send),
+            )
+    if delivered:
+        summary["delivered"] = len(to_send)
+
+    def _settle(state: dict[str, Any]) -> None:
+        """Release this sweep's claims; on delivery, record the owner as told."""
+        alert_state = dict(state.get("sourceHealthAlertState") or {})
+        for a in to_send:
+            entry = alert_state.get(a.source)
+            if not isinstance(entry, dict) or entry.get("sendingAt") != now:
+                continue  # not our claim any more: leave the newer record alone
+            entry = {k: v for k, v in entry.items() if k != "sendingAt"}
+            if delivered and a.transition == "recovered":
+                entry = {"currentlyStale": False, "recoveredAt": now}
+            elif delivered:
+                entry = {k: v for k, v in entry.items() if k != _LEGACY_TOLD_KEY}
+                entry["lastDeliveredAt"] = now
+            alert_state[a.source] = entry
+        state["sourceHealthAlertState"] = alert_state
+
     try:
-        if delivery(to_email, subject, body):
-            summary["delivered"] = len(to_send)
-    except Exception as exc:  # noqa: BLE001
-        _LOGGER.warning("source_health alert delivery failed: %s", exc)
+        user_kv.mutate_user_state(state_user, _settle, path=kv_path)
+    except Exception as exc:  # noqa: BLE001 -- a stale claim expires on its own
+        _LOGGER.warning("source_health alert state not settled: %s", exc)
     return summary
+
+
+#: The pseudo-source a producer TEST notice names.  It is never written to the
+#: alert state, so it can neither spend a cooldown nor earn a recovery notice.
+TEST_SOURCE = "owner_alert_producer_test (no source is stale)"
+
+
+def format_test_notice() -> tuple[str, str]:
+    """``(subject, body)`` of one labelled TEST notice, built by the sweep's own
+    formatters, for ``POST /api/test-alert?producers=1``.  Pure: it reads and
+    writes no state."""
+    from src.utils import owner_alerts  # noqa: PLC0415
+
+    alert = StaleSourceAlert(
+        source=TEST_SOURCE,
+        last_seen_iso="",
+        hours_stale=None,
+        threshold_hours=None,
+        transition="stale",
+    )
+    return owner_alerts.mark_test(_format_subject([alert]), _format_body([alert]))
 
 
 def _format_subject(alerts: list[StaleSourceAlert]) -> str:

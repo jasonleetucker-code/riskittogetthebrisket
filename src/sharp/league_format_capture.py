@@ -566,6 +566,76 @@ def load_observation_index(conn: sqlite3.Connection) -> dict[str, list[dict[str,
     return out
 
 
+def _int_or_none(value: Any) -> int | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def load_league_facts(conn: sqlite3.Connection) -> dict[str, dict[str, Any]]:
+    """``{league_id: {"status", "season", "leagueType", "bestBall"}}`` for the
+    league-maturity chain loaders (``src/intel/ledger.load_league_chain``,
+    ``src/trade/own_league_format_capture.load_league_chain``).
+
+    ``status`` is the LATEST observed Sleeper status (the check table's
+    ``last_status``, refreshed on every observation); ``season`` /
+    ``leagueType`` / ``bestBall`` come from the newest capture's payload.
+    Read-only; ``{}`` when the tables are absent.  Any field this store never
+    observed is ``None`` -- never a default.  A league checked as
+    ``not_dynasty`` has no capture, so its type stays ``None``: a maturity walk
+    then stops as type-unknown (a lower bound), never as a guessed redraft.
+    """
+    out: dict[str, dict[str, Any]] = {}
+
+    def _slot(lid: Any) -> dict[str, Any]:
+        return out.setdefault(
+            str(lid), {"status": None, "season": None, "leagueType": None, "bestBall": None}
+        )
+
+    try:
+        caps = conn.execute(
+            "SELECT league_id, season, payload_json FROM sharp_league_format_captures "
+            "ORDER BY league_id, captured_ms, capture_id"
+        ).fetchall()
+    except sqlite3.OperationalError as exc:
+        if "no such table" not in str(exc).lower():
+            raise
+        caps = []
+    for lid, season, raw in caps:
+        try:
+            payload = json.loads(raw) if raw else {}
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(payload, Mapping):
+            continue
+        settings = payload.get("settings") if isinstance(payload.get("settings"), Mapping) else {}
+        slot = _slot(lid)  # newest capture last, so what it states wins
+        if season not in (None, ""):
+            slot["season"] = str(season).strip()
+        lt = _int_or_none(settings.get("type"))
+        if lt is not None:
+            slot["leagueType"] = lt
+        bb = _int_or_none(settings.get("best_ball"))
+        if bb is not None:
+            slot["bestBall"] = bb == 1
+    try:
+        checks = conn.execute(
+            "SELECT league_id, last_status FROM sharp_league_format_checks"
+        ).fetchall()
+    except sqlite3.OperationalError as exc:
+        if "no such table" not in str(exc).lower():
+            raise
+        checks = []
+    for lid, status in checks:
+        text = str(status or "").strip().lower()
+        if text:
+            _slot(lid)["status"] = text
+    return out
+
+
 def _legacy_snapshot(settings: Any) -> tuple[dict[str, Any], int | None, str | None] | None:
     """``(payload, captured_ms | None, season)`` of a legacy
     ``settings_json.marketFormat`` snapshot, or ``None`` when absent."""

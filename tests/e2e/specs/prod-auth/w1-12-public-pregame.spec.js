@@ -28,7 +28,7 @@
  * carried here: an unverified workaround with a confident comment is worse than
  * none. A red run from a sandbox is the harness, not the site; read it there.
  */
-const { publicTest: test, expect, prodUrl, annotate, mobileOnly } = require("./helpers");
+const { publicTest: test, expect, prodUrl, annotate } = require("./helpers");
 
 const PREVIEWS = "/league?tab=previews";
 
@@ -187,10 +187,9 @@ test.describe("W1-12: public Week 1 pregame surfaces (production)", () => {
     annotate(testInfo, "w1-12-slate-voice", voice);
   });
 
-  test("the surface is usable at a phone viewport without horizontal scroll", async ({
+  test("@mobile-only the surface is usable at a phone viewport without horizontal scroll", async ({
     publicPage: page,
   }, testInfo) => {
-    mobileOnly(test, testInfo);
     await page.goto(prodUrl(PREVIEWS), { waitUntil: "domcontentloaded" });
     await expect(page.getByText(/Week \d+ matchups · \d{4}/)).toBeVisible({ timeout: 60_000 });
 

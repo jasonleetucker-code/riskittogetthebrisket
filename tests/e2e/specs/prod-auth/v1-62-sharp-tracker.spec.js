@@ -29,7 +29,6 @@ const {
   expect,
   prodUrl,
   annotate,
-  desktopOnly,
   DISCLOSURE_SELECTOR,
 } = require("./helpers");
 
@@ -44,10 +43,9 @@ function nonPickAssets(market) {
 }
 
 test.describe("V1-62: /market/sharp-tracker renders /api/sharp/market from the page's own fetch", () => {
-  test("Sharp Tracker matches GET /api/sharp/market field-for-field", async ({
+  test("@desktop-only Sharp Tracker matches GET /api/sharp/market field-for-field", async ({
     prodPage: page,
   }, testInfo) => {
-    desktopOnly(test, testInfo);
     test.setTimeout(180_000);
 
     // ── capture the page's OWN market fetch ──────────────────────────

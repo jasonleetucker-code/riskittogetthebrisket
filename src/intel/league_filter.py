@@ -27,7 +27,8 @@ the choice is visible and reversible rather than silent.
 
 from __future__ import annotations
 
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Mapping
 
 LEAGUE_TYPE_REDRAFT = 0
 LEAGUE_TYPE_KEEPER = 1
@@ -65,30 +66,67 @@ SHARP_ELIGIBLE_TYPES = frozenset({LEAGUE_TYPE_DYNASTY})
 SHARP_MIN_LEAGUE_AGE_SEASONS = 2
 
 
+#: Sleeper's ``previous_league_id`` for a league with NO predecessor.  It is
+#: the STRING ``"0"`` (not null, not absent -- verified live, see
+#: ``src/sharp/records.py``); an empty value means the same.  A terminator is
+#: never a predecessor.  Same vocabulary as the public chain walker
+#: (``sleeper_client._CHAIN_TERMINATORS``), pinned by test.
+CHAIN_TERMINATORS = frozenset({"", "0"})
+
+
+def predecessor_league_id(league: Mapping[str, Any] | None) -> str | None:
+    """The ONE reader of a Sleeper league's predecessor link.
+
+    ``None`` when the league has no predecessor -- Sleeper's ``"0"``
+    terminator (string or number), an empty value, or no link at all.  The
+    league-age gate routes through this, so the terminator can never again be
+    read as a real prior season (the defect this replaced counted ``"0"`` as
+    one, so every first-season dynasty league passed the two-season bar).
+    ``previous_league`` is accepted as the legacy spelling the public walker
+    already tolerates.
+    """
+    if not isinstance(league, Mapping):
+        return None
+    raw = league.get("previous_league_id")
+    if raw is None or str(raw).strip() == "":
+        raw = league.get("previous_league")
+    if isinstance(raw, (int, float)) and not isinstance(raw, bool) and raw == 0:
+        return None
+    text = str(raw if raw is not None else "").strip()
+    return None if text in CHAIN_TERMINATORS else text
+
+
 def league_age_seasons(league: dict[str, Any] | None) -> int:
-    """How many seasons this league has existed, from data already in
-    hand.
+    """How many seasons this league has existed -- a FLOOR from the one
+    league object in hand, never the exact age.
 
-    Sleeper chains seasons with ``previous_league_id``, so its presence
-    proves at least one prior season — i.e. age >= 2 — and that field
+    Sleeper chains seasons with ``previous_league_id``, so a REAL predecessor
+    link proves at least one prior season -- i.e. age >= 2 -- and that field
     ships inside the ``/user/{id}/leagues`` payload the crawl already
-    fetches.  The age-2 check therefore costs ZERO extra API calls,
-    which is why 2 is the default bar.
+    fetches.  The age-2 check therefore costs ZERO extra API calls, which is
+    why 2 is the Sharp gate's bar.
 
-    Returns 2 as a floor-not-exact answer for any chained league:
-    establishing age >= 3 requires walking the chain one request per
-    link, and nothing currently needs that precision.  Callers wanting
-    an exact age must walk ``previous_league_id`` themselves.
+    Returns ``2`` for a league with a real predecessor, ``1`` otherwise
+    (including Sleeper's ``"0"`` terminator, which is NOT a predecessor),
+    ``0`` for a non-league.  It says nothing about whether those seasons were
+    COMPLETED or were dynasty: that is :func:`resolve_league_maturity`, over
+    a persisted chain.
     """
     if not isinstance(league, dict):
         return 0
-    return 2 if str(league.get("previous_league_id") or "").strip() else 1
+    return 2 if predecessor_league_id(league) else 1
+
+
+def _gate_age(league: dict[str, Any], known_age_seasons: int | None) -> int:
+    floor = league_age_seasons(league)
+    return max(floor, int(known_age_seasons)) if known_age_seasons is not None else floor
 
 
 def is_sharp_eligible(
     league: dict[str, Any] | None,
     *,
     min_age_seasons: int = SHARP_MIN_LEAGUE_AGE_SEASONS,
+    known_age_seasons: int | None = None,
 ) -> bool:
     """May this league's activity count toward SHARP qualification?
 
@@ -96,6 +134,14 @@ def is_sharp_eligible(
     Unlike the discovery gate, an unknown league type is REJECTED here:
     certifying a manager as sharp on a league we cannot confirm is
     dynasty would be a claim we cannot support.
+
+    ``known_age_seasons`` lets a caller that has walked the lineage pass
+    what it proved (the records crawl: a season reached by following
+    ``previous_league_id`` from a newer season belongs to a lineage at least
+    that many seasons long, so a league's FIRST season -- whose own link is
+    the ``"0"`` terminator -- still counts once a second exists).  The gate
+    uses the larger of it and :func:`league_age_seasons`' floor; it can never
+    lower the floor.
     """
     if not isinstance(league, dict):
         return False
@@ -103,18 +149,19 @@ def is_sharp_eligible(
         return False
     if league_type(league) not in SHARP_ELIGIBLE_TYPES:
         return False
-    return league_age_seasons(league) >= int(min_age_seasons)
+    return _gate_age(league, known_age_seasons) >= int(min_age_seasons)
 
 
 def sharp_exclusion_reason(
     league: dict[str, Any] | None,
     *,
     min_age_seasons: int = SHARP_MIN_LEAGUE_AGE_SEASONS,
+    known_age_seasons: int | None = None,
 ) -> str | None:
     """Why a league is not sharp-eligible, or ``None`` when it is.
 
     Reported rather than silently dropped, so a shrinking sharp pool is
-    always explainable.
+    always explainable.  ``known_age_seasons`` as :func:`is_sharp_eligible`.
     """
     if not isinstance(league, dict):
         return "not_a_league"
@@ -125,7 +172,7 @@ def sharp_exclusion_reason(
         return "unknown_type"
     if lt not in SHARP_ELIGIBLE_TYPES:
         return _TYPE_LABELS.get(lt, "unknown")
-    if league_age_seasons(league) < int(min_age_seasons):
+    if _gate_age(league, known_age_seasons) < int(min_age_seasons):
         return "too_new"
     return None
 
@@ -196,3 +243,289 @@ def partition(leagues: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict
             label = type_label(lg)
             excluded[label] = excluded.get(label, 0) + 1
     return eligible, excluded
+
+
+# ── League maturity: verified COMPLETED dynasty seasons ─────────────────
+#
+# The ONE owner of "how established is this league" (Chase Trade Market,
+# owner directive 2026-10-19 V2; intake DYN10-3, 2026-11-21): maturity is the
+# number of VERIFIED COMPLETED dynasty seasons reached by following the real
+# ``previous_league_id`` chain -- never calendar age, never a count of linked
+# ids.  Ported from PR #1852 (the resolver only; its chain table, chain crawl
+# and holdout reserve were left behind).  Pure: no network, no clock, no
+# storage -- callers pass a persisted chain index.
+#
+# What counts as one completed season (fail closed):
+#   * a season-league reached by following ``previous_league_id`` links;
+#   * whose Sleeper ``settings.type`` is 2 (dynasty) -- a redraft / keeper
+#     predecessor ENDS the chain (it is not this dynasty's history);
+#   * whose last observed ``status`` is ``complete`` -- a season seen only
+#     while in progress is UNVERIFIED (the answer becomes a lower bound),
+#     never assumed complete;
+#   * whose season is strictly older than the season-league after it.  A
+#     predecessor carrying the SAME season is a recreated league id inside
+#     one season: walked past, flagged ``recreated_same_season``, never
+#     counted as a season of its own.
+#
+# A walk that ends at Sleeper's terminator (or at a non-dynasty predecessor)
+# is EXACT.  Anything else (a link no store has recorded, a predecessor with
+# no type or season, a loop, the safety cap) is a LOWER BOUND: "at least k".
+# A lower bound below a bar is "maturity unknown", never a pass and never
+# "proven not".
+#
+# Two readings, both always reported (neither is chosen silently):
+#   * point-in-time at the trade (the preregistration default) --
+#     predecessors of the trade's own season-league; the trade's own season
+#     never counts;
+#   * league-level as of today -- the newest season-league of the lineage the
+#     chain index knows, inclusive of itself once it is complete.  ALWAYS a
+#     lower bound (``newest_season_successor_unprovable``): Sleeper links
+#     backward only, so no store can prove the lineage has no newer
+#     season-league.
+
+READING_POINT_IN_TIME = "point_in_time_at_trade"
+READING_LEAGUE_LEVEL = "league_level_as_of_today"
+MATURITY_READINGS = (READING_POINT_IN_TIME, READING_LEAGUE_LEVEL)
+
+MATURITY_EXACT = "exact"
+MATURITY_LOWER_BOUND = "lower_bound"
+
+#: Why a maturity walk stopped.
+STOP_TERMINATOR = "terminator"
+STOP_NON_DYNASTY = "non_dynasty_predecessor"
+STOP_NOT_WALKED = "predecessor_not_walked"
+STOP_START_NOT_WALKED = "start_not_walked"
+STOP_TYPE_UNKNOWN = "predecessor_type_unknown"
+STOP_SEASON_UNKNOWN = "season_unknown"
+STOP_SEASON_ORDER = "season_order_violation"
+STOP_LOOP = "chain_loop"
+STOP_CAP = "safety_cap"
+
+#: Walk flags (diagnostic; none of them counts a season).
+FLAG_RECREATED_SAME_SEASON = "recreated_same_season"
+FLAG_STATUS_UNVERIFIED = "predecessor_status_unverified"
+FLAG_BEST_BALL_SEASON = "best_ball_season_counted"
+FLAG_FORKED_SUCCESSORS = "forked_successors"
+FLAG_SUCCESSOR_UNPROVABLE = "newest_season_successor_unprovable"
+
+#: Safety cap on hops -- a guard against a malformed chain, far past any real
+#: league's age (same posture as the public walker's 25-season cap).
+MATURITY_MAX_HOPS = 25
+
+
+@dataclass(frozen=True)
+class ChainHop:
+    """One observed season-league link of a ``previous_league_id`` chain.
+
+    ``previous_league_id`` is ``None`` when the league states NO predecessor
+    (Sleeper's ``"0"`` terminator) -- a fact, distinct from "not observed",
+    which is the league being absent from the chain index altogether.  A
+    store that cannot tell the two apart must leave the league out of the
+    index rather than build a hop with ``None``.
+    """
+
+    league_id: str
+    previous_league_id: str | None
+    season: str | None
+    league_type: int | None
+    status: str | None
+    best_ball: bool | None
+
+    @classmethod
+    def from_league(cls, league: Mapping[str, Any] | None) -> ChainHop | None:
+        """The hop a Sleeper league object states, or ``None`` with no id."""
+        if not isinstance(league, Mapping):
+            return None
+        lid = str(league.get("league_id") or "").strip()
+        if not lid:
+            return None
+        settings = league.get("settings")
+        bb: bool | None = None
+        if isinstance(settings, Mapping) and settings.get("best_ball") is not None:
+            bb = is_best_ball(dict(league))
+        season = str(league.get("season") or "").strip() or None
+        status = str(league.get("status") or "").strip().lower() or None
+        return cls(
+            league_id=lid,
+            previous_league_id=predecessor_league_id(league),
+            season=season,
+            league_type=league_type(dict(league)),
+            status=status,
+            best_ball=bb,
+        )
+
+    @property
+    def is_dynasty(self) -> bool:
+        return self.league_type == LEAGUE_TYPE_DYNASTY
+
+    @property
+    def is_complete(self) -> bool:
+        return str(self.status or "").strip().lower() == "complete"
+
+
+def _season_int(season: str | None) -> int | None:
+    try:
+        return int(str(season).strip()) if season is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+@dataclass(frozen=True)
+class LeagueMaturity:
+    """Verified completed dynasty seasons for one reading of one league.
+
+    Box-local: ``start_league_id`` is a raw Sleeper id and must never reach a
+    committed or public artifact.
+    """
+
+    reading: str
+    start_league_id: str | None
+    completed_seasons: int
+    state: str
+    stop_reason: str
+    seasons_walked: int
+    flags: tuple[str, ...] = ()
+
+    @property
+    def walked(self) -> bool:
+        """``False`` when the start league is not in the chain index at all:
+        nothing is known, which is not the same as zero seasons."""
+        return self.stop_reason != STOP_START_NOT_WALKED
+
+    def meets(self, min_completed: int) -> bool | None:
+        """``True`` proven, ``False`` proven not (exact walk), ``None`` unknown."""
+        if self.completed_seasons >= int(min_completed):
+            return True
+        return False if self.state == MATURITY_EXACT else None
+
+
+def successor_index(chain: Mapping[str, ChainHop]) -> dict[str, list[str]]:
+    """``{predecessor_id: [successor ids...]}`` over the observed links."""
+    out: dict[str, list[str]] = {}
+    for lid in sorted(chain):
+        prev = chain[lid].previous_league_id
+        if prev:
+            out.setdefault(prev, []).append(lid)
+    return out
+
+
+def _newest_descendant(
+    start: str,
+    chain: Mapping[str, ChainHop],
+    successors: Mapping[str, list[str]],
+) -> tuple[str, bool]:
+    """The newest season-league reachable forward from ``start``; and whether
+    a fork (two leagues naming one predecessor) was crossed on the way.  A
+    fork follows the newest season, then the lowest id -- deterministic."""
+    cur, forked, seen = start, False, {start}
+    while True:
+        nxt = [s for s in successors.get(cur, ()) if s not in seen]
+        if not nxt:
+            return cur, forked
+        if len(nxt) > 1:
+            forked = True
+        nxt.sort(key=lambda lid: (-(_season_int(chain[lid].season) or -1), lid))
+        cur = nxt[0]
+        seen.add(cur)
+
+
+def resolve_league_maturity(
+    league_id: str | None,
+    chain: Mapping[str, ChainHop],
+    *,
+    reading: str = READING_POINT_IN_TIME,
+    successors: Mapping[str, list[str]] | None = None,
+    max_hops: int = MATURITY_MAX_HOPS,
+) -> LeagueMaturity:
+    """Verified completed dynasty seasons for ``league_id`` (a Sleeper
+    season-league id) over a persisted chain index ``chain``
+    (``{league_id: ChainHop}``).
+
+    ``READING_POINT_IN_TIME``: ``league_id`` is the trade's own season-league;
+    only its predecessors can count.  ``READING_LEAGUE_LEVEL``: the walk
+    starts at the newest known season-league of the same lineage and counts
+    that league itself once it is complete.  Pure: no network, no clock.
+    """
+    if reading not in MATURITY_READINGS:
+        raise ValueError(f"unknown maturity reading: {reading!r}")
+    lid = str(league_id or "").strip()
+    flags: list[str] = []
+    if not lid or lid not in chain:
+        return LeagueMaturity(
+            reading, lid or None, 0, MATURITY_LOWER_BOUND, STOP_START_NOT_WALKED, 0
+        )
+    start = lid
+    if reading == READING_LEAGUE_LEVEL:
+        succ = successors if successors is not None else successor_index(chain)
+        start, forked = _newest_descendant(lid, chain, succ)
+        if forked:
+            flags.append(FLAG_FORKED_SUCCESSORS)
+
+    counted: set[int] = set()
+    # League-level: the newest KNOWN season-league is not provably the newest
+    # one (no forward link exists), and its stored status may be stale.  So
+    # the as-of-today count is "at least k" -- never exact, never "proven not".
+    lower_bound = reading == READING_LEAGUE_LEVEL
+    if lower_bound:
+        flags.append(FLAG_SUCCESSOR_UNPROVABLE)
+    seen: set[str] = set()
+    walked = 0
+
+    def _count(hop: ChainHop, season: int) -> None:
+        nonlocal lower_bound
+        if not hop.is_complete:
+            lower_bound = True
+            if FLAG_STATUS_UNVERIFIED not in flags:
+                flags.append(FLAG_STATUS_UNVERIFIED)
+            return
+        if hop.best_ball and FLAG_BEST_BALL_SEASON not in flags:
+            flags.append(FLAG_BEST_BALL_SEASON)
+        counted.add(season)
+
+    def _done(stop: str, exact: bool) -> LeagueMaturity:
+        state = MATURITY_EXACT if exact and not lower_bound else MATURITY_LOWER_BOUND
+        return LeagueMaturity(reading, lid, len(counted), state, stop, walked, tuple(sorted(flags)))
+
+    cur_hop = chain[start]
+    seen.add(start)
+    walked = 1
+    cur_season = _season_int(cur_hop.season)
+    if reading == READING_LEAGUE_LEVEL and cur_hop.is_dynasty and cur_season is not None:
+        # The newest season-league counts for the league-level reading only
+        # once it is itself complete (the reading is already a lower bound).
+        if cur_hop.is_complete:
+            _count(cur_hop, cur_season)
+    if cur_season is None:
+        # Without the start's season no predecessor's order can be verified.
+        return _done(STOP_SEASON_UNKNOWN, exact=False)
+    while True:
+        prev = cur_hop.previous_league_id
+        if prev is None:
+            return _done(STOP_TERMINATOR, exact=True)
+        if prev in seen:
+            return _done(STOP_LOOP, exact=False)
+        if walked >= max_hops:
+            return _done(STOP_CAP, exact=False)
+        hop = chain.get(prev)
+        if hop is None:
+            return _done(STOP_NOT_WALKED, exact=False)
+        seen.add(prev)
+        walked += 1
+        if hop.league_type is None:
+            return _done(STOP_TYPE_UNKNOWN, exact=False)
+        if not hop.is_dynasty:
+            # A redraft / keeper predecessor is not this dynasty's history:
+            # the dynasty provably began after it, so the count is exact.
+            return _done(STOP_NON_DYNASTY, exact=True)
+        season = _season_int(hop.season)
+        if season is None:
+            return _done(STOP_SEASON_UNKNOWN, exact=False)
+        if season > cur_season:
+            return _done(STOP_SEASON_ORDER, exact=False)
+        if season == cur_season:
+            if FLAG_RECREATED_SAME_SEASON not in flags:
+                flags.append(FLAG_RECREATED_SAME_SEASON)
+        else:
+            _count(hop, season)
+            cur_season = season
+        cur_hop = hop

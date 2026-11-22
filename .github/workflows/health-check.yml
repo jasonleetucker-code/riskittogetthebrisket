@@ -49,6 +49,21 @@ jobs:
     # failure.  The condition is not deleted — it moves into a step
     # that can refuse, the shape prod-e2e-smoke.yml already uses.
     steps:
+      - name: Check out the shared owner-push script
+        # ONE file, not the repository: this job is still a lightweight
+        # external HTTP ping.  scripts/notify_owner.sh is the single owner of
+        # "push to the owner's phone" (it replaced three inline copies in this
+        # file), so the tracker steps below need it on disk.  The tracker
+        # steps keep GH_REPO regardless: a sparse checkout is not something
+        # their `gh` calls should silently depend on.
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            scripts/notify_owner.sh
+            src/utils/owner_notify.py
+          sparse-checkout-cone-mode: false
+
       - name: Resolve production URL
         id: url
         shell: bash
@@ -71,14 +86,24 @@ jobs:
           NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
         run: |
           set -Eeuo pipefail
-          if [[ "${NOTIFY_WEBHOOK_URL:-}" != https://* ]]; then
-            echo "::error title=Owner push not configured::repo secret NOTIFY_WEBHOOK_URL is unset or not https"
+          # A TEST push with no channel proves nothing, so unlike the alert
+          # path (where an unset secret is a silent no-op) this refuses.
+          # The one validator (stdlib-only, by path; names a reason code, never
+          # the value): exit 1 rejected, 3 unset.
+          check_rc=0
+          check_out="$(python3 -I src/utils/owner_notify.py --check 2>&1 >/dev/null)" || check_rc=$?
+          if [[ "${check_rc}" != "0" ]]; then
+            if [[ "${check_rc}" == "1" ]]; then
+              echo "::error title=Owner push not configured::repo secret NOTIFY_WEBHOOK_URL is rejected (${check_out##*rejected:})"
+            else
+              echo "::error title=Owner push not configured::repo secret NOTIFY_WEBHOOK_URL is unset"
+            fi
             exit 1
           fi
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          if curl -fsS --max-time 10 -H "Title: [TEST] Risk It GitHub-side alert" \
-              --data-binary "Test push from the Scheduled Health Check (manual dispatch). Health, SLO and deploy-lag alerts will reach you here. ${RUN_URL}" \
-              "${NOTIFY_WEBHOOK_URL}" >/dev/null 2>&1; then
+          # The same script every alert below uses, so this proves THAT path.
+          if bash scripts/notify_owner.sh "[TEST] Risk It GitHub-side alert" \
+              "Test push from the Scheduled Health Check (manual dispatch). Health, SLO, deploy-lag, data-refresh and production-smoke alerts will reach you here. ${RUN_URL}"; then
             echo "test push accepted by the ntfy server; confirm receipt on the phone"
           else
             echo "::error title=Owner push failed::the ntfy server did not accept the test push"
@@ -454,19 +479,19 @@ jobs:
           # that falls outside the window is a tracker that gets duplicated.
           # Proven against a gh stub + real jq for all three login spellings
           # by tests/deploy/test_sharp_tracker_dedup.py.
-          # Optional owner push (STAB-2): the repo secret NOTIFY_WEBHOOK_URL (a
-          # private ntfy topic). Unset -> no-op. Never prints the URL; a failed
-          # POST is a warning, never a step failure. Pushes only on a NEW
-          # incident, a CHANGED condition set, or a recovery -- not every run.
-          notify_owner() {
-            [[ "${NOTIFY_WEBHOOK_URL:-}" == https://* ]] || return 0
-            if curl -fsS --max-time 10 -H "Title: $1" --data-binary "$2" "${NOTIFY_WEBHOOK_URL}" >/dev/null 2>&1; then
-              echo "owner push sent: $1"
-            else
-              echo "::warning title=Owner push failed::the ntfy POST for '$1' did not succeed"
-            fi
-          }
+          #
+          # Owner push (STAB-2) through the ONE shared script,
+          # scripts/notify_owner.sh (repo secret NOTIFY_WEBHOOK_URL, a private
+          # ntfy topic; unset -> a notice and no push; never prints the URL).
+          # Pushes only when the tracker is CREATED and on RECOVERY -- never on
+          # the per-run comment.  A push that did not go out leaves
+          # `<!-- owner-push: pending -->` in the tracker body, and the comment
+          # branch retries it (--retry-pending), so an ntfy blip delays the
+          # alert instead of losing it.  `|| true`: the script already annotated
+          # the failure, and a dead ntfy server must not turn this step red.
           TRACKER_TITLE="Production health check failing"
+          PUSH_TITLE="Risk It: production health check failing"
+          PUSH_TEXT="The scheduled production health check failed. Run: ${RUN_URL}"
           if ! ROWS=$(gh issue list --state open --label production-health \
                         --limit 1000 --json number,title); then
             echo "::error title=Tracker lookup failed::gh issue list failed; filing an alert without deduplicating against the existing tracker"
@@ -480,13 +505,15 @@ jobs:
           fi
           if [[ -n "$EXISTING" && "$EXISTING" != "null" ]]; then
             gh issue comment "$EXISTING" --body "$BODY"
+            bash scripts/notify_owner.sh --retry-pending "$EXISTING" "$PUSH_TITLE" \
+              "${PUSH_TEXT} (Delayed: the first push for this incident did not go out.)" || true
           else
-            gh issue create \
+            NEW_URL=$(gh issue create \
               --title "$TRACKER_TITLE" \
               --body "$BODY" \
-              --label production-health
-            notify_owner "Risk It: production health check failing" \
-              "The scheduled production health check failed. Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+              --label production-health)
+            echo "$NEW_URL"
+            bash scripts/notify_owner.sh --issue "$NEW_URL" "$PUSH_TITLE" "$PUSH_TEXT" || true
           fi
 
       - name: Close the tracking issue on a green run
@@ -509,20 +536,14 @@ jobs:
           # TITLE (#958), and EVERY match is closed rather than `.[0]`: the
           # retired author clause let duplicates accumulate, and one green run
           # must drain all of them.
-          # Optional owner push (STAB-2): the repo secret NOTIFY_WEBHOOK_URL (a
-          # private ntfy topic). Unset -> no-op. Never prints the URL; a failed
-          # POST is a warning, never a step failure. Pushes only on a NEW
-          # incident, a CHANGED condition set, or a recovery -- not every run.
-          notify_owner() {
-            [[ "${NOTIFY_WEBHOOK_URL:-}" == https://* ]] || return 0
-            if curl -fsS --max-time 10 -H "Title: $1" --data-binary "$2" "${NOTIFY_WEBHOOK_URL}" >/dev/null 2>&1; then
-              echo "owner push sent: $1"
-            else
-              echo "::warning title=Owner push failed::the ntfy POST for '$1' did not succeed"
-            fi
-          }
+          #
+          # Recovery push through scripts/notify_owner.sh (see the alert step).
+          # It is tied to the newest tracker it closed: a recovery push that
+          # does not go out leaves the pending marker on that CLOSED issue, and
+          # the next green run (which finds nothing open) retries it.
           TRACKER_TITLE="Production health check failing"
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          PUSH_TITLE="Risk It: production health recovered"
           if ! OPEN=$(gh issue list --state open --label production-health \
                         --limit 1000 --json number,title \
                         --jq "[.[] | select(.title==\"${TRACKER_TITLE}\") | .number] | sort | .[]"); then
@@ -531,6 +552,16 @@ jobs:
           fi
           if [[ -z "$OPEN" ]]; then
             echo "no open production-health tracker; nothing to close"
+            if LAST_CLOSED=$(gh issue list --state closed --label production-health \
+                               --limit 100 --json number,title \
+                               --jq "[.[] | select(.title==\"${TRACKER_TITLE}\") | .number] | max // empty"); then
+              if [[ -n "$LAST_CLOSED" ]]; then
+                bash scripts/notify_owner.sh --retry-pending "$LAST_CLOSED" "$PUSH_TITLE" \
+                  "The production health check is green. (Delayed: the recovery push did not go out.) Run: ${RUN_URL}" || true
+              fi
+            else
+              echo "::warning title=Recovery-push retry skipped::gh issue list (closed) failed; an undelivered recovery push stays pending"
+            fi
             exit 0
           fi
           for N in $OPEN; do
@@ -538,7 +569,8 @@ jobs:
             gh issue close "$N" --reason completed --comment \
               "Production health check green again as of $(date -u +"%Y-%m-%dT%H:%M:%SZ"). Closing. Workflow run: ${RUN_URL}"
           done
-          notify_owner "Risk It: production health recovered" "The production health check is green again. Run: ${RUN_URL}"
+          bash scripts/notify_owner.sh --issue "$N" "$PUSH_TITLE" \
+            "The production health check is green again. Run: ${RUN_URL}" || true
 
   slo:
     # Code freshness (is validated main actually deployed?), pipeline health and
@@ -608,21 +640,16 @@ jobs:
           RC: ${{ steps.slo.outputs.rc }}
         run: |
           set -Eeuo pipefail
-          # Optional owner push (STAB-2): the repo secret NOTIFY_WEBHOOK_URL (a
-          # private ntfy topic). Unset -> no-op. Never prints the URL; a failed
-          # POST is a warning, never a step failure. Pushes only on a NEW
-          # incident, a CHANGED condition set, or a recovery -- not every run.
-          notify_owner() {
-            [[ "${NOTIFY_WEBHOOK_URL:-}" == https://* ]] || return 0
-            if curl -fsS --max-time 10 -H "Title: $1" --data-binary "$2" "${NOTIFY_WEBHOOK_URL}" >/dev/null 2>&1; then
-              echo "owner push sent: $1"
-            else
-              echo "::warning title=Owner push failed::the ntfy POST for '$1' did not succeed"
-            fi
-          }
+          # Owner push (STAB-2) through the ONE shared script,
+          # scripts/notify_owner.sh (unset secret -> a notice and no push; never
+          # prints the URL).  Pushes on a NEW incident, a CHANGED condition set
+          # and a recovery -- not every run.  A push that did not go out leaves
+          # `<!-- owner-push: pending -->` in the tracker body; the next run
+          # carries the marker through the in-place body rewrite and retries.
           TRACKER_TITLE="Production SLO alert"
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          PENDING_MARKER="<!-- owner-push: pending -->"
           gh label create production-health --color B60205 \
             --description "Auto-opened when the scheduled production health check fails" \
             2>/dev/null || true
@@ -638,7 +665,17 @@ jobs:
             if [[ -n "$EXISTING" ]]; then
               gh issue close "$EXISTING" --reason completed --comment \
                 "Production SLOs back within budget as of ${NOW}. Workflow run: ${RUN_URL}"
-              notify_owner "Risk It: production SLOs recovered" "Back within budget as of ${NOW}. ${RUN_URL}"
+              bash scripts/notify_owner.sh --issue "$EXISTING" "Risk It: production SLOs recovered" \
+                "Back within budget as of ${NOW}. ${RUN_URL}" || true
+            elif LAST_CLOSED=$(gh issue list --state closed --label production-health \
+                                 --limit 100 --json number,title \
+                                 --jq "[.[] | select(.title==\"${TRACKER_TITLE}\") | .number] | max // empty"); then
+              if [[ -n "$LAST_CLOSED" ]]; then
+                bash scripts/notify_owner.sh --retry-pending "$LAST_CLOSED" "Risk It: production SLOs recovered" \
+                  "Within budget as of ${NOW}. (Delayed: the recovery push did not go out.) ${RUN_URL}" || true
+              fi
+            else
+              echo "::warning title=Recovery-push retry skipped::gh issue list (closed) failed; an undelivered recovery push stays pending"
             fi
             exit 0
           fi
@@ -657,17 +694,29 @@ jobs:
           BODY=$(printf '%s\n\n```\n%s\n```\n\nLast checked %s. Workflow run: %s\n\nThis issue is updated in place and closed automatically by the next green run. Per-source private detail: admin diagnostics.\n\n<!-- slo-signature: %s -->' \
             "$HEADLINE" "$REPORT" "$NOW" "$RUN_URL" "$SIG")
           if [[ -z "$EXISTING" ]]; then
-            gh issue create --title "$TRACKER_TITLE" --body "$BODY" --label production-health
-            notify_owner "Risk It: production SLO alert" "${HEADLINE} Conditions: ${SIG}. ${RUN_URL}"
+            NEW_URL=$(gh issue create --title "$TRACKER_TITLE" --body "$BODY" --label production-health)
+            echo "$NEW_URL"
+            bash scripts/notify_owner.sh --issue "$NEW_URL" "Risk It: production SLO alert" \
+              "${HEADLINE} Conditions: ${SIG}. ${RUN_URL}" || true
             exit 0
           fi
-          OLD_SIG=$(printf '%s' "$ROWS" \
-            | jq -r ".[] | select(.number==${EXISTING}) | .body" \
+          OLD_BODY=$(printf '%s' "$ROWS" | jq -r ".[] | select(.number==${EXISTING}) | .body // \"\"")
+          OLD_SIG=$(printf '%s' "$OLD_BODY" \
             | sed -n 's/.*slo-signature: \(.*\) -->.*/\1/p' | tail -n1)
+          # The body is rewritten in place every run; an undelivered push's
+          # marker must survive that rewrite or the retry below never fires.
+          if [[ "$OLD_BODY" == *"$PENDING_MARKER"* ]]; then
+            BODY="${BODY}"$'\n\n'"${PENDING_MARKER}"
+          fi
           gh api --method PATCH "repos/${GITHUB_REPOSITORY}/issues/${EXISTING}" \
             -f body="$BODY" >/dev/null
           if [[ "$OLD_SIG" != "$SIG" ]]; then
             gh issue comment "$EXISTING" --body \
               "Breached/unknown conditions changed at ${NOW}: \`${OLD_SIG:-none}\` -> \`${SIG}\`. ${RUN_URL}"
-            notify_owner "Risk It: production SLO conditions changed" "${OLD_SIG:-none} -> ${SIG}. ${RUN_URL}"
+            bash scripts/notify_owner.sh --issue "$EXISTING" "Risk It: production SLO conditions changed" \
+              "${OLD_SIG:-none} -> ${SIG}. ${RUN_URL}" || true
+          else
+            # Same conditions: no new push, but deliver one that never went out.
+            bash scripts/notify_owner.sh --retry-pending "$EXISTING" "Risk It: production SLO alert" \
+              "${HEADLINE} Conditions: ${SIG}. (Delayed: an earlier push did not go out.) ${RUN_URL}" || true
           fi

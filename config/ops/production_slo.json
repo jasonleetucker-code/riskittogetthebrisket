@@ -19,10 +19,16 @@
     "maxHoursSinceSuccess": 14
   },
   "dataFreshness": {
+    "_comment": "data_freshness.roster_age_hours has no number here on purpose: the box decides rosterState with src/api/roster_freshness.py against league_registry.SCORING_SNAPSHOT_MAX_AGE_HOURS (6 h, published as rosterMaxAgeHours), the same rule the N-team trade engine refuses on. Healthy roster age peaks near 2.1 h (docs/ops/ROSTER_FRESHNESS_MEASUREMENT_2026-11-18.md).",
     "maxTop200StaleShare": 0.1,
     "maxPricedWithheldShare": 0.1,
     "maxBoardAgeHours": 18,
     "maxStalePrivateSources": 0
+  },
+  "alerting": {
+    "_comment": "Box-side owner-alert health, read from /api/status (src/utils/owner_alerts.py, src/api/ops_alerts.py). maxConsecutiveDeliveryFailures: attempted deliveries that failed in a row in the running process (a box with no channel configured attempts nothing). maxAlertSweepAgeHours: the daily dynasty-signal-alerts sweep (15:00 UTC, up to 5 min jitter) carries every ops, source-staleness and backup-coverage alert; 30 h = one missed day plus slack, so one late run does not page.",
+    "maxConsecutiveDeliveryFailures": 3,
+    "maxAlertSweepAgeHours": 30
   },
   "history": {
     "runsPerPage": 100

@@ -73,7 +73,9 @@ def test_systemd_unit_sets_production_marker_after_env_file():
 
 
 # ── B: non-ASCII bearer must be a 401, not a 500 ─────────────────────────
-@pytest.mark.parametrize("path", ["/api/signal-alerts/run", "/api/custom-alerts/run"])
+@pytest.mark.parametrize(
+    "path", ["/api/signal-alerts/run", "/api/custom-alerts/run", "/api/test-alert"]
+)
 def test_non_ascii_bearer_is_401_not_500(monkeypatch, path):
     monkeypatch.setattr(server, "SIGNAL_ALERT_CRON_TOKEN", "configured-token")
     client = TestClient(server.app, raise_server_exceptions=False)
@@ -92,7 +94,9 @@ def test_constant_time_equals_semantics():
     assert not constant_time_equals("anything", "")
 
 
-@pytest.mark.parametrize("path", ["/api/signal-alerts/run", "/api/custom-alerts/run"])
+@pytest.mark.parametrize(
+    "path", ["/api/signal-alerts/run", "/api/custom-alerts/run", "/api/test-alert"]
+)
 def test_unset_cron_token_never_authorizes(monkeypatch, path):
     monkeypatch.setattr(server, "SIGNAL_ALERT_CRON_TOKEN", "")
     client = TestClient(server.app, raise_server_exceptions=False)
@@ -130,6 +134,40 @@ def test_written_csv_neutralizes_text_but_not_numbers():
     lines = text.splitlines()
     assert lines[1].startswith("\"'=HYPERLINK")
     assert lines[1].endswith(",-3.5")
+
+
+#: Shared with frontend/__tests__/csv-cell.test.js, which holds the client
+#: owner (frontend/lib/csv-cell.js) to the same expected values byte for byte.
+CSV_PARITY_FIXTURE = ROOT / "tests" / "fixtures" / "csv_formula_cases.json"
+
+
+def _csv_parity_cases(group: str) -> list[dict]:
+    import json
+
+    return json.loads(CSV_PARITY_FIXTURE.read_text(encoding="utf-8"))[group]
+
+
+@pytest.mark.parametrize("case", _csv_parity_cases("neutralize"), ids=repr)
+def test_neutralize_matches_the_shared_parity_fixture(case):
+    assert csv_export.neutralize_csv_text(case["input"]) == case["expected"]
+
+
+@pytest.mark.parametrize("case", _csv_parity_cases("cell"), ids=repr)
+def test_cell_matches_the_shared_parity_fixture(case):
+    assert csv_export._cell(case["input"]) == case["expected"]
+
+
+def test_parity_fixture_exercises_every_branch_of_the_rule():
+    # A fixture that only held safe text would let the two owners agree while
+    # both being wrong; pin that it covers each trigger and each skip char.
+    inputs = [c["input"] for c in _csv_parity_cases("neutralize")]
+    flagged = {c["input"] for c in _csv_parity_cases("neutralize") if c["expected"] != c["input"]}
+    for trigger in "=+-@":
+        assert any(s.lstrip(csv_export._LEADING_SKIP)[:1] == trigger for s in flagged), trigger
+    for skip in csv_export._LEADING_SKIP:
+        assert any(s.startswith(skip) and s in flagged for s in inputs), repr(skip)
+    assert any(c["expected"] == c["input"] for c in _csv_parity_cases("neutralize"))
+    assert any(isinstance(c["input"], float) and c["input"] < 0 for c in _csv_parity_cases("cell"))
 
 
 def test_auction_export_uses_the_same_owner():

@@ -2898,3 +2898,27 @@ Build a private, owner-only, read-only ChatGPT plugin for the existing Chase Ups
 | OWNER-DECISION OD-AM-6 | owner | **AMATH-S18 / S01:** extend calibration-status wording (decision 9 / MD-11) from simulator odds to every estimate surface? | owner | P1 | OWNER-DECISION — open |
 | OWNER-DECISION OD-AM-7 | owner | **AMATH-S13:** schedule the pre-auction snapshot before the 2027 rookie auction (irreversible evidence-timing window) | owner | P0 | OWNER-DECISION — open |
 | OWNER-DECISION OD-AM-8 | owner | **AMATH-S51:** acknowledge that #2053 AMATH-2 / S4 (DRO streaming) is resequenced to BLOCKED behind forecast calibration | owner | — | OWNER-DECISION — open |
+
+## Added 2026-11-21 — Top 10 dynasty improvements and Chase Trade Market completion (DYN10)
+
+The structured record is [`docs/owner/DYNASTY_TOP10_TRADE_MARKET_DIRECTIVE_2026-11-21.md`](owner/DYNASTY_TOP10_TRADE_MARKET_DIRECTIVE_2026-11-21.md),
+and the authorization is in `docs/EXECUTION_PLAN.md` (2026-11-21). The directive is dynasty only. Out of scope: DFS,
+League Tycoon, and the site-wide redesign (another developer owns it). Chase Trade Market (CTM) is the existing project
+on `src/trade/market_trade_*`: it is completed, never restarted or forked.
+
+| # | Owner instruction (condensed) | Status |
+|---|---|---|
+| DYN10-1 | CTM-1: trace the whole CTM pipeline and classify each stage; state why CTM does not move canonical values and whether any production consumer reads trade-derived prices | IN PROGRESS (audit) |
+| DYN10-2 | CTM-2: measure today's dataset (totals, deduplicated, leagues, mature, positions, IDP DL/LB/DB, picks, formats, exclusions, age); separate KTC from Sleeper; assess Sharp selection bias | IN PROGRESS (audit) |
+| DYN10-3 | CTM-3: finish real gaps from #1852 onward (maturity, cross-season identity, lineage, dedup, independence, leakage, point-in-time format and prices, eligibility); read-only production diagnostics only | QUEUED |
+| DYN10-4 | CTM-4: estimator from real completed trades; existing approaches evaluated first; identifiability respected; simple baselines vs complex | QUEUED |
+| DYN10-5 | CTM-5: independent validation (chronological, league holdout, lineage leakage, future trades, intervals, per-position error, point-in-time comparisons); reserved preregistration holdouts untouched | QUEUED |
+| DYN10-6 | CTM-6: IDP market evidence across leagues (edge, DT, LB, S, CB, elite, young, IDP-for-offense, IDP-for-picks, 3/3/3 premiums); report insufficiency, never invent a premium | QUEUED |
+| DYN10-7 | CTM-7: internal shadow market values with evidence counts, effective sample size, intervals, coverage, trend, canonical difference, provenance, model version; optional internal comparison view | QUEUED |
+| DYN10-8 | CTM-8: integration prerequisites (incremental value, correlation, per-category evaluation, disruption, sparse behavior, shadow runs, gates, rollback); then prepare the owner decision. **Voting / weights / canonical change stays OWNER-RESERVED** | OWNER-GATED at activation |
+| DYN10-9 | Audit the ten candidate areas (CTM, valuation engine, trade finder/analyzer, team advisor, Sleeper/multi-league, championship/posture, waiver/FAAB, rookie draft/capital, manager scout/market intel, command center) plus repairs that outrank features | IN PROGRESS (audit) |
+| DYN10-10 | Rank exactly ten on the 100-point rubric (decision 30, accuracy 20, usefulness 15, improvement 15, feasibility 10, differentiation 10); complexity and risk kept separate; state CTM's rank and limits | QUEUED |
+| DYN10-11 | Workstreams A (CTM), B (valuation/BDVM), C (trade decisions), D (rest): implement top items in small tested PRs; parallel where independent, serial on shared models and registries | QUEUED |
+| DYN10-12 | Real-scenario tests: 12-team SF, 2 TE, heavy TEP, 9 IDP, non-IDP, deep rosters, best ball, packages, 2/3/4-team trades, picks, auctions, contend/rebuild, forced releases, stale or missing rankings; the CTM-specific list | QUEUED |
+| DYN10-13 | Deliverables A–D: CTM status report, Top-10 table, implementation report, CTM advancement | QUEUED |
+| DYN10-14 | Deliverable E: update the existing canonical planning docs (verified / built-inactive / research / in progress / owner / data-blocked / deferred); no competing backlog | QUEUED |

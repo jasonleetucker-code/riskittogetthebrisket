@@ -1,13 +1,13 @@
 """Operator alerts for critical production conditions.
 
-Fires SMTP emails (reusing the existing signal-alert SMTP pipe)
-when any of these conditions hold:
+Delivers one batched owner alert through the caller's delivery callable --
+in production ``server._deliver_owner_alert``, i.e. ``src/utils/owner_alerts.py``:
+the owner's push channel (ntfy) first, e-mail as the fallback -- when any of
+these conditions hold:
 
     * Scrape success rate over the last 24h drops below 50%
     * Any circuit breaker has been OPEN for > 10 minutes
     * Contract health reports ``ok=False``
-    * Signal-alert cron hasn't run in > 36h (expected every 12h)
-    * Session-store SQLite integrity check fails
     * Data freshness > 3 × scrape interval
     * A draft-capital dollars generation serving last-known-good or
       unavailable (Batch F, one alert per league + draft class)
@@ -25,17 +25,28 @@ when any of these conditions hold:
       its source exists on this host, or one the writer recorded as failed or
       shed (one alert per store), and a post-deploy restore proof that failed,
       could not run or died mid-way (``src/api/backup_health.py``)
+    * A state backup whose newest generation is older than
+      ``backup_health.STALE_AFTER_HOURS`` -- a timer that stopped firing or runs
+      that stopped producing generations, which leave no unit ``failed``
+      (``backup_state_stale``; an unjudgeable root is unknown, never fresh)
     * A shipped ``dynasty-*`` / ``riskit-*`` systemd service in the ``failed``
       state -- a timer whose latest run failed (``src/api/systemd_failures.py``;
       one alert per unit)
 
 Cooldown: each alert class has a 4-hour re-alert cooldown keyed
 on the synthetic user ``_system_ops_alerts`` in user_kv so the
-cron doesn't spam when a condition is persistent.  Recovery
-alerts fire once when the condition clears.
+cron doesn't spam when a condition is persistent.  The window is spent
+only by a DELIVERED alert (audit F-20).  Recovery alerts fire once
+when the condition clears.
 
 Intended to be called once per sweep (piggybacks on the existing
 ``/api/signal-alerts/run`` cron).  Never raises.
+
+The sweep cannot alert on its own absence (a sweep that never runs sends
+nothing), so its liveness is judged from OUTSIDE: ``record_sweep`` stamps the
+end of every sweep under the same synthetic user, ``/api/status`` publishes
+``alertSweepAgeHours`` from it, and ``scripts/check_production_slo.py`` breaches
+when it is too old (``config/ops/production_slo.json`` ``alerting``).
 """
 
 from __future__ import annotations
@@ -43,6 +54,8 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Callable
 
 from src.api import user_kv
@@ -280,16 +293,45 @@ def _check_roster_construction(rows: list[dict[str, Any]]) -> list[OpsAlert]:
     return alerts
 
 
-def _check_backup_coverage(block: dict[str, Any] | None) -> list[OpsAlert]:
+#: The category of the stale-state-backup row (COV-BACKUP, 2026-11-20).
+BACKUP_STATE_STALE_CATEGORY = "backup_state_stale"
+
+
+STATE_BACKUP_UNIT = "riskit-state-backup.service"
+
+
+def _check_backup_coverage(
+    block: dict[str, Any] | None, failed_units: list[str] | None = None
+) -> list[OpsAlert]:
     """Irreplaceable-store coverage and the restore proof, from ``alert_rows``.
 
-    One alert per uncovered store, keyed ``backup_ledger:<store>``, and one for
-    the proof keyed ``backup_restore_proof``.  The email goes to the operator, so
+    One alert per uncovered store, keyed ``backup_ledger:<store>``, one for
+    the proof keyed ``backup_restore_proof``, and one for a stale state backup
+    keyed ``backup_state_stale``.  The email goes to the operator, so
     it names the store (the public ``/api/health`` block never does).  A store
     that does not exist on this host never reaches here -- ``absent_by_design``
     is not a finding.
+
+    ``failed_units`` is the same sweep's ``check_and_alert(failed_units=...)``
+    (``None`` = not checked): it decides only the stale-state-backup TEXT, so
+    that alert never contradicts a failed-unit alert in the same message.
     """
     alerts: list[OpsAlert] = []
+    if failed_units is None:
+        unit_note = (
+            "If riskit-state-backup.service is not in the failed state, check the "
+            "timer is still scheduled (systemctl list-timers riskit-state-backup.timer)."
+        )
+    elif STATE_BACKUP_UNIT in failed_units:
+        unit_note = (
+            "riskit-state-backup.service is in the failed state (reported separately "
+            "in this message): the last run failed."
+        )
+    else:
+        unit_note = (
+            "riskit-state-backup.service is not in the failed state, so check the "
+            "timer is still scheduled (systemctl list-timers riskit-state-backup.timer)."
+        )
     for row in (block or {}).get("rows") or []:
         if not isinstance(row, dict):
             continue
@@ -331,6 +373,29 @@ def _check_backup_coverage(block: dict[str, Any] | None) -> list[OpsAlert]:
                     ),
                 )
             )
+        elif row.get("kind") == "state_backup":
+            age = row.get("ageHours")
+            limit = row.get("staleAfterHours")
+            alerts.append(
+                OpsAlert(
+                    severity="warning",
+                    category=BACKUP_STATE_STALE_CATEGORY,
+                    title=(
+                        f"State backup is stale ({age:.0f} h old)"
+                        if isinstance(age, (int, float))
+                        else "State backup is stale"
+                    ),
+                    detail=(
+                        "The newest generation of the nightly state backup "
+                        f"({row.get('newestGeneration') or 'unknown date'}) is older than "
+                        f"{limit if limit is not None else 'the stale threshold'} h, so at "
+                        f"least one nightly run did not produce a generation.  {unit_note}  "
+                        "Read the last run: sudo journalctl -u riskit-state-backup.service "
+                        "-n 80 --no-pager.  Run it now with sudo systemctl start "
+                        "riskit-state-backup.service."
+                    ),
+                )
+            )
         elif row.get("kind") == "restore_proof":
             result = row.get("result")
             alerts.append(
@@ -348,6 +413,73 @@ def _check_backup_coverage(block: dict[str, Any] | None) -> list[OpsAlert]:
                 )
             )
     return alerts
+
+
+#: The category of the stale ledger-report row (DYN10-3 / A1b, 2026-11-21).
+MARKET_TRADE_REPORT_CATEGORY = "market_trade_report_stale"
+
+
+def _check_market_trade_report(row: dict[str, Any] | None) -> list[OpsAlert]:
+    """The Chase Trade Market ledger report is stale, missing or unreadable.
+
+    ``row`` is ``src/api/market_trade_report_health.market_trade_report_health``.
+    ``fresh`` and ``not_provisioned`` (CI, dev) say nothing; ``missing`` on a
+    provisioned host and ``unreadable`` are their own findings, never "fresh".
+    ``None`` is "not checked" (see ``check_and_alert``).
+    """
+    if not isinstance(row, dict):
+        return []
+    state = row.get("state")
+    unit = "dynasty-market-trade-ledger.service"
+    how = (
+        f"Read the last run: sudo journalctl -u {unit} -n 80 --no-pager; "
+        "check the timer (systemctl list-timers dynasty-market-trade-ledger.timer); "
+        f"run it now with sudo systemctl start {unit}.  Some upstream rows exist only "
+        "in a rolling window, so every missed day can lose evidence."
+    )
+    if state == "stale":
+        age, limit = row.get("ageHours"), row.get("staleAfterHours")
+        return [
+            OpsAlert(
+                severity="warning",
+                category=MARKET_TRADE_REPORT_CATEGORY,
+                title=(
+                    f"Trade market ledger report is stale ({age:.0f} h old)"
+                    if isinstance(age, (int, float))
+                    else "Trade market ledger report is stale"
+                ),
+                detail=(
+                    f"The newest report (generated {row.get('generatedAt')}) is older than "
+                    f"the {limit if limit is not None else 'declared'} h budget for a daily "
+                    f"job.  {how}"
+                ),
+            )
+        ]
+    if state == "missing":
+        return [
+            OpsAlert(
+                severity="warning",
+                category=MARKET_TRADE_REPORT_CATEGORY,
+                title="Trade market ledger report is missing",
+                detail=(
+                    "This host holds trade-market data but no ledger report exists, so the "
+                    f"daily job has not produced one.  {how}"
+                ),
+            )
+        ]
+    if state == "unreadable":
+        return [
+            OpsAlert(
+                severity="warning",
+                category=MARKET_TRADE_REPORT_CATEGORY,
+                title="Trade market ledger report time is unreadable",
+                detail=(
+                    "A report exists but its own generatedAt stamp is absent, unparseable or "
+                    f"in the future, so its freshness cannot be established.  {how}"
+                ),
+            )
+        ]
+    return []
 
 
 def _check_failed_units(units: list[str] | None) -> list[OpsAlert]:
@@ -808,6 +940,50 @@ def _save_ops_state(state: dict[str, Any], categories: set[str], path: Any = Non
     user_kv.mutate_user_state(_OPS_STATE_USER, _apply, path=path)
 
 
+#: Where :func:`record_sweep` stamps the end of a sweep (beside ``opsAlertState``).
+SWEEP_STATE_KEY = "alertSweep"
+
+
+def record_sweep(*, now: float | None = None, kv_path: Any = None) -> None:
+    """Stamp the end of an alert sweep (``lastSweepAt``, UTC ISO).
+
+    The dead-man's switch for the daily ``/api/signal-alerts/run`` sweep: every
+    ops, source-staleness and backup-coverage alert depends on it, and a sweep
+    that never runs (bad token, disabled timer, backend down at 15:00 UTC) sends
+    nothing.  Only an external reader can notice that, so this records the fact
+    and :func:`alert_sweep_age_hours` reports it."""
+    stamp = time.time() if now is None else float(now)
+
+    def _apply(entry: dict[str, Any]) -> None:
+        entry[SWEEP_STATE_KEY] = {
+            "lastSweepAt": datetime.fromtimestamp(stamp, tz=timezone.utc).isoformat(),
+            "lastSweepEpoch": stamp,
+        }
+
+    user_kv.mutate_user_state(_OPS_STATE_USER, _apply, path=kv_path)
+
+
+def alert_sweep_age_hours(*, now: float | None = None, kv_path: Any = None) -> float | None:
+    """Hours since the last recorded sweep; ``None`` when none was ever recorded
+    or the store cannot be read (unknown -- never 0, never "fresh").
+
+    Read-only: a missing store is answered ``None`` without creating it."""
+    path = Path(kv_path) if kv_path is not None else Path(user_kv.USER_KV_PATH)
+    if not path.is_file():
+        return None
+    try:
+        state = user_kv.get_user_state(_OPS_STATE_USER, path=path)
+    except Exception as exc:  # noqa: BLE001 - a diagnostic never raises
+        _LOGGER.warning("alert sweep stamp unreadable: %s", exc)
+        return None
+    entry = state.get(SWEEP_STATE_KEY)
+    epoch = entry.get("lastSweepEpoch") if isinstance(entry, dict) else None
+    if isinstance(epoch, bool) or not isinstance(epoch, (int, float)):
+        return None
+    current = time.time() if now is None else float(now)
+    return round(max(0.0, current - float(epoch)) / 3600.0, 2)
+
+
 def _should_fire(
     alert: OpsAlert,
     state: dict[str, Any],
@@ -906,6 +1082,34 @@ def format_ops_email(alerts: list[OpsAlert]) -> tuple[str, str]:
     return subject, "\n".join(lines)
 
 
+#: The category a producer TEST notice carries.  It is never stored, so it can
+#: neither spend a cooldown nor earn a recovery notice.
+TEST_CATEGORY = "owner_alert_producer_test"
+
+
+def format_test_notice() -> tuple[str, str]:
+    """``(subject, body)`` of one labelled TEST notice, built by
+    :func:`format_ops_email` -- the sweep's own formatter -- for ``POST
+    /api/test-alert?producers=1``.  Pure: it reads and writes no state."""
+    from src.utils import owner_alerts  # noqa: PLC0415
+
+    return owner_alerts.mark_test(
+        *format_ops_email(
+            [
+                OpsAlert(
+                    severity="warning",
+                    category=TEST_CATEGORY,
+                    title="Ops-alert producer test (no condition fired)",
+                    detail=(
+                        "An operator check of the ops-alert sweep's formatting and owner "
+                        "delivery.  No cooldown or recovery state was read or written."
+                    ),
+                )
+            ]
+        )
+    )
+
+
 def check_and_alert(
     *,
     status_payload: dict[str, Any] | None = None,
@@ -919,6 +1123,7 @@ def check_and_alert(
     backup_coverage: dict[str, Any] | None = None,
     failed_units: list[str] | None = None,
     forecast_degradation: list[dict[str, Any]] | None = None,
+    market_trade_report: dict[str, Any] | None = None,
     delivery: Callable[[str, str, str], bool] | None = None,
     to_email: str | None = None,
     kv_path: Any = None,
@@ -941,8 +1146,9 @@ def check_and_alert(
     alerts.extend(_check_draft_valuation(draft_valuation or []))
     alerts.extend(_check_pregame_archive(pregame_archive or []))
     alerts.extend(_check_roster_construction(roster_construction or []))
-    alerts.extend(_check_backup_coverage(backup_coverage))
+    alerts.extend(_check_backup_coverage(backup_coverage, failed_units))
     alerts.extend(_check_failed_units(failed_units))
+    alerts.extend(_check_market_trade_report(market_trade_report))
     try:
         alerts.extend(_check_forecast_degradation(forecast_degradation or []))
     except Exception as exc:  # noqa: BLE001 -- malformed scorecard content never breaks the sweep
@@ -965,6 +1171,10 @@ def check_and_alert(
         # An unreadable scorecard is UNKNOWN, not recovered.
         active_categories |= {c for c in state if str(c).startswith(FORECAST_DEGRADATION_PREFIX)}
 
+    if market_trade_report is None:
+        # Not checked (the probe failed) is UNKNOWN, not recovered.
+        active_categories |= {c for c in state if str(c) == MARKET_TRADE_REPORT_CATEGORY}
+
     if failed_units is None:
         # systemctl could not be asked: UNKNOWN, not recovered.
         active_categories |= {c for c in state if str(c).startswith("systemd_unit:")}
@@ -979,6 +1189,10 @@ def check_and_alert(
         active_categories |= {c for c in state if str(c) == "backup_offbox_copy"}
     if not (backup_coverage or {}).get("proofChecked"):
         active_categories |= {c for c in state if str(c) == "backup_restore_proof"}
+    if not (backup_coverage or {}).get("stateChecked"):
+        # The state backup's age could not be judged (unreadable root, no
+        # generation, a failed probe): UNKNOWN, never "fresh again".
+        active_categories |= {c for c in state if str(c) == BACKUP_STATE_STALE_CATEGORY}
 
     # Recovery alerts first — for conditions that were firing but
     # aren't now.
@@ -1011,6 +1225,14 @@ def check_and_alert(
 
     to_deliver = firing + recovery_alerts
     delivered = False
+    if to_deliver and not delivery_configured:
+        # One line per sweep, so "nothing to say" and "nobody to say it to"
+        # do not look the same in the journal.
+        _LOGGER.warning(
+            "ops alerts: %d notice(s) to deliver but no owner alert channel is configured "
+            "(NOTIFY_WEBHOOK_URL or ALERT_*); nothing sent, retried next sweep",
+            len(to_deliver),
+        )
     if to_deliver and delivery_configured:
         subject, body = format_ops_email(to_deliver)
         try:
@@ -1018,6 +1240,12 @@ def check_and_alert(
         except Exception as exc:  # noqa: BLE001
             _LOGGER.warning("ops alert delivery failed: %s", exc)
             delivered = False
+        if not delivered:
+            _LOGGER.warning(
+                "ops alerts: %d notice(s) NOT delivered (every channel failed); "
+                "retried next sweep",
+                len(to_deliver),
+            )
     summary["delivered"] = delivered
 
     if delivered:

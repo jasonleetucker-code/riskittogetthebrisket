@@ -104,13 +104,44 @@ log "running scripts/fetch_dlf.py"
 # ``dlf_last_success`` stamp still requires a fully clean run, and the unit
 # still exits non-zero so the failure stays visible in the journal.
 MANIFEST="${WORK_DIR}/dlf_written.json"
+BOARD_STATES_RUN="${WORK_DIR}/dlf_board_states.run.json"
+# Per-board states (written / refused / vendor_empty / parse_failed / ...) are
+# box-local: the file names a paid vendor, and tracking it would grow the
+# repository's vendor-data exposure, an owner decision
+# (docs/security/DATA_EXPOSURE_DECISION_BRIEF_2026-11-18.md).  Read it with
+# deploy/diagnostics/dlf_fetch_inventory.sh.
+BOARD_STATES_FILE="${WORK_DIR}/dlf_board_states.json"
+# Both run outputs are removed first: a fetcher that dies before writing them
+# must not leave the previous run's manifest to be read as this run's.
+rm -f "${MANIFEST}" "${BOARD_STATES_RUN}"
 FETCH_RC=0
-"${VENV_PYTHON}" scripts/fetch_dlf.py --written-manifest "${MANIFEST}" || FETCH_RC=$?
-mapfile -t WRITTEN < <("${VENV_PYTHON}" -c 'import json,sys; print("\n".join(json.load(open(sys.argv[1]))))' "${MANIFEST}" 2>/dev/null || true)
+"${VENV_PYTHON}" scripts/fetch_dlf.py --written-manifest "${MANIFEST}" \
+  --board-states "${BOARD_STATES_RUN}" || FETCH_RC=$?
+# One key per line and NOTHING for an empty manifest: ``print("\n".join([]))``
+# prints a blank line, mapfile reads it as one empty key, and the "wrote no
+# board" guard below never fired.  Blank entries are dropped regardless.
+mapfile -t WRITTEN_RAW < <("${VENV_PYTHON}" -c 'import json,sys; sys.stdout.write("".join(str(k) + "\n" for k in json.load(open(sys.argv[1]))))' "${MANIFEST}" 2>/dev/null || true)
+WRITTEN=()
+for key in "${WRITTEN_RAW[@]}"; do
+  if [[ -n "${key}" ]]; then
+    WRITTEN+=("${key}")
+  fi
+done
+# Recorded before any early exit, so a run where every board failed still says why.
+# ``since`` is kept while a board's state is unchanged.
+if [[ -s "${BOARD_STATES_RUN}" ]]; then
+  "${VENV_PYTHON}" scripts/dlf_board_states.py merge \
+    --run "${BOARD_STATES_RUN}" --out "${BOARD_STATES_FILE}" || \
+    err "could not record per-board states (non-fatal)"
+fi
 if [[ "${FETCH_RC}" -ne 0 && "${#WRITTEN[@]}" -eq 0 ]]; then
   err "fetch_dlf.py exited ${FETCH_RC} and wrote no board - keeping previous CSVs / stamps; will retry on next timer fire."
   exit 1
 fi
+# A board the vendor published empty (state ``vendor_empty``, measured on the
+# rookie boards 2026-11-20) is still a non-zero exit: deciding that an empty
+# board is an expected seasonal state belongs to src/sources/seasonal_policy.py
+# and is an owner decision.  The per-board state file above records the label.
 if [[ "${FETCH_RC}" -ne 0 ]]; then
   err "fetch_dlf.py exited ${FETCH_RC}; committing only the boards it wrote: ${WRITTEN[*]}"
 else
@@ -161,8 +192,10 @@ fi
 # (the GitHub refresh skips them).  Only boards written this run are
 # recorded; a refused board keeps its last observation, so its data age keeps
 # growing honestly.  Non-fatal.
-"${VENV_PYTHON}" scripts/record_source_datasets.py --only "${WRITTEN[@]}" \
-  || err "record_source_datasets.py failed - dataset state left at its last observation"
+if [[ "${#WRITTEN[@]}" -gt 0 ]]; then
+  "${VENV_PYTHON}" scripts/record_source_datasets.py --only "${WRITTEN[@]}" \
+    || err "record_source_datasets.py failed - dataset state left at its last observation"
+fi
 DATASET_PATHS=()
 for key in "${WRITTEN[@]}"; do
   if [[ -f "data/scrape_state/${key}_dataset.json" ]]; then

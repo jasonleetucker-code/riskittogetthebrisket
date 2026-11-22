@@ -18,8 +18,15 @@ Named results (code freshness and data freshness are kept separate):
 * ``pipeline.refresh``                hours since the last successful
   ``scheduled-refresh.yml`` run;
 * ``data_freshness.*``                the ``freshness_slo`` block of
-  ``/api/status`` (top-200 stale share, withheld share, board age) and
-  ``data_freshness.private_sources`` (provisioned private sources past budget).
+  ``/api/status`` (top-200 stale share, withheld share, board age),
+  ``data_freshness.private_sources`` (provisioned private sources past budget)
+  and ``data_freshness.roster_age_hours`` (the default league's rosters, judged
+  on the box by ``roster_freshness.roster_age`` against its own budget);
+* ``alerting.alert_delivery_failing`` consecutive failed owner-alert deliveries
+  on the box (``/api/status`` ``alertDelivery``);
+* ``alerting.alert_sweep_age``        hours since the box's daily alert sweep
+  last finished (``/api/status`` ``alertSweepAgeHours``) -- the dead-man's
+  switch for every box-side alert, which a stopped sweep cannot raise itself.
 
 A rule that could not be measured is ``UNKNOWN`` -- never ``OK``.  Exit codes:
 0 all measured and within budget, 1 at least one BREACH, 3 no breach but at
@@ -55,6 +62,10 @@ UNKNOWN = "UNKNOWN"
 CODE = "code_freshness"
 PIPELINE = "pipeline"
 DATA = "data_freshness"
+ALERTING = "alerting"
+
+#: ``/api/status`` keys the alerting rules read (copied verbatim, when present).
+ALERTING_STATUS_KEYS = ("alertDelivery", "alertSweepAgeHours")
 
 _FAILED = frozenset({"failure", "timed_out", "startup_failure"})
 _SUCCEEDED = frozenset({"success"})
@@ -92,6 +103,10 @@ class Snapshot:
     freshness_slo: Mapping[str, Any] | None = None
     #: Whether the status endpoint itself answered.
     status_reachable: bool = True
+    #: The ``ALERTING_STATUS_KEYS`` ``/api/status`` carried -- only those it
+    #: carried, so "the deployed build predates the field" stays distinct from
+    #: "the field is null".  ``None`` = not read at all.
+    alerting: Mapping[str, Any] | None = None
     notes: list[str] = field(default_factory=list)
 
 
@@ -319,6 +334,182 @@ def rule_private_sources(snap: Snapshot, cfg: Mapping[str, Any]) -> Result:
     return Result(name, DATA, OK, stale, limit, "")
 
 
+def _number(value: Any) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
+def rule_roster_age(snap: Snapshot, cfg: Mapping[str, Any]) -> Result:
+    """The default league's rosters are not current (about three missed box scrapes).
+
+    The verdict and its budget are the box's own: ``rosterState`` is decided by
+    ``src/api/roster_freshness.roster_age`` against
+    ``league_registry.SCORING_SNAPSHOT_MAX_AGE_HOURS`` (published as
+    ``rosterMaxAgeHours``), the same rule the N-team trade engine refuses on.
+    So this rule adds no threshold of its own, and ``cfg`` is unused.
+    """
+    name = "data_freshness.roster_age_hours"
+    if not snap.status_reachable:
+        return Result(name, DATA, UNKNOWN, None, None, "/api/status unreachable")
+    slo = snap.freshness_slo
+    if not isinstance(slo, Mapping):
+        return Result(
+            name,
+            DATA,
+            UNKNOWN,
+            None,
+            None,
+            "status_block_absent: /api/status has no freshness_slo block",
+        )
+    if "rosterState" not in slo:
+        why = (
+            f"status_block_error: the box could not compute freshness_slo ({slo.get('error')})"
+            if slo.get("error")
+            else "status_field_absent: the deployed build does not publish rosterState"
+        )
+        return Result(name, DATA, UNKNOWN, None, None, why)
+    state, source = slo.get("rosterState"), slo.get("rosterSource")
+    age, limit = _number(slo.get("rosterAgeHours")), _number(slo.get("rosterMaxAgeHours"))
+    if state == "current" and age is not None:
+        return Result(
+            name,
+            DATA,
+            OK,
+            age,
+            limit,
+            f"hours since the default league's rosters were fetched (source {source})",
+        )
+    if state == "stale":
+        why = (
+            "a failed roster fetch restored the last-good block"
+            if source == "last_good"
+            else "the live roster block is past its budget"
+        )
+        return Result(
+            name,
+            DATA,
+            BREACH,
+            age,
+            limit,
+            f"{why}; team-attributed trades on these rosters are refused as unverifiable",
+        )
+    return Result(
+        name,
+        DATA,
+        UNKNOWN,
+        None,
+        limit,
+        f"no provable roster fetch time on the served board (rosterState={state})",
+    )
+
+
+def _alerting_value(snap: Snapshot, key: str) -> tuple[bool, Any, str]:
+    """``(present, value, why_unknown)`` for one ``ALERTING_STATUS_KEYS`` field."""
+    if not snap.status_reachable:
+        return False, None, "/api/status unreachable"
+    if not isinstance(snap.alerting, Mapping) or key not in snap.alerting:
+        return (
+            False,
+            None,
+            f"status_block_absent: /api/status has no {key} (deployed build predates it)",
+        )
+    return True, snap.alerting[key], ""
+
+
+def rule_alert_delivery(snap: Snapshot, cfg: Mapping[str, Any]) -> Result:
+    """The box's owner-alert deliveries are failing in a row.
+
+    ``consecutiveFailures`` counts ATTEMPTED deliveries only (a box with no
+    channel configured attempts nothing, so it cannot fail here; whether a
+    channel exists is reported beside it, never folded into this count)."""
+    name = "alerting.alert_delivery_failing"
+    limit = int(cfg["alerting"]["maxConsecutiveDeliveryFailures"])
+    present, block, why = _alerting_value(snap, "alertDelivery")
+    if not present:
+        return Result(name, ALERTING, UNKNOWN, None, limit, why)
+    if not isinstance(block, Mapping):
+        return Result(name, ALERTING, UNKNOWN, None, limit, "alertDelivery is not an object")
+    failures = block.get("consecutiveFailures")
+    channels = {k: block.get(k) for k in ("ntfyConfigured", "emailConfigured")}
+    no_channel = not any(v is True for v in channels.values())
+    if failures is None and "consecutiveFailures" in block:
+        record = block.get("deliveryRecord")
+        if no_channel:
+            # Nothing is configured, so nothing is attempted and nothing can
+            # fail: the rule is satisfied, whatever the record says.
+            return Result(
+                name,
+                ALERTING,
+                OK,
+                {"consecutiveFailures": None, "deliveryRecord": record, **channels},
+                limit,
+                "no owner alert channel is configured on the box, so nothing can fail here",
+            )
+        if record == "none":
+            # The box persists every attempt (since 2026-11-20), so "no record"
+            # is a measured zero attempts -- not a missing value.
+            return Result(
+                name,
+                ALERTING,
+                OK,
+                {"consecutiveFailures": None, "deliveryRecord": record, **channels},
+                limit,
+                "a channel is configured and no delivery has been attempted yet, so none has failed",
+            )
+        return Result(
+            name,
+            ALERTING,
+            UNKNOWN,
+            None,
+            limit,
+            "the box's owner-alert delivery record is "
+            + ("unreadable" if record == "unreadable" else "not reported")
+            + " (unknown, not 0)",
+        )
+    if not isinstance(failures, int) or isinstance(failures, bool):
+        return Result(
+            name, ALERTING, UNKNOWN, None, limit, "alertDelivery.consecutiveFailures not measured"
+        )
+    measured = {"consecutiveFailures": failures, **channels}
+    if failures >= limit:
+        return Result(
+            name,
+            ALERTING,
+            BREACH,
+            measured,
+            limit,
+            f"{failures} consecutive owner-alert deliveries failed on the box "
+            f"(last failure {block.get('lastFailedAt')}, last success {block.get('lastDeliveredAt')})",
+        )
+    detail = ""
+    if no_channel:
+        detail = "no owner alert channel is configured on the box, so nothing can fail here"
+    return Result(name, ALERTING, OK, measured, limit, detail)
+
+
+def rule_alert_sweep_age(snap: Snapshot, cfg: Mapping[str, Any]) -> Result:
+    """The daily alert sweep stopped (bad token, disabled timer, backend down)."""
+    name = "alerting.alert_sweep_age"
+    limit = float(cfg["alerting"]["maxAlertSweepAgeHours"])
+    present, age, why = _alerting_value(snap, "alertSweepAgeHours")
+    if not present:
+        return Result(name, ALERTING, UNKNOWN, None, limit, why)
+    if not isinstance(age, (int, float)) or isinstance(age, bool):
+        return Result(
+            name,
+            ALERTING,
+            UNKNOWN,
+            None,
+            limit,
+            "no completed alert sweep is recorded on the box (never ran since this field shipped)",
+        )
+    status = BREACH if age > limit else OK
+    return Result(
+        name, ALERTING, status, age, limit, "hours since the daily alert sweep last finished"
+    )
+
+
 RULES = (
     rule_deploy_lag,
     rule_deploy_failures,
@@ -327,6 +518,9 @@ RULES = (
     rule_withheld,
     rule_board_age,
     rule_private_sources,
+    rule_roster_age,
+    rule_alert_delivery,
+    rule_alert_sweep_age,
 )
 HISTORY_RULES = (rule_deploy_lag, rule_deploy_failures, rule_refresh)
 
@@ -345,7 +539,7 @@ def exit_code(results: Sequence[Result], unknown_ok: bool = False) -> int:
 
 def render(results: Sequence[Result], now: datetime) -> str:
     lines = [f"Production SLO report @ {now.strftime('%Y-%m-%dT%H:%MZ')}"]
-    for cat in (CODE, PIPELINE, DATA):
+    for cat in (CODE, PIPELINE, DATA, ALERTING):
         group = [r for r in results if r.category == cat]
         if group:
             lines.append(f"{cat}:")
@@ -528,6 +722,7 @@ def build_live_snapshot(args: argparse.Namespace, cfg: Mapping[str, Any]) -> Sna
     else:
         slo = status.get("freshness_slo")
         snap.freshness_slo = slo if isinstance(slo, Mapping) else None
+        snap.alerting = {k: status[k] for k in ALERTING_STATUS_KEYS if k in status}
         sha = (status.get("build") or {}).get("commit")
         if isinstance(sha, str) and _FULL_SHA.match(sha):
             try:

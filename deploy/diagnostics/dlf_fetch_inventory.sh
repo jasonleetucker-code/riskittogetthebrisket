@@ -94,7 +94,7 @@ scrub() {
 }
 
 # ------------------------------------------------------------------ 4 --
-hdr "[4] persisted session jar (names + expiry only)"
+hdr "[4] persisted session jar (cookie names + domains only, never values)"
 SESSION_FILE="${WORK_DIR}/dlf_session.json"
 PY="${DLF_FETCH_PYTHON:-/home/dynasty/.venvs/trade-calculator/bin/python}"
 [[ -x "${PY}" ]] || PY="${APP_DIR}/.venv/bin/python"
@@ -103,14 +103,45 @@ PY="${DLF_FETCH_PYTHON:-/home/dynasty/.venvs/trade-calculator/bin/python}"
 echo "python : ${PY} ($("${PY}" -V 2>&1))"
 if [[ -r "${SESSION_FILE}" ]]; then
   echo "session mtime : $(date -u -r "${SESSION_FILE}" +%Y-%m-%dT%H:%M:%SZ)"
-  "${PY}" - "${SESSION_FILE}" <<'PY' || echo "session jar unreadable as JSON"
-import json, sys, time
-cookies = json.load(open(sys.argv[1]))
+  "${PY}" - "${SESSION_FILE}" <<'PY' || echo "session jar check failed"
+import json, math, sys, time
+# scripts/fetch_dlf.py writes {"_comment_": ..., "cookies": [{name, value,
+# domain, path}, ...]}: an object, not a list, and no expiry.  A bare list
+# (older jars) is read too.  Cookie VALUES are never printed, and neither is a
+# name or domain that is not a plain string (it could hold anything).
+LIMIT = 40
+
+
+def text(v, width):
+    return v[:width] if isinstance(v, str) else "<not a string>"
+
+
+def expiry(v):
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
+        return "not recorded"
+    try:
+        return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(v))
+    except (OverflowError, OSError, ValueError):
+        return "out of range"
+
+
+try:
+    with open(sys.argv[1], encoding="utf-8") as fh:
+        data = json.load(fh)
+except (OSError, ValueError) as exc:  # a class only: the file's bytes are never echoed
+    print(f"session jar unreadable ({type(exc).__name__})")
+    sys.exit(0)
+cookies = data.get("cookies") if isinstance(data, dict) else data
+if not isinstance(cookies, list):
+    print(f"session jar has no cookie list (top level: {type(data).__name__})")
+    sys.exit(0)
+cookies = [c for c in cookies if isinstance(c, dict)]
 print(f"cookies : {len(cookies)}")
-for c in cookies:
-    exp = c.get("expires")
-    when = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(exp)) if isinstance(exp, (int, float)) else exp
-    print(f"  {str(c.get('name'))[:48]:48s} expires={when}")
+for c in cookies[:LIMIT]:
+    name, domain = text(c.get("name"), 48), text(c.get("domain"), 40)
+    print(f"  {name:48s} domain={domain} expires={expiry(c.get('expires'))}")
+if len(cookies) > LIMIT:
+    print(f"  ... {len(cookies) - LIMIT} more not listed")
 PY
   cp -f "${SESSION_FILE}" "${DIAG_DIR}/dlf_session.json"
 else
@@ -135,6 +166,13 @@ fi
 "${PY}" -c 'import bs4, curl_cffi; print("deps : bs4", bs4.__version__, "curl_cffi", curl_cffi.__version__)' 2>&1 || echo "deps : import FAILED"
 
 # ------------------------------------------------------------------ 6 --
+hdr "[5b] per-board states recorded by the timer (box-local, not committed)"
+if [[ -f "${WORK_DIR}/dlf_board_states.json" ]]; then
+  cat "${WORK_DIR}/dlf_board_states.json"
+else
+  echo "no ${WORK_DIR}/dlf_board_states.json yet (written by the first timer run after #2275)"
+fi
+
 hdr "[6] per-board dry run (runner's fetch_dlf.py, no CSV written)"
 set +e
 (
@@ -150,16 +188,27 @@ echo "dry_run_exit=${rc}"
 # Analyzer Values page.  Page structure is evidence the parser is designed
 # from; the probe prints table shapes, first rows and embedded-data markers,
 # never cookies or script bodies, and writes nothing.
-hdr "[7] probe trade-analyzer-values"
+# The rookie boards are probed too: on 2026-11-17 both started parsing 0 rows
+# while every other board kept working, and a moved or client-rendered page is
+# only visible in its structure (status, final path, tables, embedded data).
+hdr "[7] probe page structure (values + rookie boards)"
 DLF_VALUES_URL="${DLF_VALUES_URL:-https://dynastyleaguefootball.com/trade-analyzer-values/?l=sf_te_prem}"
-set +e
-(
-  cd "${DIAG_DIR}"
-  export DLF_USERNAME DLF_PASSWORD
-  timeout 180 "${PY}" scripts/fetch_dlf.py --probe "${DLF_VALUES_URL}" 2>&1
-) | scrub
-rc=${PIPESTATUS[0]}
-set -e
-echo "probe_exit=${rc}"
+PROBE_URLS=(
+  "${DLF_VALUES_URL}"
+  "https://dynastyleaguefootball.com/dynasty-superflex-rankings/"
+  "https://dynastyleaguefootball.com/dynasty-rookie-superflex-rankings/"
+  "https://dynastyleaguefootball.com/dynasty-rookie-idp-rankings/"
+)
+for url in "${PROBE_URLS[@]}"; do
+  set +e
+  (
+    cd "${DIAG_DIR}"
+    export DLF_USERNAME DLF_PASSWORD
+    timeout 180 "${PY}" scripts/fetch_dlf.py --probe "${url}" 2>&1
+  ) | scrub
+  rc=${PIPESTATUS[0]}
+  set -e
+  echo "probe_exit=${rc}"
+done
 echo
 echo "=== done ==="

@@ -33,7 +33,6 @@ const {
   annotate,
   fmtSigned,
   strengthText,
-  desktopOnly,
 } = require("./helpers");
 const { closeTradeSheet, openTradeSearch } = require("../../helpers/trade-builder");
 
@@ -54,10 +53,9 @@ function boardNames(contract) {
 const PICK_TOKEN = /\d{4}/;
 
 test.describe("V1-45: /trade renders finalRosterSimulation from the page's own simulate call", () => {
-  test("SimulationPanel matches POST /api/trade/simulate field-for-field", async ({
+  test("@desktop-only SimulationPanel matches POST /api/trade/simulate field-for-field", async ({
     prodPage: page,
   }, testInfo) => {
-    desktopOnly(test, testInfo);
     test.setTimeout(300_000); // real UI drive over the network
 
     // ── Pick an at-cap receiving team + real players, from the API ──

@@ -25,14 +25,12 @@ const {
   expect,
   prodUrl,
   annotate,
-  desktopOnly,
 } = require("./helpers");
 
 test.describe("V1-56: /waivers league-FAAB context strip", () => {
-  test("the strip equals the faabAnalytics payload the page fetched", async ({
+  test("@desktop-only the strip equals the faabAnalytics payload the page fetched", async ({
     prodPage: page,
   }, testInfo) => {
-    desktopOnly(test, testInfo);
 
     // Capture the page's OWN analytics fetch. Registered before goto so
     // the response cannot land first.

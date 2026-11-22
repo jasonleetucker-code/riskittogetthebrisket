@@ -229,6 +229,23 @@ ALERT_PASSWORD = os.getenv("ALERT_PASSWORD") or os.getenv("GMAIL_APP_PASSWORD", 
 # force a full alert send.
 SIGNAL_ALERT_CRON_TOKEN = os.getenv("SIGNAL_ALERT_CRON_TOKEN", "").strip()
 
+
+def _signal_alert_cron_bearer_ok(request) -> bool:
+    """``True`` when the request carries ``Authorization: Bearer
+    <SIGNAL_ALERT_CRON_TOKEN>``.  The ONE verifier of that token
+    (``/api/signal-alerts/run``, ``/api/custom-alerts/run``,
+    ``/api/test-alert``): a constant-time byte compare, and an unset token
+    never authorizes (not even an empty bearer)."""
+    if not SIGNAL_ALERT_CRON_TOKEN:
+        return False
+    header = (request.headers.get("authorization") or "").strip()
+    if not header.lower().startswith("bearer "):
+        return False
+    presented = header.split(None, 1)[1].strip()
+    # Constant-time compare to avoid timing leaks.
+    return _startup_guards.constant_time_equals(presented, SIGNAL_ALERT_CRON_TOKEN)
+
+
 # ── SCRAPE SCHEDULER ───────────────────────────────────────────────────
 # The lifespan starts a scrape 3 s after boot and then every
 # SCRAPE_INTERVAL_HOURS.  Production default True.  A scrape executes
@@ -348,20 +365,55 @@ PRIVATE_APP_ALLOWED_USERNAMES = frozenset(
     if u.strip()
 )
 
-# Rate limit: max 1 email per hour to avoid spam on repeated failures
-_last_alert_time = 0
+# Re-alert cooldown, PER ALERT CLASS (``key``).  One global window used to let a
+# delivered uptime alert silence a stale-backup alert, and swallowed "Uptime
+# recovered" whenever it came within an hour of the failure it resolved.
 ALERT_COOLDOWN_SEC = 3600
+#: Alert classes -- every ``send_alert`` caller passes one of these as ``key``.
+ALERT_KEY_UPTIME = "uptime"
+ALERT_KEY_UPTIME_RECOVERY = "uptime_recovery"
+ALERT_KEY_SCRAPE_FAILURE = "scrape_failure"
+ALERT_KEY_PARTIAL_SCRAPE = "partial_scrape"
+ALERT_KEY_DISK_LOW = "disk_low"
+ALERT_KEY_BACKUP_STALE = "backup_stale"
+ALERT_KEY_GENERAL = "general"
+#: Recovery class -> the class it resolves.  A delivered failure alert of the
+#: resolved class OPENS an incident; its recovery is sent only while that
+#: incident is open (one recovery per announced outage, never for an outage the
+#: owner was not told about), is EXEMPT from the cooldown, and closes the
+#: incident WITHOUT clearing the failure class's cooldown -- so a check that
+#: flaps around its threshold announces at most one failure per window
+#: (2026-11-20 review: clearing it sent 8 pushes/hour at the default 300 s
+#: interval and 80/hour at the 30 s floor).
+ALERT_RECOVERY_KEYS = {ALERT_KEY_UPTIME_RECOVERY: ALERT_KEY_UPTIME}
+#: Failure classes that have a recovery class (the values of the map above).
+_ALERT_INCIDENT_CLASSES = frozenset(ALERT_RECOVERY_KEYS.values())
+#: ``key -> epoch of the last DELIVERED alert`` (an undelivered one sets nothing).
+_last_alert_time_by_key: dict[str, float] = {}
+#: Failure classes whose incident was announced (delivered) and not yet resolved.
+_alert_incident_open: set[str] = set()
+#: ``failure class -> (recovery key, subject, body)``: a recovery requested while
+#: that class's failure alert was still being delivered.  Sent when that
+#: delivery ends if the incident is then open, dropped otherwise.
+_alert_recovery_deferred: dict[str, tuple[str, str, str]] = {}
+#: ``key -> epoch`` of the last "no channel configured" warning (rate-limited).
+_alert_unconfigured_logged_at: dict[str, float] = {}
 # Every SMTP socket operation is bounded.  The same 15 s ``_deliver_email_smtp``
 # already uses; ``smtplib``'s default is NO timeout.
 ALERT_SMTP_TIMEOUT_SEC = 15
-# At most one alert delivery in flight.  Also guards ``_last_alert_time``,
-# which the delivery thread writes.
+# At most one delivery in flight PER CLASS (bounded by the number of keys).
+# The lock also guards the alert state above, which the delivery thread writes.
 _alert_lock = threading.Lock()
-_alert_in_flight = False
+_alerts_in_flight: set[str] = set()
 
 
-def send_alert(subject: str, body: str):
-    """Send an email alert in the background. Fails silently if not configured.
+def send_alert(subject: str, body: str, *, key: str = ALERT_KEY_GENERAL):
+    """Send an owner alert in the background (push first, e-mail fallback).
+
+    ``key`` names the alert CLASS (``ALERT_KEY_*``): the one-hour cooldown and
+    the one-in-flight rule apply per class, so one class never silences
+    another.  A recovery class (``ALERT_RECOVERY_KEYS``) is never cooled down,
+    but is sent only for an announced incident of the class it resolves.
 
     Never blocks the caller on the network.  Two callers run ON the event
     loop — ``backup_watchdog_loop`` (stale backups) and ``uptime_watchdog_loop``
@@ -374,43 +426,74 @@ def send_alert(subject: str, body: str):
     send never set the cooldown, so every trigger tried again.  Pinned by
     ``tests/api/test_send_alert_off_loop.py``.
 
-    Delivery runs on a daemon thread with a bounded timeout.  While one is
-    in flight a second alert is dropped (logged), not queued: the first
-    either succeeds, after which the cooldown would suppress the second
-    anyway, or fails against the same unreachable server.
+    Delivery runs on a daemon thread with a bounded timeout.  While one alert
+    of a class is in flight a second of the SAME class is dropped (logged), not
+    queued: the first either succeeds, after which the cooldown would suppress
+    the second anyway, or fails against the same unreachable server.  Other
+    classes are unaffected.
     """
-    global _alert_in_flight
-
     # Owner push (ntfy, NOTIFY_WEBHOOK_URL) first, e-mail as fallback -- the one
     # routing every server alert uses (src/utils/owner_alerts.py, STAB-2).  Only
-    # when NEITHER channel is configured is there nothing to do.
-    if not _email_alerts_configured() and not _owner_push_configured():
+    # when NEITHER channel is configured is there nothing to do -- and that is
+    # SAID (rate-limited per class), never a silent return.
+    now = time.time()
+    if not _send_alert_channels_configured():
+        with _alert_lock:
+            last_logged = _alert_unconfigured_logged_at.get(key)
+            should_log = last_logged is None or now - last_logged >= ALERT_COOLDOWN_SEC
+            if should_log:
+                _alert_unconfigured_logged_at[key] = now
+        if should_log:
+            log.warning(
+                "Alert NOT sent (%s): no owner alert channel is configured "
+                "(NOTIFY_WEBHOOK_URL or ALERT_*): %s",
+                key,
+                subject,
+            )
         return
 
-    now = time.time()
     with _alert_lock:
-        if now - _last_alert_time < ALERT_COOLDOWN_SEC:
-            log.info(f"Alert suppressed (cooldown): {subject}")
+        resolves = ALERT_RECOVERY_KEYS.get(key)
+        if resolves is not None:
+            # Never cooled down -- but only an ANNOUNCED incident is resolved.
+            if resolves in _alerts_in_flight:
+                # Its failure alert is still being delivered: decide when that ends.
+                _alert_recovery_deferred[resolves] = (key, subject, body)
+                log.info("Alert deferred (%s): its %s alert is being sent", key, resolves)
+                return
+            if resolves not in _alert_incident_open:
+                log.info(
+                    "Alert not sent (%s): the owner was not told of a %s incident: %s",
+                    key,
+                    resolves,
+                    subject,
+                )
+                return
+        else:
+            last_delivered = _last_alert_time_by_key.get(key)
+            if last_delivered is not None and now - last_delivered < ALERT_COOLDOWN_SEC:
+                log.info("Alert suppressed (cooldown, %s): %s", key, subject)
+                return
+        if key in _alerts_in_flight:
+            log.info("Alert suppressed (one %s alert is being sent): %s", key, subject)
             return
-        if _alert_in_flight:
-            log.info(f"Alert suppressed (another alert is being sent): {subject}")
-            return
-        _alert_in_flight = True
+        _alerts_in_flight.add(key)
     try:
         threading.Thread(
             target=_deliver_alert,
-            args=(subject, body, now),
+            args=(subject, body, now, key),
             name="alert-smtp",
             daemon=True,
         ).start()
     except Exception as e:  # noqa: BLE001 — alerting never raises into its caller
         with _alert_lock:
-            _alert_in_flight = False
+            _alerts_in_flight.discard(key)
         log.error(f"Failed to start alert delivery: {e}")
 
 
 def _email_alerts_configured() -> bool:
-    return bool(ALERT_ENABLED and ALERT_FROM and ALERT_PASSWORD)
+    # ALERT_TO too: an e-mail with no recipient is not a channel.
+    return bool(ALERT_ENABLED and ALERT_TO and ALERT_FROM and ALERT_PASSWORD)
 
 
 def _owner_push_configured() -> bool:
@@ -419,51 +502,83 @@ def _owner_push_configured() -> bool:
     return _owner_notify.webhook_url() is not None
 
 
-def _deliver_alert(subject: str, body: str, attempted_at: float) -> None:
-    """Delivery half of :func:`send_alert` (push first, then SMTP).  Runs on the
-    ``alert-smtp`` thread, so neither channel can block the event loop."""
-    global _last_alert_time, _alert_in_flight
+def _send_alert_channels_configured() -> bool:
+    """Whether :func:`send_alert` has any channel at all (push or e-mail)."""
+    return _email_alerts_configured() or _owner_push_configured()
 
+
+def _send_alert_title(subject: str) -> str:
+    """The title every :func:`send_alert` notice is delivered under."""
+    return f"[Dynasty Server] {subject}"
+
+
+def _route_send_alert(title: str, body: str, *, record: bool = True) -> bool:
+    """:func:`send_alert`'s routing, ONE call: owner push first, then
+    ``_deliver_email_smtp`` -- the routing every server alert uses
+    (``owner_alerts.deliver``).  Touches no cooldown, in-flight or incident
+    state (that is :func:`_deliver_alert`'s); ``record=False`` also keeps it out
+    of the delivery-health record (the producer test)."""
+    from src.utils import owner_alerts as _owner_alerts
+
+    return _owner_alerts.deliver(
+        ALERT_TO or None,
+        title,
+        body,
+        email=_deliver_email_smtp if _email_alerts_configured() else None,
+        record=record,
+    )
+
+
+def _deliver_alert(
+    subject: str, body: str, attempted_at: float, key: str = ALERT_KEY_GENERAL
+) -> None:
+    """Delivery half of :func:`send_alert`.  Runs on the ``alert-smtp`` thread,
+    so no channel can block the event loop.
+
+    Routed through ``owner_alerts.deliver`` -- push first, then
+    ``_deliver_email_smtp`` (587 STARTTLS, then 465) -- so this path and the
+    alert sweeps share ONE routing and ONE delivery-health record.  Only a
+    DELIVERED alert starts its class's cooldown (and, for a class with a
+    recovery, opens its incident); a failed one is retried on the next trigger.
+    A delivered recovery closes the incident and leaves the cooldown alone."""
     try:
-        from src.utils import owner_notify as _owner_notify
-
-        if _owner_notify.send(f"[Dynasty Server] {subject}", body):
+        delivered = _route_send_alert(_send_alert_title(subject), body)
+        if delivered:
             with _alert_lock:
-                _last_alert_time = attempted_at
-            log.info(f"Alert pushed to the owner channel: {subject}")
-            return
-        if not _email_alerts_configured():
-            log.error(f"Alert NOT delivered (push failed, e-mail not configured): {subject}")
-            return
-        msg = MIMEMultipart()
-        msg["From"] = ALERT_FROM
-        msg["To"] = ALERT_TO
-        msg["Subject"] = f"[Dynasty Server] {subject}"
-
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        html = f"""
-        <div style="font-family:monospace;font-size:14px;padding:16px;">
-            <h2 style="color:#ff4060;">⚠ Dynasty Server Alert</h2>
-            <p><strong>Time:</strong> {timestamp}</p>
-            <p><strong>Issue:</strong> {subject}</p>
-            <hr>
-            <pre style="background:#1a1a2e;color:#e2e8f8;padding:12px;border-radius:8px;overflow-x:auto;">{body}</pre>
-        </div>
-        """
-        msg.attach(MIMEText(html, "html"))
-
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=ALERT_SMTP_TIMEOUT_SEC) as server:
-            server.login(ALERT_FROM, ALERT_PASSWORD)
-            server.send_message(msg)
-
-        with _alert_lock:
-            _last_alert_time = attempted_at
-        log.info(f"Alert sent: {subject}")
-    except Exception as e:
-        log.error(f"Failed to send alert email: {e}")
+                _last_alert_time_by_key[key] = attempted_at
+                resolved = ALERT_RECOVERY_KEYS.get(key)
+                if resolved is not None:
+                    # The owner was told the outage is over.  The failure
+                    # class's cooldown stays: a flapping check must not
+                    # re-announce inside the window.
+                    _alert_incident_open.discard(resolved)
+                elif key in _ALERT_INCIDENT_CLASSES:
+                    _alert_incident_open.add(key)
+            log.info("Alert delivered (%s): %s", key, subject)
+        else:
+            log.error(
+                "Alert NOT delivered (%s): every configured owner channel failed: %s",
+                key,
+                subject,
+            )
+    except Exception as e:  # noqa: BLE001 — alerting never raises
+        log.error(f"Failed to deliver alert ({key}): {e}")
     finally:
         with _alert_lock:
-            _alert_in_flight = False
+            _alerts_in_flight.discard(key)
+            deferred = _alert_recovery_deferred.pop(key, None)
+            announced = key in _alert_incident_open
+        if deferred is not None:
+            recovery_key, recovery_subject, recovery_body = deferred
+            if announced:
+                # The recovery that arrived while this alert was in flight.
+                send_alert(recovery_subject, recovery_body, key=recovery_key)
+            else:
+                log.info(
+                    "Alert not sent (%s): the %s alert it resolves was not delivered",
+                    recovery_key,
+                    key,
+                )
 
 
 # ── PATHS ───────────────────────────────────────────────────────────────
@@ -506,6 +621,13 @@ else:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 log = logging.getLogger("dynasty-server")
+
+# Owner-alert settings that will not deliver -- a NOTIFY_WEBHOOK_URL the one
+# validator rejects, half-configured e-mail, or (production) no channel at all.
+# Logged once, as a WARNING: alerts are optional, so this never refuses a start
+# the way _STARTUP_REFUSALS does.  Names and reason codes only, never a value.
+for _alert_channel_warning in _startup_guards.alert_channel_warnings(os.environ):
+    log.warning("Alert channel: %s", _alert_channel_warning)
 
 # ── STATE ───────────────────────────────────────────────────────────────
 # In-memory cache of latest scrape data
@@ -1395,7 +1517,7 @@ def _reconcile_orphaned_running_state() -> None:
         )
         scrape_status["running"] = False
         # NOT ``stalled``/``hung``.  Both were set here and both were
-        # dead assignments: ``_scrape_status_payload`` calls this
+        # dead assignments: ``_reconcile_scrape_status`` calls this
         # reconciler and then immediately evaluates ``_is_scrape_stalled()``,
         # which returns False once ``running`` is False, and the else
         # branch resets ``stalled`` and ``hung`` to False three lines
@@ -1922,6 +2044,23 @@ def _record_heap_snapshot(
         return {"written": False}
 
 
+SCRAPE_STATUS_WATCH_INTERVAL_SEC = int(os.getenv("SCRAPE_STATUS_WATCH_INTERVAL_SEC", "60"))
+
+
+async def scrape_status_watchdog_loop() -> None:
+    """Detect orphaned and stalled scrapes without waiting for a reader.
+
+    Detection used to happen inside ``GET /api/health`` / ``/api/status``
+    (X-HEALTH).  One in-memory tick a minute; the stall threshold is 15 min.
+    """
+    while True:
+        await asyncio.sleep(max(10, SCRAPE_STATUS_WATCH_INTERVAL_SEC))
+        try:
+            _reconcile_scrape_status()
+        except Exception as exc:  # noqa: BLE001 - a watchdog must keep ticking
+            log.warning("scrape status watchdog tick failed: %s", exc)
+
+
 async def heap_report_loop() -> None:
     """Periodic heap snapshots (WA-17): what the backend's memory is made of
     between scrapes, so a climb toward ``MemoryHigh`` can be attributed from
@@ -2174,7 +2313,18 @@ async def _run_scraper_off_loop(scraper, worker_id: str, timeout: float):
         raise
 
 
-def _scrape_status_payload() -> dict:
+def _scrape_status_is_orphaned() -> bool:
+    """Status says a scrape is running but nobody holds the run lock."""
+    return bool(scrape_status.get("running")) and not scrape_run_lock.locked()
+
+
+def _reconcile_scrape_status() -> None:
+    """The MUTATING half of scrape status: reset an orphaned run, record a
+    newly detected stall once.  Runs on ``scrape_status_watchdog_loop`` and
+    before a run starts, never on a read (X-HEALTH, 2026-11-20): an anonymous
+    ``GET /api/health`` or ``/api/status`` used to do this, so a reader could
+    write the durable telemetry line and flip in-memory state.
+    """
     _reconcile_orphaned_running_state()
     stalled = _is_scrape_stalled()
     was_stalled = bool(scrape_status.get("stalled"))
@@ -2199,7 +2349,35 @@ def _scrape_status_payload() -> dict:
         scrape_status["stalled"] = False
     _sync_scrape_alias_fields()
 
+
+def _scrape_status_payload() -> dict:
+    """The READ-ONLY view of scrape status, for every reader.
+
+    Mutates nothing and writes nothing.  It shows what
+    :func:`_reconcile_scrape_status` would record (an orphaned run reads
+    ``interrupted``, a stalled one ``stalled``) so a reader never waits for
+    the watchdog tick to see the truth; the tick makes it durable.
+    """
     payload = dict(scrape_status)
+    if _scrape_status_is_orphaned():
+        # Same verdict the reconciler records (see
+        # ``_reconcile_orphaned_running_state``); its times are this read's.
+        now = _utc_now_iso()
+        payload.update(
+            running=False,
+            interrupted=True,
+            interrupted_at=now,
+            finished_at=now,
+            current_step="stale_state_reset",
+            current_source=None,
+        )
+        stalled = False
+    else:
+        stalled = _is_scrape_stalled()
+    payload["hung"] = stalled
+    payload["stalled"] = stalled
+    payload["is_running"] = bool(payload.get("running"))
+    payload["last_error"] = payload.get("error")
     payload["stall_threshold_sec"] = SCRAPE_STALL_SECONDS
     payload["run_timeout_sec"] = SCRAPE_RUN_TIMEOUT_SECONDS
     # Audit O-1: ops_alerts._check_scrape_rate reads
@@ -2837,6 +3015,18 @@ def _backup_coverage_alert_rows() -> dict | None:
         from src.api import backup_health as _bh
 
         return _bh.alert_rows_now()
+    except Exception:  # noqa: BLE001 -- the sweep must never fail on a probe
+        return None
+
+
+def _market_trade_report_health() -> dict | None:
+    """Freshness row of the Chase Trade Market ledger report for the ops-alert
+    sweep (``None`` = not checked).  Owner: ``src/api/market_trade_report_health.py``.
+    """
+    try:
+        from src.api import market_trade_report_health as _mtr
+
+        return _mtr.market_trade_report_health()
     except Exception:  # noqa: BLE001 -- the sweep must never fail on a probe
         return None
 
@@ -3753,7 +3943,7 @@ def load_from_disk() -> dict | None:
             str(runtime_path),
             produced_at=runtime_data.get("scrapeTimestamp"),
         )
-        log.info(f"Loaded cached data from {runtime_path.name} " f"({runtime_count} players)")
+        log.info(f"Loaded cached data from {runtime_path.name} ({runtime_count} players)")
         return runtime_data
 
     if checkout_data is not None:
@@ -4277,6 +4467,7 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                         "The server continues serving last-known-good data.\n"
                         "Some sites may be down or blocking the scraper."
                     ),
+                    key=ALERT_KEY_PARTIAL_SCRAPE,
                 )
                 # Audit O-2: this used to call _mark_scrape_success, filing a
                 # REFUSED scrape as a successful one — so the 24h success
@@ -4305,6 +4496,7 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                         "Scrape data was loaded into memory but NOT written to disk.\n"
                         "Please free disk space on the server."
                     ),
+                    key=ALERT_KEY_DISK_LOW,
                 )
 
             # Mirror fresh scraper-owned site_raw CSVs from the DATA_DIR
@@ -4437,6 +4629,7 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             send_alert(
                 f"Scrape failed: {type(e).__name__}",
                 f"Error: {e}\n\nDuration: {elapsed:.1f}s\n\n{error_trace[-1500:]}",
+                key=ALERT_KEY_SCRAPE_FAILURE,
             )
             return None
         finally:
@@ -4496,6 +4689,7 @@ async def uptime_watchdog_loop():
                 send_alert(
                     "Uptime recovered",
                     f"Recovered successfully.\nURL: {UPTIME_CHECK_URL}\nChecked at: {now_iso}\nStatus: {status_code}",
+                    key=ALERT_KEY_UPTIME_RECOVERY,
                 )
         else:
             uptime_status["consecutive_failures"] += 1
@@ -4514,6 +4708,7 @@ async def uptime_watchdog_loop():
                         f"Last error: {error}\n"
                         f"Checked at: {now_iso}"
                     ),
+                    key=ALERT_KEY_UPTIME,
                 )
 
         await asyncio.sleep(max(30, UPTIME_CHECK_INTERVAL_SEC))
@@ -4528,8 +4723,9 @@ from src.api.backup_health import STALE_AFTER_HOURS as BACKUP_STALE_ALERT_HOURS 
 def _alert_if_backups_stale() -> bool:
     """Send the stale-backup e-mail when the newest backup is missing/old.
 
-    Delivery goes through ``send_alert`` (global cooldown + one in flight),
-    so repeated ticks cannot spam.  Returns whether an alert was requested.
+    Delivery goes through ``send_alert`` (per-class cooldown + one in flight,
+    class ``backup_stale``), so repeated ticks cannot spam and no other alert
+    class can silence this one.  Returns whether an alert was requested.
     """
     backup_health = _backup_freshness()
     _bage = backup_health.get("newestBackupAgeHours")
@@ -4544,6 +4740,7 @@ def _alert_if_backups_stale() -> bool:
             f"{backup_health.get('dbCount')}). Expected a fresh backup within 24h "
             f"from riskit-backup.timer (02:00 UTC). Check "
             f"deploy/backup_user_kv.sh and /var/log/riskit-backup.log.",
+            key=ALERT_KEY_BACKUP_STALE,
         )
         return True
     return False
@@ -4761,6 +4958,7 @@ async def lifespan(app: FastAPI):
     uptime_task = asyncio.create_task(uptime_watchdog_loop())
     backup_watchdog_task = asyncio.create_task(backup_watchdog_loop())
     heap_report_task = asyncio.create_task(heap_report_loop())
+    scrape_status_watch_task = asyncio.create_task(scrape_status_watchdog_loop())
     # Rookie auction room runtime (closes, bots, heartbeat, outage pause).
     # Correctness never depends on it — every command settles what is due
     # first — and a failure here must never block the site from starting.
@@ -4816,6 +5014,7 @@ async def lifespan(app: FastAPI):
     uptime_task.cancel()
     backup_watchdog_task.cancel()
     heap_report_task.cancel()
+    scrape_status_watch_task.cancel()
     if auction_task is not None:
         auction_task.cancel()
     log.info("Server shutting down")
@@ -5020,6 +5219,12 @@ _SELF_AUTHED_API_EXACT = frozenset(
         # cookie gate so the systemd timer's curl call hits the
         # endpoint's own bearer check.
         "/api/custom-alerts/run",
+        # The owner-alert test (STAB-2): an allowlisted admin session OR the
+        # same SIGNAL_ALERT_CRON_TOKEN bearer (``_signal_alert_cron_bearer_ok``),
+        # so the box's notify-test can exercise the RUNNING process.  The
+        # handler refuses an anonymous caller with the same 401
+        # ``auth_required`` the cookie gate gave it, and a guest with 403.
+        "/api/test-alert",
         # E2E test-session bootstrap — handles its own bearer-token auth.
         # Returns 404 unless E2E_TEST_MODE + matching bearer secret are
         # both set, so having it bypass the session gate doesn't leak
@@ -5063,6 +5268,17 @@ def _is_public_api_path(path: str) -> bool:
         if path == prefix or path.startswith(prefix + "/"):
             return True
     return False
+
+
+def _auth_required_response() -> JSONResponse:
+    """The cookie gate's 401 -- also returned by a self-authed route that falls
+    back to the session check (``/api/test-alert``), so a caller without the
+    route's bearer is refused exactly as the gate would refuse it."""
+    return JSONResponse(
+        status_code=401,
+        content={"error": "auth_required", "message": "Sign-in required."},
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.middleware("http")
@@ -5112,11 +5328,7 @@ async def _private_api_gate(request: Request, call_next):
             )
     if path.startswith("/api/") and not _is_public_api_path(path):
         if not _is_authenticated(request):
-            return JSONResponse(
-                status_code=401,
-                content={"error": "auth_required", "message": "Sign-in required."},
-                headers={"Cache-Control": "no-store"},
-            )
+            return _auth_required_response()
     return await call_next(request)
 
 
@@ -6845,9 +7057,9 @@ async def get_status():
     production 2026-11-12: this handler took 14-18 s per call, and while it
     ran an unrelated ``/api/leagues`` request (0.45 s alone) waited 15.9 s,
     so every status poll froze the whole site.  ``_scrape_status_payload``
-    stays on the loop: it is in-memory, and it check-then-sets
-    ``scrape_status`` (the once-only stall event), which every other caller
-    also does from the loop.
+    stays on the loop: it is an in-memory, read-only view (X-HEALTH); the
+    stall event and orphan reset are recorded by
+    ``scrape_status_watchdog_loop``.
     """
     status_payload = _scrape_status_payload()
     content = await run_in_threadpool(_public_status_body, status_payload)
@@ -6936,6 +7148,12 @@ def _status_content(status_payload: dict | None = None) -> dict:
         # without mutating it; the per-source private list is stripped for
         # anonymous callers by ``public_diagnostics``.
         "freshness_slo": _freshness_slo_block(),
+        # Owner-alert delivery health and the alert sweep's age: booleans, ISO
+        # timestamps, a count and a number -- no address, no webhook.  Read
+        # from outside by scripts/check_production_slo.py, because a box that
+        # cannot reach its owner (or whose sweep stopped) cannot report it.
+        "alertDelivery": _alert_delivery_block(),
+        "alertSweepAgeHours": _alert_sweep_age_hours(),
         "backup_health": _backup_freshness(),
         "uptime": uptime_status,
         "has_data": latest_contract_data is not None,
@@ -7000,10 +7218,46 @@ def _freshness_slo_block() -> dict:
         except Exception as exc:  # noqa: BLE001
             log.warning("private source availability unreadable: %s", exc)
             private = None
-        return _fs.board_freshness_metrics(latest_contract_data, private_availability=private)
+        try:
+            from src.trade.trade_ledger import roster_refusal_counts
+
+            refusals = roster_refusal_counts()
+        except Exception as exc:  # noqa: BLE001
+            log.warning("roster refusal counts unreadable: %s", exc)
+            refusals = None
+        return _fs.board_freshness_metrics(
+            latest_contract_data, private_availability=private, roster_refusals=refusals
+        )
     except Exception as exc:  # noqa: BLE001
         log.warning("freshness_slo block failed: %s", exc)
         return {"schemaVersion": "freshness-slo.v1", "state": "unknown", "error": "unavailable"}
+
+
+def _alert_delivery_block() -> dict:
+    """``alertDelivery`` for ``/api/status`` (``owner_alerts.delivery_health``):
+    ``ntfyConfigured`` / ``emailConfigured`` / ``lastDeliveredAt`` /
+    ``lastFailedAt`` / ``consecutiveFailures``, persisted across restarts in
+    user_kv (``consecutiveFailures: None`` = no attempt on record).  Never
+    raises."""
+    try:
+        from src.utils import owner_alerts as _owner_alerts
+
+        return _owner_alerts.delivery_health()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("alertDelivery block failed: %s", exc)
+        return {"error": "unavailable"}
+
+
+def _alert_sweep_age_hours() -> float | None:
+    """Hours since the daily alert sweep last finished; ``None`` = never
+    recorded or unreadable (unknown, never 0).  Never raises."""
+    try:
+        from src.api import ops_alerts as _ops
+
+        return _ops.alert_sweep_age_hours()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("alert sweep age unavailable: %s", exc)
+        return None
 
 
 def _feature_flag_snapshot_safe() -> dict:
@@ -7236,7 +7490,9 @@ async def get_health():
 def _health_content() -> tuple[int, dict]:
     """``(status code, FULL /api/health content)``.  PRIVATE: see ``get_health``.
 
-    Side-effect free: reading health never sends an alert.
+    Side-effect free: reading health never sends an alert, writes no
+    telemetry and changes no scrape state (``_scrape_status_payload`` is a
+    read-only view since X-HEALTH, 2026-11-20).
     """
     status_payload = _scrape_status_payload()
 
@@ -7926,8 +8182,27 @@ async def post_waiver_suggestions(request: Request):
 
     if isinstance(result, dict):
         result["leagueKey"] = league_cfg.key
+        _stamp_roster_freshness(result, inputs)
     _stamp_valuation_mode(result, valuation_mode, valuation_note)
     return JSONResponse(content=result)
+
+
+def _stamp_roster_freshness(payload: dict, inputs: Mapping[str, Any]) -> None:
+    """Stamp which rosters a waiver route served and how fresh they are.
+
+    ONE place for every route fed by :func:`_waiver_engine_inputs`.
+    ``rosterFreshness.state`` is ``current`` / ``stale`` / ``unknown``
+    (``src/api/roster_freshness.py``); a client warns on anything but
+    ``current``.
+    """
+    payload["rosterSource"] = "live_overlay" if inputs.get("rosters_from_overlay") else "contract"
+    payload["rostersAsOf"] = inputs.get("rosters_as_of")
+    freshness = inputs.get("roster_freshness")
+    payload["rosterFreshness"] = (
+        dict(freshness)
+        if isinstance(freshness, Mapping)
+        else {"state": "unknown", "delivery": payload["rosterSource"]}
+    )
 
 
 def _faab_config_refusal() -> JSONResponse | None:
@@ -8033,10 +8308,25 @@ async def _waiver_engine_inputs(league_cfg: Any, team_owner_id: str | None) -> d
     except (TypeError, ValueError) as exc:
         _input_error = exc
 
+    # B3 (DYN10 waiver correctness): how fresh the rosters these routes
+    # SERVE are, judged by the one roster-freshness reader.  ``rosterSource``
+    # alone said "contract" for a block the scraper may have restored from a
+    # last-good snapshot after a failed Sleeper fetch, so a free agent claimed
+    # since could still be listed as available with nothing saying so.
+    from src.api.roster_freshness import served_roster_freshness  # noqa: PLC0415
+
+    _from_overlay = _suggestions_teams is not sleeper_teams
+    _roster_freshness = served_roster_freshness(
+        latest_contract_data,
+        from_overlay=_from_overlay,
+        overlay_fetched_at=_rosters_as_of,
+    )
+
     return {
         "teams": _suggestions_teams,
-        "rosters_from_overlay": _suggestions_teams is not sleeper_teams,
+        "rosters_from_overlay": _from_overlay,
         "rosters_as_of": _rosters_as_of,
+        "roster_freshness": _roster_freshness,
         "roster_settings": _roster_settings,
         "league_budget": _league_budget,
         "team_count": _team_count,
@@ -8134,7 +8424,11 @@ async def post_waiver_perfect(request: Request):
     )
     cached = _perfect_waivers_cache_get(cache_key)
     if cached is not None:
-        return JSONResponse(content=cached)
+        # Freshness is a property of NOW, not of when the plan was cached: a
+        # hit re-states it (a shallow copy — the cached payload is shared).
+        hit = dict(cached)
+        _stamp_roster_freshness(hit, inputs)
+        return JSONResponse(content=hit)
 
     def _compute() -> dict[str, Any]:
         targets = _waiver.find_waiver_targets(
@@ -8179,8 +8473,7 @@ async def post_waiver_perfect(request: Request):
         )
 
     payload["leagueKey"] = league_cfg.key
-    payload["rosterSource"] = "live_overlay" if inputs["rosters_from_overlay"] else "contract"
-    payload["rostersAsOf"] = inputs["rosters_as_of"]
+    _stamp_roster_freshness(payload, inputs)
     _stamp_valuation_mode(payload, valuation_mode, valuation_note)
     _perfect_waivers_cache_put(cache_key, payload)
     return JSONResponse(content=payload)
@@ -8289,8 +8582,7 @@ async def post_waiver_advisor(request: Request):
             status_code=503,
             content={"error": "waiver_advisor_unavailable", "leagueKey": league_cfg.key},
         )
-    payload["rosterSource"] = "live_overlay" if inputs["rosters_from_overlay"] else "contract"
-    payload["rostersAsOf"] = inputs["rosters_as_of"]
+    _stamp_roster_freshness(payload, inputs)
     _stamp_valuation_mode(payload, valuation_mode, valuation_note)
     return JSONResponse(content=payload)
 
@@ -8450,8 +8742,7 @@ async def post_waiver_streaming(request: Request):
             content={"error": "idp_streaming_unavailable", "leagueKey": league_cfg.key},
         )
     payload["advisoryOnly"] = True
-    payload["rosterSource"] = "live_overlay" if inputs["rosters_from_overlay"] else "contract"
-    payload["rostersAsOf"] = inputs["rosters_as_of"]
+    _stamp_roster_freshness(payload, inputs)
     _stamp_valuation_mode(payload, valuation_mode, valuation_note)
     return JSONResponse(content=payload)
 
@@ -8505,6 +8796,25 @@ def _perfect_waivers_cache_get(key: str) -> dict | None:
             return None
         _PERFECT_WAIVERS_CACHE[key] = _PERFECT_WAIVERS_CACHE.pop(key)
         return payload
+
+
+def _perfect_waivers_cache_peek(key: str) -> dict | None:
+    """A live (unexpired) Perfect Waivers entry, or ``None`` -- read only.
+
+    Unlike :func:`_perfect_waivers_cache_get` it neither refreshes the LRU
+    order nor evicts an expired entry, so a warm-only reader (the composed
+    team plan) leaves the cache exactly as it found it.
+    """
+    if not key:
+        return None
+    with _PERFECT_WAIVERS_CACHE_LOCK:
+        hit = _PERFECT_WAIVERS_CACHE.get(key)
+    if hit is None:
+        return None
+    stored_at, payload = hit
+    if time.time() - stored_at > _PERFECT_WAIVERS_CACHE_TTL_SEC:
+        return None
+    return payload
 
 
 def _perfect_waivers_cache_put(key: str, payload: dict) -> None:
@@ -10491,13 +10801,35 @@ async def get_roster_intelligence(request: Request):
         "yes",
     }
 
+    # B1 (DYN10 waiver correctness): the cut ladder honours the REQUESTER's
+    # persistent trade protections — but only on the requester's OWN team.
+    # Protections are a private per-(user, league) setting that binds the
+    # user's own roster (the ``/api/gameplan`` rule): another user asking for
+    # this team, or this user asking for another team, gets the unconstrained
+    # ladder, so no protection reaches a payload anyone else is served.  This
+    # route caches nothing and answers ``no-store``; the constrained ladder is
+    # computed per request.
+    drop_constraints = None
+    protections_reason = None
+    if want_drops:
+        requester = _requester_owner_id(request, league_cfg)
+        if requester and requester == owner_id:
+            drop_constraints = _constraints_for_request(
+                request, contract, league_cfg, surface="/api/roster/intelligence"
+            )
+        else:
+            protections_reason = "not_requesters_team" if requester else "requester_team_unknown"
+
     try:
         payload = await run_in_threadpool(
-            _roster_intelligence.get_team_roster_intelligence,
-            contract,
-            owner_id,
-            team_count=declared_teams,
-            include_droppability=want_drops,
+            lambda: _roster_intelligence.get_team_roster_intelligence(
+                contract,
+                owner_id,
+                team_count=declared_teams,
+                include_droppability=want_drops,
+                constraints=drop_constraints,
+                protections_not_applied_reason=protections_reason,
+            )
         )
     except _roster_intelligence.TeamNotInLeague:
         return JSONResponse(
@@ -10510,8 +10842,391 @@ async def get_roster_intelligence(request: Request):
         )
 
     payload["rosterMembership"] = roster_membership
+    # B3: the cut ladder is only as current as the rosters it was built on.
+    from src.api.roster_freshness import served_roster_freshness  # noqa: PLC0415
+
+    payload["rosterFreshness"] = served_roster_freshness(
+        latest_contract_data,
+        from_overlay=roster_membership.get("source") == "live_overlay",
+        overlay_fetched_at=roster_membership.get("asOf"),
+    )
     # Private roster intelligence — never cached by a shared proxy.
     return JSONResponse(content=payload, headers={"Cache-Control": "no-store"})
+
+
+# ── Composed Team Advisor plan (DYN10 top-10 item #2) ───────────────────
+#
+# Every answer of the private team plan, error or not, is per-user and
+# uncacheable.
+_TEAM_PLAN_NO_STORE = {"Cache-Control": "private, no-store"}
+
+
+def _team_plan_posture_read(league_cfg: Any, contract: Any, owner_id: str) -> Any:
+    """Competitive posture, WARM-ONLY (the last built league bundle)."""
+    from src.api import gameplan as _gp  # noqa: PLC0415
+    from src.api.team_plan import OwnerRead  # noqa: PLC0415
+
+    try:
+        postures, meta = _gp.league_competitive_postures(
+            league_cfg.key, league_cfg.scoring_profile, contract, build_if_missing=False
+        )
+    except _gp.GameplanUnavailable as exc:
+        reason = str(exc.reason)
+        return OwnerRead(reason=reason if reason.isidentifier() else "posture_unavailable")
+    except Exception as exc:  # noqa: BLE001 — a named unavailable, never a 500
+        log.warning("team plan: posture lookup failed: %s", exc)
+        return OwnerRead(reason="posture_error")
+    posture = postures.get(str(owner_id))
+    if posture is None:
+        return OwnerRead(reason="team_not_in_posture_set")
+    return OwnerRead(payload=posture.to_dict(), freshness=meta.get("bundleFreshness"))
+
+
+def _team_plan_bundle_alignment(bundle_built_at: Any, rosters_fetched_at: Any) -> dict[str, Any]:
+    """Is the league bundle behind the buy targets older than the rosters the
+    sell-high section reads?  ``unknown`` whenever either clock is unprovable.
+    """
+    from src.api.roster_freshness import _parse_iso  # noqa: PLC0415
+
+    built = _parse_iso(bundle_built_at)
+    fetched = _parse_iso(rosters_fetched_at)
+    base = {"bundleBuiltAt": bundle_built_at, "rostersFetchedAt": rosters_fetched_at}
+    if built is None or fetched is None:
+        missing = [
+            name
+            for name, value in (("bundle build time", built), ("roster fetch time", fetched))
+            if value is None
+        ]
+        return {
+            **base,
+            "state": "unknown",
+            "note": (
+                "cannot tell whether these targets predate the rosters the sell-high section "
+                f"reads: {' and '.join(missing)} unknown"
+            ),
+        }
+    if built < fetched:
+        return {
+            **base,
+            "state": "bundle_older_than_rosters",
+            "note": (
+                "these targets come from a league bundle built before the rosters the "
+                "sell-high section reads were fetched; roster moves since may be missing"
+            ),
+        }
+    return {
+        **base,
+        "state": "bundle_not_older",
+        "note": (
+            "the league bundle was built after those rosters were fetched (its own rosters "
+            "come from the ROS team-strength snapshot)"
+        ),
+    }
+
+
+def _team_plan_targets_read(league_cfg: Any, owner_id: str, contract: Any) -> Any:
+    """Buy targets as ``/api/gameplan`` last built them, WARM-ONLY, with a note
+    saying whether that bundle is older than the contract's rosters."""
+    from src.api import gameplan as _gp  # noqa: PLC0415
+    from src.api.roster_freshness import roster_age  # noqa: PLC0415
+    from src.api.team_plan import OwnerRead  # noqa: PLC0415
+
+    try:
+        payload = _gp.cached_team_gameplan(league_cfg.key, owner_id)
+        bundle = _gp.last_built_league_bundle(league_cfg.key) if payload is not None else None
+    except Exception as exc:  # noqa: BLE001
+        log.warning("team plan: gameplan cache unreadable: %s", exc)
+        return OwnerRead(reason="gameplan_cache_unreadable")
+    if payload is None:
+        return OwnerRead(reason="gameplan_targets_not_warm")
+    alignment = _team_plan_bundle_alignment(
+        getattr(bundle, "built_at", None), roster_age(contract).get("fetchedAt")
+    )
+    return OwnerRead(
+        payload=payload, freshness="last_computed", meta={"rosterAlignment": alignment}
+    )
+
+
+def _team_plan_waivers_read(
+    league_cfg: Any, contract: Any, owner_id: str, constraints: Any, requester_owns_team: bool
+) -> Any:
+    """This team's Perfect Waivers plan from the route's result cache, WARM-ONLY.
+
+    The key is rebuilt exactly as ``/api/waiver/perfect`` builds it: the roster
+    snapshot that route would have used (the live teams overlay, peeked from
+    its fresh cache without a fetch, else the contract's block) and the
+    protections that bind THIS requester's plan -- theirs when they own the
+    team, none otherwise -- so an entry computed under someone else's
+    protections can never match.  Nothing is fetched, computed or written.
+    """
+    from src.api.team_plan import OwnerRead  # noqa: PLC0415
+    from src.trade.constraints import resolve_constraints  # noqa: PLC0415
+
+    keyed = constraints if requester_owns_team and constraints is not None else None
+    if keyed is None:
+        keyed = resolve_constraints()
+    sleeper = contract.get("sleeper") if isinstance(contract, dict) else None
+    candidates: list[list] = []
+    try:
+        overlay = _sleeper_overlay.peek_sleeper_teams_overlay(league_cfg.sleeper_league_id)
+    except Exception:  # noqa: BLE001 — a peek that fails is simply a miss
+        overlay = None
+    if isinstance(overlay, dict) and isinstance(overlay.get("teams"), list) and overlay["teams"]:
+        candidates.append(overlay["teams"])
+    baked = (sleeper or {}).get("teams") if isinstance(sleeper, dict) else None
+    if isinstance(baked, list) and baked:
+        candidates.append(baked)
+    for teams in candidates:
+        key = _perfect_waivers_cache_key(league_cfg.key, owner_id, contract, teams, keyed)
+        hit = _perfect_waivers_cache_peek(key)
+        if hit is not None:
+            return OwnerRead(payload=hit, freshness="cached_within_ttl")
+    return OwnerRead(reason="perfect_waivers_not_warm")
+
+
+def _team_plan_draft_capital_read(league_key: str) -> Any:
+    """This league's ``/api/draft-capital`` board from its result cache, WARM-ONLY.
+
+    Served exactly when that route would serve it from cache (inside the TTL,
+    or inside the stale-while-revalidate bound, labelled); never kicks a
+    rebuild.
+    """
+    from src.api.team_plan import OwnerRead  # noqa: PLC0415
+
+    slot = _DRAFT_CAPITAL_CACHE.get(league_key)
+    if not slot:
+        return OwnerRead(reason="draft_capital_not_warm")
+    now = time.time()
+    stamp, payload = slot
+    if not isinstance(payload, dict):
+        return OwnerRead(reason="draft_capital_payload_malformed")
+    if now - stamp < _DRAFT_CAPITAL_TTL_SEC:
+        freshness = "stale_while_revalidate" if payload.get("staleWhileRevalidate") else "current"
+    elif _draft_capital_stale_servable(slot, now):
+        freshness = "stale_while_revalidate"
+    else:
+        return OwnerRead(reason="draft_capital_not_warm")
+    return OwnerRead(payload=payload, freshness=freshness)
+
+
+@app.get("/api/team/plan")
+async def get_team_plan(request: Request):
+    """Composed Team Advisor plan for one team (owner directive 2026-11-21,
+    DYN10 top-10 item #2).  Private, read-only, league-scoped, owner-held
+    default-OFF behind ``team_advisor_plan``.
+
+    One payload: posture, Team Strength / Weakness, the age portfolio, draft
+    capital, roster freshness and a ranked list of next actions (buy target,
+    sell-high, waiver move, pick action, aging-asset risk, or ``do_nothing``),
+    each with the evidence and uncertainty of the owner that produced it.
+    ``src/api/team_plan.py`` composes; it computes nothing.
+
+    Latency discipline: the solves behind posture, buy targets, Perfect
+    Waivers and draft capital are read WARM-ONLY from their owners' caches and
+    are never run here; a cold one is an explicit unavailable section.  Only
+    the cheap owners (roster intelligence, trade suggestions) run per request,
+    on a worker thread.  Rosters are the contract's own block, never a live
+    fetch, and their freshness is stated, not hidden.
+
+    Query parameters::
+
+        leagueKey   optional — standard resolver
+        team        optional — ownerId; defaults to the session's own team
+                    (Sleeper user id, then the league's default team map).
+                    Another team's plan may be read, but the requester's
+                    trade protections bind only their OWN team.
+
+    Responses::
+
+        200  the plan, or ``available: false`` for a league out of scope
+        400  team_required / unknown_league / inactive_league
+        401  auth_required (the private API gate)
+        404  team_not_found
+        503  feature_disabled (flag off) / data_not_ready (no contract, or one
+             loaded for another league)
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+    from src.api import team_plan as _team_plan  # noqa: PLC0415
+
+    if not is_enabled("team_advisor_plan"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": "feature_disabled", "flag": _team_plan.FLAG},
+            headers=_TEAM_PLAN_NO_STORE,
+        )
+    if not _get_auth_session(request):
+        return JSONResponse(
+            status_code=401,
+            content={"error": "auth_required", "message": "Sign-in required."},
+            headers=_TEAM_PLAN_NO_STORE,
+        )
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        body = {"error": err.code, "message": err.message}
+        requested = (request.query_params.get("leagueKey") or "").strip()
+        if requested:
+            body["leagueKey"] = requested
+        return JSONResponse(status_code=err.status, content=body, headers=_TEAM_PLAN_NO_STORE)
+
+    if league_cfg.key not in _team_plan.IN_SCOPE_LEAGUE_KEYS:
+        return JSONResponse(
+            content=_team_plan.out_of_scope_payload(league_cfg.key), headers=_TEAM_PLAN_NO_STORE
+        )
+
+    contract = latest_contract_data
+    if not contract:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": "No data available yet. First scrape may still be running.",
+                "leagueKey": league_cfg.key,
+            },
+            headers=_TEAM_PLAN_NO_STORE,
+        )
+    loaded_meta = (contract.get("meta") or {}) if isinstance(contract, dict) else {}
+    loaded_league = loaded_meta.get("leagueKey")
+    if loaded_league and loaded_league != league_cfg.key:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": (
+                    f"No data loaded for league {league_cfg.key!r} yet "
+                    f"(server holds {loaded_league!r})."
+                ),
+                "leagueKey": league_cfg.key,
+            },
+            headers=_TEAM_PLAN_NO_STORE,
+        )
+
+    requester = _requester_owner_id(request, league_cfg)
+    owner_id = (
+        request.query_params.get("team") or request.query_params.get("ownerId") or ""
+    ).strip() or (requester or "")
+    if not owner_id:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "team_required",
+                "message": (
+                    "Pass ?team=<ownerId>. It could not be inferred: this session "
+                    "carries no Sleeper user id and the league has no default team "
+                    "mapping for it."
+                ),
+                "leagueKey": league_cfg.key,
+            },
+            headers=_TEAM_PLAN_NO_STORE,
+        )
+    sleeper_block = contract.get("sleeper") if isinstance(contract.get("sleeper"), dict) else {}
+    team_block = _team_block_by_owner_id(sleeper_block.get("teams") or [], owner_id)
+    if team_block is None:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": "team_not_found",
+                "message": f"No roster for owner {owner_id!r} in league {league_cfg.key!r}.",
+                "leagueKey": league_cfg.key,
+            },
+            headers=_TEAM_PLAN_NO_STORE,
+        )
+
+    # The requester's protections bind the requester's OWN roster only, as on
+    # /api/gameplan.  Resolved on the request thread (session + user store).
+    owns_team = bool(requester) and requester == owner_id
+    constraints = (
+        _constraints_for_request(request, contract, league_cfg, surface="/api/team/plan")
+        if owns_team
+        else None
+    )
+
+    def _compute() -> dict[str, Any]:
+        from src.api.roster_freshness import roster_age  # noqa: PLC0415
+        from src.trade.suggestions import (  # noqa: PLC0415
+            BOARD_TOP_N_FILTER,
+            starter_needs_for_league,
+        )
+
+        t0 = time.perf_counter()
+        posture = _team_plan_posture_read(league_cfg, contract, owner_id)
+        targets = _team_plan_targets_read(league_cfg, owner_id, contract)
+        waivers = _team_plan_waivers_read(league_cfg, contract, owner_id, constraints, owns_team)
+        draft_capital = _team_plan_draft_capital_read(league_cfg.key)
+        t_warm = time.perf_counter()
+
+        try:
+            roster_intel = _team_plan.OwnerRead(
+                payload=_roster_intelligence.get_team_roster_intelligence(
+                    contract,
+                    owner_id,
+                    team_count=_roster_intelligence.declared_team_count(league_cfg.key),
+                )
+            )
+        except _roster_intelligence.TeamNotInLeague:
+            roster_intel = _team_plan.OwnerRead(reason="team_not_in_contract")
+        except Exception as exc:  # noqa: BLE001
+            log.warning("team plan: roster intelligence failed: %s", exc)
+            roster_intel = _team_plan.OwnerRead(reason="roster_intelligence_error")
+        t_roster = time.perf_counter()
+
+        roster_names = [str(n) for n in (team_block.get("players") or []) if str(n).strip()]
+        if not roster_names:
+            sell_high = _team_plan.OwnerRead(reason="team_roster_empty")
+        else:
+            try:
+                sell_high = _team_plan.OwnerRead(
+                    payload=_trade_suggestions_from_contract(
+                        contract,
+                        league_cfg,
+                        roster_names,
+                        starter_needs=starter_needs_for_league(league_cfg.key),
+                        league_rosters=None,
+                        ktc_top_n=BOARD_TOP_N_FILTER,
+                        constraints=constraints,
+                        surface="/api/team/plan",
+                    )
+                )
+            except Exception as exc:  # noqa: BLE001
+                log.warning("team plan: trade suggestions failed: %s", exc)
+                sell_high = _team_plan.OwnerRead(reason="suggestions_error")
+        t_sugg = time.perf_counter()
+
+        plan = _team_plan.compose_team_plan(
+            league_key=league_cfg.key,
+            owner_id=owner_id,
+            team_block=team_block,
+            requester_owns_team=owns_team,
+            constraints=constraints,
+            roster_freshness=roster_age(contract),
+            posture=posture,
+            roster_intelligence=roster_intel,
+            buy_targets=targets,
+            sell_high=sell_high,
+            waivers=waivers,
+            draft_capital=draft_capital,
+        )
+        t_end = time.perf_counter()
+        plan["timing"] = {
+            "computeMs": round((t_end - t0) * 1000.0, 1),
+            "warmReadsMs": round((t_warm - t0) * 1000.0, 1),
+            "rosterIntelligenceMs": round((t_roster - t_warm) * 1000.0, 1),
+            "suggestionsMs": round((t_sugg - t_roster) * 1000.0, 1),
+            "composeMs": round((t_end - t_sugg) * 1000.0, 1),
+        }
+        return plan
+
+    try:
+        payload = await run_in_threadpool(_compute)
+    except Exception:  # noqa: BLE001
+        logging.exception("Team plan build failed")
+        return JSONResponse(
+            status_code=503,
+            content={"error": "team_plan_unavailable", "leagueKey": league_cfg.key},
+            headers=_TEAM_PLAN_NO_STORE,
+        )
+    _stamp_valuation_mode(payload, "market", None)
+    return JSONResponse(content=payload, headers=_TEAM_PLAN_NO_STORE)
 
 
 async def _contract_with_live_rosters(
@@ -10823,11 +11538,7 @@ async def post_trade_suggestions(request: Request):
             },
         )
 
-    from src.trade.suggestions import (
-        build_asset_pool_from_contract,
-        generate_suggestions_from_pool,
-        starter_needs_for_league,
-    )
+    from src.trade.suggestions import starter_needs_for_league
 
     # Effective starter demand is a per-LEAGUE fact, not a constant: both
     # live leagues share a scoring profile but ``dynasty_main`` starts
@@ -10894,48 +11605,15 @@ async def post_trade_suggestions(request: Request):
     # exactly like /api/trade/finder already does, instead of stalling
     # the event loop for every concurrent request.
     def _generate():
-        from src.trade.suggestions import _apply_board_top_n_filter
-
-        # The FULL board (every row ranked, nothing cut) feeds roster analysis
-        # and the positional floor; the top-N cut of it is the quality pool
-        # proposals are drawn from.  One build, two views — the cut is the
-        # same ``_apply_board_top_n_filter`` the builder would have applied.
-        full_pool = build_asset_pool_from_contract(contract, ktc_top_n=0)
-        pool = _apply_board_top_n_filter(list(full_pool), ktc_top_n)
-        sleeper_block = contract.get("sleeper") if isinstance(contract, dict) else None
-        league_team_count = len((sleeper_block or {}).get("teams") or []) or (
-            len(league_rosters) + 1 if league_rosters else None
-        )
-        weakness_needs, weakness_reason = _suggestion_weakness_needs(
-            contract, league_cfg, roster, league_team_count
-        )
-        # Roster capacity for the requesting team, built ONCE and reused
-        # across every proposal — the expensive part (joining the roster to
-        # the board, measuring waiver level league-wide, resolving starter
-        # slots) does not depend on which trade is being scored.  Each
-        # suggestion then reports what it would cost in forced releases;
-        # nothing is filtered out on capacity grounds.
-        # Suggestions are the product; capacity is an annotation on them, so a
-        # failure here degrades to no annotation rather than no suggestions.
-        capacity_context = _capacity_context_for(
+        return _trade_suggestions_from_contract(
             contract,
             league_cfg,
-            {"players": list(roster)},
-            surface="/api/trade/suggestions",
-        )
-
-        return generate_suggestions_from_pool(
-            roster_names=roster,
-            pool=pool,
-            league_rosters=league_rosters,
+            roster,
             starter_needs=starter_needs,
+            league_rosters=league_rosters,
             ktc_top_n=ktc_top_n,
-            capacity_context=capacity_context,
             constraints=constraints,
-            roster_pool=full_pool,
-            team_count=league_team_count,
-            weakness_needs=weakness_needs,
-            weakness_unavailable_reason=weakness_reason,
+            surface="/api/trade/suggestions",
         )
 
     try:
@@ -10950,6 +11628,72 @@ async def post_trade_suggestions(request: Request):
         result["leagueKey"] = league_cfg.key
     _stamp_valuation_mode(result, valuation_mode, valuation_note)
     return JSONResponse(content=result)
+
+
+def _trade_suggestions_from_contract(
+    contract: Any,
+    league_cfg: Any,
+    roster: list,
+    *,
+    starter_needs: dict | None,
+    league_rosters: list | None,
+    ktc_top_n: int,
+    constraints: Any,
+    surface: str,
+) -> dict[str, Any]:
+    """One roster's trade suggestions off the live contract.
+
+    The body of ``POST /api/trade/suggestions`` (moved here verbatim so the
+    composed team plan runs the SAME path rather than a second copy of it).
+    Synchronous and CPU-heavy: callers run it on a worker thread.
+    """
+    from src.trade.suggestions import (
+        _apply_board_top_n_filter,
+        build_asset_pool_from_contract,
+        generate_suggestions_from_pool,
+    )
+
+    # The FULL board (every row ranked, nothing cut) feeds roster analysis
+    # and the positional floor; the top-N cut of it is the quality pool
+    # proposals are drawn from.  One build, two views — the cut is the
+    # same ``_apply_board_top_n_filter`` the builder would have applied.
+    full_pool = build_asset_pool_from_contract(contract, ktc_top_n=0)
+    pool = _apply_board_top_n_filter(list(full_pool), ktc_top_n)
+    sleeper_block = contract.get("sleeper") if isinstance(contract, dict) else None
+    league_team_count = len((sleeper_block or {}).get("teams") or []) or (
+        len(league_rosters) + 1 if league_rosters else None
+    )
+    weakness_needs, weakness_reason = _suggestion_weakness_needs(
+        contract, league_cfg, roster, league_team_count
+    )
+    # Roster capacity for the requesting team, built ONCE and reused
+    # across every proposal — the expensive part (joining the roster to
+    # the board, measuring waiver level league-wide, resolving starter
+    # slots) does not depend on which trade is being scored.  Each
+    # suggestion then reports what it would cost in forced releases;
+    # nothing is filtered out on capacity grounds.
+    # Suggestions are the product; capacity is an annotation on them, so a
+    # failure here degrades to no annotation rather than no suggestions.
+    capacity_context = _capacity_context_for(
+        contract,
+        league_cfg,
+        {"players": list(roster)},
+        surface=surface,
+    )
+
+    return generate_suggestions_from_pool(
+        roster_names=roster,
+        pool=pool,
+        league_rosters=league_rosters,
+        starter_needs=starter_needs,
+        ktc_top_n=ktc_top_n,
+        capacity_context=capacity_context,
+        constraints=constraints,
+        roster_pool=full_pool,
+        team_count=league_team_count,
+        weakness_needs=weakness_needs,
+        weakness_unavailable_reason=weakness_reason,
+    )
 
 
 def _suggestion_weakness_needs(
@@ -13144,7 +13888,14 @@ _DRAFT_CAPITAL_PRIVATE_PICK_FIELDS = (
     # pipeline is in each row.  Added with the fields, not after.
     "rookieDispersionCV",
     "rookieSingleSource",
+    # Per-rookie voting-source count + which sources voted (DYN10 item 8):
+    # board evidence internals, redacted with the rest of the rookie board.
+    "rookieSourceCoverage",
 )
+
+#: Top-level draft-capital fields that describe OUR rookie board's evidence
+#: (not Sleeper facts); stripped from the anonymous payload.
+_DRAFT_CAPITAL_PRIVATE_TOP_FIELDS = ("rookieSourceCoverage",)
 
 
 def _redact_draft_capital_for_public(result):
@@ -13178,6 +13929,8 @@ def _redact_draft_capital_for_public(result):
         else pick
         for pick in picks
     ]
+    for _k in _DRAFT_CAPITAL_PRIVATE_TOP_FIELDS:
+        redacted.pop(_k, None)
     redacted["rookieBoardRedacted"] = True
     return redacted
 
@@ -13405,6 +14158,7 @@ def _our_rookie_pool(top_n: int = 72) -> list[dict]:
     # it from the free-agent pool.  Two copies of "who is in this auction"
     # would eventually disagree, and the failure would be silent.
     from src.draft.rookie_pool import select_rookie_rows  # noqa: PLC0415
+    from src.draft.rookie_source_coverage import row_coverage as _rookie_row_coverage  # noqa: PLC0415
 
     out: list[dict] = []
     for p in select_rookie_rows(contract, top_n):
@@ -13433,6 +14187,10 @@ def _our_rookie_pool(top_n: int = 72) -> list[dict]:
         cv = p.get("marketDispersionCV")
         out.append(
             {
+                # Additive, display-only (DYN10 item 8): how many voting sources
+                # priced this rookie.  Reads the row's own sourceRankMeta; moves
+                # no value, vote or weight.  Unknown stays null, never 0.
+                "sourceCoverage": _rookie_row_coverage(p),
                 "name": str(p.get("canonicalName") or p.get("displayName") or ""),
                 "pos": (str(p.get("position") or "").upper() or None),
                 "value": float(val),
@@ -14832,6 +15590,7 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 # NOT that the sources agreed — see ``_our_rookie_pool``.
                 "dispersionCV": r.get("dispersionCV"),
                 "singleSource": r.get("singleSource"),
+                "sourceCoverage": r.get("sourceCoverage"),
             }
             for r, d in zip(our_rookies, rookie_dollar_overrides)
         ]
@@ -14884,6 +15643,8 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             if "dispersionCV" in rookies[i]:
                 pick["rookieDispersionCV"] = rookies[i]["dispersionCV"]
                 pick["rookieSingleSource"] = rookies[i]["singleSource"]
+            if "sourceCoverage" in rookies[i]:
+                pick["rookieSourceCoverage"] = rookies[i]["sourceCoverage"]
 
     sorted_teams = sorted(team_totals.items(), key=lambda x: -x[1])
 
@@ -14897,6 +15658,27 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         else "csv"
     )
     ktc_count = len([r for r in rookies if not r["name"].startswith("Rookie #")]) if rookies else 0
+    # Only meaningful when the contract-sourced pool is in play; the KTC fallback
+    # carries no per-source evidence, so it says so rather than implying a count.
+    if rookie_source == "ours_filtered":
+        from src.draft.rookie_source_coverage import build_pool_coverage  # noqa: PLC0415
+
+        try:
+            rookie_source_coverage = build_pool_coverage(latest_contract_data, _KTC_TOTAL_PICKS)
+        except Exception:  # noqa: BLE001 — display-only stamp must never fail the board
+            logging.warning("draft-capital: rookie source coverage build failed", exc_info=True)
+            rookie_source_coverage = {
+                "version": "rookie-source-coverage/v1",
+                "state": "unavailable",
+                "reason": "coverage_build_failed",
+                "votingCount": None,
+                "relevantCount": None,
+                "lowCoverageRows": None,
+                "unknownRows": None,
+                "sources": [],
+            }
+    else:
+        rookie_source_coverage = None
 
     # Stable team keys (Wave A): ``team`` is a display name, and /trade's
     # Sleeper teams are named differently (owner first name vs Sleeper team
@@ -14945,6 +15727,10 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         "rookieDollarLadder": rookie_ladder_receipt,
         # Per-vendor population / state receipt for ``rookie*ComparableDollar``.
         "vendorComparison": vendor_comparison,
+        # Pool-level rookie-source coverage (DYN10 item 8): which rookie-relevant
+        # sources vote / are held / seasonal / stale / missing.  Additive and
+        # private (redacted for anonymous callers with the rookie board).
+        "rookieSourceCoverage": rookie_source_coverage,
     }
     # ── Every other class this league owns picks in (owner directive
     # 2026-10-17) ──────────────────────────────────────────────────────
@@ -18764,6 +19550,36 @@ async def trigger_scrape(request: Request, background_tasks: BackgroundTasks):
     )
 
 
+# Owner test alerts reach a phone, so authorized requests from every caller
+# together draw on one token bucket (one producers request can send up to one
+# push per producer per channel): a burst of ``_TEST_ALERT_CAPACITY``, then one
+# more every ``_TEST_ALERT_WINDOW_S / _TEST_ALERT_CAPACITY`` seconds (2 minutes).
+# Worst case from a full bucket is about 2 x capacity in one window.  Charged
+# only AFTER auth, so a caller who is refused cannot spend the owner's budget;
+# a request that then finds no channel (400) has still spent its token.
+_TEST_ALERT_CAPACITY = 5
+_TEST_ALERT_WINDOW_S = 600.0
+_TEST_ALERT_LIMITER = None
+
+
+def _test_alert_rate_limited() -> tuple[bool, int]:
+    global _TEST_ALERT_LIMITER
+    from src.api import rate_limit as _rl
+
+    if _TEST_ALERT_LIMITER is None:
+        _TEST_ALERT_LIMITER = _rl.KeyedLimiter("owner-test-alert", max_keys=10)
+    return _TEST_ALERT_LIMITER.charge(
+        [
+            _rl.KeyedCharge(
+                key="owner-test-alert",
+                capacity=_TEST_ALERT_CAPACITY,
+                window_seconds=_TEST_ALERT_WINDOW_S,
+                ceiling=True,
+            )
+        ]
+    )
+
+
 @app.post("/api/test-alert")
 async def test_alert(request: Request):
     """Send one test alert on every configured owner channel and report, per
@@ -18771,22 +19587,65 @@ async def test_alert(request: Request):
 
     Booleans only -- no address or webhook URL is returned.  Delivery is
     synchronous here (an operator is waiting for the answer) and bounded by each
-    channel's own timeout (ntfy 5 s, SMTP 15 s per port)."""
+    channel's own timeout (ntfy 5 s, SMTP 15 s per port).
+
+    ``?producers=1`` instead sends one ``[TEST]`` notice through EACH real alert
+    producer (``_owner_alert_producer_test``) and answers per producer: 200 when
+    every producer delivered, 400 when none has a channel, else 502.
+
+    Auth: an allowlisted admin session, OR the ``SIGNAL_ALERT_CRON_TOKEN``
+    bearer verified by ``_signal_alert_cron_bearer_ok`` (the box's notify-test
+    uses it to test the RUNNING process).  Anything else is refused exactly as
+    before: no session 401 ``auth_required``, a non-allowlisted session 403.
+    Authorized requests share one token bucket (a burst of
+    ``_TEST_ALERT_CAPACITY``, refilling over ``_TEST_ALERT_WINDOW_S``); past it
+    the answer is 429 and nothing is sent."""
     # W22-F007: sends outbound messages — operator-grade, so it gates
     # on the admin allowlist, not on session presence.
-    session_or_err = _require_admin_session(request)
-    if isinstance(session_or_err, JSONResponse):
-        return session_or_err
+    if not _signal_alert_cron_bearer_ok(request):
+        # No bearer: exactly the two checks that applied before the route was
+        # self-authed -- the cookie gate's, then the admin allowlist.
+        if not _is_authenticated(request):
+            return _auth_required_response()
+        session_or_err = _require_admin_session(request)
+        if isinstance(session_or_err, JSONResponse):
+            return session_or_err
+    limited, retry_after = _test_alert_rate_limited()
+    if limited:
+        return JSONResponse(
+            status_code=429,
+            content={"error": "rate_limited", "retryAfterSeconds": retry_after},
+            headers={"Retry-After": str(retry_after), "Cache-Control": "no-store"},
+        )
+    producers = (request.query_params.get("producers") or "").strip().lower()
+    if producers in ("1", "true", "yes", "on"):
+        report = await run_in_threadpool(_owner_alert_producer_test)
+        outcomes = [r.get("delivered") for r in report["producers"].values()]
+        if all(o is None for o in outcomes):
+            status_code = 400
+        elif all(o is True for o in outcomes):
+            status_code = 200
+        else:
+            status_code = 502
+        return JSONResponse(
+            status_code=status_code, content=report, headers={"Cache-Control": "no-store"}
+        )
     result = await run_in_threadpool(_owner_alert_test)
     if not any(result["configured"].values()):
+        ntfy_state = str(result.get("ntfyState") or "")
+        hint = (
+            "Set NOTIFY_WEBHOOK_URL (ntfy) and/or ALERT_ENABLED, ALERT_TO, ALERT_FROM, "
+            "ALERT_PASSWORD in the box .env, then restart the service."
+        )
+        if ntfy_state.startswith("rejected:"):
+            # Set but refused by the one validator: say so, by reason code only.
+            hint = (
+                f"NOTIFY_WEBHOOK_URL is set but rejected ({ntfy_state.split(':', 1)[1]}): "
+                "it must be a plain https:// URL with no spaces or embedded credentials. " + hint
+            )
         return JSONResponse(
             status_code=400,
-            content={
-                "error": "no_alert_channel_configured",
-                **result,
-                "hint": "Set NOTIFY_WEBHOOK_URL (ntfy) and/or ALERT_ENABLED, ALERT_TO, ALERT_FROM, "
-                "ALERT_PASSWORD in the box .env, then restart the service.",
-            },
+            content={"error": "no_alert_channel_configured", **result, "hint": hint},
         )
     ok = any(bool(v) for v in result["delivered"].values())
     return JSONResponse(status_code=200 if ok else 502, content=result)
@@ -19847,14 +20706,7 @@ async def run_custom_alerts(request: Request):
 
     Same bearer-token auth model as ``/api/signal-alerts/run``.
     """
-    cron_auth_ok = False
-    if SIGNAL_ALERT_CRON_TOKEN:
-        header = (request.headers.get("authorization") or "").strip()
-        if header.lower().startswith("bearer "):
-            presented = header.split(None, 1)[1].strip()
-            if _startup_guards.constant_time_equals(presented, SIGNAL_ALERT_CRON_TOKEN):
-                cron_auth_ok = True
-    if not cron_auth_ok:
+    if not _signal_alert_cron_bearer_ok(request):
         session = _get_auth_session(request)
         if not session or session.get("auth_method") != "password":
             return JSONResponse(
@@ -20872,6 +21724,20 @@ async def _compute_trade_analysis(request: Request, body: Any, clock, league_cfg
     # echoes it back.  Absent -> inferred from competitive posture.
     _team_goal = body.get("teamGoal") if isinstance(body, dict) else None
     from src.trade import analyze_service as _analyze_service  # noqa: PLC0415
+    from src.trade import title_odds_lens as _title_odds_lens  # noqa: PLC0415
+
+    # DYN10 #4: this season's playoff / title odds before and after the trade
+    # -- the non-voting ``lenses.titleOdds``.  Owner-held flag, default OFF:
+    # OFF computes nothing and passes nothing, so the packet is byte-identical.
+    _title_odds_extra: dict[str, Any] = {}
+    if _title_odds_lens.enabled():
+        if (result.get("teamContext") or {}).get("applied") is False:
+            _title_odds_extra["title_odds"] = dict(_title_odds_lens.ASSET_ONLY_MARKER)
+        else:
+            with clock.stage("titleOdds"):
+                _title_odds_extra["title_odds"] = await run_in_threadpool(
+                    _trade_title_odds_two_team, result, league_key, _captured.get("contract")
+                )
 
     # Provenance comes from the contract the simulation ran against (B0-c),
     # not a second read of the global, which a publish could have swapped.
@@ -20881,8 +21747,45 @@ async def _compute_trade_analysis(request: Request, body: Any, clock, league_cfg
             contract=_captured.get("contract"),
             comparables=comparables,
             team_goal=_team_goal,
+            **_title_odds_extra,
         )
     return result, league_key, None, clock.stages()
+
+
+def _title_odds_snapshot(league_key: str | None):
+    """The league snapshot the title-odds lens simulates, or ``None``.
+
+    Only a league with recorded playoff rules is ever looked up (the lens
+    refuses every other league before reading anything), through the same
+    reader Roster Construction uses: the public snapshot when it is this
+    league, else a private in-memory build.
+    """
+    from src.trade import title_odds_lens as _title_odds_lens  # noqa: PLC0415
+
+    if not league_key or not _title_odds_lens.league_configured(league_key):
+        return None
+    cfg = _league_registry.get_league_by_key(league_key)
+    if cfg is None:
+        return None
+    try:
+        return _roster_construction_snapshot(cfg)
+    except Exception:  # noqa: BLE001 -- the lens reports the snapshot unavailable
+        log.warning("title-odds lens: league snapshot unavailable", exc_info=True)
+        return None
+
+
+def _trade_title_odds_two_team(result: dict, league_key: str | None, contract) -> dict:
+    """``/api/trade/analyze``'s title-odds lens payload (context only)."""
+    from src.trade import title_odds_lens as _title_odds_lens  # noqa: PLC0415
+
+    return _title_odds_lens.guarded(
+        lambda: _title_odds_lens.title_odds_for_two_team(
+            result,
+            snapshot=_title_odds_snapshot(league_key),
+            league_key=league_key,
+            contract=contract,
+        )
+    )
 
 
 # ── N-team trade analysis (private; spec docs/trade/NTEAM_TRADE_ENGINE_SPEC.md §3) ──
@@ -21102,6 +22005,20 @@ async def post_trade_analyze_multi(request: Request):
             names=_board_names_by_player_id(),
         )
 
+    from src.trade import title_odds_lens as _title_odds_lens  # noqa: PLC0415
+
+    def _title_odds(validated):
+        # DYN10 #4 (owner-held flag, default OFF): ONE paired season
+        # simulation for the whole trade; each team's analysis shows its row.
+        return _title_odds_lens.guarded(
+            lambda: _title_odds_lens.title_odds_for_ledger(
+                validated, snap, snapshot=_title_odds_snapshot(league_key)
+            )
+        )
+
+    # OFF passes no provider, so every team's analysis is byte-identical.
+    _title_odds_kw = {"title_odds_provider": _title_odds} if _title_odds_lens.enabled() else {}
+
     def _compute():
         return _svc.analyze_trade_n(
             snap,
@@ -21111,6 +22028,7 @@ async def post_trade_analyze_multi(request: Request):
             team_goals=goals,
             comparables_provider=_comparables,
             stage=clock.stage,
+            **_title_odds_kw,
         )
 
     from src.api import compute_admission as _admission_mod  # noqa: PLC0415
@@ -21304,23 +22222,32 @@ def _owner_alert_recipient() -> str | None:
     return _owner_alerts.recipient(ALERT_TO)
 
 
-def _deliver_owner_alert(to: str, subject: str, body: str) -> bool:
-    """Owner push (ntfy) first, e-mail fallback -- the sweeps' delivery callable."""
+def _deliver_owner_alert(to: str, subject: str, body: str, *, record: bool = True) -> bool:
+    """Owner push (ntfy) first, e-mail fallback -- the sweeps' delivery callable.
+    ``record=False`` keeps the attempt out of the delivery-health record (the
+    producer test)."""
     from src.utils import owner_alerts as _owner_alerts
 
-    return _owner_alerts.deliver(to, subject, body, email=_deliver_email_smtp)
+    return _owner_alerts.deliver(to, subject, body, email=_deliver_email_smtp, record=record)
 
 
 def _owner_alert_test() -> dict:
     """Send one test message on EVERY configured channel (operator check).
 
-    Booleans only: no address or webhook URL leaves the process."""
+    Booleans plus ``ntfyState`` (``ok`` / ``unset`` / ``rejected:<reason>``, the
+    one validator's answer, so "set but rejected" does not read as "unset").
+    No address or webhook URL leaves the process."""
     from src.utils import owner_alerts as _owner_alerts
 
-    email = _deliver_email_smtp if (_email_alerts_configured() and ALERT_TO) else None
+    email = _deliver_email_smtp if _email_alerts_configured() else None
+    ntfy_state = _owner_alerts.ntfy_state()
     configured = {"ntfy": _owner_push_configured(), "email": email is not None}
     if not any(configured.values()):
-        return {"configured": configured, "delivered": {"ntfy": None, "email": None}}
+        return {
+            "configured": configured,
+            "ntfyState": ntfy_state,
+            "delivered": {"ntfy": None, "email": None},
+        }
     delivered = _owner_alerts.deliver_each(
         ALERT_TO or None,
         "Risk It test alert",
@@ -21328,7 +22255,101 @@ def _owner_alert_test() -> dict:
         "If you can read this, owner alerts reach you.",
         email=email,
     )
-    return {"configured": configured, "delivered": delivered}
+    return {"configured": configured, "ntfyState": ntfy_state, "delivered": delivered}
+
+
+def _signals_notice_channels() -> dict:
+    """The Signals reconnect notice's channels, as ``deliver_reconnect_notice``
+    keyword arguments: the owner's ntfy webhook first, SMTP as fallback.  One
+    definition for the daily sweep and the producer test."""
+    from src.utils import owner_notify as _owner_notify
+
+    return {
+        "channels": [("ntfy", _owner_notify.channel())],
+        "delivery": _deliver_email_smtp if ALERT_TO else None,
+        "to_email": ALERT_TO or None,
+    }
+
+
+#: ``POST /api/test-alert?producers=1``: the real alert producers, in send order.
+OWNER_ALERT_PRODUCERS = ("opsAlerts", "sourceHealthAlerts", "sendAlert", "signalsReconnectNotice")
+#: Every ``reason`` a producer result can carry.
+OWNER_ALERT_PRODUCER_REASONS = frozenset(
+    {"delivered", "all_channels_failed", "not_configured", "producer_error"}
+)
+
+
+def _producer_test_result(send: Callable[[], bool | None]) -> dict:
+    """One producer's answer: ``delivered`` (``None`` = no channel configured for
+    it -- "not configured", never "failed") and a reason code.  A producer that
+    raises reports its exception CLASS only: a message could carry a URL."""
+    try:
+        delivered = send()
+    except Exception as exc:  # noqa: BLE001 - a test never raises into its caller
+        return {"delivered": False, "reason": "producer_error", "errorClass": type(exc).__name__}
+    if delivered is None:
+        return {"delivered": None, "reason": "not_configured"}
+    return {
+        "delivered": bool(delivered),
+        "reason": "delivered" if delivered else "all_channels_failed",
+    }
+
+
+def _owner_alert_producer_test() -> dict:
+    """Send one ``[TEST]`` notice through EACH real alert producer's formatting
+    and delivery path, synchronously (operator check, ``?producers=1``).
+
+    * ``opsAlerts`` -- ``ops_alerts.format_ops_email`` + the sweep's delivery
+      callable (``_deliver_owner_alert``) and recipient;
+    * ``sourceHealthAlerts`` -- the staleness sweep's formatters, same delivery;
+    * ``sendAlert`` -- ``send_alert``'s title and routing (``_route_send_alert``);
+    * ``signalsReconnectNotice`` -- ``format_reconnect_notice`` on the sweep's
+      own channels, first success wins.
+
+    Touches no cooldown, in-flight, incident, episode or delivery-health state:
+    nothing here can silence, delay or fake a real alert, or move
+    ``alertDelivery``.  Booleans and reason codes only -- no address, no URL."""
+    from src.api import ops_alerts as _ops
+    from src.api import source_health_alerts as _sha
+    from src.sources import signals_auth as _signals_auth
+    from src.utils import owner_alerts as _owner_alerts
+
+    recipient = _owner_alert_recipient()
+
+    def _sweep_producer(fmt: Callable[[], tuple[str, str]]) -> Callable[[], bool | None]:
+        def _send() -> bool | None:
+            subject, body = fmt()
+            if not recipient:
+                return None
+            return _deliver_owner_alert(recipient, subject, body, record=False)
+
+        return _send
+
+    def _send_alert_producer() -> bool | None:
+        subject, body = _owner_alerts.mark_test(
+            _send_alert_title("Server alert producer test (no condition fired)"),
+            "An operator check of send_alert's title and owner routing (uptime, stale "
+            "backups, scrape failures, low disk).  No cooldown was read or written.",
+        )
+        if not _send_alert_channels_configured():
+            return None
+        return _route_send_alert(subject, body, record=False)
+
+    def _signals_producer() -> bool | None:
+        return _signals_auth.send_test_reconnect_notice(**_signals_notice_channels())["delivered"]
+
+    sends: dict[str, Callable[[], bool | None]] = {
+        "opsAlerts": _sweep_producer(_ops.format_test_notice),
+        "sourceHealthAlerts": _sweep_producer(_sha.format_test_notice),
+        "sendAlert": _send_alert_producer,
+        "signalsReconnectNotice": _signals_producer,
+    }
+    return {
+        "mode": "producers",
+        "configured": {"ntfy": _owner_push_configured(), "email": _email_alerts_configured()},
+        "ntfyState": _owner_alerts.ntfy_state(),
+        "producers": {name: _producer_test_result(sends[name]) for name in OWNER_ALERT_PRODUCERS},
+    }
 
 
 def _deliver_email_smtp(to: str, subject: str, body: str) -> bool:
@@ -21357,10 +22378,11 @@ def _deliver_email_smtp(to: str, subject: str, body: str) -> bool:
             s.send_message(msg)
         return True
     except Exception as exc587:  # noqa: BLE001
+        # The exception CLASS only: neither the recipient nor the message
+        # (``SMTPRecipientsRefused`` carries the address) is logged.
         log.warning(
-            "signal-alert SMTP 587 STARTTLS failed to %s: %s — falling back to 465",
-            to,
-            exc587,
+            "alert e-mail: SMTP 587 STARTTLS failed (%s); falling back to 465",
+            type(exc587).__name__,
         )
         try:
             with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as s:
@@ -21368,7 +22390,7 @@ def _deliver_email_smtp(to: str, subject: str, body: str) -> bool:
                 s.send_message(msg)
             return True
         except Exception as exc465:  # noqa: BLE001
-            log.warning("signal-alert SMTP 465 SSL also failed to %s: %s", to, exc465)
+            log.warning("alert e-mail: SMTP 465 SSL also failed (%s)", type(exc465).__name__)
             return False
 
 
@@ -22104,15 +23126,7 @@ async def run_signal_alerts(request: Request):
     # sufficient on its own.  Failure mode: if no session AND no token
     # (or token mismatch), reject.  Short-circuit the token check
     # before touching cookies so an unset token can never authorize.
-    cron_auth_ok = False
-    if SIGNAL_ALERT_CRON_TOKEN:
-        header = (request.headers.get("authorization") or "").strip()
-        if header.lower().startswith("bearer "):
-            presented = header.split(None, 1)[1].strip()
-            # Constant-time compare to avoid timing leaks.
-            if _startup_guards.constant_time_equals(presented, SIGNAL_ALERT_CRON_TOKEN):
-                cron_auth_ok = True
-    if not cron_auth_ok:
+    if not _signal_alert_cron_bearer_ok(request):
         session = _get_auth_session(request)
         if not session or session.get("auth_method") != "password":
             return JSONResponse(
@@ -22399,6 +23413,7 @@ async def run_signal_alerts(request: Request):
             backup_coverage=await run_in_threadpool(_backup_coverage_alert_rows),
             failed_units=await run_in_threadpool(_failed_systemd_units),
             forecast_degradation=await run_in_threadpool(_forecast_degradation_health),
+            market_trade_report=await run_in_threadpool(_market_trade_report_health),
             delivery=_deliver_owner_alert if _owner_alert_recipient() else None,
             to_email=_owner_alert_recipient(),
         )
@@ -22442,20 +23457,27 @@ async def run_signal_alerts(request: Request):
     try:
         from src.sources import signals_auth as _signals_auth
 
-        from src.utils import owner_notify as _owner_notify
-
         # Off the event loop: it takes a file lock and may send ntfy/SMTP.
         # The owner's ntfy webhook (NOTIFY_WEBHOOK_URL, the same path the uptime
         # probe uses) first; SMTP only as fallback.  One notice per episode.
         result["signalsAuthNotice"] = await run_in_threadpool(
-            _signals_auth.deliver_reconnect_notice,
-            channels=[("ntfy", _owner_notify.channel())],
-            delivery=_deliver_email_smtp if ALERT_TO else None,
-            to_email=ALERT_TO or None,
+            _signals_auth.deliver_reconnect_notice, **_signals_notice_channels()
         )
     except Exception as exc:  # noqa: BLE001
         log.warning("signals auth notice failed: %s", exc)
         result["signalsAuthNotice"] = {"error": type(exc).__name__}
+
+    # Dead-man's switch: every alert above depends on this sweep running, and a
+    # sweep that never runs cannot say so.  Stamp its END; /api/status publishes
+    # the age (``alertSweepAgeHours``) and the external SLO check breaches on it.
+    try:
+        from src.api import ops_alerts as _ops_sweep
+
+        await run_in_threadpool(_ops_sweep.record_sweep)
+        result["sweepRecorded"] = True
+    except Exception as exc:  # noqa: BLE001
+        log.warning("alert sweep stamp failed: %s", exc)
+        result["sweepRecorded"] = False
 
     return JSONResponse(content=result, headers={"Cache-Control": "no-store"})
 
@@ -23398,12 +24420,18 @@ def main() -> None:
     the ``__main__`` guard at the top of the file)."""
     import uvicorn
 
+    # Channels only: the banner lands in the journal, so it names no address
+    # and no webhook (it used to print the first 20 characters of ALERT_TO).
+    alert_channels = (
+        f"ntfy {'on' if _owner_push_configured() else 'off'}, "
+        f"e-mail {'on' if _email_alerts_configured() else 'off'}"
+    )
     print()
     print("  ╔═══════════════════════════════════════════╗")
     print("  ║   Dynasty Trade Calculator — Server       ║")
     print(f"  ║   Dashboard: http://localhost:{PORT:<13}║")
     print(f"  ║   Scrape interval: {SCRAPE_INTERVAL_HOURS}h{' ' * 21}║")
-    print(f"  ║   Alerts: {'ON → ' + ALERT_TO[:20] if ALERT_ENABLED else 'OFF':<30}║")
+    print(f"  ║   Alerts: {alert_channels:<30}║")
     print("  ╚═══════════════════════════════════════════╝")
     print()
 

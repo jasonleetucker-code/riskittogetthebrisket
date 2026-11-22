@@ -5,6 +5,53 @@
 > 4 concurrent editing workers" record the rule in force at the time and are superseded on that one point. Process
 > only: this authorizes no feature.
 
+## Top 10 dynasty improvements and Chase Trade Market completion — owner, 2026-11-21
+
+**AUTHORIZED NOW.** Intake DYN10-1 … DYN10-14 (`docs/OWNER_REQUESTED_TODO.md`); structured record
+`docs/owner/DYNASTY_TOP10_TRADE_MARKET_DIRECTIVE_2026-11-21.md`.
+
+- **Authorized to implement:**
+  - the CTM-1 … CTM-7 audit, data measurement, infrastructure completion, estimator, validation, IDP evidence and
+    internal shadow values. This extends the existing CTM shadow authorizations (2026-10-19 "the shadow source, its
+    validation and the research view"; 2026-10-26 IDP market phases 1–4), on the existing owners only:
+    `src/trade/market_trade_*`, `comparable_trades.py`, `src/model_registry/*`, `src/history/*`, `src/identity/*`;
+  - read-only production diagnostics that print aggregates only;
+  - the ranked top-ten improvements through normal gates (tests, independent review, exact-tree release candidate).
+    Anything that changes a recommendation, verdict or served value ships behind a default-OFF flag or as a labelled
+    shadow.
+- **OWNER-RESERVED (not authorized here):**
+  - `chaseTradeMarket` voting, any source weight or `_RANKING_SOURCES` change, canonical values, Hill constants,
+    model promotion, and turning any flag ON;
+  - the package model, recommendation rule tables, public fairness, and live trade verdicts;
+  - examining reserved holdouts of draft preregistrations;
+  - Sleeper writes and paid data.
+
+  CTM-8 ends in a prepared owner decision, not an activation.
+- **Out of scope:** DFS, League Tycoon, and the site-wide frontend redesign (another developer's lane); only targeted
+  functional UI on existing components is in scope.
+- **Unaffected:** the production stabilization closeout below (#2287–#2291 train 1121) continues first.
+
+**Progress, first batch.** States use the Agent OS vocabulary. The ranking and plan are in
+`docs/audits/DYNASTY_TOP10_AUDIT_2026-11-21.md`. Every item is non-voting, and nothing was activated.
+
+| Unit | Top-10 item | PR | State | Note |
+|---|---|---|---|---|
+| A1 ledger memory | #7 CTM | #2295 | DEPLOYED (train 1122) | Shares per-format objects: about 40% less build memory on a box-sized benchmark, byte-identical ledger and report. Production proof outstanding: the next daily `dynasty-market-trade-ledger` peak RSS |
+| A1b stale-report alert | #7 CTM | #2299 | READY_FOR_INTEGRATION (train 1123) | Alert when the daily ledger report stops updating |
+| A2 league maturity | #7 CTM | #2297 | DEPLOYED (train 1122) | Sleeper `"0"` league-age fix; `resolve_league_maturity` wired into the daily report. Production proof outstanding: the next daily report's maturity cohorts |
+| A3 aggregate report workflow | #7 CTM | #2299 | READY_FOR_INTEGRATION (train 1123) | Read-only, dispatch-only, aggregate counts only |
+| B1 pick-class guard | #3 | #2296 | VERIFIED dormant (train 1122) | Flag `pick_class_tether_guard` OFF on the live process: the deploy's owner-held check passed with it listed. Activation is owner decision PG/PB |
+| C1 sell-high sign | #10 | #2293 | DEPLOYED (train 1122) | The edge fired on an overpay. Signed-in route; not observed in production |
+| D1 waiver protections | #6 | #2300 | READY_FOR_INTEGRATION (train 1123) | Protections on the greedy drop lists; roster freshness stamp on waiver payloads |
+| D2 rookie coverage | #8 | #2298 | DEPLOYED (train 1122) | Display-only voting-source line on /draft. Anonymous redaction VERIFIED in production; the signed-in display is not observed |
+| V1 forward scoreboard | #1 | #2301 | READY_FOR_INTEGRATION (train 1123) | Research tool. The archive holds no served board, so the board question needs the box ledger. idpTradeCalc's disagreement shows no effect net of KTC momentum |
+| #9 IDP independence | #9 | #2302 | READY_FOR_INTEGRATION (train 1123) | Measurement only: no lineage evidence; recommendation to the owner is no cap |
+| #4 title-odds lens | #4 | #2303 | IN REVIEW (train 1123) | Non-voting lens, owner-held flag `trade_title_odds_lens` default OFF. Activation also needs an async path (+5.5 s synchronous) and a War Room rendering lane |
+
+Train 1122 (#2292, #2293, #2295, #2296, #2297, #2298) merged 2026-11-22 01:31 UTC after release candidate
+44969509872. Production `build.commit` is `d7501c1f` (deploy 44971877322). Remaining items: #2 Team Advisor plan,
+#5 "This week" panel, CTM-4 to CTM-8 and the V1 box-ledger run. Their order and owner gates are in the audit document.
+
 ## Master implementation closeout — owner, 2026-11-20
 
 **AUTHORIZED NOW.** Intake CLO-0 … CLO-14 (`docs/OWNER_REQUESTED_TODO.md`); record

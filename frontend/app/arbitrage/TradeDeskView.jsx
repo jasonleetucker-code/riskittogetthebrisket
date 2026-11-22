@@ -13,7 +13,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Badge,
-  Banner,
   Button,
   EmptyState,
   Field,
@@ -22,6 +21,7 @@ import {
   SkeletonTable,
 } from "@/components/ds";
 import { buildShareUrl } from "@/lib/trade-share";
+import TradeToolErrorBanner from "@/components/arbitrage/TradeToolErrorBanner";
 import {
   DESK_STATUSES,
   deskErrorText,
@@ -165,33 +165,49 @@ function DeskItem({ item, onChange, busy }) {
   );
 }
 
+/**
+ * A failed desk call as a trade-tool failure (TradeToolErrorBanner): the
+ * desk's own sentence, the backend's code as a detail (never the client's
+ * "network" / "error" placeholders), and whether a retry can help — only a
+ * failure that reached no server, a 5xx, a 429 or a league still loading.
+ */
+export function deskFailure(res) {
+  const code = res?.code && res.code !== "network" && res.code !== "error" ? res.code : "";
+  const status = Number(res?.status) || 0;
+  const retryable =
+    status === 0 || status >= 500 || status === 429 || res?.code === "data_not_ready";
+  return { message: deskErrorText(res?.code), code, detail: "", retryable };
+}
+
 export default function TradeDeskView({ leagueKey }) {
   const [desk, setDesk] = useState(null);
-  const [error, setError] = useState("");
+  // `{ failure, retry }` or null: retry re-issues exactly the call that failed.
+  const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState("all");
+  const [reloadKey, setReloadKey] = useState(0);
   const requestSeq = useRef(0);
 
   useEffect(() => {
     if (!leagueKey) return undefined;
     let live = true;
     setDesk(null);
-    setError("");
+    setError(null);
     loadDesk(leagueKey).then((res) => {
       if (!live) return;
       if (res.ok) setDesk(res.desk);
-      else setError(deskErrorText(res.code));
+      else setError({ failure: deskFailure(res), retry: () => setReloadKey((n) => n + 1) });
     });
     return () => {
       live = false;
     };
-  }, [leagueKey]);
+  }, [leagueKey, reloadKey]);
 
   const change = useCallback(
-    async (kind, id, patch) => {
+    async function change(kind, id, patch) {
       const seq = ++requestSeq.current;
       setBusy(true);
-      setError("");
+      setError(null);
       const res =
         kind === "remove"
           ? await removeDeskItem(leagueKey, id)
@@ -200,7 +216,7 @@ export default function TradeDeskView({ leagueKey }) {
       // must not show a desk from before the user's latest change.
       if (seq !== requestSeq.current) return;
       if (res.ok) setDesk(res.desk);
-      else setError(deskErrorText(res.code));
+      else setError({ failure: deskFailure(res), retry: () => change(kind, id, patch) });
       setBusy(false);
     },
     [leagueKey],
@@ -227,7 +243,7 @@ export default function TradeDeskView({ leagueKey }) {
         accepted or rejected, so statuses are only what you mark. Nothing here
         sends a trade.
       </p>
-      {error ? <Banner tone="negative">{error}</Banner> : null}
+      <TradeToolErrorBanner failure={error?.failure} onRetry={error?.retry} />
       {desk === null && !error ? <SkeletonTable rows={3} /> : null}
       {desk ? (
         <>

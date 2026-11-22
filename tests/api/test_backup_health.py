@@ -529,7 +529,7 @@ def test_server_helper_serves_the_new_block_and_never_raises(monkeypatch):
 def _run_health(monkeypatch, block):
     alerts: list[str] = []
     monkeypatch.setattr(server, "_backup_freshness", lambda: block)
-    monkeypatch.setattr(server, "send_alert", lambda subject, body: alerts.append(subject))
+    monkeypatch.setattr(server, "send_alert", lambda subject, body, **_k: alerts.append(subject))
     response = asyncio.run(server.get_health())
     # /api/health is a read: it never sends, whatever the block says.
     assert alerts == []
@@ -571,7 +571,7 @@ def test_missing_legacy_backup_still_alerts_exactly_as_before(monkeypatch):
     assert alerts == ["Risk It: SQLite backups stale"]
     # ... and the anonymous health read alone sends nothing.
     sent: list[str] = []
-    monkeypatch.setattr(server, "send_alert", lambda subject, body: sent.append(subject))
+    monkeypatch.setattr(server, "send_alert", lambda subject, body, **_k: sent.append(subject))
     asyncio.run(server.get_health())
     assert sent == []
 
@@ -1464,7 +1464,9 @@ def _box_file(stamp: str) -> str:
 
 def _health_alerts(monkeypatch) -> tuple[dict, list[str]]:
     sent: list[tuple[str, str]] = []
-    monkeypatch.setattr(server, "send_alert", lambda subject, body: sent.append((subject, body)))
+    monkeypatch.setattr(
+        server, "send_alert", lambda subject, body, **_k: sent.append((subject, body))
+    )
     response = asyncio.run(server.get_health())
     # The anonymous health read never sends; the watchdog tick does.
     assert sent == []

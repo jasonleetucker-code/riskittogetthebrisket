@@ -191,8 +191,13 @@ jobs:
       cancel-in-progress: false
     runs-on: ubuntu-latest
     # 45 + the bounded warm wait (5 min) added 2026-10-19 + the bounded
-    # trade-route readiness wait (step cap 8 min) added 2026-11-19.
-    timeout-minutes: 58
+    # trade-route readiness wait (step cap 8 min) added 2026-11-19 + the
+    # bounded verified-revision wait (3 min + one probe) added for CI-5b.
+    timeout-minutes: 62
+    outputs:
+      # ``verified_revision`` / ``unmeasured`` / ``not_a_deploy_verification``
+      # (CI-5b): whether this run's verdict is about the triggering deploy.
+      revision_outcome: ${{ steps.verified_revision.outputs.outcome }}
     environment: production
     steps:
       - name: Checkout
@@ -526,6 +531,40 @@ jobs:
               )
           PYEOF
 
+      # CI-5b.  A green suite proves something about the revision production
+      # RUNS, and that is not always the one this run was triggered to verify
+      # (a V1 run queued 66-86 min behind a newer deploy ran against that
+      # deploy's process).  Wait, bounded, for production's public
+      # /api/status build.commit to equal the expected SHA -- this covers a
+      # backend that has not restarted yet -- and publish the commit actually
+      # observed.  "Publish whether this run verified the triggering deploy"
+      # below turns that into the run's explicit outcome.  Never fails the
+      # job: a revision we could not confirm is UNMEASURED, not red.
+      - name: Wait for production to run the verified revision (bounded, public /api/status)
+        id: revision
+        if: ${{ inputs.suite != 'baseline' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          EXPECTED="${V1_EXPECTED_SHA:-}"
+          deadline=$(( $(date +%s) + 180 ))
+          running=""
+          while :; do
+            running=$(curl -fsS --max-time 30 "${ORIGIN}/api/status" \
+              | jq -r '.build.commit // empty' 2>/dev/null) || running=""
+            [[ "$running" =~ ^[0-9a-f]{40}$ ]] || running=""
+            if [[ -n "$EXPECTED" && "$running" == "$EXPECTED" ]]; then
+              break
+            fi
+            if (( $(date +%s) >= deadline )); then
+              break
+            fi
+            sleep 15
+          done
+          echo "running_commit=${running}" >> "$GITHUB_OUTPUT"
+          echo "expected ${EXPECTED:-unknown}; production runs ${running:-an unreadable commit}"
+
       # Bounded wait for the War Room's HEAVY authenticated routes (STAB-10).
       # The public warm check above was satisfied in V1 run 44331428925 and
       # the desktop War Room spec still timed out at 125 s, 6 min after a
@@ -615,6 +654,7 @@ jobs:
           echo "Lane 4 remote exit: $rc"
 
       - name: Browser verification suite (prod-auth Playwright specs)
+        timeout-minutes: 50
         if: ${{ (github.event_name == 'workflow_run' || (inputs.suite != 'api' && inputs.suite != 'baseline')) && hashFiles('tests/e2e/prod-auth.config.js') != '' }}
         id: browser
         shell: bash
@@ -624,7 +664,17 @@ jobs:
         run: |
           set -Eeuo pipefail
           npm ci
-          npx playwright install chromium --with-deps
+          # This job checks out the DEPLOYED tree, which may predate the
+          # installer's --playwright mode, while this step comes from the
+          # workflow commit.  Read the installer from the workflow commit, as
+          # deploy.yml's tesseract steps do.
+          INSTALLER="${RUNNER_TEMP}/install_apt_packages.sh"
+          git fetch -q --no-tags --depth=1 origin "${GITHUB_SHA}" || true
+          git show "${GITHUB_SHA}:scripts/ci/install_apt_packages.sh" > "${INSTALLER}" || {
+            echo "::error title=Missing CI installer::scripts/ci/install_apt_packages.sh is not readable at the workflow commit ${GITHUB_SHA}."
+            exit 1
+          }
+          bash "${INSTALLER}" --playwright chromium
           rc=0
           npx playwright test --config tests/e2e/prod-auth.config.js 2>&1 | tee prod-auth-browser.txt || rc=$?
           echo "browser_exit=$rc" >> "$GITHUB_OUTPUT"
@@ -668,6 +718,7 @@ jobs:
           node-version: '22'
 
       - name: Collect authenticated route baseline
+        timeout-minutes: 50
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.suite == 'baseline' }}
         id: baseline
         shell: bash
@@ -681,7 +732,17 @@ jobs:
         run: |
           set -Eeuo pipefail
           npm ci
-          npx playwright install chromium --with-deps
+          # This job checks out the DEPLOYED tree, which may predate the
+          # installer's --playwright mode, while this step comes from the
+          # workflow commit.  Read the installer from the workflow commit, as
+          # deploy.yml's tesseract steps do.
+          INSTALLER="${RUNNER_TEMP}/install_apt_packages.sh"
+          git fetch -q --no-tags --depth=1 origin "${GITHUB_SHA}" || true
+          git show "${GITHUB_SHA}:scripts/ci/install_apt_packages.sh" > "${INSTALLER}" || {
+            echo "::error title=Missing CI installer::scripts/ci/install_apt_packages.sh is not readable at the workflow commit ${GITHUB_SHA}."
+            exit 1
+          }
+          bash "${INSTALLER}" --playwright chromium
           case "$BASELINE_ROUTE_SET" in
             core) routes=/rankings,/trade ;;
             league-game-day) routes=/league,/game-day ;;
@@ -903,6 +964,63 @@ jobs:
             --step-summary "$GITHUB_STEP_SUMMARY" || rc=$?
           echo "security_exit=$rc" >> "$GITHUB_OUTPUT"
           echo "Security acceptance exit: $rc (0 pass · 2 fail or inconclusive)"
+
+      # CI-5b.  The run's explicit answer to "did this verify the deploy that
+      # triggered it?".  ``verified_revision`` only when production ran the
+      # expected SHA both before the suites (the bounded wait above) and after
+      # them (the restart check).  Otherwise ``unmeasured`` with the reason:
+      # the suites' verdict is about whatever production ran, and a later
+      # deploy's green must never read as verification of this one.  Published
+      # as a step output, a job output and the job summary.  It does not change
+      # the job's conclusion (the verdict step below owns that).
+      - name: Publish whether this run verified the triggering deploy
+        id: verified_revision
+        if: ${{ always() }}
+        shell: bash
+        env:
+          RUNNING_BEFORE: ${{ steps.revision.outputs.running_commit }}
+          RUNNING_AFTER: ${{ steps.restart.outputs.backend_commit_after }}
+          BASELINE_REQUESTED: ${{ github.event_name == 'workflow_dispatch' && inputs.suite == 'baseline' }}
+        run: |
+          set -Eeuo pipefail
+          EXPECTED="${V1_EXPECTED_SHA:-}"
+          if [[ "$BASELINE_REQUESTED" == "true" ]]; then
+            outcome="not_a_deploy_verification"
+            reason="baseline collection makes no claim about a deploy"
+          elif [[ -z "$EXPECTED" || -z "$RUNNING_BEFORE" ]]; then
+            outcome="unmeasured"
+            reason="revision_unknown: production's build.commit (or the expected SHA) could not be read"
+          elif [[ "$RUNNING_BEFORE" != "$EXPECTED" ]]; then
+            outcome="unmeasured"
+            reason="revision_differs: production ran ${RUNNING_BEFORE:0:12}, the triggering deploy shipped ${EXPECTED:0:12}"
+          elif [[ -n "$RUNNING_AFTER" && "$RUNNING_AFTER" != "$EXPECTED" ]]; then
+            outcome="unmeasured"
+            reason="revision_changed_during_run: production moved to ${RUNNING_AFTER:0:12} while the suites ran"
+          else
+            outcome="verified_revision"
+            reason="production ran ${EXPECTED:0:12}, the commit this run was triggered to verify"
+          fi
+          {
+            echo "outcome=${outcome}"
+            echo "reason=${reason}"
+          } >> "$GITHUB_OUTPUT"
+          if [[ "$outcome" == "unmeasured" ]]; then
+            echo "::warning title=V1 did NOT verify the triggering deploy::${reason}. This run's suite verdicts describe that revision, not ${EXPECTED:0:12}."
+            {
+              echo "### :grey_question: V1 outcome: UNMEASURED for the triggering deploy"
+              echo
+              echo "${reason}."
+              echo
+              echo "The suites below ran against whatever production served. Their verdict is **not** a verification of \`${EXPECTED:-unknown}\`, whatever colour this run shows."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "V1 outcome: ${outcome} (${reason})"
+            {
+              echo "### V1 outcome: \`${outcome}\`"
+              echo
+              echo "${reason}."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       # REPORT-ONLY failure classification (scripts/v1_failure_classifier.py;
       # taxonomy in docs/ops/V1_VERIFICATION_TAXONOMY.md).  It reads only the

@@ -359,8 +359,17 @@
     "deploy.yml::hard-gate::Install dependencies (requirements-dev.txt)": {
       "category": "blocking"
     },
+    "deploy.yml::hard-gate::Resolve tesseract-ocr apt packages (cache key)": {
+      "category": "blocking"
+    },
+    "deploy.yml::hard-gate::Restore verified apt package cache": {
+      "category": "advisory"
+    },
     "deploy.yml::hard-gate::Install tesseract-ocr (screenshot import OCR tests)": {
       "category": "blocking"
+    },
+    "deploy.yml::hard-gate::Save verified apt package cache": {
+      "category": "advisory"
     },
     "deploy.yml::hard-gate::Run unit tests (hard gate \u2014 pure logic)": {
       "category": "blocking"
@@ -482,10 +491,7 @@
     "e2e.yml::e2e::Generate test session secret": {
       "category": "blocking"
     },
-    "e2e.yml::e2e::Install Playwright chromium (test runner only)": {
-      "category": "blocking"
-    },
-    "e2e.yml::e2e::Install Playwright webkit (iPhone projects)": {
+    "e2e.yml::e2e::Install Playwright browsers + system deps (chromium, webkit)": {
       "category": "blocking"
     },
     "e2e.yml::e2e::Install backend dependencies": {
@@ -566,6 +572,9 @@
     "future-clock.yml::custom-instant::Set up Python": {
       "category": "blocking"
     },
+    "future-clock.yml::failure-tracker::Open or update the tracking issue on failure": {
+      "category": "blocking"
+    },
     "future-clock.yml::future-clock::Checkout": {
       "category": "blocking"
     },
@@ -576,6 +585,9 @@
       "category": "blocking"
     },
     "future-clock.yml::future-clock::Set up Python": {
+      "category": "blocking"
+    },
+    "future-clock.yml::green-tracker::Close the tracking issue on a green run": {
       "category": "blocking"
     },
     "game-day-capture.yml::capture::Configure production SSH": {
@@ -597,6 +609,9 @@
       "category": "blocking"
     },
     "game-day-live-diagnostics.yml::inventory::Collect Game Day live collector inventory": {
+      "category": "blocking"
+    },
+    "health-check.yml::health::Check out the shared owner-push script": {
       "category": "blocking"
     },
     "health-check.yml::health::Check /api/health": {
@@ -800,8 +815,17 @@
     "pr-validation.yml::backend::Fetch base branch": {
       "category": "blocking"
     },
+    "pr-validation.yml::backend::Resolve tesseract-ocr apt packages (cache key)": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::backend::Restore verified apt package cache": {
+      "category": "advisory"
+    },
     "pr-validation.yml::backend::Install tesseract-ocr (screenshot import OCR tests)": {
       "category": "blocking"
+    },
+    "pr-validation.yml::backend::Save verified apt package cache": {
+      "category": "advisory"
     },
     "pr-validation.yml::backend::Run unit tests (hard gate \u2014 pure logic)": {
       "category": "blocking"
@@ -845,7 +869,13 @@
     "pr-verification-receipt.yml::receipt::Check receipt": {
       "category": "blocking"
     },
+    "prod-e2e-smoke.yml::smoke::Close the tracking issue on a green run": {
+      "category": "blocking"
+    },
     "prod-e2e-smoke.yml::smoke::Checkout": {
+      "category": "blocking"
+    },
+    "prod-e2e-smoke.yml::smoke::Open or update the tracking issue on failure": {
       "category": "blocking"
     },
     "prod-e2e-smoke.yml::smoke::Install Playwright chromium": {
@@ -1013,8 +1043,17 @@
     "release-candidate.yml::hard-gate::Install dependencies": {
       "category": "blocking"
     },
+    "release-candidate.yml::hard-gate::Resolve tesseract-ocr apt packages (cache key)": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::hard-gate::Restore verified apt package cache": {
+      "category": "advisory"
+    },
     "release-candidate.yml::hard-gate::Install tesseract-ocr (screenshot import OCR tests)": {
       "category": "blocking"
+    },
+    "release-candidate.yml::hard-gate::Save verified apt package cache": {
+      "category": "advisory"
     },
     "release-candidate.yml::hard-gate::Rebuild the candidate and assert it is the planned tree": {
       "category": "blocking"
@@ -1223,6 +1262,12 @@
     "temporal-ledger-diagnostics.yml::ledger-status::Probe temporal ledger on production": {
       "category": "blocking"
     },
+    "market-trade-ledger-report.yml::report-summary::Configure production SSH": {
+      "category": "blocking"
+    },
+    "market-trade-ledger-report.yml::report-summary::Summarize ledger report on production": {
+      "category": "blocking"
+    },
     "v1-49-host-native-scoring-activation.yml::v1-49-activation::Backup, activate, rebuild, measure": {
       "category": "blocking"
     },
@@ -1355,11 +1400,17 @@
     "v1-authenticated-verification.yml::v1-authenticated::Wait for a warm backend (bounded, public endpoints)": {
       "category": "advisory"
     },
+    "v1-authenticated-verification.yml::v1-authenticated::Wait for production to run the verified revision (bounded, public /api/status)": {
+      "category": "advisory"
+    },
     "v1-authenticated-verification.yml::v1-authenticated::Wait for warm trade routes (bounded, authenticated)": {
       "category": "blocking"
     },
     "v1-authenticated-verification.yml::v1-authenticated::Detect a backend restart during the run (public /api/status)": {
       "category": "advisory"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Publish whether this run verified the triggering deploy": {
+      "category": "blocking"
     },
     "v1-authenticated-verification.yml::v1-authenticated::Classify failures (report-only, never a gate)": {
       "category": "advisory"

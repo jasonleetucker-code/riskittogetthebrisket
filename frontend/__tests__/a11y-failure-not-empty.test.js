@@ -40,15 +40,14 @@ const ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), ".."
  * sections each own their own fetch — and are a separate unit of work.
  *
  * `app/rosters/page.jsx` is deliberately ABSENT: it was the one this
- * guard was written for, and it now renders `ds/FailureState`.
+ * guard was written for, and it now renders `ds/FailureState`.  So, since
+ * X-FRONTEND-FAILURE-SW, are `/trending`, `/players/compare` and
+ * `/league/activity` (each now `FailureState` with its fetch's retry).
  */
 const BASELINE = {
   "app/admin/sharp-identities/page.jsx": 1,
-  "app/trending/page.jsx": 1,
-  "app/players/compare/page.jsx": 1,
   "app/tools/ros-data-health/page.jsx": 1,
   "app/bdvm/page.jsx": 2,
-  "app/league/activity/ActivityClient.jsx": 1,
   "app/league/sections/ros-championship.jsx": 1,
   "app/league/sections/ros-trade-deadline.jsx": 1,
   "app/league/sections/draft-capital.jsx": 1,

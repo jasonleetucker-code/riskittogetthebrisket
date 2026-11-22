@@ -54,6 +54,45 @@ describe("ds.css coarse-pointer touch targets", () => {
     );
   });
 
+  it("a one-column sort header is 44px wide too (measured 19px on '#')", () => {
+    expect(rule(".ds-table__sort")).toMatch(/min-width:\s*44px/);
+  });
+
+  it("player names grow their HIT box without moving layout (X-MOBILE-TOUCH)", () => {
+    // The padding and the negative margin must cancel exactly, or every row
+    // holding a name changes height on a phone.
+    const m = block.match(/a\.ds-player-name,[^{]*\{([^}]*)\}/);
+    expect(m, "player-name rule missing from the coarse block").toBeTruthy();
+    const pad = /padding-block:\s*(\d+)px/.exec(m[1]);
+    const margin = /margin-block:\s*-(\d+)px/.exec(m[1]);
+    expect(pad && margin).toBeTruthy();
+    expect(Number(pad[1])).toBe(Number(margin[1]));
+    // Tag-qualified: page modules reset `.x { padding: 0 }` after ds.css.
+    expect(m[0]).toMatch(/button\.ds-player-name/);
+  });
+
+  it("legacy sub-24px controls are lifted to the AA floor, in their own stylesheets", () => {
+    // ds.css holds .ds-* classes only (tokens-contract.test.js); page-local
+    // controls are lifted in the page's stylesheet under the same condition.
+    const coarse = (file) => {
+      const text = fs.readFileSync(path.resolve(__dirname, "../../../app", file), "utf8");
+      const at = text.lastIndexOf("@media (pointer: coarse), (max-width: 480px)");
+      expect(at, `${file} has no coarse-pointer block`).toBeGreaterThan(-1);
+      return text.slice(at);
+    };
+    const draft = coarse("draft/draft.css");
+    for (const sel of [".draft-tag-tab", ".draft-tag-chip", ".draft-check", ".draft-radio"]) {
+      expect(draft, sel).toContain(sel);
+    }
+    expect(draft).toMatch(/\.draft-radio\s*\{[^}]*min-height:\s*24px/);
+    const nbt = draft.match(/button\.draft-nbt-name\s*\{([^}]*)\}/);
+    expect(nbt, "nominate-name hit-box lift missing").toBeTruthy();
+    const pad = /padding-block:\s*(\d+)px/.exec(nbt[1]);
+    const margin = /margin-block:\s*-(\d+)px/.exec(nbt[1]);
+    expect(Number(pad[1])).toBe(Number(margin[1]));
+    expect(coarse("globals.css")).toMatch(/a\.rankings-chip\s*\{[^}]*min-height:\s*24px/);
+  });
+
   it("never touches desktop: no unconditional 44px override outside the block", () => {
     const before = css.slice(0, marker);
     expect(before).not.toMatch(/\.ds-btn\s*\{[^}]*min-height:\s*44px/);

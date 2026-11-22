@@ -350,7 +350,13 @@ def crawl_records(
                     league,
                     rosters,
                     bracket,
-                    sharp_eligible=league_filter.is_sharp_eligible(league),
+                    # ``hops`` seasons (this one and every newer one the walk
+                    # came through) are proven in this lineage, so a league's
+                    # FIRST season -- whose own link is Sleeper's "0"
+                    # terminator, which the age floor no longer reads as a
+                    # predecessor -- still counts once a second exists.  The
+                    # start league (hops == 1) still needs its own real link.
+                    sharp_eligible=league_filter.is_sharp_eligible(league, known_age_seasons=hops),
                 )
                 result.seasons_recorded += 1
                 if is_complete:

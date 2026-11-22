@@ -7,6 +7,33 @@ import { useUserState } from "@/components/useUserState";
 import { PageHeader, LoadingState, EmptyState } from "@/components/ui";
 import { buildPublicActivityEvents, filterEvents } from "@/lib/activity-feed";
 import { fetchPublicSection } from "@/lib/public-league-data";
+import { FailureState } from "@/components/ds";
+import { classifyContractFailure, classifyContractTimeout } from "@/lib/contract-failure";
+
+/**
+ * Classify a `fetchPublicSection` rejection.  That reader throws
+ * `Public league fetch failed (<status>) for <url>` for an HTTP refusal — a
+ * message this codebase writes, carrying only the status and a constant URL
+ * (never server text) — a TimeoutError for its deadline, and the browser's
+ * own TypeError when no response arrived; a body that is not JSON surfaces
+ * as a SyntaxError.  Anything else is reported as an unclassified error, not
+ * guessed at.
+ */
+export function activityFailure(err) {
+  if (err?.name === "TimeoutError") return classifyContractTimeout();
+  const status = /^Public league fetch failed \((\d{3})\)/.exec(err?.message || "")?.[1];
+  if (status) return classifyContractFailure(Number(status), null);
+  if (err instanceof TypeError) return classifyContractFailure(null, null);
+  if (err instanceof SyntaxError) {
+    return {
+      kind: "no_data",
+      code: "",
+      message: "The server answered without readable activity data.",
+      retryable: true,
+    };
+  }
+  return { kind: "error", code: "", message: "Could not load league activity.", retryable: true };
+}
 
 const SCOPE_OPTIONS = [
   { key: "league", label: "League" },
@@ -96,21 +123,24 @@ export default function ActivityClient({ leagueHome = "/league" } = {}) {
   // badges.
   const [trades, setTrades] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  // A CLASSIFIED failure, never the raw thrown text; `reloadKey` is what
+  // "Try again" bumps to re-run the fetch below.
+  const [failure, setFailure] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setFailure(null);
     fetchPublicSection("activity")
       .then((payload) => {
         if (cancelled) return;
         setTrades(payload?.data?.feed || []);
-        setError("");
       })
       .catch((err) => {
         if (cancelled) return;
         setTrades([]);
-        setError(err?.message || "Could not load league activity.");
+        setFailure(activityFailure(err));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -118,7 +148,7 @@ export default function ActivityClient({ leagueHome = "/league" } = {}) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   // Owner id is enough to scope the feed to "my" trades — the public
   // payload stamps ownerId on every side, so no roster snapshot (and
@@ -136,13 +166,16 @@ export default function ActivityClient({ leagueHome = "/league" } = {}) {
   );
 
   if (loading) return <LoadingState message="Loading league activity…" />;
-  if (error) {
+  if (failure) {
     return (
       <section>
         <PageHeader title="Activity" subtitle="Trades + news in one feed." />
-        <div className="card">
-          <EmptyState title="Couldn't load data" message={String(error)} />
-        </div>
+        <FailureState
+          failure={failure}
+          onRetry={() => setReloadKey((n) => n + 1)}
+          context="league activity"
+          variant="block"
+        />
       </section>
     );
   }

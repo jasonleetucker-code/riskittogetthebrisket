@@ -11,6 +11,7 @@ runs, and that every comparison outcome is computed the way the design document
 
 from __future__ import annotations
 
+from datetime import date
 import json
 import os
 from pathlib import Path
@@ -242,6 +243,213 @@ def test_gates_run_in_the_target_tree_with_the_pipeline_env(tmp_path: Path):
         (gate.Gate("probe", True, probe, "m", 60, {"UPTIME_CHECK_ENABLED": "0"}),), tmp_path
     )
     assert receipt["gates"][0]["outputTail"] == [f"{tmp_path.name} 0"]
+
+
+# ── the advisory gates' judges: declared conditions vs news (T3) ───────────
+
+TODAY = date(2026, 11, 20)
+
+
+def _registry(tmp_path: Path, entries: dict) -> Path:
+    path = tmp_path / "config" / "sources" / "rehabilitation.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"states": [], "entries": entries}), encoding="utf-8")
+    return tmp_path
+
+
+def _entry(state: str, review_by: str = "2026-12-04") -> dict:
+    return {"state": state, "reason": f"declared {state}", "reviewBy": review_by}
+
+
+def _health_report(**parts) -> str:
+    report = {
+        "contractSourceHealthErrors": [],
+        "hardStale": [],
+        "contentStale": [],
+        "registeredSourceIntegrity": {},
+        "semanticIntegrity": {"ktc": {"state": "HEALTHY", "measurable": True}},
+    }
+    report.update(parts)
+    return json.dumps(report)
+
+
+_CONTENT_STALE = {"source": "idpTradeCalc (picks)", "daysSinceChange": 40.0, "budgetDays": 14.0}
+
+
+def _stale(source: str) -> dict:
+    return {"source": source, "ageHours": 63.3, "thresholdHours": 24.0}
+
+
+def test_only_advisory_gates_carry_a_judge():
+    judged = {g.name for g in gate.default_gates("python") if g.judge}
+    assert judged == {"source_health", "livedata_tests"}
+    assert all(not g.blocking for g in gate.default_gates("python") if g.judge)
+    assert set(gate.JUDGES) == {g.judge for g in gate.default_gates("python") if g.judge}
+
+
+def test_a_judge_never_rereads_a_blocking_gate(tmp_path: Path, monkeypatch):
+    monkeypatch.setitem(gate.JUDGES, "always", lambda *a: ("pass", {"declared": []}))
+    gates = (
+        gate.Gate("blocker", True, _py("import sys; sys.exit(1)"), "m", 60, judge="always"),
+        gate.Gate("adv", False, _py("import sys; sys.exit(1)"), "m", 60, judge="always"),
+    )
+    receipt = gate.run_gates(gates, tmp_path)
+    assert {g["name"]: g["status"] for g in receipt["gates"]} == {"blocker": "fail", "adv": "pass"}
+    assert receipt["wouldShip"] is False and receipt["blockingFailures"] == ["blocker"]
+
+
+def test_a_declared_vendor_staleness_is_set_aside_and_named(tmp_path: Path):
+    repo = _registry(tmp_path, {"idpTradeCalc": _entry("degraded")})
+    status, cond = gate.judge_source_health(
+        _health_report(contentStale=[_CONTENT_STALE]), 1, repo, TODAY
+    )
+    assert status == "pass"
+    assert cond["undeclared"] == []
+    assert [(c["kind"], c["source"], c["declaredState"]) for c in cond["declared"]] == [
+        ("content_stale", "idpTradeCalc", "degraded")
+    ]
+
+
+@pytest.mark.parametrize(
+    ("entries", "report", "why"),
+    [
+        # a declaration past its review date is news again
+        (
+            {"idpTradeCalc": _entry("degraded", "2026-11-19")},
+            {"contentStale": [_CONTENT_STALE]},
+            "overdue plan",
+        ),
+        # a vendor-side state explains stale CONTENT, not a failed fetch
+        ({"dlfRookieSf": _entry("degraded")}, {"hardStale": [_stale("dlfRookieSf")]}, "degraded"),
+        # a voting-policy hold explains no collection failure at all
+        (
+            {"dlfRookieIdp": _entry("policy_held")},
+            {"hardStale": [_stale("dlfRookieIdp")]},
+            "policy_held",
+        ),
+        # an undeclared source
+        ({}, {"hardStale": [_stale("dlfRookieSf")]}, "undeclared"),
+        # contract and integrity errors are never set aside
+        (
+            {"ktc": _entry("auth_blocked")},
+            {"contractSourceHealthErrors": ["partial_run_critical:KTC"]},
+            "contract",
+        ),
+        (
+            {"ktc": _entry("auth_blocked")},
+            {"semanticIntegrity": {"ktc": {"state": "UNKNOWN", "measurable": False}}},
+            "ktc semantic",
+        ),
+        (
+            {"yahooBoone": _entry("auth_blocked")},
+            {"registeredSourceIntegrity": {"yahooBoone": {"errors": ["0 rows"]}}},
+            "integrity",
+        ),
+    ],
+)
+def test_anything_not_declared_still_fails_the_advisory_gate(tmp_path, entries, report, why):
+    repo = _registry(tmp_path, entries)
+    status, cond = gate.judge_source_health(_health_report(**report), 1, repo, TODAY)
+    assert status == "fail", why
+    assert cond["undeclared"], why
+
+
+def test_an_owner_blocked_credential_explains_its_stale_fetch_and_content(tmp_path: Path):
+    # auth_blocked: an owner-held session lapsed (e.g. a private source in
+    # reconnect_required), so nothing can be fetched until the owner reconnects.
+    repo = _registry(tmp_path, {"signalsSf": _entry("auth_blocked")})
+    report = _health_report(
+        hardStale=[_stale("signalsSf")],
+        contentStale=[{"source": "signalsSf", "daysSinceChange": 20, "budgetDays": 14}],
+    )
+    status, cond = gate.judge_source_health(report, 1, repo, TODAY)
+    assert status == "pass"
+    assert sorted(c["kind"] for c in cond["declared"]) == ["content_stale", "fetch_stale"]
+    # ...but beside an undeclared condition the gate still warns
+    report = _health_report(hardStale=[_stale("signalsSf"), _stale("ktc")])
+    status, cond = gate.judge_source_health(report, 1, repo, TODAY)
+    assert status == "fail"
+    assert [c["source"] for c in cond["undeclared"]] == ["ktc"]
+    assert [c["source"] for c in cond["declared"]] == ["signalsSf"]
+
+
+@pytest.mark.parametrize(
+    ("stdout", "rc", "status"),
+    [
+        ("", 0, "pass"),
+        ("", 2, "fail"),  # could not run
+        ("not json", 1, "fail"),
+        (_health_report(), 1, "fail"),  # exit 1 for a reason the judge does not model
+    ],
+)
+def test_the_source_health_judge_fails_closed(tmp_path, stdout, rc, status):
+    repo = _registry(tmp_path, {})
+    assert gate.judge_source_health(stdout, rc, repo, TODAY)[0] == status
+
+
+def test_no_registry_declares_nothing(tmp_path: Path):
+    status, cond = gate.judge_source_health(
+        _health_report(contentStale=[_CONTENT_STALE]), 1, tmp_path, TODAY
+    )
+    assert status == "fail" and len(cond["undeclared"]) == 1
+
+
+_DECLARED_NODE = next(iter(gate.DECLARED_LIVEDATA_FAILURES))
+
+
+def test_a_declared_livedata_failure_is_set_aside_and_a_new_one_warns():
+    known = f"FAILED {_DECLARED_NODE} - AssertionError: Jaylen Warren moved a lot\n"
+    status, cond = gate.judge_livedata(f"...F.\n{known}1 failed, 90 passed\n", 1, ROOT, TODAY)
+    assert status == "pass"
+    assert [c["detail"] for c in cond["declared"]] == [_DECLARED_NODE]
+    new = "FAILED tests/x/test_new.py::test_it - assert 1 == 2\n"
+    status, cond = gate.judge_livedata(known + new, 1, ROOT, TODAY)
+    assert status == "fail"
+    assert [c["detail"] for c in cond["undeclared"]] == ["tests/x/test_new.py::test_it"]
+
+
+@pytest.mark.parametrize(
+    ("stdout", "rc", "today"),
+    [
+        (f"FAILED {_DECLARED_NODE} - x\n", 1, date(2099, 1, 1)),  # past its review date
+        (f"ERROR {_DECLARED_NODE} - fixture error\n", 1, TODAY),  # an ERROR is not the failure
+        ("ERROR tests/x/test_new.py - ImportError\n", 1, TODAY),  # collection error
+        ("1 failed\n", 1, TODAY),  # exit 1 with no failure line: unmodelled
+        ("", 5, TODAY),  # no tests collected
+        ("", 2, TODAY),  # interrupted
+    ],
+)
+def test_the_livedata_judge_fails_closed(stdout, rc, today):
+    assert gate.judge_livedata(stdout, rc, ROOT, today)[0] == "fail"
+
+
+def test_declared_livedata_failures_name_real_tests_with_a_reason_and_review_date():
+    for node, entry in gate.DECLARED_LIVEDATA_FAILURES.items():
+        assert (ROOT / node.split("::", 1)[0]).is_file(), node
+        assert len(entry["reason"]) >= 40 and date.fromisoformat(entry["reviewBy"])
+
+
+def test_a_judged_advisory_gate_reports_its_declared_line(tmp_path: Path):
+    repo = _registry(tmp_path, {"idpTradeCalc": _entry("degraded", "2099-01-01")})
+    report = _health_report(contentStale=[_CONTENT_STALE])
+    probe = _py(f"import sys; print({report!r}); sys.exit(1)")
+    gates = (
+        gate.Gate("ok", True, _py("print('fine')"), "m", 60),
+        gate.Gate("source_health", False, probe, "m", 60, judge="source_health"),
+    )
+    receipt = gate.run_gates(gates, repo)
+    assert receipt["gates"][1]["status"] == "pass"
+    assert receipt["advisoryFailures"] == []
+    assert receipt["advisoryDeclared"] == {
+        "source_health": [
+            "content_stale idpTradeCalc: idpTradeCalc (picks) unchanged 40.0d (budget 14.0d) "
+            "[declared degraded, review by 2099-01-01]"
+        ]
+    }
+    assert receipt["wouldShip"] is True  # the blocking verdict is untouched
+    assert "declared advisory  source_health: content_stale idpTradeCalc" in gate.render_text(
+        receipt
+    )
 
 
 # ── which commit a deploy run deployed ─────────────────────────────────────
@@ -546,18 +754,36 @@ def test_every_deploy_job_is_classified_for_timing():
         assert shadow.is_pre_deploy_job(name) is is_gate, name
 
 
-def _verdict(outcome: str, created: str, runner: float = 120.0, shadow_min: float = 4.0) -> dict:
-    return {
+_RUN_IDS = iter(range(1000, 100000))
+
+
+def _verdict(
+    outcome: str,
+    created: str,
+    runner: float = 120.0,
+    shadow_min: float = 4.0,
+    *,
+    run_id: int | None = None,
+    attempt: int | None = 1,
+    kind: str | None = shadow.OBSERVATION_LIVE,
+    generated: str | None = None,
+) -> dict:
+    v = {
         "schema": shadow.SCHEMA,
         "classification": "DATA_ONLY",
         "outcome": outcome,
         "deployCreatedAt": created,
-        "deployRunId": 1,
+        "deployRunId": next(_RUN_IDS) if run_id is None else run_id,
+        "runAttempt": attempt,
+        "generatedAt": generated or created,
         "rulesDigest": "r",
         "fullVerdict": {"failedSteps": []},
         "fastPath": {},
         "timing": {"preDeployRunnerMinutes": runner, "shadowJobWallMinutes": shadow_min},
     }
+    if kind is not None:
+        v["observation"] = {"kind": kind, "reason": "test"}
+    return v
 
 
 def test_aggregate_meets_the_evidence_floor_only_without_unsafe_disagreements(tmp_path: Path):
@@ -578,6 +804,183 @@ def test_aggregate_meets_the_evidence_floor_only_without_unsafe_disagreements(tm
         (tmp_path / f"v{i}.json").write_text(json.dumps(v), encoding="utf-8")
     (tmp_path / "not-a-verdict.json").write_text("{}", encoding="utf-8")
     assert len(shadow._load_verdicts(tmp_path)) == 3
+
+
+# ── live vs backfill, and one verdict per deploy run (CI-4b) ───────────────
+
+
+def _at(iso: str):
+    return shadow._ts(iso)
+
+
+_DONE = {"status": "completed", "updated_at": "2026-11-18T12:00:00Z"}
+
+
+@pytest.mark.parametrize(
+    ("event", "observed_at", "run", "kind", "reason"),
+    [
+        # GitHub starts workflow_run on the deploy run's completion.
+        (
+            "workflow_run",
+            "2026-11-30T00:00:00Z",
+            _DONE,
+            "live",
+            "workflow_run_on_deploy_completion",
+        ),
+        # deploy.yml dispatches the shadow from its own last jobs: still running.
+        (
+            "workflow_dispatch",
+            "2026-11-18T11:59:00Z",
+            {"status": "in_progress", "updated_at": "2026-11-18T11:58:00Z"},
+            "live",
+            "deploy_still_running_when_observed",
+        ),
+        ("workflow_dispatch", "2026-11-18T12:30:00Z", _DONE, "live", "dispatch_within_lag"),
+        # the boundary is inclusive: exactly BACKFILL_LAG_HOURS is still live
+        ("workflow_dispatch", "2026-11-18T18:00:00Z", _DONE, "live", "dispatch_within_lag"),
+        ("workflow_dispatch", "2026-11-18T18:01:00Z", _DONE, "backfill", "dispatch_after_lag"),
+        (
+            "workflow_dispatch",
+            "2026-11-18T12:30:00Z",
+            {"status": "completed"},
+            "backfill",
+            "dispatch_lag_unknown",
+        ),
+        ("workflow_dispatch", None, _DONE, "backfill", "dispatch_lag_unknown"),
+        # a hand-run compare (no Actions trigger) never counts as live
+        (None, "2026-11-18T12:30:00Z", _DONE, "backfill", "not_triggered_by_a_deploy:none"),
+        ("push", "2026-11-18T12:30:00Z", _DONE, "backfill", "not_triggered_by_a_deploy:push"),
+    ],
+)
+def test_observation_kind_is_live_only_when_made_as_the_deploy_completed(
+    event, observed_at, run, kind, reason
+):
+    got = shadow.observation_kind(event, _at(observed_at), run)
+    assert (got["kind"], got["reason"], got["shadowEvent"]) == (kind, reason, event)
+
+
+def test_the_measured_backfill_is_a_backfill():
+    # 2026-11-19 11:49 dispatches re-evaluated deploy runs created 2026-11-05/06.
+    run = {"status": "completed", "updated_at": "2026-11-06T02:10:00Z"}
+    got = shadow.observation_kind("workflow_dispatch", _at("2026-11-19T11:49:00Z"), run)
+    assert got["kind"] == shadow.OBSERVATION_BACKFILL
+    assert got["lagHours"] == pytest.approx(321.65, abs=0.01)
+
+
+def test_compare_records_the_attempt_and_the_observation():
+    inputs = _inputs(PASSING)
+    inputs["observedRun"].update(
+        {"run_attempt": 2, "status": "completed", "updated_at": "2026-11-18T10:45:00Z"}
+    )
+    started = _at("2026-11-18T10:50:00Z").timestamp()
+    verdict = shadow.compare(
+        inputs,
+        _classification("DATA_ONLY"),
+        {"wouldShip": True},
+        started,
+        shadow_event="workflow_dispatch",
+    )
+    assert verdict["runAttempt"] == 2
+    assert verdict["deployFinishedAt"] == "2026-11-18T10:45:00Z"
+    obs = verdict["observation"]
+    assert (obs["kind"], obs["reason"], obs["lagHours"]) == ("live", "dispatch_within_lag", 0.08)
+    assert obs["observedAt"] == "2026-11-18T10:50:00+00:00"
+    assert "attempt 2" in shadow.render_summary(verdict)
+    # without a trigger (a hand run) the same comparison is a backfill
+    hand = shadow.compare(inputs, _classification("DATA_ONLY"), {"wouldShip": True}, started)
+    assert hand["observation"]["kind"] == shadow.OBSERVATION_BACKFILL
+
+
+def test_resolve_records_the_deploy_run_attempt():
+    assert "run_attempt" in shadow._run_brief({"id": 1, "run_attempt": 3})
+    assert shadow._run_brief({"id": 1, "run_attempt": 3})["run_attempt"] == 3
+
+
+def test_aggregate_keeps_the_latest_attempt_per_deploy_run():
+    day = "2026-11-18T10:00:00Z"
+    first = _verdict(shadow.AGREE_REFUSE, day, run_id=7, attempt=1, generated=day)
+    second = _verdict(shadow.AGREE_SHIP, day, run_id=7, attempt=2, generated="2026-11-18T13:00:00Z")
+    report = shadow.aggregate([second, first])
+    assert report["observations"] == 2 and report["verdicts"] == 1
+    assert report["duplicateObservationsDropped"] == 1
+    assert report["byOutcome"] == {shadow.AGREE_SHIP: 1}
+    assert report["comparedDataOnly"] == 1
+
+
+def test_aggregate_dedupes_legacy_observations_by_latest_compare():
+    # Deploy 44515440979: observed after the failed attempt 1 and again after
+    # attempt 2, by verdicts that predate runAttempt.  The later one wins.
+    early = _verdict(
+        shadow.AGREE_REFUSE,
+        "2026-11-17T08:00:00Z",
+        run_id=44515440979,
+        attempt=None,
+        kind=None,
+        generated="2026-11-17T09:30:00Z",
+    )
+    late = {**early, "outcome": shadow.AGREE_SHIP, "generatedAt": "2026-11-17T11:40:00Z"}
+    assert shadow.latest_per_deploy_run([late, early]) == [late]
+    assert shadow.latest_per_deploy_run([early, late]) == [late]
+
+
+def test_a_live_observation_beats_a_backfill_of_the_same_attempt():
+    day = "2026-11-18T10:00:00Z"
+    live = _verdict(shadow.AGREE_SHIP, day, run_id=5, generated="2026-11-18T12:00:00Z")
+    backfill = _verdict(
+        shadow.AGREE_SHIP,
+        day,
+        run_id=5,
+        kind=shadow.OBSERVATION_BACKFILL,
+        generated="2026-11-25T12:00:00Z",
+    )
+    assert shadow.latest_per_deploy_run([live, backfill]) == [live]
+    assert shadow.latest_per_deploy_run([backfill, live]) == [live]
+
+
+def test_backfills_count_neither_toward_the_floor_nor_the_window():
+    # 30 live deliveries in one day, plus 30 backfills spread over 30 days: the
+    # window is the live day (0 days), and backfills are reported, not counted.
+    live = [_verdict(shadow.AGREE_SHIP, f"2026-11-18T10:{m:02d}:00Z") for m in range(30)]
+    backfill = [
+        _verdict(shadow.AGREE_SHIP, f"2026-10-{d:02d}T10:00:00Z", kind=shadow.OBSERVATION_BACKFILL)
+        for d in range(1, 31)
+    ]
+    report = shadow.aggregate(live + backfill)
+    assert report["comparedDataOnly"] == 30
+    assert report["comparedDataOnlyBackfill"] == 30
+    assert report["byObservation"] == {"live": 30, "backfill": 30}
+    assert report["windowDays"] < 1
+    assert (
+        report["activationEvidenceCriteria"][f"windowAtLeast{shadow.MIN_WINDOW_DAYS}Days"] is False
+    )
+    # Backfills alone fill neither the count nor the window.
+    only_backfill = shadow.aggregate(backfill)
+    assert only_backfill["comparedDataOnly"] == 0
+    assert only_backfill["windowDays"] == 0.0
+    assert only_backfill["activationEvidenceMet"] is False
+    # ...but an unsafe disagreement found by a backfill still blocks.
+    unsafe = _verdict(
+        shadow.UNSAFE_DISAGREEMENT, "2026-10-02T10:00:00Z", kind=shadow.OBSERVATION_BACKFILL
+    )
+    assert (
+        shadow.aggregate(live + [unsafe])["activationEvidenceCriteria"]["zeroUnsafeDisagreements"]
+        is False
+    )
+
+
+@pytest.mark.parametrize(
+    ("generated", "kind"),
+    [
+        ("2026-11-05T13:00:00Z", "live"),  # compared 3 h after the deploy was created
+        ("2026-11-06T10:00:00Z", "live"),  # exactly the legacy bound
+        ("2026-11-19T11:49:00Z", "backfill"),  # the measured backfill
+        (None, "backfill"),  # not provable
+    ],
+)
+def test_a_legacy_verdict_is_classified_from_its_own_timestamps(generated, kind):
+    v = _verdict(shadow.AGREE_SHIP, "2026-11-05T10:00:00Z", kind=None, attempt=None)
+    v["generatedAt"] = generated
+    assert shadow.verdict_observation(v) == kind
 
 
 def test_github_reader_refuses_a_bad_slug_or_no_token():

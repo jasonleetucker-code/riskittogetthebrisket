@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useApp } from "@/components/AppShell";
-import { PlayerNameButton } from "@/components/ds";
+import { FailureState, PlayerNameButton } from "@/components/ds";
+import { failureForDisplay } from "@/lib/contract-failure";
 import { PageHeader, LoadingState, EmptyState, PlayerImage } from "@/components/ui";
 import {
   WINDOW_OPTIONS,
@@ -51,7 +52,7 @@ function FilterPills({ options, value, onChange, ariaLabel }) {
 }
 
 export default function TrendingPage() {
-  const { rows, loading, error, openPlayerPopup } = useApp();
+  const { rows, loading, error, failure, retry, openPlayerPopup } = useApp();
   const [windowKey, setWindowKey] = useState("7d");
   const [direction, setDirection] = useState("all");
   const [family, setFamily] = useState("ALL");
@@ -71,9 +72,14 @@ export default function TrendingPage() {
     return (
       <section>
         <PageHeader title="Trending" subtitle="Biggest value movers across the board." />
-        <div className="card">
-          <EmptyState title="Couldn't load data" message={String(error)} />
-        </div>
+        {/* A failure is not an empty board: classified, with the contract's
+            own refetch behind "Try again". */}
+        <FailureState
+          failure={failureForDisplay(failure, error)}
+          onRetry={retry}
+          context="rank history"
+          variant="block"
+        />
       </section>
     );
   }
