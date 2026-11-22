@@ -77,6 +77,38 @@ class TestLeagueAgeGate:
         assert lf.is_sharp_eligible(lg, min_age_seasons=2) is True
         assert lf.is_sharp_eligible(lg, min_age_seasons=3) is False
 
+    @pytest.mark.parametrize("terminator", ["0", 0, "", " 0 ", None])
+    def test_sleeper_zero_terminator_is_not_a_prior_season(self, terminator):
+        """Sleeper ends a chain with the STRING "0".  It is truthy, so the old
+        floor read every first-season league as age 2 and this gate could never
+        fire on a real Sleeper payload (DYN10-3 / #1852 G3)."""
+        lg = {"league_id": "L", "settings": {"type": 2, "best_ball": 0}}
+        lg["previous_league_id"] = terminator
+        assert lf.league_age_seasons(lg) == 1
+        assert lf.is_sharp_eligible(lg) is False
+        assert lf.sharp_exclusion_reason(lg) == "too_new"
+
+    def test_absent_link_is_also_too_new(self):
+        lg = {"league_id": "L", "settings": {"type": 2, "best_ball": 0}}
+        assert lf.league_age_seasons(lg) == 1
+        assert lf.sharp_exclusion_reason(lg) == "too_new"
+
+    def test_a_walked_lineage_proves_more_than_the_floor(self):
+        """The records crawl reaches a league's FIRST season (link "0") from a
+        newer one, so that season belongs to a >= 2 season lineage."""
+        first = league(type_=2, previous="0")
+        assert lf.is_sharp_eligible(first, known_age_seasons=2) is True
+        assert lf.sharp_exclusion_reason(first, known_age_seasons=2) is None
+        assert lf.is_sharp_eligible(first, known_age_seasons=1) is False
+        # A known age never LOWERS the floor.
+        assert lf.is_sharp_eligible(league(type_=2, previous="old"), known_age_seasons=1)
+        # ... and never rescues a non-dynasty or best-ball league.
+        assert lf.is_sharp_eligible(league(type_=1, previous="0"), known_age_seasons=5) is False
+        assert (
+            lf.is_sharp_eligible(league(type_=2, best_ball=1, previous="0"), known_age_seasons=5)
+            is False
+        )
+
 
 def rec(user_id="u", **kw):
     base = dict(

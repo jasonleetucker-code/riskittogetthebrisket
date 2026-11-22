@@ -28,6 +28,15 @@ measured without storing the id itself.  Without it every key is ``None``.  The
 secret's custody (creation, backup, rotation) is an owner decision; this script
 only reads it, and refuses a file group or others can read.
 
+League maturity (Chase Trade Market, DYN10-3): every mode stamps each
+underlying trade's ``leagueMaturity`` under both readings (point-in-time at the
+trade, league-level as of the build) from ``league_filter.resolve_league_
+maturity`` over the ``previous_league_id`` chain the box ALREADY holds -- the
+intel ledger's ``leagues`` + capture tables and the own-league format store
+(``--own-league-store-path``), both read ``mode=ro``.  No network call and no
+chain crawl: a season no crawl stored stays ``unknown``.  It decides no
+disposition, keeps or groups nothing differently, and votes / prices nothing.
+
 Exit codes: 0 built · 1 error · 2 no observations in any lane.
 """
 
@@ -115,6 +124,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--intel-ledger-path", type=Path, default=None)
     parser.add_argument("--acquisition-path", type=Path, default=None)
     parser.add_argument(
+        "--own-league-store-path",
+        type=Path,
+        default=None,
+        help="own-league format store read for league maturity (default: the box's)",
+    )
+    parser.add_argument(
         "--lanes",
         default=None,
         help="comma-separated source lanes (default: all three)",
@@ -145,6 +160,18 @@ def main(argv: list[str] | None = None) -> int:
             # The exception class only: never echo a path or content.
             print(f"error: side key secret unusable: {type(exc).__name__}", file=sys.stderr)
             return 1
+    # League maturity (Chase Trade Market, DYN10-3): resolved from the
+    # previous_league_id chain the box ALREADY holds -- read-only, no network.
+    # A fault here leaves every reading ``unknown``; it never fails the build.
+    resolver = None
+    try:
+        chain, chain_state = report.load_maturity_chain(
+            intel_ledger_path=args.intel_ledger_path,
+            own_league_store_path=args.own_league_store_path,
+        )
+        resolver = report.league_maturity_resolver(chain)
+    except Exception as exc:  # noqa: BLE001
+        chain_state = {"error": type(exc).__name__}
     try:
         result = report.build_ledger(
             target_league=args.target_league,
@@ -155,6 +182,7 @@ def main(argv: list[str] | None = None) -> int:
             acquisition_path=args.acquisition_path,
             lanes=lanes,
             side_key_secret=secret,
+            maturity_resolver=resolver,
         )
     except Exception as exc:  # noqa: BLE001
         print(f"error: ledger build failed: {exc}", file=sys.stderr)
@@ -189,6 +217,8 @@ def main(argv: list[str] | None = None) -> int:
         "generatedAt": now.isoformat(),
         "coverage": report.coverage_report(result),
         "evaluation": report.evaluation_report(result, contract=contract, board_date=board_date),
+        # Counts and labels only: which stores the maturity chain came from.
+        "leagueMaturityChain": chain_state,
     }
     if not args.no_persist:
         path = report.persist_canonical_ledger(
@@ -219,6 +249,7 @@ def main(argv: list[str] | None = None) -> int:
             "dispositions": cov["dispositions"],
             "identity": {k: v.get("resolutionRate") for k, v in cov["identity"].items()},
             "topology": payload["evaluation"]["topology"]["byFitSuitability"],
+            "leagueMaturityChainHops": chain_state.get("hops"),
             "reportPath": payload.get("reportPath"),
             # The unit's MemoryMax is sized from this number; printing it every
             # run puts the growth trend in the journal (see the unit template).
