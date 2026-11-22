@@ -3,10 +3,12 @@
  * and ThisWeekPlan (body), rendered from payloads produced by the REAL
  * composer (fixtures pinned by tests/api/test_team_plan_frontend_fixtures.py).
  *
- * Pins: one request per (league, team), held until identity settles; NOTHING
- * renders — not even an empty card — on 503 (flag off, the production
- * default), 401, 404, a network error, a league out of scope or an answer for
- * another team; a plan renders its actions in the payload's order; unavailable
+ * Pins: NO request at all unless `/api/auth/status` reports
+ * `features.teamAdvisorPlan.available === true` (flag off, the production
+ * default, makes zero plan requests); then one request per (league, team),
+ * held until identity settles; NOTHING renders — not even an empty card — on
+ * 503, 401, 404, a network error, a league out of scope or an answer for
+ * another team (defence in depth); a plan renders its actions in the payload's order; unavailable
  * sections and the incomplete state carry their reasons; stale rosters warn;
  * no missing value renders as 0; every state is text, not colour alone.
  */
@@ -24,8 +26,12 @@ const team = vi.hoisted(() => ({
   },
 }));
 vi.mock("@/components/useTeam", () => ({ useTeam: () => team.value }));
+const auth = vi.hoisted(() => ({ features: { teamAdvisorPlan: { available: true } } }));
+vi.mock("@/app/AppShellWrapper", () => ({
+  useAuthContext: () => ({ authenticated: true, features: auth.features }),
+}));
 
-import ThisWeekPanel from "@/components/terminal/ThisWeekPanel";
+import ThisWeekPanel, { teamPlanCapabilityAvailable } from "@/components/terminal/ThisWeekPanel";
 import ThisWeekPlan from "@/components/terminal/ThisWeekPlan";
 
 const load = (name) =>
@@ -57,6 +63,7 @@ function setTeam(overrides) {
 
 beforeEach(() => {
   setTeam({});
+  auth.features = { teamAdvisorPlan: { available: true } };
 });
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -107,6 +114,48 @@ describe("ThisWeekPanel — request and silence", () => {
     expect(fetchMock.mock.calls[1][0]).toBe("/api/team/plan?leagueKey=dynasty_main&team=o1");
     // The previous team's plan never shows under the new team.
     await waitFor(() => expect(screen.queryByTestId("this-week-plan")).toBeNull());
+  });
+
+  it.each([
+    ["capability false (flag off)", { teamAdvisorPlan: { available: false } }],
+    ["capability key absent", { waiverAdvisor: { available: true } }],
+    ["no capability map (probe not answered)", null],
+    ["a bare boolean", { teamAdvisorPlan: true }],
+    ["a truthy non-boolean", { teamAdvisorPlan: { available: "yes" } }],
+  ])("makes no request and renders nothing with %s", async (_label, features) => {
+    auth.features = features;
+    const fetchMock = vi.fn(() => Promise.resolve(jsonResponse(ACTIONS)));
+    vi.stubGlobal("fetch", fetchMock);
+    const { container } = render(<ThisWeekPanel />);
+    await settle();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("fetches once the capability turns available, and never before", async () => {
+    auth.features = { teamAdvisorPlan: { available: false } };
+    const fetchMock = vi.fn(() => Promise.resolve(jsonResponse(ACTIONS)));
+    vi.stubGlobal("fetch", fetchMock);
+    const { rerender } = render(<ThisWeekPanel />);
+    await settle();
+    expect(fetchMock).not.toHaveBeenCalled();
+    auth.features = { teamAdvisorPlan: { available: true } };
+    rerender(<ThisWeekPanel />);
+    await settle();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("this-week-plan")).toBeInTheDocument();
+    // Turning it off again drops the plan rather than showing a stale one.
+    auth.features = { teamAdvisorPlan: { available: false } };
+    rerender(<ThisWeekPanel />);
+    expect(screen.queryByTestId("this-week-plan")).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads the capability fail-closed (available === true only)", () => {
+    expect(teamPlanCapabilityAvailable({ teamAdvisorPlan: { available: true } })).toBe(true);
+    for (const f of [null, undefined, {}, { teamAdvisorPlan: null }, { teamAdvisorPlan: true }]) {
+      expect(teamPlanCapabilityAvailable(f)).toBe(false);
+    }
   });
 
   it("holds the request until league and team identity settle", () => {

@@ -19722,6 +19722,23 @@ def _roster_construction_available() -> bool:
     return is_enabled("roster_construction")
 
 
+def _team_advisor_plan_available() -> bool:
+    """Let the signed-in home ask for the "This week" plan only when it can answer.
+
+    ``GET /api/team/plan`` refuses ``feature_disabled`` first (owner-held flag
+    ``team_advisor_plan``, default OFF) and ``data_not_ready`` without a loaded
+    board, so this mirrors those two gates in that order, with the same board
+    shape ``_waiver_advisor_available`` requires.  While it is false the home
+    panel makes no request at all; the route keeps its own gates regardless.
+    Fails closed through ``_nav_gated_features`` like every other capability.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    return is_enabled("team_advisor_plan") and bool(
+        latest_contract_data and latest_contract_data.get("playersArray")
+    )
+
+
 _NAV_GATED_CAPABILITIES: dict[str, Callable[[], bool]] = {
     # consensus_edge defaults OFF (ADR-023), so the DEFAULT state is a
     # nav entry to a page whose every board endpoint refuses — the same
@@ -19731,6 +19748,9 @@ _NAV_GATED_CAPABILITIES: dict[str, Callable[[], bool]] = {
     "waiverAdvisor": _waiver_advisor_available,
     "idpStreaming": _idp_streaming_available,
     "rosterConstruction": _roster_construction_available,
+    # Not a nav destination: gates the home "This week" panel's one request,
+    # so a flag-off home makes no /api/team/plan call (DYN10 #5).
+    "teamAdvisorPlan": _team_advisor_plan_available,
 }
 
 
