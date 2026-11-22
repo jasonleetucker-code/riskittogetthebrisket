@@ -14,6 +14,7 @@ import TeamNewsFeed from "./TeamNewsFeed";
 import QuickActions from "./QuickActions";
 import WatchlistPanel from "./WatchlistPanel";
 import StaleBanner from "./StaleBanner";
+import ThisWeekPanel from "./ThisWeekPanel";
 import styles from "./terminal.module.css";
 
 /**
@@ -29,6 +30,10 @@ import styles from "./terminal.module.css";
  *   3. Signals rail  — the specific "act on this" list for YOUR
  *                      roster. Highest-value content on the page, so
  *                      nothing sits above it but context.
+ *   3b. This week    — the composed team plan (``/api/team/plan``,
+ *                      DYN10 #5). Renders NOTHING while the owner-held
+ *                      flag ``team_advisor_plan`` is off, so the page is
+ *                      unchanged until the owner turns it on.
  *   4. Working grid  — the deeper surfaces you drill into once the
  *                      rail has pointed somewhere:
  *                        left   diagnostics (portfolio, scouting)
@@ -66,6 +71,7 @@ export default function TerminalLayout() {
       <TeamCommandHeader />
       <MarketTicker />
       <TopSignalsRail />
+      <ThisWeekPanel />
 
       <div className={styles.grid}>
         <div className={styles.col}>

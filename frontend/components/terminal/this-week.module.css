@@ -1,0 +1,110 @@
+/* this-week.module.css — the home "This week" plan panel (DYN10 #5).
+   Imported only by ThisWeekPlan.jsx, so these styles (and their class map)
+   ride in the panel's lazy chunk, never the home page chunk.
+   Token-only: rows keep the terminal movers' rhythm (padding + hairline
+   rule); context and evidence are aligned term/definition pairs that stack
+   to one column at phone width (canonical 480 breakpoint). */
+.planStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.planContext {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+}
+.planContextRow {
+  display: contents;
+}
+.planContext dt {
+  color: var(--text-tertiary);
+  font-weight: var(--font-weight-semibold);
+}
+.planContext dd {
+  margin: 0;
+  min-width: 0;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+@media (width < 480px) {
+  .planContext {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 0;
+  }
+  .planContext dd {
+    margin-bottom: var(--space-2);
+  }
+}
+.planList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.planRow {
+  padding: var(--space-2) var(--space-1);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.planRow:last-child {
+  border-bottom: 0;
+}
+.planHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.planRank {
+  font-family: var(--font-data);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+.planSubject {
+  min-width: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.planReason {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+  color: var(--text-secondary);
+}
+.planMeta {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+.planEvidence {
+  margin-top: var(--space-1);
+}
+.planEvidence summary {
+  font-size: var(--font-size-2xs);
+  color: var(--accent);
+  text-decoration: underline dotted;
+  cursor: pointer;
+}
+.planEvidence[open] summary {
+  margin-bottom: var(--space-1);
+}
+.planOwner {
+  font-family: var(--font-data);
+  font-size: var(--font-size-2xs);
+}
+.planNote {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+  color: var(--text-secondary);
+}
+.planNotes {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-4);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+}
