@@ -1,0 +1,107 @@
+name: Forward Scoreboard On-Box (read-only)
+
+# DYN10 V1b.  Runs the forward validation scoreboard (#2301) on the production
+# box against the box's temporal ledger (the only place the served
+# canonical_board lane exists) and prints AGGREGATE statistics only, into the
+# job log and step summary.  The repository is PUBLIC, so both are public: the
+# box-side summarizer (scripts/forward_scoreboard_summary.py) emits a fixed
+# whitelist -- no player names, asset keys, ids or file paths.  Read-only: the
+# tool copies the ledger with SQLite's backup API from a read-only connection
+# and measures the copy in a temp dir that is deleted afterwards.
+#
+# Dispatch only, deliberately: no schedule.  Own concurrency group, NOT
+# production-deploy: a queued run in that group can cancel a pending deploy.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: forward-scoreboard-onbox
+  cancel-in-progress: false
+
+jobs:
+  scoreboard:
+    name: Forward scoreboard on production
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    steps:
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Measure forward scoreboard on production
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # Non-zero = a real answer (ledger missing, no headroom, nothing
+          # measurable, summary failed), surfaced as a failure so silence is
+          # never read as ok.
+          set +e
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR=$(printf %q "$APP_DIR") bash -s" > summary.md <<'REMOTE'
+          set -Eeuo pipefail
+          cd "$APP_DIR"
+          PY="$APP_DIR/.venv/bin/python"
+          [ -x "$PY" ] || PY="$APP_DIR/venv/bin/python"
+          [ -x "$PY" ] || PY=python3
+          LEDGER="data/temporal_ledger.sqlite"
+          if [ ! -f "$LEDGER" ]; then
+            echo "no temporal ledger on this host"
+            exit 2
+          fi
+          WORK="$(mktemp -d "${TMPDIR:-/tmp}/forward-scoreboard-XXXXXX")" || {
+            echo "could not create a temp dir"
+            exit 4
+          }
+          trap 'rm -rf "$WORK"' EXIT
+          # The tool copies the ledger (backup API) into this temp dir: refuse
+          # unless free space is at least 3x the ledger file size.
+          SIZE="$(stat -c %s "$LEDGER")"
+          FREE="$(df -PB1 "$WORK" | awk 'NR==2 {print $4}')"
+          if [ -z "$FREE" ] || [ "$FREE" -lt $((SIZE * 3)) ]; then
+            echo "refusing: temp dir free space ${FREE:-unknown} bytes is under 3x the ledger size ($SIZE bytes)"
+            exit 4
+          fi
+          export TMPDIR="$WORK"
+          # stdout/stderr dropped: the job log is public and a traceback names box paths.
+          set +e
+          "$PY" scripts/forward_validation_scoreboard.py --ledger "$LEDGER" \
+            --out "$WORK/scoreboard.json" --summary "$WORK/scoreboard.md" >/dev/null 2>&1
+          rc=$?
+          set -e
+          # rc 1 = "nothing measurable" but the JSON is still written: summarize it.
+          if [ ! -s "$WORK/scoreboard.json" ]; then
+            echo "scoreboard produced no output (exit $rc)"
+            exit 3
+          fi
+          "$PY" scripts/forward_scoreboard_summary.py "$WORK/scoreboard.json" --markdown 2>/dev/null
+          REMOTE
+          rc=$?
+          set -e
+          cat summary.md
+          cat summary.md >> "$GITHUB_STEP_SUMMARY"
+          exit "$rc"
