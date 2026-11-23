@@ -172,10 +172,10 @@ jobs:
       # owner's box cutover (docs/ops/NODE22_CUTOVER_2026-11-18.md), when they
       # all move together.  tests/deploy/test_deploy_node_matches_production.py
       # pins it.
-      - name: Use Node 20
+      - name: Use Node 22
         uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "22"
 
       - name: Install root + frontend deps
         shell: bash
