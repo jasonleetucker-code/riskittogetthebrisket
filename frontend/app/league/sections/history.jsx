@@ -4,6 +4,7 @@
 // Extracted from page.jsx to keep the tab file lean.
 
 import { Avatar, Card, EmptyCard, ManagerInline, MiniLeaderboard, fmtNumber } from "../shared.jsx";
+import RingClubCard from "./_ring-club.jsx";
 
 function HistorySection({ managers, data, onNavigate }) {
   const hof = data?.hallOfFame || [];
@@ -45,6 +46,8 @@ function HistorySection({ managers, data, onNavigate }) {
           </div>
         </Card>
       )}
+
+      <RingClubCard ringClub={data?.ringClub} managers={managers} onNavigate={onNavigate} />
 
       <Card title="Hall of Fame" subtitle="Cumulative stats across the last 2 seasons">
         <div className="table-wrap">

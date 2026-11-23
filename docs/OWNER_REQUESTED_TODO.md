@@ -15,6 +15,27 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
+## Added 2026-11-23 — The Ring Club: players with multiple championships (RING)
+
+Owner directive 2026-11-23 (chat, "BRISKET DYNASTY — BUILD THE RING CLUB"). It adds a permanent, automatically
+updated honor roll to the public League Hub: NFL players with **two or more** verified Brisket Dynasty championship
+rings. A player earns one ring per season in which he was on the championship-winning franchise's roster when the
+championship concluded. Bench, injured reserve and taxi count; players traded away or dropped before the close, or
+added after it, do not. A ring belongs to the player, not to the manager. The authorization is in `docs/EXECUTION_PLAN.md`
+(2026-11-23).
+
+| # | Owner instruction (condensed) | Status |
+|---|---|---|
+| RING-1 | Investigate championships, closing rosters, roster history, identity and season coverage before building; never assume a player qualifies | DONE (2024 and 2025 verified, closing week 17 of two-week finals; 2026 undecided) |
+| RING-2 | Eligibility: one ring per distinct season on the champion's championship-closing roster; the official closing roster is the source of truth | IMPLEMENTED |
+| RING-3 | A maintainable per-player championship history (player identity, position, team, rings, seasons, franchise and manager per season); an unverifiable season is unverified, never speculative | IMPLEMENTED |
+| RING-4 | Public League Hub section "THE RING CLUB" (two or more rings only; most rings first, ties shared, alphabetical secondary order; prestige for three or more), in the existing visual language | IMPLEMENTED |
+| RING-5 | Player profile: verified ring total, seasons and franchises (one ring counts there; the club stays two or more) | IMPLEMENTED |
+| RING-6 | Automatic, idempotent updates when a championship is officially decided; never from projections, seeding or an undecided final | IMPLEMENTED (pure derivation from the snapshot) |
+| RING-7 | Polished empty state; distinguish incomplete coverage from a confirmed absence | IMPLEMENTED |
+| RING-8 | Tests for every listed case, plus a check that nothing else broke | IMPLEMENTED |
+| RING-9 | Report: verified seasons, qualifiers, gaps, changes, tests, deployment state | IN PROGRESS |
+
 ## Added 2026-11-20 — Master implementation directive: complete all remaining work
 
 Owner directive 2026-11-20 (chat): finish everything remaining from the 2026-11-18 audit and the 2026-11-19
