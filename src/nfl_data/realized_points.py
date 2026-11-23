@@ -41,9 +41,12 @@ production in any league format):
         idp_ff, idp_fum_rec, idp_fum_ret_yd
         idp_def_td, idp_safe, idp_blk_kick
 
-The IDP scoring path consumes nflverse ``def_*`` columns.  Rows
-where ``position`` is not in the IDP set skip the IDP keys entirely
-so the offense path is unaffected.
+The IDP scoring path consumes nflverse ``def_*`` columns.  A defensive
+event belongs to the PLAY, not to the player's listed position: the host
+pays ``idp_*`` rules to ANY player who records the stat (a receiver's
+tackle or forced fumble after a turnover), so the columns are read for
+every row.  See the block in :func:`sleeper_stat_line_from_row` for the one
+stat (tackle assists) where that cannot be done without over-paying.
 
 Two caveats on those columns, both corrected 2026-07-27 and explained
 in full above ``_IDP_KEYS``: the 2025 unified release renamed
@@ -353,12 +356,15 @@ _IDP_KEYS: dict[str, tuple[tuple[str, ...], str]] = {
 # more than half, which is what a first-present lookup would have lost.
 # Earned by DE, DT, SAF, LB and NT: the IDP assets this board ranks.
 #
-# IDP-SCOPED ON PURPOSE.  Three of 2025's 44 blocks were made by an RB, a
-# TE and an OT.  ``idp_blk_kick`` is Sleeper's IDP rule and those players
-# are not scored by it; the team ``blk_kick`` rule is a different family
-# for an asset class this board does not value.  Not an oversight — the
-# alternative pays a blocked kick under a rule the league does not apply
-# to that player.
+# NOT position-scoped (CORRECTED, IDPA-DEFECT-01).  This comment used to
+# say the rule was IDP-scoped on purpose: three of 2025's 44 blocks were
+# made by an RB, a TE and an OT, and "those players are not scored by it".
+# The 2026 host disagrees.  On dynasty_main weeks 1-6 both blocked punts
+# by a non-IDP-listed player (Simi Fehoko WR wk 1, Julius Chestnut RB wk 6)
+# carry ``idp_blk_kick: 1`` on Sleeper's own stat line and were awarded
+# 5.30 points each; the team ``blk_kick`` rule is a different key for team
+# defense and is not what paid them.  Like every other ``idp_*`` rule, the
+# host pays the player who made the play, whatever position he is listed at.
 _IDP_SUM_KEYS: dict[str, tuple[tuple[str, ...], str]] = {
     "idp_blk_kick": (("def_punt_blocks", "def_pat_blocks", "def_fg_blocks"), "Blk Kick"),
 }
@@ -574,6 +580,139 @@ def _idp_fumble_recovery_view(stat_row: dict[str, Any]) -> tuple[float, float]:
     return recoveries, _first_num(stat_row, _IDP_KEYS["idp_fum_ret_yd"][0])
 
 
+def _defensive_tackle_view(
+    stat_row: dict[str, Any], *, idp_listed: bool
+) -> tuple[float, float, float]:
+    """``(solo, assists, combined)`` DEFENSIVE tackles for one player-week.
+
+    ``_tackle_view`` returns what nflverse charted, and nflverse charts EVERY
+    tackle, special-teams ones included.  Sleeper does not: a special-teams
+    tackle is ``st_tkl_solo`` there, a different rule from ``idp_tkl_solo``,
+    and it pays an assisted special-teams tackle nothing at all.  Measured on
+    dynasty_main 2026 weeks 1-6 over every player who joins to a Sleeper stat
+    line (6,387 player-weeks, rostered or not; ``scripts/idp_accuracy/
+    scorer_fix_measure.py`` -> ``evidence/scorer_fix_measure.json``):
+
+    * of 2,721 IDP-listed player-weeks with any solo-tackle data, nflverse's
+      solo count equals Sleeper's ``idp_tkl_solo`` on 2,253, equals it only
+      once the play-by-play special-teams count is removed on another 440,
+      and neither on 28 (provider charting);
+    * of 270 other player-weeks: 107 / 162 / 1;
+    * the play-by-play ``st_tkl_solo`` equals Sleeper's on 2,719 / 2,721
+      IDP-listed and 268 / 270 other player-weeks.
+
+    So the defensive part is nflverse's solo count less the supplement's
+    special-teams count.  Without it, a tackle on a punt was paid twice --
+    once as ``idp_tkl_solo`` from this column and again as ``st_tkl_solo``
+    from the supplement -- on those 440 IDP-listed player-weeks.  The same
+    subtraction is what lets an offensive or specialist player's defensive
+    tackles be paid at all (IDPA-DEFECT-01): theirs are mostly special-teams.
+
+    Rules:
+
+    * Subtract only when the play-by-play supplement is attached.  Without it
+      the split is UNKNOWN, ``st_tkl_solo`` is reported ``unscored``, and the
+      whole count is paid as before.
+    * A row that already carries the host's own ``idp_tkl_solo`` holds the
+      host's DEFENSIVE count (special-teams-exclusive by its own definition),
+      so nothing is subtracted twice -- the same rule the fumble-recovery view
+      applies to the host's own recovery keys.
+    * Assisted tackles are paid only to an IDP-listed player.  nflverse's
+      ``def_tackle_assists`` also lumps in special-teams assists, the host
+      pays those nothing, and the supplement does not carry them (it has only
+      ``st_tkl_solo``).  For a non-IDP-listed player that column is
+      overwhelmingly special-teams: nflverse exceeds Sleeper's ``idp_tkl_ast``
+      on 162 of the 175 non-IDP player-weeks that record an assist (161 of
+      169 with special-teams snaps), so paying it would over-pay far more
+      often than it would repair (the host does pay a genuine defensive
+      assist to a tight end or receiver occasionally -- 5 rostered
+      player-weeks).  An honest RESIDUAL, not hidden: the same contamination
+      remains for IDP-listed players (nflverse > Sleeper on 411 of 1,823
+      player-weeks with special-teams snaps, 16 of 732 without), and closing
+      both needs a ``st_tkl_ast`` key in the play-by-play supplement.
+    """
+    solo, assists, _combined = _tackle_view(stat_row)
+    if stat_row.get("idp_tkl_solo") is None:
+        supplement = stat_row.get(PBP_SUPPLEMENT_ROW_KEY)
+        if isinstance(supplement, Mapping):
+            solo = max(0.0, solo - _num(supplement.get("st_tkl_solo")))
+    if not idp_listed:
+        assists = 0.0
+    return solo, assists, solo + assists
+
+
+#: Where a blocked field goal lands.  Sleeper scores a blocked kick as a MISS
+#: in the distance band of the attempt -- it carries ``fg_blkd: 1`` AND
+#: ``fgmiss: 1`` plus the matching ``fgmiss_<band>`` (and ``fgmiss_50p`` from
+#: 50 yards) -- but nflverse's ``fg_missed_*`` bands EXCLUDE blocked kicks
+#: (``fg_att = fg_made + fg_missed + fg_blocked``), and ``fg_blocked`` itself
+#: has no bands, only the attempt distance(s) in ``fg_blocked_list``.
+#: Verified on the 2026 host for all six blocked field goals in weeks 1-6:
+#: 23 yd -> ``fgmiss_20_29``, 47 -> ``fgmiss_40_49``, 49 -> ``fgmiss_40_49``,
+#: 54 -> ``fgmiss_50_59``, 59 -> ``fgmiss_50_59`` + ``fgmiss_50p``, 62 ->
+#: ``fgmiss_60p`` + ``fgmiss_50p``.
+_FG_MISS_BANDS: tuple[tuple[str, int, int | None], ...] = (
+    ("fgmiss_0_19", 0, 19),
+    ("fgmiss_20_29", 20, 29),
+    ("fgmiss_30_39", 30, 39),
+    ("fgmiss_40_49", 40, 49),
+    ("fgmiss_50_59", 50, 59),
+    ("fgmiss_60p", 60, None),
+    ("fgmiss_50p", 50, None),
+)
+
+
+def _blocked_fg_distances(stat_row: dict[str, Any], blocked: int) -> list[int]:
+    """Attempt distance of each blocked field goal, or ``[]`` when not knowable.
+
+    ``fg_blocked_list`` is one yard figure per blocked kick, written as a bare
+    number for one kick and ``"47;52"`` for several.  It is used only when it
+    accounts for exactly ``blocked`` kicks; a lone blocked kick may instead be
+    placed by ``fg_blocked_distance``.  Anything else (a count that disagrees
+    with the list, an unparseable cell) places NOTHING: a blocked kick whose
+    band cannot be established is not assigned to a guessed one.
+    """
+    raw = stat_row.get("fg_blocked_list")
+    distances: list[int] = []
+    if raw is not None and raw != "":
+        cells = str(raw).replace(",", ";").split(";") if isinstance(raw, str) else [raw]
+        for cell in cells:
+            try:
+                distance = int(float(str(cell).strip()))
+            except (TypeError, ValueError):
+                distances = []
+                break
+            if distance > 0:
+                distances.append(distance)
+    if len(distances) == blocked:
+        return distances
+    if blocked == 1:
+        lone = int(_num(stat_row.get("fg_blocked_distance")))
+        if lone > 0:
+            return [lone]
+    return []
+
+
+def _blocked_kick_misses(stat_row: dict[str, Any]) -> dict[str, float]:
+    """Sleeper-vocabulary MISS counts contributed by blocked kicks (IDPA-DEFECT-02).
+
+    ``xpmiss`` / ``fgmiss`` take every blocked attempt; ``fgmiss_<band>`` takes
+    each blocked field goal whose distance is known.  Nonzero entries only.
+    """
+    out: dict[str, float] = {}
+    blocked_xp = _num(stat_row.get("pat_blocked"))
+    if blocked_xp:
+        out["xpmiss"] = blocked_xp
+    blocked_fg = int(_num(stat_row.get("fg_blocked")))
+    if blocked_fg > 0:
+        out["fgmiss"] = float(blocked_fg)
+        for distance in _blocked_fg_distances(stat_row, blocked_fg):
+            for key, low, high in _FG_MISS_BANDS:
+                if distance >= low and (high is None or distance <= high):
+                    out[key] = out.get(key, 0.0) + 1.0
+    return out
+
+
 #: Per-game tackle-volume thresholds, on COMBINED tackles.
 _IDP_TACKLE_THRESHOLDS: tuple[tuple[str, int, str], ...] = (
     ("idp_tkl_5p", 5, "5+ Tkl"),
@@ -668,6 +807,11 @@ def sleeper_stat_line_from_row(
     for key, (columns, _label) in _FG_BAND_KEYS.items():
         _put(key, sum(_num(stat_row.get(col)) for col in columns))
 
+    # A blocked kick is a MISS at the host, in its distance band, and the
+    # feed's ``fg_missed_*`` / ``pat_missed`` leave it out (IDPA-DEFECT-02).
+    for key, count in _blocked_kick_misses(stat_row).items():
+        line[key] = line.get(key, 0.0) + count
+
     # Incompletions — derived. nflverse publishes attempts and
     # completions; Sleeper charges the difference.  Clamped so a
     # malformed row can never award points for a penalty rule.
@@ -693,23 +837,44 @@ def sleeper_stat_line_from_row(
             first_downs += max(0.0, gained - scoring_plays)
         _put(fd_key, first_downs)
 
-    if _is_idp_position(pos):
-        for key, (columns, _label) in _IDP_KEYS.items():
-            _put(key, _first_num(stat_row, columns))
-        # Fumble recoveries are not a plain column read — see the view.
-        line.pop("idp_fum_rec", None)
-        line.pop("idp_fum_ret_yd", None)
-        recoveries, return_yards = _idp_fumble_recovery_view(stat_row)
-        _put("idp_fum_rec", recoveries)
-        _put("idp_fum_ret_yd", return_yards)
-        # Summed, not first-present — see ``_IDP_SUM_KEYS``.
-        for key, (columns, _label) in _IDP_SUM_KEYS.items():
-            _put(key, sum(_num(stat_row.get(col)) for col in columns))
-        solo, assists, combined = _tackle_view(stat_row)
-        for (key, _label), stat in zip(_IDP_TACKLE_KEYS, (solo, assists, combined)):
-            _put(key, stat)
-        for key, threshold, _label in _IDP_TACKLE_THRESHOLDS:
-            _put(key, 1.0 if combined >= threshold else 0.0)
+    # Defensive events are read for EVERY row, not only IDP-listed ones
+    # (IDPA-DEFECT-01).  The host pays ``idp_*`` to whoever makes the play: on
+    # dynasty_main 2026 weeks 1-6, 80 rostered player-weeks of tackles / forced
+    # fumbles by a QB, RB, WR or TE (-117.8 points) were dropped by a gate on
+    # the LISTED position here.  A column that is absent or zero for a
+    # non-defender is a no-op, so the gate only ever removed real events.
+    #
+    # What the gate was accidentally protecting is special-teams double
+    # counting, and that is handled where it arises (``_defensive_tackle_view``,
+    # ``_idp_fumble_recovery_view``) instead of by position.
+    idp_listed = _is_idp_position(pos)
+    for key, (columns, _label) in _IDP_KEYS.items():
+        _put(key, _first_num(stat_row, columns))
+    # Fumble recoveries are not a plain column read — see the view.
+    line.pop("idp_fum_rec", None)
+    line.pop("idp_fum_ret_yd", None)
+    recoveries, return_yards = _idp_fumble_recovery_view(stat_row)
+    _put("idp_fum_rec", recoveries)
+    _put("idp_fum_ret_yd", return_yards)
+    # A defensive fumble-return TD is its own nflverse column; ``def_tds`` is
+    # interception returns only (IDPA-DEFECT-03).  2026 weeks 1-6: all five
+    # ``fumble_recovery_tds`` rows (Knight, Ponder, Bates, Sanker, Halton) carry
+    # ``def_tds`` 0 and are paid ``idp_def_td`` 1 by the host, and no row has
+    # both columns set.  Capped at the DEFENSIVE recoveries so a touchdown
+    # on a special-teams recovery or on a player's own team's fumble is
+    # not paid as one, and taken as a ``max`` against ``def_tds`` so a feed
+    # that folds fumble-return touchdowns into ``def_tds`` is never paid twice.
+    fumble_return_tds = min(_num(stat_row.get("fumble_recovery_tds")), recoveries)
+    if fumble_return_tds > line.get("idp_def_td", 0.0):
+        line["idp_def_td"] = fumble_return_tds
+    # Summed, not first-present — see ``_IDP_SUM_KEYS``.
+    for key, (columns, _label) in _IDP_SUM_KEYS.items():
+        _put(key, sum(_num(stat_row.get(col)) for col in columns))
+    solo, assists, combined = _defensive_tackle_view(stat_row, idp_listed=idp_listed)
+    for (key, _label), stat in zip(_IDP_TACKLE_KEYS, (solo, assists, combined)):
+        _put(key, stat)
+    for key, threshold, _label in _IDP_TACKLE_THRESHOLDS:
+        _put(key, 1.0 if combined >= threshold else 0.0)
 
     for key, column, threshold, _label in _YARDAGE_THRESHOLDS:
         _put(key, 1.0 if _num(stat_row.get(column)) >= threshold else 0.0)
