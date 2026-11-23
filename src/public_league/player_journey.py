@@ -21,7 +21,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
-from . import metrics
+from . import championship_rings, metrics
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
 
@@ -335,6 +335,9 @@ def build_player_journey(
         "events": sorted(all_events, key=lambda e: int(e.get("createdAt") or 0)),
         "bySeason": per_season,
         "seasonsCovered": [s.season for s in snapshot.seasons],
+        # Verified Brisket championship rings (one counts here; the public
+        # Ring Club lists only two or more).  ``championship_rings`` owns it.
+        "championshipRings": championship_rings.player_rings(snapshot, pid),
     }
 
 

@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from . import metrics
+from . import championship_rings, metrics
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
 
@@ -182,4 +182,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         "championsBySeason": champions_by_season,
         "hallOfFame": hall_of_fame,
         "seasonsCovered": [s.season for s in snapshot.seasons],
+        # Players with two or more verified championship rings; the one owner
+        # is ``championship_rings`` (owner directive 2026-11-23).
+        "ringClub": championship_rings.build_ring_club(snapshot),
     }

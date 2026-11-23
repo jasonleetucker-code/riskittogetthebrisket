@@ -5,6 +5,20 @@
 > 4 concurrent editing workers" record the rule in force at the time and are superseded on that one point. Process
 > only: this authorizes no feature.
 
+## The Ring Club — owner, 2026-11-23
+
+**AUTHORIZED NOW.** Intake RING-1 … RING-9 (`docs/OWNER_REQUESTED_TODO.md`).
+
+- **Authorized:** a public League Hub honor roll of NFL players with two or more verified championship rings, a
+  ring history on the public player page, and the code, tests, PR, merge and deploy through the normal gates.
+  The one owner is `src/public_league/championship_rings.py`; `history` and `player_journey` consume it.
+- **Rule** (owner-specified): one ring per distinct season on the champion's roster when the championship
+  concluded. The closing roster is the champion's matchup row in the final's last scoring week (Sleeper's own
+  end-of-week record; bench and injured reserve included). Taxi is credited only when provable. A decided final
+  only, via `metrics.season_champion`. An unverifiable season is unverified, never speculative.
+- **Not authorized:** hardcoded results, sample players in production, or any change to values, rankings,
+  trade math or other public sections.
+
 ## Top 10 dynasty improvements and Chase Trade Market completion — owner, 2026-11-21
 
 **AUTHORIZED NOW.** Intake DYN10-1 … DYN10-14 (`docs/OWNER_REQUESTED_TODO.md`); structured record
