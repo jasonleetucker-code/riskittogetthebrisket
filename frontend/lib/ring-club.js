@@ -96,8 +96,14 @@ export function coverageNotes(coverage) {
  */
 export function playerCoverageNote(championshipRings) {
   if (championshipRings?.coverageState !== "incomplete") return null;
-  const unverified = seasonLabels(championshipRings.unverifiedSeasons);
-  return unverified.length
-    ? `Counts verified championship rosters only. Not verified: ${unverified.join(", ")}.`
-    : `Counts verified championship rosters only. ${HISTORY_INCOMPLETE_NOTE}`;
+  // Same reading as the History card's footnote, so the two never disagree
+  // about why coverage is incomplete (a partial season is not missing history).
+  const { incompleteLine } = coverageNotes({
+    state: "incomplete",
+    unverifiedSeasons: championshipRings.unverifiedSeasons,
+    partialSeasons: championshipRings.partialSeasons,
+    historyComplete: championshipRings.historyComplete,
+  });
+  const detail = incompleteLine ? incompleteLine.replace(/^Coverage is incomplete\. /, "") : HISTORY_INCOMPLETE_NOTE;
+  return `Counts verified championship rosters only. ${detail}`;
 }

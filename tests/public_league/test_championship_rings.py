@@ -47,6 +47,8 @@ def _season(
     owner_of_champ: str = "owner-A",
     team_name: str = "Team A",
     taxi_slots: int = 0,
+    transactions: dict[int, list[dict[str, Any]]] | None = None,
+    extra_weeks: dict[int, list[dict[str, Any]]] | None = None,
 ) -> SeasonSnapshot:
     """A decided season whose champion holds ``closing`` in the final week.
 
@@ -73,6 +75,7 @@ def _season(
                 {"roster_id": OTHER_A, "matchup_id": 2, "points": 85.0, "players": ["x2"]},
             ]
         matchups[wk] = rows
+    matchups.update(extra_weeks or {})
     # Round 1 is week 14, round 2 week 15, and the final (round 3) the
     # remaining week(s): the league's measured three-round shape.
     final_round = 3
@@ -127,7 +130,7 @@ def _season(
         users=users,
         rosters=rosters,
         matchups_by_week=matchups,
-        transactions_by_week={},
+        transactions_by_week=transactions or {},
         drafts=[],
         draft_picks_by_draft={},
         traded_picks=[],
@@ -313,10 +316,17 @@ def test_final_pairing_missing_from_the_matchups_is_unverified():
 
 
 def test_closing_week_that_disagrees_with_league_settings_is_unverified():
-    # Settings say a one-week final (week 16) but the finalists met in 16-17.
-    season = _season("2024", closing=["p1"], round_type=0)
+    # Settings say two weeks per round (the final closes on week 19), but the
+    # finalists never met in week 19: the data does not confirm the settings.
+    season = _season("2024", closing=["p1"], round_type=2)
     close = cr.championship_close(season)
     assert (close.status, close.reason) == (cr.STATUS_UNVERIFIED, cr.REASON_CLOSING_WEEK_MISMATCH)
+
+
+def test_settings_name_the_close_when_the_pair_also_meets_later():
+    # A one-week final in week 16; a later week-17 pairing is not the close.
+    close = cr.championship_close(_season("2024", closing=["p1"], round_type=0))
+    assert (close.status, close.closing_week) == (cr.STATUS_VERIFIED, 16)
 
 
 def test_closing_week_not_yet_final_is_unverified():
@@ -349,8 +359,18 @@ def test_confirmed_empty_club_uses_the_owner_wording():
     assert club["emptyState"] == {
         "kind": "no_multi_champions",
         "title": "THE RING CLUB",
-        "message": cr.EMPTY_CONFIRMED_MESSAGE,
+        # The owner's wording, verbatim (directive 2026-11-23, Phase 7).
+        "message": (
+            "No players have earned multiple Brisket Dynasty championships yet. "
+            "The race for the first two-time champion is on."
+        ),
     }
+    assert club["title"] == "THE RING CLUB"
+    assert club["subtitle"] == "Players with Multiple Championships"
+    assert club["description"] == (
+        "The exclusive club of NFL players who have been part of two or more "
+        "Brisket Dynasty championship-winning rosters."
+    )
     assert club["coverage"]["verifiedSeasons"] == ["2024", "2025"]
 
 
@@ -428,3 +448,107 @@ def test_player_rings_for_the_profile(closings, expected):
     rings = cr.player_rings(snap, "p1")
     assert (rings["rings"], rings["ringClubMember"]) == expected
     assert len(rings["championships"]) == expected[0]
+
+
+# ── review round 1: held slots, settings-bound closing week, edge states ────
+
+
+def _move(roster_id: int, add: str | None = None, drop: str | None = None) -> dict[str, Any]:
+    return {
+        "type": "free_agent",
+        "status": "complete",
+        "roster_ids": [roster_id],
+        "adds": {add: roster_id} if add else None,
+        "drops": {drop: roster_id} if drop else None,
+        "created": 1,
+    }
+
+
+def test_post_close_add_stashed_on_injured_reserve_earns_nothing():
+    # Injured reserve is in the matchup row, so a reserve player missing from
+    # the closing row joined after the close (added, then moved to IR).
+    season = _season(
+        "2025",
+        closing=["p1"],
+        roster_players=["p1", "p5"],
+        reserve=["p5"],
+        transactions={18: [_move(CHAMP, add="p5")]},
+    )
+    close = cr.championship_close(season)
+    assert close.player_ids == frozenset({"p1"})
+
+
+def test_post_close_add_stashed_on_the_taxi_squad_earns_nothing():
+    season = _season(
+        "2025",
+        closing=["p1"],
+        roster_players=["p1", "p6"],
+        taxi=["p6"],
+        taxi_slots=3,
+        transactions={18: [_move(CHAMP, add="p6")]},
+    )
+    close = cr.championship_close(season)
+    assert close.player_ids == frozenset({"p1"})
+    assert close.held_slots_unverified is True
+
+
+def test_taxi_player_released_after_the_close_flags_the_season():
+    # The champion moved after the close; a taxi player held at the close may
+    # have been released, so the season cannot read complete.
+    season = _season(
+        "2025",
+        closing=["p1"],
+        roster_players=["p1"],
+        taxi_slots=3,
+        transactions={17: [_move(CHAMP, drop="p6")]},
+    )
+    close = cr.championship_close(season)
+    assert close.held_slots_unverified is True
+    assert _club(_snapshot(season))["coverage"]["partialSeasons"] == ["2025"]
+
+
+def test_a_pregenerated_later_pairing_is_never_the_close():
+    # Sleeper schedules a week 18 with real matchup ids; the finalists meet
+    # again there with a post-final roster.  Settings name week 17.
+    later = {
+        18: [
+            {"roster_id": CHAMP, "matchup_id": 1, "points": 0.0, "players": ["p1", "p5"]},
+            {"roster_id": RUNNER_UP, "matchup_id": 1, "points": 0.0, "players": ["x1"]},
+        ]
+    }
+    season = _season("2025", closing=["p1"], extra_weeks=later)
+    close = cr.championship_close(season)
+    assert (close.status, close.closing_week) == (cr.STATUS_VERIFIED, 17)
+    assert "p5" not in close.player_ids
+
+
+def test_unknown_playoff_settings_leave_the_season_unverified():
+    close = cr.championship_close(_season("2025", closing=["p1"], round_type=None))
+    assert (close.status, close.reason) == (cr.STATUS_UNVERIFIED, cr.REASON_SETTINGS_UNKNOWN)
+
+
+def test_non_dynasty_predecessor_history_is_complete():
+    club = _club(_snapshot(_season("2025", closing=["p1"]), history="non_dynasty_predecessor"))
+    assert club["coverage"]["historyComplete"] is True
+    assert club["emptyState"]["kind"] == "no_multi_champions"
+
+
+def test_team_defense_ids_are_units_even_without_a_player_dump():
+    snap = _snapshot(_season("2024", closing=["p1", "BUF"]), _season("2025", closing=["p1", "BUF"]))
+    snap.nfl_players = {}
+    assert "BUF" not in _rings(snap)
+    assert "p1" in _rings(snap)
+
+
+def test_profile_reports_partial_seasons_and_history_state():
+    season = _season(
+        "2025",
+        closing=["p1"],
+        roster_players=["p1"],
+        taxi_slots=3,
+        transactions={17: [_move(CHAMP, drop="p6")]},
+    )
+    rings = cr.player_rings(_snapshot(season), "p1")
+    assert rings["partialSeasons"] == ["2025"]
+    assert rings["historyComplete"] is True
+    assert rings["coverageState"] == "incomplete"

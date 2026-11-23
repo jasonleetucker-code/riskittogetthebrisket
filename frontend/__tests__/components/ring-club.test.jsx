@@ -203,6 +203,9 @@ describe("Ring Club card on the History tab", () => {
     expect(rankOf(first)).toBe("T-1");
     expect(rankOf(second)).toBe("T-1");
     expect(rankOf(third)).toBe("3");
+    // Screen readers hear the tie in words, not "T-1".
+    expect(first.firstElementChild.getAttribute("aria-label")).toBe("Tied for rank 1");
+    expect(third.firstElementChild.getAttribute("aria-label")).toBe("Rank 3");
     expect(rankLabel({ rank: 1, tied: false })).toBe("1");
     expect(rankLabel({ rank: 2, tied: true })).toBe("T-2");
     expect(rankLabel({})).toBeNull();
@@ -428,6 +431,16 @@ describe("Championship rings card on the player journey", () => {
       "Counts verified championship rosters only. Earlier league seasons could not all be read.",
     );
     expect(playerCoverageNote({ coverageState: "complete" })).toBeNull();
+    // A partially verified season is not missing history: the note names it
+    // and says nothing about earlier seasons (same reading as the History card).
+    const partial = playerCoverageNote({
+      coverageState: "incomplete",
+      unverifiedSeasons: [],
+      partialSeasons: ["2025"],
+      historyComplete: true,
+    });
+    expect(partial).toBe("Counts verified championship rosters only. Partially verified: 2025.");
+    expect(partial).not.toContain("Earlier league seasons");
   });
 
   it("ships no CSS module and no client component (server-rendered route stays JS-free)", () => {

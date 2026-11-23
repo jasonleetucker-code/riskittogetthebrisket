@@ -21,14 +21,15 @@ What "concluded" means, measured on the league's own data
 ─────────────────────────────────────────────────────────
 * The champion is :func:`metrics.season_champion` — a DECIDED final only
   (never a projection, a seed or a stale metadata value).
-* The championship's closing week is the LAST playoff week in which the
-  champion and the final's other team share a ``matchup_id``.  A two-week
-  final therefore closes on its second week.  This is the same data-driven
-  rule ``metrics.iter_matchups`` uses to fuse two-week finals, cross-checked
-  against the league's own ``playoff_round_type`` settings: a disagreement
-  leaves the season UNVERIFIED rather than guessing.  Measured 2026-11-23 on
-  ``dynasty_main``: 2024 and 2025 both played two-week finals (weeks 16-17),
-  so both close on week 17.
+* The championship's closing week is the final's last scoring week by the
+  league's own settings (``playoff_week_start``, the final's bracket round and
+  ``playoff_round_type``), and the champion and the final's other team must
+  share a ``matchup_id`` in it.  A two-week final therefore closes on its
+  second week.  Unknown settings, or a settings week in which the finalists
+  did not meet, leave the season UNVERIFIED rather than guessing -- and a
+  later pre-generated pairing (Sleeper schedules a week 18) is never mistaken
+  for the close.  Measured 2026-11-23 on ``dynasty_main``: 2024 and 2025 both
+  played two-week finals (weeks 16-17), so both close on week 17.
 * The closing roster is the champion's row in that week's matchups —
   Sleeper's own per-week record of the roster (``players``: starters, bench
   and injured reserve).  It is frozen when the week ends: measured on the
@@ -36,10 +37,14 @@ What "concluded" means, measured on the league's own data
   row, while the waivers processed the following Wednesday appear only in
   week 17's.  The league's CURRENT roster is not used as the source: the
   2025 champion made eight more moves after the final.
-* Held slots (taxi / injured reserve) that a matchup row omits are credited
-  only when the frozen roster provably equals the closing roster (every
-  other player identical); otherwise the season is verified for the players
-  the row names and flagged ``heldSlotsUnverified``.
+* Injured reserve is IN the matchup row (measured on every 2024 roster with
+  IR), so a reserve player missing from the row was not on the roster at the
+  close and earns nothing.  A taxi squad is the one held slot a row may omit:
+  taxi players are credited only when the champion made no roster move from
+  the closing week on (so the frozen roster IS the closing roster).  Any such
+  move -- which could stash a post-close add on the taxi squad or release a
+  taxi player held at the close -- flags the season ``heldSlotsUnverified``
+  instead, and only the players the row names are credited.
 
 Missing is never zero
 ─────────────────────
@@ -83,6 +88,7 @@ STATUS_UNDECIDED = "undecided"
 # Reasons a decided championship's closing roster is not established.
 REASON_FINAL_TEAMS_UNKNOWN = "final_teams_unknown"
 REASON_FINAL_PAIRING_NOT_FOUND = "final_pairing_not_found"
+REASON_SETTINGS_UNKNOWN = "playoff_settings_unknown"
 REASON_CLOSING_WEEK_MISMATCH = "closing_week_disagrees_with_league_settings"
 REASON_CLOSING_WEEK_NOT_FINAL = "closing_week_not_final"
 REASON_CLOSING_ROSTER_EMPTY = "closing_roster_empty"
@@ -188,9 +194,13 @@ def championship_close(season: SeasonSnapshot) -> ChampionshipClose:
     weeks = _final_pair_weeks(season, champion, opponent)
     if not weeks:
         return unverified(REASON_FINAL_PAIRING_NOT_FOUND)
-    closing_week = weeks[-1]
-    expected = _settings_closing_week(season, _int_or_none(final.get("r")))
-    if expected is not None and expected != closing_week:
+    # The settings name the closing week; the matchups must confirm the
+    # finalists met in it.  The data alone is not trusted to bound the search:
+    # Sleeper pre-generates later pairings (a week 18) with real matchup ids.
+    closing_week = _settings_closing_week(season, _int_or_none(final.get("r")))
+    if closing_week is None:
+        return unverified(REASON_SETTINGS_UNKNOWN)
+    if closing_week not in weeks:
         return unverified(REASON_CLOSING_WEEK_MISMATCH, closing_week)
     if closing_week not in set(metrics.final_weeks(season)):
         return unverified(REASON_CLOSING_WEEK_NOT_FINAL, closing_week)
@@ -209,15 +219,17 @@ def championship_close(season: SeasonSnapshot) -> ChampionshipClose:
         ),
         None,
     )
-    if roster is not None:
-        held = (_clean_ids(roster.get("taxi")) | _clean_ids(roster.get("reserve"))) - players
-        if held:
-            frozen = _clean_ids(roster.get("players"))
-            complete = str(season.league.get("status") or "").lower() == "complete"
-            if complete and frozen - held == players:
-                players |= held
-            else:
-                held_unverified = True
+    taxi = _clean_ids((roster or {}).get("taxi"))
+    taxi_slots = _int_or_none((season.league.get("settings") or {}).get("taxi_slots")) or 0
+    if taxi_slots > 0 or taxi:
+        # Injured reserve is in the row; only the taxi squad can be missing.
+        frozen = _clean_ids((roster or {}).get("players"))
+        complete = str(season.league.get("status") or "").lower() == "complete"
+        moved = _moved_since(season, champion, closing_week)
+        if roster is not None and complete and not moved and frozen - taxi == players:
+            players |= taxi
+        elif moved or (taxi - players) or roster is None:
+            held_unverified = True
 
     return ChampionshipClose(
         season=season.season,
@@ -228,6 +240,23 @@ def championship_close(season: SeasonSnapshot) -> ChampionshipClose:
         player_ids=frozenset(players),
         held_slots_unverified=held_unverified,
     )
+
+
+def _moved_since(season: SeasonSnapshot, roster_id: int, week: int) -> bool:
+    """True if a completed transaction touching ``roster_id`` sits in a leg
+    at or after ``week`` -- the frozen roster may then differ from the close."""
+    for leg, txs in season.transactions_by_week.items():
+        if _int_or_none(leg) is None or int(leg) < week:
+            continue
+        for tx in txs or []:
+            if not isinstance(tx, dict) or str(tx.get("status") or "").lower() != "complete":
+                continue
+            touched = {_int_or_none(r) for r in tx.get("roster_ids") or []}
+            touched |= {_int_or_none(r) for r in (tx.get("adds") or {}).values()}
+            touched |= {_int_or_none(r) for r in (tx.get("drops") or {}).values()}
+            if roster_id in touched:
+                return True
+    return False
 
 
 def _franchise(snapshot: PublicLeagueSnapshot, close: ChampionshipClose) -> dict[str, Any]:
@@ -244,9 +273,13 @@ def _franchise(snapshot: PublicLeagueSnapshot, close: ChampionshipClose) -> dict
 
 
 def _is_team_unit(snapshot: PublicLeagueSnapshot, player_id: str) -> bool:
+    """Team defenses are units, not players.  Sleeper keys them by the team
+    abbreviation ("BUF"), so that shape counts even without a player dump."""
     p = snapshot.nfl_players.get(player_id)
     raw = str((p or {}).get("position") or "").upper()
-    return raw in _TEAM_UNIT_POSITIONS
+    if raw in _TEAM_UNIT_POSITIONS:
+        return True
+    return player_id.isalpha() and player_id.isupper() and 2 <= len(player_id) <= 3
 
 
 @dataclass
@@ -322,7 +355,9 @@ def _coverage(ledger: RingLedger, snapshot: PublicLeagueSnapshot) -> dict[str, A
     # (``history_coverage`` state ``complete``); a truncated or unreadable
     # walk -- or no record of the walk at all -- may hide older champions.
     history_state = (getattr(snapshot, "history_coverage", None) or {}).get("state")
-    history_complete = history_state == "complete"
+    # ``non_dynasty_predecessor``: the walk stopped at a predecessor that was
+    # not a dynasty league -- the dynasty history itself is complete.
+    history_complete = history_state in {"complete", "non_dynasty_predecessor"}
     if unverified or partial or not history_complete:
         state = "incomplete"
     elif not decided:
@@ -423,4 +458,6 @@ def player_rings(snapshot: PublicLeagueSnapshot, player_id: str) -> dict[str, An
         "championships": _championships(by_season),
         "coverageState": coverage["state"],
         "unverifiedSeasons": coverage["unverifiedSeasons"],
+        "partialSeasons": coverage["partialSeasons"],
+        "historyComplete": coverage["historyComplete"],
     }

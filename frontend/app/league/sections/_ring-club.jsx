@@ -75,7 +75,13 @@ function Member({ member, managers, onNavigate }) {
       className={prestige ? `${styles.member} ${styles.memberPrestige}` : styles.member}
       data-prestige={prestige ? "true" : undefined}
     >
-      <span className={styles.rank} title={member.tied === true ? `Tied for rank ${member.rank}` : undefined}>
+      <span
+        className={styles.rank}
+        title={member.tied === true ? `Tied for rank ${member.rank}` : undefined}
+        aria-label={
+          member.tied === true ? `Tied for rank ${member.rank}` : rank ? `Rank ${rank}` : undefined
+        }
+      >
         {rank ?? ""}
       </span>
       <PlayerImage
