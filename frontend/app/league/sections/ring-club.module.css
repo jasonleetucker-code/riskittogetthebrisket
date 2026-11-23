@@ -1,0 +1,185 @@
+/* The Ring Club — History tab honor roll (owner directive 2026-11-23).
+   Targeted functional UI on the existing League Hub language: the same
+   mini-card box as league-shared.module.css (surface-1 / border-default /
+   radius-2) and token values only — no new colours, no new breakpoints.
+   Imported only by sections/_ring-club.jsx, so it ships in the History
+   tab's lazy chunk and never in /league's own CSS or JS.
+
+   Prestige (the backend's `prestige` flag) uses the franchise-gold accent
+   as a BORDER and rule, never as a background wash: tokens.css reserves
+   the accent for identity/interactive marks, and every member still
+   belongs to the one club, so the card is otherwise identical. */
+
+.description {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+/* One column on a phone, wrapping rows on wide screens: each card is at
+   least 19rem (or the full width when the panel is narrower than that),
+   and the grid fits as many as the row holds.  No media query needed. */
+.members {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+  gap: var(--space-2);
+}
+
+.member {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-2);
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-2);
+  padding: var(--space-3);
+  min-width: 0;
+}
+
+.memberPrestige {
+  border-color: var(--accent-border);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.rank {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  min-width: 2.2em;
+  padding-top: var(--space-1);
+}
+
+.memberPrestige .rank {
+  color: var(--accent);
+  font-weight: var(--font-weight-semibold);
+}
+
+.identity {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  line-height: var(--line-height-tight);
+  overflow-wrap: anywhere;
+}
+
+.nameLink {
+  color: inherit;
+}
+
+.meta {
+  color: var(--text-tertiary);
+  font-weight: var(--font-weight-medium);
+}
+
+.line {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.lineLabel {
+  color: var(--text-tertiary);
+}
+
+.ringCount {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.ringNumber {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.trophies {
+  letter-spacing: 1px;
+}
+
+.franchiseList {
+  list-style: none;
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.franchiseItem {
+  min-width: 0;
+}
+
+.franchiseButton,
+.franchiseStatic {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  min-width: 0;
+}
+
+.franchiseButton {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: var(--accent);
+}
+
+.franchiseStatic {
+  color: var(--text-secondary);
+}
+
+.franchiseButton:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-1);
+}
+
+.franchiseSeason {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+.franchiseTeam {
+  font-weight: var(--font-weight-semibold);
+}
+
+.franchiseManager {
+  color: var(--text-tertiary);
+  font-weight: var(--font-weight-medium);
+}
+
+.emptyMessage {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.coverage {
+  margin: var(--space-3) 0 0;
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+
+.coverage p {
+  margin: 0;
+}

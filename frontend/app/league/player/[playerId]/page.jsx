@@ -11,6 +11,7 @@ import { buildManagerLookup, fmtPoints } from "../../shared-helpers.js";
 import { EmptyState, PageHeader, PlayerImage } from "@/components/ui";
 import { leagueHomeHref } from "@/app/league/advisor-bootstrap";
 import ShareButton from "../../ShareButton.jsx";
+import ChampionshipRingsCard from "./championship-rings.jsx";
 import { newsItemsForPlayer } from "@/lib/player-name-match";
 
 function _backend() {
@@ -167,6 +168,8 @@ export default async function PlayerJourneyPage({ params }) {
           />
         </div>
       </div>
+
+      <ChampionshipRingsCard championshipRings={p.championshipRings} managers={managers} />
 
       {p.draftOrigin && (
         <Card title="Drafted">
