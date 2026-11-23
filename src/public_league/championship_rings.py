@@ -220,8 +220,10 @@ def championship_close(season: SeasonSnapshot) -> ChampionshipClose:
         None,
     )
     taxi = _clean_ids((roster or {}).get("taxi"))
-    taxi_slots = _int_or_none((season.league.get("settings") or {}).get("taxi_slots")) or 0
-    if taxi_slots > 0 or taxi:
+    # An absent setting is "no taxi squad stated", never a zero-slot fact; a
+    # roster that holds taxi players proves the league runs one either way.
+    taxi_slots = _int_or_none((season.league.get("settings") or {}).get("taxi_slots"))
+    if (taxi_slots is not None and taxi_slots > 0) or taxi:
         # Injured reserve is in the row; only the taxi squad can be missing.
         frozen = _clean_ids((roster or {}).get("players"))
         complete = str(season.league.get("status") or "").lower() == "complete"
