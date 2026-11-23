@@ -13,7 +13,7 @@
 # Test runner.  Minor bumped 8.3 → 9.0 on 2026-04-24 to match
 # what the local + production test envs actually have installed;
 # the original PR pin fell behind by three days.
-pytest~=9.0.0
+pytest~=9.2.0
 
 # ``fastapi.testclient.TestClient`` is a re-export of
 # ``starlette.testclient.TestClient``, which requires ``httpx`` at
@@ -28,7 +28,7 @@ httpx~=0.28.1
 # introduced report-only/ratcheted in later phases.  Production never
 # installs requirements-dev.txt, so these stay out of the runtime image.
 ruff==0.6.9
-mypy~=2.3.1
+mypy~=2.4.1
 
 # tests/intel/test_workflow_scripts.py parses
 # .github/workflows/intel-refresh.yml to exercise the workflow's
