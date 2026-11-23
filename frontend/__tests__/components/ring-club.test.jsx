@@ -199,13 +199,18 @@ describe("Ring Club card on the History tab", () => {
   it("marks a shared rank T-1 and a sole rank plainly", () => {
     render(<RingClubCard ringClub={ringClub()} managers={managers} onNavigate={() => {}} />);
     const [first, second, third] = memberItems();
-    const rankOf = (li) => li.firstElementChild.textContent;
+    // The visible marker is hidden from screen readers...
+    const rankOf = (li) => li.firstElementChild.querySelector('[aria-hidden="true"]').textContent;
     expect(rankOf(first)).toBe("T-1");
     expect(rankOf(second)).toBe("T-1");
     expect(rankOf(third)).toBe("3");
-    // Screen readers hear the tie in words, not "T-1".
-    expect(first.firstElementChild.getAttribute("aria-label")).toBe("Tied for rank 1");
-    expect(third.firstElementChild.getAttribute("aria-label")).toBe("Rank 3");
+    // ...which hear the tie in words, from visually hidden text (an
+    // aria-label on a role-less span is ignored by most screen readers).
+    const spokenOf = (li) => li.firstElementChild.querySelector(".ds-visually-hidden").textContent;
+    expect(spokenOf(first)).toBe("Tied for rank 1");
+    expect(spokenOf(second)).toBe("Tied for rank 1");
+    expect(spokenOf(third)).toBe("Rank 3");
+    expect(first.firstElementChild.hasAttribute("aria-label")).toBe(false);
     expect(rankLabel({ rank: 1, tied: false })).toBe("1");
     expect(rankLabel({ rank: 2, tied: true })).toBe("T-2");
     expect(rankLabel({})).toBeNull();

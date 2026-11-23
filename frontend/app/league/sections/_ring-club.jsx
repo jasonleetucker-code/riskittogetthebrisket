@@ -78,11 +78,15 @@ function Member({ member, managers, onNavigate }) {
       <span
         className={styles.rank}
         title={member.tied === true ? `Tied for rank ${member.rank}` : undefined}
-        aria-label={
-          member.tied === true ? `Tied for rank ${member.rank}` : rank ? `Rank ${rank}` : undefined
-        }
       >
-        {rank ?? ""}
+        {/* Sighted readers see "T-1"; screen readers hear the words.  An
+            aria-label on a role-less span is ignored by most readers. */}
+        <span aria-hidden="true">{rank ?? ""}</span>
+        {rank ? (
+          <span className="ds-visually-hidden">
+            {member.tied === true ? `Tied for rank ${member.rank}` : `Rank ${rank}`}
+          </span>
+        ) : null}
       </span>
       <PlayerImage
         playerId={id || undefined}
