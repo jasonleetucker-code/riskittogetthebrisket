@@ -1,5 +1,5 @@
 {
-  "computedAt": "2026-11-23T03:14:11.908336+00:00",
+  "computedAt": "2026-11-23T15:29:38.186925+00:00",
   "playoffOdds": [
     {
       "ownerId": "1002085133723299840",
@@ -9,10 +9,10 @@
         0.9996,
         1.0
       ],
-      "championshipOdds": 0.7526,
+      "championshipOdds": 0.7528,
       "championshipOddsCi": [
-        0.744,
-        0.761
+        0.7442,
+        0.7612
       ],
       "finalsOdds": 1.0,
       "semifinalOdds": 1.0,
@@ -48,8 +48,8 @@
         0.0,
         0.0,
         0.0,
-        0.2495,
-        0.7505
+        0.2507,
+        0.7493
       ],
       "finalWins": {
         "mean": 11.75,
@@ -58,20 +58,20 @@
         "p90": 12.0
       },
       "finalPointsFor": {
-        "mean": 6646.81,
-        "p10": 6545.65,
-        "p50": 6645.86,
-        "p90": 6750.06
+        "mean": 6621.45,
+        "p10": 6518.64,
+        "p50": 6621.24,
+        "p90": 6723.36
       },
       "division": 2,
       "divisionName": "Sweet Pepper Bacon",
-      "divisionChampionOdds": 0.7505,
+      "divisionChampionOdds": 0.7494,
       "divisionChampionOddsCi": [
-        0.7419,
-        0.7589
+        0.7408,
+        0.7578
       ],
       "divisionTitleBasis": "outright_only",
-      "divisionTitleTieOdds": 0.2495
+      "divisionTitleTieOdds": 0.2506
     },
     {
       "ownerId": "1012114412049731584",
@@ -86,22 +86,22 @@
         0.0,
         0.0004
       ],
-      "finalsOdds": 0.0001,
-      "semifinalOdds": 0.7363,
-      "expectedFinish": 3.93,
+      "finalsOdds": 0.0006,
+      "semifinalOdds": 0.8461,
+      "expectedFinish": 3.54,
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
       "missPlayoffsOdds": 0.0,
-      "expectedWins": 22.15,
+      "expectedWins": 22.45,
       "medianFinalSeed": 3,
       "mostLikelySeed": 3,
       "seedDistribution": [
         0.0,
         0.0,
-        0.7491,
-        0.2291,
-        0.0212,
-        0.0006,
+        0.8397,
+        0.1581,
+        0.0022,
+        0.0,
         0.0,
         0.0,
         0.0,
@@ -115,35 +115,35 @@
         0.0,
         0.0,
         0.0,
-        0.0026,
-        0.002,
-        0.0389,
-        0.4179,
-        0.5386,
+        0.0002,
+        0.0005,
+        0.0093,
+        0.3947,
+        0.5953,
         0.0,
         0.0
       ],
       "finalWins": {
-        "mean": 10.32,
-        "p10": 9.0,
-        "p50": 10.0,
+        "mean": 10.49,
+        "p10": 10.0,
+        "p50": 11.0,
         "p90": 11.0
       },
       "finalPointsFor": {
-        "mean": 5151.03,
-        "p10": 5056.79,
-        "p50": 5151.63,
-        "p90": 5245.88
+        "mean": 5213.36,
+        "p10": 5122.21,
+        "p50": 5213.3,
+        "p90": 5303.59
       },
       "division": 3,
       "divisionName": "Barbacoa",
-      "divisionChampionOdds": 0.5753,
+      "divisionChampionOdds": 0.6133,
       "divisionChampionOddsCi": [
-        0.5656,
-        0.585
+        0.6037,
+        0.6228
       ],
       "divisionTitleBasis": "outright_only",
-      "divisionTitleTieOdds": 0.292
+      "divisionTitleTieOdds": 0.3344
     },
     {
       "ownerId": "1208452010173538304",
@@ -159,22 +159,22 @@
         0.0004
       ],
       "finalsOdds": 0.0,
-      "semifinalOdds": 0.1608,
-      "expectedFinish": 5.44,
+      "semifinalOdds": 0.0956,
+      "expectedFinish": 5.67,
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
       "missPlayoffsOdds": 0.0,
-      "expectedWins": 17.12,
+      "expectedWins": 17.17,
       "medianFinalSeed": 6,
       "mostLikelySeed": 6,
       "seedDistribution": [
         0.0,
         0.0,
         0.0,
-        0.0018,
-        0.0359,
-        0.8541,
-        0.1082,
+        0.0005,
+        0.0151,
+        0.9313,
+        0.0531,
         0.0,
         0.0,
         0.0,
@@ -187,25 +187,25 @@
         0.0,
         0.0,
         0.0,
-        0.6799,
-        0.2024,
-        0.1055,
-        0.0121,
+        0.6495,
+        0.2632,
+        0.0831,
+        0.0041,
         0.0001,
         0.0,
         0.0
       ],
       "finalWins": {
-        "mean": 8.11,
+        "mean": 8.02,
         "p10": 7.0,
         "p50": 8.0,
         "p90": 9.0
       },
       "finalPointsFor": {
-        "mean": 4852.62,
-        "p10": 4780.23,
-        "p50": 4852.43,
-        "p90": 4925.25
+        "mean": 4847.7,
+        "p10": 4771.32,
+        "p50": 4847.65,
+        "p90": 4923.37
       },
       "division": 3,
       "divisionName": "Barbacoa",
@@ -215,7 +215,7 @@
         0.0004
       ],
       "divisionTitleBasis": "outright_only",
-      "divisionTitleTieOdds": 0.0004
+      "divisionTitleTieOdds": 0.0
     },
     {
       "ownerId": "468418790212759552",
@@ -225,12 +225,12 @@
         0.9996,
         1.0
       ],
-      "championshipOdds": 0.2474,
+      "championshipOdds": 0.2472,
       "championshipOddsCi": [
-        0.239,
-        0.256
+        0.2388,
+        0.2558
       ],
-      "finalsOdds": 0.9998,
+      "finalsOdds": 0.9993,
       "semifinalOdds": 1.0,
       "expectedFinish": 1.75,
       "byeOdds": 0.0,
@@ -264,8 +264,8 @@
         0.0,
         0.0,
         0.0,
-        0.7505,
-        0.2495
+        0.7493,
+        0.2507
       ],
       "finalWins": {
         "mean": 12.25,
@@ -274,10 +274,10 @@
         "p90": 13.0
       },
       "finalPointsFor": {
-        "mean": 6094.15,
-        "p10": 5991.63,
-        "p50": 6093.34,
-        "p90": 6197.7
+        "mean": 6068.7,
+        "p10": 5965.57,
+        "p50": 6068.4,
+        "p90": 6173.51
       },
       "division": 2,
       "divisionName": "Sweet Pepper Bacon",
@@ -287,7 +287,7 @@
         0.0004
       ],
       "divisionTitleBasis": "outright_only",
-      "divisionTitleTieOdds": 0.2495
+      "divisionTitleTieOdds": 0.2506
     },
     {
       "ownerId": "609821340567941120",
@@ -302,23 +302,23 @@
         0.0,
         0.0004
       ],
-      "finalsOdds": 0.0,
-      "semifinalOdds": 0.5165,
-      "expectedFinish": 4.88,
+      "finalsOdds": 0.0001,
+      "semifinalOdds": 0.5021,
+      "expectedFinish": 4.97,
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
       "missPlayoffsOdds": 0.0,
-      "expectedWins": 21.14,
+      "expectedWins": 21.28,
       "medianFinalSeed": 4,
       "mostLikelySeed": 4,
       "seedDistribution": [
         0.0,
         0.0,
-        0.25,
-        0.6522,
-        0.0951,
-        0.0024,
+        0.1603,
+        0.7997,
+        0.0397,
         0.0003,
+        0.0,
         0.0,
         0.0,
         0.0,
@@ -332,10 +332,10 @@
         0.0,
         0.0,
         0.0001,
-        0.0102,
-        0.0285,
-        0.5004,
-        0.4608,
+        0.0024,
+        0.0117,
+        0.5812,
+        0.4046,
         0.0,
         0.0
       ],
@@ -346,20 +346,20 @@
         "p90": 11.0
       },
       "finalPointsFor": {
-        "mean": 5090.33,
-        "p10": 4999.06,
-        "p50": 5090.86,
-        "p90": 5180.86
+        "mean": 5128.3,
+        "p10": 5040.52,
+        "p50": 5127.5,
+        "p90": 5216.11
       },
       "division": 3,
       "divisionName": "Barbacoa",
-      "divisionChampionOdds": 0.1326,
+      "divisionChampionOdds": 0.0523,
       "divisionChampionOddsCi": [
-        0.1261,
-        0.1394
+        0.0481,
+        0.0568
       ],
       "divisionTitleBasis": "outright_only",
-      "divisionTitleTieOdds": 0.292
+      "divisionTitleTieOdds": 0.3344
     },
     {
       "ownerId": "714912789268865024",
@@ -375,12 +375,12 @@
         0.0004
       ],
       "finalsOdds": 0.0,
-      "semifinalOdds": 0.0032,
-      "expectedFinish": 5.1,
+      "semifinalOdds": 0.0001,
+      "expectedFinish": 5.05,
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
       "missPlayoffsOdds": 0.0,
-      "expectedWins": 15.42,
+      "expectedWins": 15.0,
       "medianFinalSeed": 7,
       "mostLikelySeed": 7,
       "seedDistribution": [
@@ -388,9 +388,9 @@
         0.0,
         0.0,
         0.0,
-        0.0007,
-        0.1079,
-        0.8914,
+        0.0001,
+        0.053,
+        0.9469,
         0.0,
         0.0,
         0.0,
@@ -403,25 +403,25 @@
         0.0,
         0.0,
         0.0,
-        0.2206,
-        0.7279,
-        0.03,
-        0.0212,
-        0.0003,
+        0.2885,
+        0.6926,
+        0.0141,
+        0.0048,
+        0.0,
         0.0,
         0.0
       ],
       "finalWins": {
-        "mean": 8.88,
+        "mean": 8.72,
         "p10": 8.0,
         "p50": 9.0,
         "p90": 9.0
       },
       "finalPointsFor": {
-        "mean": 4615.04,
-        "p10": 4545.94,
-        "p50": 4614.53,
-        "p90": 4686.27
+        "mean": 4563.62,
+        "p10": 4492.17,
+        "p50": 4564.13,
+        "p90": 4634.75
       },
       "division": 1,
       "divisionName": "The Pit",
@@ -446,23 +446,23 @@
         0.0,
         0.0004
       ],
-      "finalsOdds": 0.0001,
-      "semifinalOdds": 0.5832,
-      "expectedFinish": 4.65,
+      "finalsOdds": 0.0,
+      "semifinalOdds": 0.5561,
+      "expectedFinish": 4.77,
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
       "missPlayoffsOdds": 0.0,
-      "expectedWins": 19.75,
+      "expectedWins": 19.85,
       "medianFinalSeed": 5,
       "mostLikelySeed": 5,
       "seedDistribution": [
         0.0,
         0.0,
-        0.0009,
-        0.1169,
-        0.8471,
-        0.035,
-        0.0001,
+        0.0,
+        0.0417,
+        0.9429,
+        0.0154,
+        0.0,
         0.0,
         0.0,
         0.0,
@@ -475,25 +475,25 @@
         0.0,
         0.0,
         0.0,
-        0.0968,
-        0.0575,
-        0.7971,
-        0.0484,
-        0.0002,
+        0.0617,
+        0.0413,
+        0.8818,
+        0.0152,
+        0.0,
         0.0,
         0.0
       ],
       "finalWins": {
-        "mean": 8.86,
+        "mean": 8.9,
         "p10": 8.0,
         "p50": 9.0,
         "p90": 9.0
       },
       "finalPointsFor": {
-        "mean": 5032.09,
-        "p10": 4936.55,
-        "p50": 5032.52,
-        "p90": 5125.65
+        "mean": 5050.94,
+        "p10": 4963.36,
+        "p50": 5050.56,
+        "p90": 5139.57
       },
       "division": 2,
       "divisionName": "Sweet Pepper Bacon",
@@ -520,11 +520,11 @@
       ],
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
-      "expectedFinish": 11.0,
+      "expectedFinish": 10.99,
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
       "missPlayoffsOdds": 1.0,
-      "expectedWins": 3.11,
+      "expectedWins": 3.36,
       "medianFinalSeed": 11,
       "mostLikelySeed": 11,
       "seedDistribution": [
@@ -536,17 +536,17 @@
         0.0,
         0.0,
         0.0,
-        0.0012,
-        0.0018,
-        0.997,
+        0.0024,
+        0.0027,
+        0.9949,
         0.0
       ],
       "draftSlotDistribution": [
         0.0,
-        0.7844,
-        0.0477,
-        0.1543,
-        0.0136,
+        0.6578,
+        0.0546,
+        0.2549,
+        0.0327,
         0.0,
         0.0,
         0.0,
@@ -556,16 +556,16 @@
         0.0
       ],
       "finalWins": {
-        "mean": 3.08,
-        "p10": 2.0,
+        "mean": 3.32,
+        "p10": 3.0,
         "p50": 3.0,
         "p90": 4.0
       },
       "finalPointsFor": {
-        "mean": 3372.77,
-        "p10": 3299.96,
-        "p50": 3373.43,
-        "p90": 3444.36
+        "mean": 3387.45,
+        "p10": 3319.08,
+        "p50": 3386.65,
+        "p90": 3456.13
       },
       "division": 1,
       "divisionName": "The Pit",
@@ -634,10 +634,10 @@
         "p90": 0.0
       },
       "finalPointsFor": {
-        "mean": 2913.72,
-        "p10": 2865.51,
-        "p50": 2914.07,
-        "p90": 2961.14
+        "mean": 2913.29,
+        "p10": 2869.74,
+        "p50": 2913.36,
+        "p90": 2957.34
       },
       "division": 2,
       "divisionName": "Sweet Pepper Bacon",
@@ -664,13 +664,13 @@
       ],
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
-      "expectedFinish": 8.57,
+      "expectedFinish": 8.49,
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
       "missPlayoffsOdds": 1.0,
-      "expectedWins": 7.2,
-      "medianFinalSeed": 9,
-      "mostLikelySeed": 9,
+      "expectedWins": 7.09,
+      "medianFinalSeed": 8,
+      "mostLikelySeed": 8,
       "seedDistribution": [
         0.0,
         0.0,
@@ -679,8 +679,8 @@
         0.0,
         0.0,
         0.0,
-        0.4332,
-        0.5668,
+        0.5057,
+        0.4943,
         0.0,
         0.0,
         0.0
@@ -688,9 +688,9 @@
       "draftSlotDistribution": [
         0.0,
         0.0,
-        0.0009,
-        0.223,
-        0.7761,
+        0.0021,
+        0.2005,
+        0.7974,
         0.0,
         0.0,
         0.0,
@@ -700,16 +700,16 @@
         0.0
       ],
       "finalWins": {
-        "mean": 4.2,
+        "mean": 4.09,
         "p10": 4.0,
         "p50": 4.0,
-        "p90": 5.0
+        "p90": 4.0
       },
       "finalPointsFor": {
-        "mean": 3705.84,
-        "p10": 3640.2,
-        "p50": 3705.43,
-        "p90": 3772.48
+        "mean": 3668.82,
+        "p10": 3613.58,
+        "p50": 3668.28,
+        "p90": 3723.25
       },
       "division": 1,
       "divisionName": "The Pit",
@@ -736,13 +736,13 @@
       ],
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
-      "expectedFinish": 8.43,
+      "expectedFinish": 8.51,
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
       "missPlayoffsOdds": 1.0,
-      "expectedWins": 7.1,
-      "medianFinalSeed": 8,
-      "mostLikelySeed": 8,
+      "expectedWins": 6.78,
+      "medianFinalSeed": 9,
+      "mostLikelySeed": 9,
       "seedDistribution": [
         0.0,
         0.0,
@@ -751,18 +751,18 @@
         0.0,
         0.0,
         0.0,
-        0.5668,
-        0.4319,
-        0.0012,
+        0.4943,
+        0.5017,
+        0.0039,
         0.0001,
         0.0
       ],
       "draftSlotDistribution": [
         0.0,
-        0.0888,
-        0.0959,
-        0.6051,
-        0.2102,
+        0.1249,
+        0.1886,
+        0.5229,
+        0.1636,
         0.0,
         0.0,
         0.0,
@@ -772,16 +772,16 @@
         0.0
       ],
       "finalWins": {
-        "mean": 3.19,
-        "p10": 3.0,
+        "mean": 3.07,
+        "p10": 2.0,
         "p50": 3.0,
         "p90": 4.0
       },
       "finalPointsFor": {
-        "mean": 4165.36,
-        "p10": 4081.42,
-        "p50": 4165.95,
-        "p90": 4248.21
+        "mean": 4148.66,
+        "p10": 4071.47,
+        "p50": 4148.63,
+        "p90": 4224.41
       },
       "division": 3,
       "divisionName": "Barbacoa",
@@ -812,7 +812,7 @@
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
       "missPlayoffsOdds": 1.0,
-      "expectedWins": 5.0,
+      "expectedWins": 5.03,
       "medianFinalSeed": 10,
       "mostLikelySeed": 10,
       "seedDistribution": [
@@ -824,17 +824,17 @@
         0.0,
         0.0,
         0.0,
-        0.0001,
-        0.997,
-        0.0029,
+        0.0016,
+        0.9934,
+        0.005,
         0.0
       ],
       "draftSlotDistribution": [
         0.0,
-        0.1268,
-        0.8555,
-        0.0176,
-        0.0001,
+        0.2173,
+        0.7547,
+        0.0217,
+        0.0063,
         0.0,
         0.0,
         0.0,
@@ -844,16 +844,16 @@
         0.0
       ],
       "finalWins": {
-        "mean": 3.0,
+        "mean": 3.03,
         "p10": 3.0,
         "p50": 3.0,
         "p90": 3.0
       },
       "finalPointsFor": {
-        "mean": 3590.09,
-        "p10": 3541.39,
-        "p50": 3589.65,
-        "p90": 3639.31
+        "mean": 3610.2,
+        "p10": 3552.24,
+        "p50": 3610.24,
+        "p90": 3668.46
       },
       "division": 1,
       "divisionName": "The Pit",
