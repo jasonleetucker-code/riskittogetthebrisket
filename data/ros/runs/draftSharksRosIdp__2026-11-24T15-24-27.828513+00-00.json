@@ -1,0 +1,70 @@
+{
+  "source_key": "draftSharksRosIdp",
+  "status": "ok",
+  "error": null,
+  "started_at": "2026-11-24T15:24:27.822818+00:00",
+  "completed_at": "2026-11-24T15:24:27.828513+00:00",
+  "player_count": 499,
+  "diagnostics": {
+    "sourceMode": "ros",
+    "withheld": {
+      "rank_basis_mismatch": 0,
+      "name_collision_with_superflex_board": 1,
+      "not_idp_group": 0
+    }
+  },
+  "source_id": "draftSharksRosIdp",
+  "source_name": "Draft Sharks ROS IDP",
+  "source_url": "https://www.draftsharks.com/ros-rankings/idp",
+  "source_type": "ros",
+  "scoring_format": "ppr",
+  "is_superflex": false,
+  "is_2qb": false,
+  "is_te_premium": false,
+  "is_idp": true,
+  "is_ros": true,
+  "is_dynasty": false,
+  "is_projection_source": false,
+  "stale_after_hours": 24,
+  "kept_previous": null,
+  "kept_previous_rows": null,
+  "content_hash": "801f42a5d5fbd00b3ee1df4a3e535f22905b4c350e2e82916665c88a139148ac",
+  "content_state": "changed",
+  "content_first_observed_at": "2026-10-27T21:04:59.562675+00:00",
+  "last_content_change": "2026-11-24T15:24:27.828513+00:00",
+  "rank_basis": {
+    "basisDeclared": true,
+    "bases": [
+      {
+        "basis": "draftsharks:ros-idp",
+        "rows": 499,
+        "totalRanked": [
+          501
+        ],
+        "groups": {
+          "IDP": 499
+        }
+      }
+    ],
+    "groupCoverage": {
+      "IDP": 499
+    },
+    "groupBases": {
+      "IDP": [
+        "draftsharks:ros-idp"
+      ]
+    },
+    "mixedRankBasis": false,
+    "groupsSplitAcrossBases": [],
+    "issues": [],
+    "transitionIssues": [],
+    "adapterIssues": [],
+    "baseline": false,
+    "withheld": {
+      "rank_basis_mismatch": 0,
+      "name_collision_with_superflex_board": 1,
+      "not_idp_group": 0
+    }
+  },
+  "source_mode": "ros"
+}

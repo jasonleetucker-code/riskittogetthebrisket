@@ -1664,18 +1664,25 @@
      "rowsChanged": 116,
      "rowsRemoved": 0,
      "rowsTotal": 545
+    },
+    {
+     "at": "2026-11-24T15:24:43Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 2,
+     "rowsRemoved": 0,
+     "rowsTotal": 545
     }
    ],
-   "contentSince": "2026-11-24T03:09:20Z",
-   "fingerprint": "b879176978a81e2096697f7c",
+   "contentSince": "2026-11-24T15:24:43Z",
+   "fingerprint": "913c21a400db138a8e53a412",
    "firstObservationIsBaseline": true,
    "firstObservedAt": "2026-04-16T14:34:45Z",
-   "lastAnyMeaningfulChangeAt": "2026-11-24T03:09:20Z",
+   "lastAnyMeaningfulChangeAt": "2026-11-24T15:24:43Z",
    "lastBroadDatasetChangeAt": "2026-11-24T03:09:20Z",
    "rowChangedAt": {},
    "rowCount": 545,
    "rowCountHistory": [
-    537,
     538,
     538,
     538,
@@ -1690,6 +1697,7 @@
     540,
     540,
     541,
+    545,
     545,
     545,
     545,
@@ -2100,7 +2108,7 @@
     "nicholas singleton": "7fdcf45027",
     "nick nash": "3b3ed01660",
     "nick westbrook-ikhine": "e4359510f0",
-    "nico collins": "484e40fe2b",
+    "nico collins": "5874c1a562",
     "noah brown": "77b07d5826",
     "noah fant": "deb61a058d",
     "noah gray": "0bc40b17bb",
@@ -2250,7 +2258,7 @@
     "zack moss": "13a0c3ad90",
     "zamir white": "0f4a54793e",
     "zavion thomas": "6e8cb6f821",
-    "zay flowers": "5874c1a562",
+    "zay flowers": "484e40fe2b",
     "zay jones": "ac895f397d"
    }
   }
