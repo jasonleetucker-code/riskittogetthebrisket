@@ -1,10 +1,10 @@
 {
-  "computedAt": "2026-11-25T01:11:39.127091+00:00",
-  "forecastSha256": "25e9bd9aadfc303f851adf96aabd033db9cf1f05b2d58cda0b10b6174009aa3a",
+  "computedAt": "2026-11-25T11:50:24.576167+00:00",
+  "forecastSha256": "171bafe26d197fb21dd0599668435c0ac2832eeb563c4d77788ae3bc43117ec4",
   "inputs": {
     "contractGeneration": null,
-    "inputsSha256": "0190b011d70eb1506b8a55345d0271de9c7d939efc081dbee5fe5f0b1cd53d58",
-    "leagueSnapshotGeneratedAt": "2026-11-25T01:11:38+00:00",
+    "inputsSha256": "c494edd9f39787b1b17dff6a659a1f974ce9355c4708d0d1ee955fb16c7c6c75",
+    "leagueSnapshotGeneratedAt": "2026-11-25T11:50:24+00:00",
     "leagueSnapshotScope": [
       "season",
       "league_id",
@@ -14,21 +14,21 @@
       "winners_bracket",
       "losers_bracket"
     ],
-    "leagueSnapshotSha256": "658a620ea05a8d9568c024ec33451ada082d5baf00d7929ed5d55466b02fe943",
+    "leagueSnapshotSha256": "915be060b4f26a652ae5d5c6ed7da166edef0d7056061c489da4e61cb1a3a1fb",
     "pointsModelFallbackSha256": "67ee9153fce3166a2b8568add3a0af51479077d117b210fd90fa1bd03dc98f96",
     "pointsModelFileSha256": null,
     "pointsModelSource": "fallback-constants",
-    "rosAggregateSha256": "45736d9e77ccd27e115f70e51c75cd59103840a9f2ac155991f5fdd72721a621",
-    "rosAggregatedAt": "2026-11-25T01:11:30.847050+00:00",
+    "rosAggregateSha256": "4147f9a87387dd8f47669cf4f7b24c978e73ac6835e52e7003b265dc1f56eedc",
+    "rosAggregatedAt": "2026-11-25T11:50:16.053470+00:00",
     "teamStrengthFileFresh": true,
-    "teamStrengthFileSha256": "df7ef17c5abcf3779ffa266c2e37a5d42a1f71c90837540cb93ac2da3442df98"
+    "teamStrengthFileSha256": "a8cc1fb1562fa3d141b1e820247791df44ed5bfd7dda7c9ef2c41a10594d3ed9"
   },
   "kind": "playoff",
   "lastScoredWeek": 11,
   "leagueKey": "dynasty_new",
   "model": {
-    "codeSha": "147876979239ff0e76db4197a92338219436822d",
-    "codeShaCapturedAt": "2026-11-25T01:11:29.014999+00:00",
+    "codeSha": "5a1515bfd24af8abae05dd4d5a9af730c631b693",
+    "codeShaCapturedAt": "2026-11-25T11:50:13.400397+00:00",
     "codeShaSource": "refs/heads/main",
     "simParams": {
       "bestBall": false,
@@ -114,7 +114,7 @@
     },
     "simParamsSha256": "d5504d137044ed2850b736ff69db2f6beac75a409279b60c84b34fa37b6a8d78"
   },
-  "nSimulations": 8000,
+  "nSimulations": 9000,
   "nullReasons": {
     "inputs.contractGeneration": "not_an_input_of_the_playoff_or_title_simulators",
     "inputs.pointsModelFileSha256": "fallback_constants_in_use:file_absent"
@@ -122,5 +122,5 @@
   "producer": "src.ros.scrape._refresh_sim_caches_for_league",
   "schema": "ros-forecast-identity/v1",
   "season": "2026",
-  "week": 11
+  "week": 12
 }
